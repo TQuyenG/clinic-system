@@ -6,7 +6,8 @@ module.exports = (sequelize) => {
     doctor_id: { type: DataTypes.BIGINT, allowNull: false },
     start_time: { type: DataTypes.DATE, allowNull: false },
     end_time: { type: DataTypes.DATE, allowNull: false },
-    status: { type: DataTypes.ENUM('available', 'booked'), defaultValue: 'available' },
+    status: { type: DataTypes.ENUM('available', 'booked', 'off', 'pending_off'), defaultValue: 'available' },
+    off_reason: { type: DataTypes.TEXT },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
@@ -16,7 +17,7 @@ module.exports = (sequelize) => {
   });
 
   Schedule.associate = (models) => {
-    Schedule.belongsTo(models.Doctor, { foreignKey: 'doctor_id' });
+    Schedule.belongsTo(models.User, { foreignKey: 'doctor_id' });
     Schedule.hasOne(models.Appointment, { foreignKey: 'schedule_id' });
   };
 

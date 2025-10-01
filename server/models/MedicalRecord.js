@@ -5,9 +5,10 @@ module.exports = (sequelize) => {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     patient_id: { type: DataTypes.BIGINT, allowNull: false },
     doctor_id: { type: DataTypes.BIGINT, allowNull: false },
-    diagnosis: { type: DataTypes.TEXT },
-    prescription: { type: DataTypes.TEXT },
-    record_date: { type: DataTypes.DATE },
+    appointment_id: { type: DataTypes.BIGINT },
+    type: { type: DataTypes.ENUM('consultation', 'exam', 'other') },
+    content_json: { type: DataTypes.JSON, allowNull: false },
+    shared_with_json: { type: DataTypes.JSON },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
@@ -17,8 +18,9 @@ module.exports = (sequelize) => {
   });
 
   MedicalRecord.associate = (models) => {
-    MedicalRecord.belongsTo(models.Patient, { foreignKey: 'patient_id' });
-    MedicalRecord.belongsTo(models.Doctor, { foreignKey: 'doctor_id' });
+    MedicalRecord.belongsTo(models.User, { foreignKey: 'patient_id' });
+    MedicalRecord.belongsTo(models.User, { foreignKey: 'doctor_id' });
+    MedicalRecord.belongsTo(models.Appointment, { foreignKey: 'appointment_id' });
   };
 
   console.log('SUCCESS: Model MedicalRecord đã được định nghĩa.');

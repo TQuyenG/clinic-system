@@ -5,7 +5,7 @@ module.exports = (sequelize) => {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     user_id: { type: DataTypes.BIGINT, unique: true, allowNull: false },
     code: { type: DataTypes.STRING(10), unique: true },
-    position: { type: DataTypes.STRING(50) },
+    department: { type: DataTypes.STRING(255) },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
@@ -16,6 +16,7 @@ module.exports = (sequelize) => {
 
   Staff.associate = (models) => {
     Staff.belongsTo(models.User, { foreignKey: 'user_id' });
+    Staff.hasMany(models.Article, { foreignKey: 'author_id', sourceKey: 'user_id' });
   };
 
   Staff.addHook('beforeCreate', async (staff) => {

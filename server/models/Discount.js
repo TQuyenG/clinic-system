@@ -3,11 +3,14 @@ const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
   const Discount = sequelize.define('Discount', {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
-    code: { type: DataTypes.STRING(20), unique: true },
-    percentage: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255) },
+    type: { type: DataTypes.ENUM('percentage', 'fixed', 'free') },
+    value: { type: DataTypes.DECIMAL(10, 2) },
     start_date: { type: DataTypes.DATE, allowNull: false },
     end_date: { type: DataTypes.DATE, allowNull: false },
-    description: { type: DataTypes.TEXT },
+    specialty_id: { type: DataTypes.BIGINT },
+    doctor_id: { type: DataTypes.BIGINT },
+    apply_count: { type: DataTypes.INTEGER },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
@@ -17,7 +20,9 @@ module.exports = (sequelize) => {
   });
 
   Discount.associate = (models) => {
-    // Không có quan hệ trực tiếp
+    Discount.belongsTo(models.Specialty, { foreignKey: 'specialty_id' });
+    Discount.belongsTo(models.User, { foreignKey: 'doctor_id' });
+    Discount.hasMany(models.Payment, { foreignKey: 'discount_id' });
   };
 
   console.log('SUCCESS: Model Discount đã được định nghĩa.');

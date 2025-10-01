@@ -4,11 +4,11 @@ module.exports = (sequelize) => {
   const Notification = sequelize.define('Notification', {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     user_id: { type: DataTypes.BIGINT, allowNull: false },
-    type: { type: DataTypes.ENUM('appointment', 'message', 'system'), allowNull: false },
+    type: { type: DataTypes.ENUM('otp', 'appointment', 'payment', 'article', 'system', 'other'), allowNull: false },
     message: { type: DataTypes.TEXT, allowNull: false },
-    status: { type: DataTypes.ENUM('read', 'unread'), defaultValue: 'unread' },
-    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-    updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+    is_read: { type: DataTypes.BOOLEAN, defaultValue: false },
+    link: { type: DataTypes.STRING(255) },
+    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
     tableName: 'notifications',
     timestamps: true,

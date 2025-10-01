@@ -7,7 +7,8 @@ module.exports = (sequelize) => {
     code: { type: DataTypes.STRING(10), unique: true },
     specialty_id: { type: DataTypes.BIGINT },
     experience_years: { type: DataTypes.INTEGER },
-    qualification: { type: DataTypes.STRING(100) },
+    certifications_json: { type: DataTypes.JSON },
+    bio: { type: DataTypes.TEXT },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
@@ -23,6 +24,7 @@ module.exports = (sequelize) => {
     Doctor.hasMany(models.Schedule, { foreignKey: 'doctor_id' });
     Doctor.hasMany(models.Consultation, { foreignKey: 'doctor_id' });
     Doctor.hasMany(models.MedicalRecord, { foreignKey: 'doctor_id' });
+    Doctor.hasMany(models.Discount, { foreignKey: 'doctor_id' });
   };
 
   Doctor.addHook('beforeCreate', async (doctor) => {

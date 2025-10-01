@@ -5,7 +5,7 @@ module.exports = (sequelize) => {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     user_id: { type: DataTypes.BIGINT, unique: true, allowNull: false },
     code: { type: DataTypes.STRING(10), unique: true },
-    role: { type: DataTypes.STRING(50) },
+    permissions_json: { type: DataTypes.JSON },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
@@ -16,6 +16,7 @@ module.exports = (sequelize) => {
 
   Admin.associate = (models) => {
     Admin.belongsTo(models.User, { foreignKey: 'user_id' });
+    Admin.hasMany(models.SystemSetting, { foreignKey: 'updated_by', sourceKey: 'user_id' });
   };
 
   Admin.addHook('beforeCreate', async (admin) => {

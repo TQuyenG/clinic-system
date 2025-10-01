@@ -7,9 +7,7 @@ module.exports = (sequelize) => {
     sender_id: { type: DataTypes.BIGINT, allowNull: false },
     receiver_id: { type: DataTypes.BIGINT, allowNull: false },
     message: { type: DataTypes.TEXT, allowNull: false },
-    sent_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-    updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
     tableName: 'chat_messages',
     timestamps: true,
