@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "sync:force": "SYNC_MODE=force node app.js",
+    "sync:alter": "SYNC_MODE=alter node app.js"
   },
   "keywords": [],
   "author": "",
