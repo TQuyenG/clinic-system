@@ -1,5 +1,18 @@
+const path = require('path');
+require('dotenv').config({ 
+  path: path.join(__dirname, '../../.env') 
+});
+
 const mysql = require('mysql2/promise');
 const { Sequelize } = require('sequelize');
+
+// Log để kiểm tra biến môi trường được load
+console.log('Database Config:', {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD ? '[SET]' : '[NOT SET]'
+});
 
 // Hàm khởi tạo cơ sở dữ liệu
 async function initializeDatabase() {
