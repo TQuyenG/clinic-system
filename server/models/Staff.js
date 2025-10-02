@@ -4,7 +4,7 @@ module.exports = (sequelize) => {
   const Staff = sequelize.define('Staff', {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     user_id: { type: DataTypes.BIGINT, unique: true, allowNull: false },
-    code: { type: DataTypes.STRING(10), unique: true },
+    code: { type: DataTypes.STRING(10), unique: true, allowNull: false },  // Thêm allowNull: false
     department: { type: DataTypes.STRING(255) },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
@@ -19,9 +19,10 @@ module.exports = (sequelize) => {
     Staff.hasMany(models.Article, { foreignKey: 'author_id', sourceKey: 'user_id' });
   };
 
-  Staff.addHook('beforeCreate', async (staff) => {
+  Staff.addHook('beforeValidate', async (staff, options) => {
     try {
-      const count = await Staff.count();
+      console.log('Bắt đầu hook beforeValidate cho Staff');
+      const count = await Staff.count({ transaction: options.transaction });
       staff.code = `ST${String(count + 1).padStart(5, '0')}`;
       console.log(`SUCCESS: Tạo mã ${staff.code} cho nhân viên mới.`);
     } catch (error) {

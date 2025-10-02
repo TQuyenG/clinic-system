@@ -1,11 +1,10 @@
-
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   const Patient = sequelize.define('Patient', {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     user_id: { type: DataTypes.BIGINT, unique: true, allowNull: false },
-    code: { type: DataTypes.STRING(10), unique: true },
+    code: { type: DataTypes.STRING(10), unique: true, allowNull: false },  // Thêm allowNull: false
     medical_history: { type: DataTypes.JSON },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
@@ -23,9 +22,10 @@ module.exports = (sequelize) => {
   };
 
   // Hook để tự động tạo mã PT00001, PT00002, ...
-  Patient.addHook('beforeCreate', async (patient) => {
+  Patient.addHook('beforeValidate', async (patient, options) => {
     try {
-      const count = await Patient.count();
+      console.log('Bắt đầu hook beforeValidate cho Patient');
+      const count = await Patient.count({ transaction: options.transaction });
       patient.code = `PT${String(count + 1).padStart(5, '0')}`;
       console.log(`SUCCESS: Tạo mã ${patient.code} cho bệnh nhân mới.`);
     } catch (error) {

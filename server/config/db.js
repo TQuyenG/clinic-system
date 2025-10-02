@@ -101,8 +101,9 @@ Object.values(models).forEach(model => {
 
 // Hàm thêm dữ liệu mẫu (chạy khi SYNC_MODE=force)
 async function seedData() {
+  const transaction = await sequelize.transaction();
   try {
-    console.log('Bắt đầu seed dữ liệu...');
+    console.log('Bắt đầu seed dữ liệu trong transaction...');
     
     // Kiểm tra kết nối trước khi seed
     const connected = await testConnection();
@@ -110,476 +111,628 @@ async function seedData() {
       throw new Error('Không thể kết nối database trước khi seed');
     }
 
-    // 1. Thêm Specialty trước (vì Doctor cần)
-    console.log('1. Thêm Specialty...');
-    await models.Specialty.bulkCreate([
-      { name: 'Cardiology', description: 'Chuyên khoa tim mạch', slug: 'cardiology' },
-      { name: 'Neurology', description: 'Chuyên khoa thần kinh', slug: 'neurology' }
-    ]);
+    // 1. Thêm Specialties (2 data, trước doctors, appointments, discounts, schedules)
+    console.log('1. Thêm Specialties...');
+    const specialties = await models.Specialty.bulkCreate([
+      { 
+        name: 'Cardiology', 
+        description: 'Chuyên khoa tim mạch', 
+        slug: 'cardiology', 
+        created_at: new Date(), 
+        updated_at: new Date() 
+      },
+      { 
+        name: 'Neurology', 
+        description: 'Chuyên khoa thần kinh', 
+        slug: 'neurology', 
+        created_at: new Date(), 
+        updated_at: new Date() 
+      }
+    ], { transaction });
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng specialties.');
 
-    // 2. Thêm Category
-    console.log('2. Thêm Category...');
-    await models.Category.bulkCreate([
-      { name: 'General Health', parent_id: null, slug: 'general-health' },
-      { name: 'Cardiovascular', parent_id: 1, slug: 'cardiovascular' }
-    ]);
+    // 2. Thêm Categories (2 data, trước medicines, diseases, articles)
+    console.log('2. Thêm Categories...');
+    const categories = await models.Category.bulkCreate([
+      { 
+        parent_id: null, 
+        name: 'General Health', 
+        slug: 'general-health', 
+        created_at: new Date(), 
+        updated_at: new Date() 
+      },
+      { 
+        parent_id: specialties[0].id,  // Giả sử parent_id có thể link, nhưng theo SQL là self-ref
+        name: 'Cardiovascular', 
+        slug: 'cardiovascular', 
+        created_at: new Date(), 
+        updated_at: new Date() 
+      }
+    ], { transaction });
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng categories.');
 
-    // 3. Thêm User với transaction và logging chi tiết
-    console.log('3. Thêm User...');
-    await models.User.bulkCreate([
+    // 3. Thêm Users với loop sequential (8 users: 2 admin, 2 staff, 2 doctor, 2 patient)
+    // Hook afterCreate sẽ tự tạo Patients, Staff, Doctors, Admins (mỗi 2 data)
+    console.log('3. Thêm Users...');
+    const usersData = [
+      // 2 Admins
       {
         email: 'admin1@example.com',
         password_hash: 'hashed_password_1',
-        full_name: 'Nguyen Van Admin',
+        full_name: 'Nguyen Van Admin1',
         phone: '0901234567',
         address: '123 Hanoi',
         gender: 'male',
         dob: '1980-01-01',
-        avatar_url: '/avatars/admin1.jpg',
         role: 'admin',
+        avatar_url: '/avatars/admin1.jpg',
         is_verified: true,
         verification_token: null,
         reset_token: null,
         reset_expires: null,
         last_login: '2025-10-01 08:00:00',
-        is_active: true
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
       },
       {
-        email: 'patient1@example.com',
+        email: 'admin2@example.com',
         password_hash: 'hashed_password_2',
-        full_name: 'Tran Thi Patient',
-        phone: '0907654321',
-        address: '456 HCMC',
+        full_name: 'Tran Thi Admin2',
+        phone: '0901234568',
+        address: '124 Hanoi',
         gender: 'female',
-        dob: '1990-05-15',
-        avatar_url: '/avatars/patient1.jpg',
-        role: 'patient',
+        dob: '1981-02-02',
+        role: 'admin',
+        avatar_url: '/avatars/admin2.jpg',
+        is_verified: true,
+        verification_token: null,
+        reset_token: null,
+        reset_expires: null,
+        last_login: '2025-10-02 08:00:00',
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      // 2 Staff
+      {
+        email: 'staff1@example.com',
+        password_hash: 'hashed_password_3',
+        full_name: 'Le Van Staff1',
+        phone: '0901234569',
+        address: '125 HCMC',
+        gender: 'male',
+        dob: '1985-03-03',
+        role: 'staff',
+        avatar_url: '/avatars/staff1.jpg',
         is_verified: true,
         verification_token: null,
         reset_token: null,
         reset_expires: null,
         last_login: '2025-10-01 09:00:00',
-        is_active: true
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
       },
+      {
+        email: 'staff2@example.com',
+        password_hash: 'hashed_password_4',
+        full_name: 'Pham Thi Staff2',
+        phone: '0901234570',
+        address: '126 HCMC',
+        gender: 'female',
+        dob: '1986-04-04',
+        role: 'staff',
+        avatar_url: '/avatars/staff2.jpg',
+        is_verified: true,
+        verification_token: null,
+        reset_token: null,
+        reset_expires: null,
+        last_login: '2025-10-02 09:00:00',
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      // 2 Doctors
       {
         email: 'doctor1@example.com',
-        password_hash: 'hashed_password_3',
-        full_name: 'Le Van Doctor',
-        phone: '0909876543',
-        address: '789 Danang',
-        gender: 'male',
-        dob: '1975-03-20',
-        avatar_url: '/avatars/doctor1.jpg',
-        role: 'doctor',
-        is_verified: true,
-        verification_token: null,
-        reset_token: null,
-        reset_expires: null,
-        last_login: '2025-10-01 07:30:00',
-        is_active: true
-      },
-      {
-        email: 'staff1@example.com',
-        password_hash: 'hashed_password_4',
-        full_name: 'Pham Thi Staff',
-        phone: '0912345678',
-        address: '101 Hue',
-        gender: 'female',
-        dob: '1985-07-10',
-        avatar_url: '/avatars/staff1.jpg',
-        role: 'staff',
-        is_verified: true,
-        verification_token: null,
-        reset_token: null,
-        reset_expires: null,
-        last_login: '2025-10-01 08:30:00',
-        is_active: true
-      },
-      {
-        email: 'patient2@example.com',
         password_hash: 'hashed_password_5',
-        full_name: 'Hoang Van Patient',
-        phone: '0923456789',
-        address: '202 Can Tho',
+        full_name: 'Hoang Van Doctor1',
+        phone: '0901234571',
+        address: '127 Danang',
         gender: 'male',
-        dob: '1988-11-25',
-        avatar_url: '/avatars/patient2.jpg',
-        role: 'patient',
+        dob: '1975-05-05',
+        role: 'doctor',
+        avatar_url: '/avatars/doctor1.jpg',
         is_verified: true,
         verification_token: null,
         reset_token: null,
         reset_expires: null,
         last_login: '2025-10-01 10:00:00',
-        is_active: true
-      }
-    ], { individualHooks: true });
-    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng users.');
-
-    // 4. Thêm dữ liệu mẫu cho Medicine
-    const categories = await models.Category.findAll();
-    await models.Medicine.bulkCreate([
-      {
-        category_id: categories[0].id,
-        name: 'Paracetamol',
-        components: 'Acetaminophen',
-        medicine_usage: 'Giảm đau, hạ sốt',
-        description: 'Thuốc giảm đau không kê đơn.'
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
       },
       {
-        category_id: categories[1].id,
-        name: 'Amlodipine',
-        components: 'Amlodipine besylate',
-        medicine_usage: 'Hạ huyết áp',
-        description: 'Thuốc điều trị cao huyết áp.'
+        email: 'doctor2@example.com',
+        password_hash: 'hashed_password_6',
+        full_name: 'Nguyen Thi Doctor2',
+        phone: '0901234572',
+        address: '128 Danang',
+        gender: 'female',
+        dob: '1976-06-06',
+        role: 'doctor',
+        avatar_url: '/avatars/doctor2.jpg',
+        is_verified: true,
+        verification_token: null,
+        reset_token: null,
+        reset_expires: null,
+        last_login: '2025-10-02 10:00:00',
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      // 2 Patients
+      {
+        email: 'patient1@example.com',
+        password_hash: 'hashed_password_7',
+        full_name: 'Vo Van Patient1',
+        phone: '0901234573',
+        address: '129 Hue',
+        gender: 'male',
+        dob: '1990-07-07',
+        role: 'patient',
+        avatar_url: '/avatars/patient1.jpg',
+        is_verified: true,
+        verification_token: null,
+        reset_token: null,
+        reset_expires: null,
+        last_login: '2025-10-01 11:00:00',
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      {
+        email: 'patient2@example.com',
+        password_hash: 'hashed_password_8',
+        full_name: 'Le Thi Patient2',
+        phone: '0901234574',
+        address: '130 Hue',
+        gender: 'female',
+        dob: '1991-08-08',
+        role: 'patient',
+        avatar_url: '/avatars/patient2.jpg',
+        is_verified: true,
+        verification_token: null,
+        reset_token: null,
+        reset_expires: null,
+        last_login: '2025-10-02 11:00:00',
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
       }
-    ]);
+    ];
+
+    const users = [];
+    for (const userData of usersData) {
+      const user = await models.User.create(userData, { transaction });
+      console.log(`SUCCESS: Đã tạo User ${user.email} (role: ${user.role})`);
+      users.push(user);
+    }
+
+    // Lấy instances từ hook (Patients, Staff, Doctors, Admins)
+    const admins = await models.Admin.findAll({ transaction });
+    const staff = await models.Staff.findAll({ transaction });
+    const doctors = await models.Doctor.findAll({ transaction });
+    const patients = await models.Patient.findAll({ transaction });
+
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng users, patients, staff, doctors, admins qua hook.');
+
+    // 4. Thêm Medicines (2 data, sau categories)
+    console.log('4. Thêm Medicines...');
+    const medicines = await models.Medicine.bulkCreate([
+      { 
+        category_id: categories[0].id, 
+        name: 'Aspirin', 
+        components: 'Acetylsalicylic acid', 
+        medicine_usage: 'Pain relief', 
+        description: 'Common painkiller', 
+        created_at: new Date(), 
+        updated_at: new Date() 
+      },
+      { 
+        category_id: categories[1].id, 
+        name: 'Ibuprofen', 
+        components: 'Ibuprofen', 
+        medicine_usage: 'Anti-inflammatory', 
+        description: 'For inflammation', 
+        created_at: new Date(), 
+        updated_at: new Date() 
+      }
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng medicines.');
 
-    // 5. Thêm dữ liệu mẫu cho Disease
-    await models.Disease.bulkCreate([
-      {
-        category_id: categories[1].id,
-        name: 'Hypertension',
-        symptoms: 'Đau đầu, chóng mặt, khó thở',
-        treatments: 'Thuốc hạ huyết áp, chế độ ăn ít muối',
-        description: 'Tình trạng huyết áp cao mãn tính.'
+    // 5. Thêm Diseases (2 data, sau categories)
+    console.log('5. Thêm Diseases...');
+    const diseases = await models.Disease.bulkCreate([
+      { 
+        category_id: categories[0].id, 
+        name: 'Hypertension', 
+        symptoms: 'High blood pressure', 
+        description: 'Chronic condition', 
+        created_at: new Date(), 
+        updated_at: new Date() 
       },
-      {
-        category_id: categories[1].id,
-        name: 'Arrhythmia',
-        symptoms: 'Nhịp tim không đều, mệt mỏi',
-        treatments: 'Thuốc điều hòa nhịp tim, theo dõi định kỳ',
-        description: 'Rối loạn nhịp tim.'
+      { 
+        category_id: categories[1].id, 
+        name: 'Diabetes', 
+        symptoms: 'High blood sugar', 
+        description: 'Metabolic disorder', 
+        created_at: new Date(), 
+        updated_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng diseases.');
 
-    // 6. Thêm dữ liệu mẫu cho Article
-    const users = await models.User.findAll();
-    await models.Article.bulkCreate([
-      {
-        title: 'Cách phòng ngừa cao huyết áp',
-        content: 'Ăn uống lành mạnh, tập thể dục đều đặn...',
-        category_id: categories[1].id,
-        author_id: users.find(u => u.role === 'staff').id,
-        tags_json: ['health', 'hypertension', 'prevention'],
-        status: 'approved',
-        views: 100,
-        source_url: 'https://example.com/hypertension',
-        deleted_at: null
+    // 6. Thêm Articles (2 data, sau categories và users - author_id từ staff)
+    console.log('6. Thêm Articles...');
+    const articles = await models.Article.bulkCreate([
+      { 
+        title: 'Article 1', 
+        content: 'Content 1', 
+        author_id: staff[0].user_id, 
+        category_id: categories[0].id, 
+        status: 'approved', 
+        views: 100, 
+        created_at: new Date(), 
+        updated_at: new Date() 
       },
-      {
-        title: 'Hiểu biết về rối loạn nhịp tim',
-        content: 'Rối loạn nhịp tim có thể gây nguy hiểm nếu không điều trị...',
-        category_id: categories[1].id,
-        author_id: users.find(u => u.role === 'staff').id,
-        tags_json: ['health', 'arrhythmia', 'cardiology'],
-        status: 'pending',
-        views: 50,
-        source_url: 'https://example.com/arrhythmia',
-        deleted_at: null
+      { 
+        title: 'Article 2', 
+        content: 'Content 2', 
+        author_id: staff[1].user_id, 
+        category_id: categories[1].id, 
+        status: 'approved', 
+        views: 200, 
+        created_at: new Date(), 
+        updated_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng articles.');
 
-    // 7. Thêm dữ liệu mẫu cho Interaction
-    const patients = await models.Patient.findAll();
-    await models.Interaction.bulkCreate([
-      {
-        user_id: patients[0].user_id,
-        entity_type: 'article',
-        entity_id: 1,
-        type: 'like',
-        reason: 'Bài viết rất hữu ích.'
+    // 7. Thêm Interactions (2 data, sau users và entities như articles)
+    console.log('7. Thêm Interactions...');
+    const interactions = await models.Interaction.bulkCreate([
+      { 
+        user_id: patients[0].user_id, 
+        entity_type: 'article', 
+        entity_id: articles[0].id, 
+        interaction_type: 'like', 
+        created_at: new Date() 
       },
-      {
-        user_id: patients[0].user_id,
-        entity_type: 'disease',
-        entity_id: 1,
-        type: 'bookmark',
-        reason: 'Lưu để tham khảo.'
-      },
-      {
-        user_id: patients[1].user_id,
-        entity_type: 'article',
-        entity_id: 2,
-        type: 'share',
-        reason: 'Chia sẻ cho bạn bè.'
+      { 
+        user_id: patients[1].user_id, 
+        entity_type: 'article', 
+        entity_id: articles[1].id, 
+        interaction_type: 'view', 
+        created_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng interactions.');
 
-    // 8. Thêm dữ liệu mẫu cho Schedule
-    const doctor = await models.Doctor.findOne({ where: { user_id: users.find(u => u.role === 'doctor').id } });
-    await models.Schedule.bulkCreate([
-      {
-        doctor_id: doctor.user_id,
-        start_time: '2025-10-02 08:00:00',
-        end_time: '2025-10-02 12:00:00',
-        status: 'available',
-        off_reason: null
+    // 8. Thêm Appointments (2 data, sau users, specialties)
+    console.log('8. Thêm Appointments...');
+    const appointments = await models.Appointment.bulkCreate([
+      { 
+        code: 'AP00001',  // Giả sử hook hoặc trigger set code
+        patient_id: patients[0].id, 
+        doctor_id: doctors[0].id, 
+        specialty_id: specialties[0].id, 
+        appointment_time: '2025-10-02 10:00:00', 
+        status: 'confirmed', 
+        notes: 'Note 1', 
+        created_at: new Date(), 
+        updated_at: new Date() 
       },
-      {
-        doctor_id: doctor.user_id,
-        start_time: '2025-10-03 13:00:00',
-        end_time: '2025-10-03 17:00:00',
-        status: 'available',
-        off_reason: null
+      { 
+        code: 'AP00002', 
+        patient_id: patients[1].id, 
+        doctor_id: doctors[1].id, 
+        specialty_id: specialties[1].id, 
+        appointment_time: '2025-10-03 11:00:00', 
+        status: 'cancelled', 
+        notes: 'Note 2', 
+        created_at: new Date(), 
+        updated_at: new Date() 
       }
-    ]);
-    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng schedules.');
-
-    // 9. Thêm dữ liệu mẫu cho Appointment
-    const specialties = await models.Specialty.findAll();
-    await models.Appointment.bulkCreate([
-      {
-        patient_id: patients[0].id,
-        doctor_id: doctor.id,
-        specialty_id: specialties[0].id,
-        schedule_id: 1,
-        status: 'pending',
-        appointment_time: '2025-10-02 10:00:00',
-        reason: 'Khám tim mạch định kỳ'
-      },
-      {
-        patient_id: patients[1].id,
-        doctor_id: doctor.id,
-        specialty_id: specialties[0].id,
-        schedule_id: 2,
-        status: 'confirmed',
-        appointment_time: '2025-10-03 14:00:00',
-        reason: 'Kiểm tra nhịp tim'
-      }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng appointments.');
 
-    // 10. Thêm dữ liệu mẫu cho Consultation
-    await models.Consultation.bulkCreate([
-      {
-        appointment_id: 1,
-        patient_id: patients[0].user_id,
-        doctor_id: doctor.user_id,
-        start_time: '2025-10-02 10:00:00',
-        end_time: '2025-10-02 10:30:00',
-        video_link: 'https://meet.example.com/consultation123',
-        notes_json: { note: 'Bệnh nhân cần kiểm tra huyết áp.' },
-        status: 'pending'
+    const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+  const Schedule = sequelize.define('Schedule', {
+    id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
+    doctor_id: { type: DataTypes.BIGINT, allowNull: false },
+    start_time: { type: DataTypes.DATE, allowNull: false },
+    end_time: { type: DataTypes.DATE, allowNull: false },
+    status: { type: DataTypes.ENUM('available', 'booked', 'off', 'pending_off'), defaultValue: 'available' },
+    off_reason: { type: DataTypes.TEXT },
+    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+  }, {
+    tableName: 'schedules',
+    timestamps: true,
+    underscored: true
+  });
+
+  Schedule.associate = (models) => {
+    Schedule.belongsTo(models.User, { foreignKey: 'doctor_id' });
+    Schedule.hasOne(models.Appointment, { foreignKey: 'schedule_id' });
+  };
+
+  console.log('SUCCESS: Model Schedule đã được định nghĩa.');
+  return Schedule;
+};
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng schedules.');
+
+        // 10. Thêm Consultations
+    console.log('10. Thêm Consultations...');
+    const consultations = await models.Consultation.bulkCreate([
+      { 
+        appointment_id: appointments[0].id,  // Thêm appointment_id
+        patient_id: patients[0].id,
+        doctor_id: doctors[0].id,
+        start_time: new Date('2025-10-02 10:00:00'),
+        end_time: new Date('2025-10-02 10:30:00'),
+        video_link: 'https://meet.example.com/consultation1',
+        notes_json: { note: 'Khám lần đầu' },
+        status: 'active',
+        created_at: new Date(),
+        updated_at: new Date()
       },
-      {
-        appointment_id: 2,
-        patient_id: patients[1].user_id,
-        doctor_id: doctor.user_id,
-        start_time: '2025-10-03 14:00:00',
-        end_time: '2025-10-03 14:30:00',
-        video_link: 'https://meet.example.com/consultation456',
-        notes_json: { note: 'Kiểm tra nhịp tim.' },
-        status: 'confirmed'
+      { 
+        appointment_id: appointments[1].id,  // Thêm appointment_id
+        patient_id: patients[1].id,
+        doctor_id: doctors[1].id,
+        start_time: new Date('2025-10-03 11:00:00'),
+        end_time: new Date('2025-10-03 11:30:00'),
+        video_link: 'https://meet.example.com/consultation2',
+        notes_json: { note: 'Tái khám' },
+        status: 'active',
+        created_at: new Date(),
+        updated_at: new Date()
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng consultations.');
 
-    // 11. Thêm dữ liệu mẫu cho ChatMessage
-    await models.ChatMessage.bulkCreate([
-      {
-        consultation_id: 1,
-        sender_id: patients[0].user_id,
-        receiver_id: doctor.user_id,
-        message: 'Chào bác sĩ, tôi cảm thấy chóng mặt gần đây.'
+    // 11. Thêm ChatMessages (2 data, sau consultations)
+    console.log('11. Thêm ChatMessages...');
+    const chatMessages = await models.ChatMessage.bulkCreate([
+      { 
+        consultation_id: consultations[0].id, 
+        sender_id: patients[0].user_id, 
+        receiver_id: doctors[0].user_id, 
+        message: 'Hello doctor', 
+        created_at: new Date() 
       },
-      {
-        consultation_id: 1,
-        sender_id: doctor.user_id,
-        receiver_id: patients[0].user_id,
-        message: 'Chào bạn, hãy mô tả thêm triệu chứng.'
-      },
-      {
-        consultation_id: 2,
-        sender_id: patients[1].user_id,
-        receiver_id: doctor.user_id,
-        message: 'Bác sĩ ơi, nhịp tim tôi bất thường.'
-      },
-      {
-        consultation_id: 2,
-        sender_id: doctor.user_id,
-        receiver_id: patients[1].user_id,
-        message: 'Chúng ta sẽ kiểm tra kỹ trong buổi hẹn.'
+      { 
+        consultation_id: consultations[1].id, 
+        sender_id: patients[1].user_id, 
+        receiver_id: doctors[1].user_id, 
+        message: 'Hi doctor', 
+        created_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng chat_messages.');
 
-    // 12. Thêm dữ liệu mẫu cho Discount
-    await models.Discount.bulkCreate([
-      {
-        name: 'Giảm 10% khám tim mạch',
-        type: 'percentage',
-        value: 10.00,
-        start_date: '2025-10-01',
-        end_date: '2025-12-31',
-        specialty_id: specialties[0].id,
-        doctor_id: doctor.user_id,
-        apply_count: 0
+    // 12. Thêm Discounts (2 data, sau specialties, doctors)
+    console.log('12. Thêm Discounts...');
+    const discounts = await models.Discount.bulkCreate([
+      { 
+        name: 'Discount 1', 
+        type: 'percentage', 
+        value: 10.00, 
+        start_date: '2025-10-01', 
+        end_date: '2025-12-31', 
+        specialty_id: specialties[0].id, 
+        doctor_id: doctors[0].user_id, 
+        apply_count: 0, 
+        created_at: new Date(), 
+        updated_at: new Date() 
       },
-      {
-        name: 'Miễn phí lần đầu',
-        type: 'free',
-        value: 0.00,
-        start_date: '2025-10-01',
-        end_date: '2025-11-30',
-        specialty_id: specialties[0].id,
-        doctor_id: doctor.user_id,
-        apply_count: 0
+      { 
+        name: 'Discount 2', 
+        type: 'fixed', 
+        value: 50.00, 
+        start_date: '2025-10-01', 
+        end_date: '2025-12-31', 
+        specialty_id: specialties[1].id, 
+        doctor_id: doctors[1].user_id, 
+        apply_count: 0, 
+        created_at: new Date(), 
+        updated_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng discounts.');
 
-    // 13. Thêm dữ liệu mẫu cho Payment
-    await models.Payment.bulkCreate([
-      {
-        appointment_id: 1,
-        user_id: patients[0].user_id,
-        amount: 500000.00,
-        discount_id: 1,
-        status: 'paid',
-        method: 'momo',
-        transaction_id: 'TX123456789'
+    // 13. Thêm Payments (2 data, sau appointments, discounts, users)
+    console.log('13. Thêm Payments...');
+    const payments = await models.Payment.bulkCreate([
+      { 
+        code: 'PY00001',  // Trigger set
+        appointment_id: appointments[0].id, 
+        user_id: patients[0].user_id, 
+        amount: 100.00, 
+        discount_id: discounts[0].id, 
+        status: 'paid', 
+        method: 'momo', 
+        transaction_id: 'TX123', 
+        created_at: new Date(), 
+        updated_at: new Date() 
       },
-      {
-        appointment_id: 2,
-        user_id: patients[1].user_id,
-        amount: 0.00,
-        discount_id: 2,
-        status: 'paid',
-        method: 'momo',
-        transaction_id: 'TX987654321'
+      { 
+        code: 'PY00002', 
+        appointment_id: appointments[1].id, 
+        user_id: patients[1].user_id, 
+        amount: 200.00, 
+        discount_id: discounts[1].id, 
+        status: 'paid', 
+        method: 'zalopay', 
+        transaction_id: 'TX456', 
+        created_at: new Date(), 
+        updated_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng payments.');
 
-    // 14. Thêm dữ liệu mẫu cho Notification
-    await models.Notification.bulkCreate([
-      {
-        user_id: patients[0].user_id,
-        type: 'appointment',
-        message: 'Lịch hẹn của bạn vào 10:00 02/10/2025 đã được xác nhận.',
-        is_read: false,
-        link: '/appointments/1'
+    // 14. Thêm Notifications (2 data, sau users)
+    console.log('14. Thêm Notifications...');
+    const notifications = await models.Notification.bulkCreate([
+      { 
+        user_id: patients[0].user_id, 
+        type: 'appointment', 
+        message: 'Appointment confirmed', 
+        is_read: false, 
+        link: '/appointments/1', 
+        created_at: new Date() 
       },
-      {
-        user_id: doctor.user_id,
-        type: 'appointment',
-        message: 'Bạn có lịch hẹn mới vào 10:00 02/10/2025.',
-        is_read: false,
-        link: '/appointments/1'
-      },
-      {
-        user_id: patients[1].user_id,
-        type: 'appointment',
-        message: 'Lịch hẹn của bạn vào 14:00 03/10/2025 đã được xác nhận.',
-        is_read: false,
-        link: '/appointments/2'
+      { 
+        user_id: patients[1].user_id, 
+        type: 'payment', 
+        message: 'Payment received', 
+        is_read: false, 
+        link: '/payments/1', 
+        created_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng notifications.');
 
-    // 15. Thêm dữ liệu mẫu cho SystemSetting
-    const admin = await models.Admin.findOne({ where: { user_id: users.find(u => u.role === 'admin').id } });
-    await models.SystemSetting.bulkCreate([
-      {
-        setting_key: 'clinic_name',
-        value_json: { name: 'Phòng khám XYZ' },
-        updated_by: admin.user_id
+    // 15. Thêm SystemSettings (2 data, sau users)
+    console.log('15. Thêm SystemSettings...');
+    const systemSettings = await models.SystemSetting.bulkCreate([
+      { 
+        setting_key: 'clinic_name', 
+        value_json: { name: 'Clinic XYZ' }, 
+        updated_by: admins[0].user_id, 
+        created_at: new Date(), 
+        updated_at: new Date() 
       },
-      {
-        setting_key: 'banner_config',
-        value_json: { image: '/banners/welcome.jpg', text: 'Chào mừng đến với phòng khám!' },
-        updated_by: admin.user_id
+      { 
+        setting_key: 'banner_text', 
+        value_json: { text: 'Welcome' }, 
+        updated_by: admins[1].user_id, 
+        created_at: new Date(), 
+        updated_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng system_settings.');
 
-    // 16. Thêm dữ liệu mẫu cho Question
-    await models.Question.bulkCreate([
-      {
-        title: 'Cao huyết áp nên ăn gì?',
-        content: 'Tôi bị cao huyết áp, cần tư vấn chế độ ăn uống phù hợp.',
-        user_id: patients[0].user_id,
-        tags_json: ['hypertension', 'diet', 'health'],
-        status: 'open',
-        views: 50,
-        deleted_at: null
+    // 16. Thêm Questions (2 data, sau users)
+    console.log('16. Thêm Questions...');
+    const questions = await models.Question.bulkCreate([
+      { 
+        title: 'Question 1', 
+        content: 'Content 1', 
+        user_id: patients[0].user_id, 
+        tags_json: ['tag1'], 
+        status: 'open', 
+        views: 10, 
+        deleted_at: null, 
+        created_at: new Date(), 
+        updated_at: new Date() 
       },
-      {
-        title: 'Rối loạn nhịp tim có nguy hiểm không?',
-        content: 'Tôi hay bị hồi hộp, nhịp tim nhanh. Có nguy hiểm không?',
-        user_id: patients[1].user_id,
-        tags_json: ['arrhythmia', 'cardiology', 'health'],
-        status: 'open',
-        views: 30,
-        deleted_at: null
+      { 
+        title: 'Question 2', 
+        content: 'Content 2', 
+        user_id: patients[1].user_id, 
+        tags_json: ['tag2'], 
+        status: 'open', 
+        views: 20, 
+        deleted_at: null, 
+        created_at: new Date(), 
+        updated_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng questions.');
 
-    // 17. Thêm dữ liệu mẫu cho Answer
-    await models.Answer.bulkCreate([
-      {
-        question_id: 1,
-        user_id: doctor.user_id,
-        content: 'Nên ăn ít muối, nhiều rau xanh, và tránh thực phẩm chế biến sẵn.',
-        is_pinned: false,
-        is_verified: true
+    // 17. Thêm Answers (2 data, sau questions, users)
+    console.log('17. Thêm Answers...');
+    const answers = await models.Answer.bulkCreate([
+      { 
+        question_id: questions[0].id, 
+        user_id: doctors[0].user_id, 
+        content: 'Answer 1', 
+        is_pinned: false, 
+        is_verified: true, 
+        created_at: new Date(), 
+        updated_at: new Date() 
       },
-      {
-        question_id: 2,
-        user_id: doctor.user_id,
-        content: 'Rối loạn nhịp tim cần được kiểm tra bởi bác sĩ chuyên khoa.',
-        is_pinned: false,
-        is_verified: true
+      { 
+        question_id: questions[1].id, 
+        user_id: doctors[1].user_id, 
+        content: 'Answer 2', 
+        is_pinned: false, 
+        is_verified: true, 
+        created_at: new Date(), 
+        updated_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng answers.');
 
-    // 18. Thêm dữ liệu mẫu cho MedicalRecord
-    await models.MedicalRecord.bulkCreate([
-      {
-        patient_id: patients[0].user_id,
-        doctor_id: doctor.user_id,
-        appointment_id: 1,
-        type: 'consultation',
-        content_json: { diagnosis: 'Cao huyết áp nhẹ', prescription: 'Amlodipine 5mg/ngày' },
-        shared_with_json: [doctor.user_id]
+    // 18. Thêm MedicalRecords (2 data, sau users, appointments)
+    console.log('18. Thêm MedicalRecords...');
+    const medicalRecords = await models.MedicalRecord.bulkCreate([
+      { 
+        patient_id: patients[0].user_id, 
+        doctor_id: doctors[0].user_id, 
+        appointment_id: appointments[0].id, 
+        type: 'consultation', 
+        content_json: { diagnosis: 'Healthy' }, 
+        shared_with_json: [doctors[0].user_id], 
+        created_at: new Date(), 
+        updated_at: new Date() 
       },
-      {
-        patient_id: patients[1].user_id,
-        doctor_id: doctor.user_id,
-        appointment_id: 2,
-        type: 'consultation',
-        content_json: { diagnosis: 'Rối loạn nhịp tim', prescription: 'Theo dõi thêm' },
-        shared_with_json: [doctor.user_id]
+      { 
+        patient_id: patients[1].user_id, 
+        doctor_id: doctors[1].user_id, 
+        appointment_id: appointments[1].id, 
+        type: 'exam', 
+        content_json: { diagnosis: 'Checkup' }, 
+        shared_with_json: [doctors[1].user_id], 
+        created_at: new Date(), 
+        updated_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng medical_records.');
 
-    // 19. Thêm dữ liệu mẫu cho AuditLog
-    await models.AuditLog.bulkCreate([
-      {
-        user_id: admin.user_id,
-        action: 'create_appointment',
-        entity_type: 'appointment',
-        entity_id: 1,
-        details_json: { patient_id: patients[0].id }
+    // 19. Thêm AuditLogs (2 data, sau users)
+    console.log('19. Thêm AuditLogs...');
+    const auditLogs = await models.AuditLog.bulkCreate([
+      { 
+        user_id: admins[0].user_id, 
+        action: 'create_user', 
+        entity_type: 'user', 
+        entity_id: patients[0].user_id, 
+        details_json: { note: 'Created patient1' }, 
+        created_at: new Date() 
       },
-      {
-        user_id: admin.user_id,
-        action: 'update_system_setting',
-        entity_type: 'system_setting',
-        entity_id: 1,
-        details_json: { setting_key: 'clinic_name', old_value: null, new_value: 'Phòng khám XYZ' }
+      { 
+        user_id: admins[1].user_id, 
+        action: 'update_setting', 
+        entity_type: 'system_setting', 
+        entity_id: systemSettings[0].id, 
+        details_json: { note: 'Updated clinic name' }, 
+        created_at: new Date() 
       }
-    ]);
+    ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng audit_logs.');
+
+    await transaction.commit();
+    console.log('SUCCESS: Transaction commit thành công. Dữ liệu đã được ghi vào DB.');
   } catch (error) {
-    console.error('ERROR: Không thể thêm dữ liệu mẫu:', error.message);
+    await transaction.rollback();
+    console.error('ERROR: Transaction rollback:', error.message);
     console.error('ERROR trong seedData:', {
       name: error.name,
       message: error.message,

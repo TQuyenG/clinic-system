@@ -60,9 +60,11 @@ module.exports = (sequelize) => {
         throw new Error('Không tìm thấy các model cần thiết (Patient, Staff, Doctor, Admin)');
       }
 
+      const createOptions = { transaction: options.transaction };  // Pass transaction vào create
+
       switch (user.role) {
         case 'patient':
-          await Patient.create({ user_id: user.id });
+          await Patient.create({ user_id: user.id }, createOptions);
           console.log(`SUCCESS: Đã tạo bản ghi Patient cho user ${user.email} (user_id: ${user.id})`);
           break;
 
@@ -70,7 +72,7 @@ module.exports = (sequelize) => {
           await Staff.create({ 
             user_id: user.id, 
             department: 'General' 
-          });
+          }, createOptions);
           console.log(`SUCCESS: Đã tạo bản ghi Staff cho user ${user.email} (user_id: ${user.id})`);
           break;
 
@@ -88,7 +90,7 @@ module.exports = (sequelize) => {
             experience_years: 5,
             certifications_json: ['MD'],
             bio: 'Bác sĩ mới'
-          });
+          }, createOptions);
           console.log(`SUCCESS: Đã tạo bản ghi Doctor cho user ${user.email} (user_id: ${user.id})`);
           break;
 
@@ -96,7 +98,7 @@ module.exports = (sequelize) => {
           await Admin.create({ 
             user_id: user.id, 
             permissions_json: ['manage_users'] 
-          });
+          }, createOptions);
           console.log(`SUCCESS: Đã tạo bản ghi Admin cho user ${user.email} (user_id: ${user.id})`);
           break;
 
