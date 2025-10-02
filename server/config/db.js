@@ -14,19 +14,45 @@ console.log('Database Config:', {
   password: process.env.DB_PASSWORD ? '[SET]' : '[NOT SET]'
 });
 
+// Hàm để kiểm tra kết nối database
+async function testConnection() {
+  try {
+    await sequelize.authenticate();
+    console.log('SUCCESS: Kết nối database thành công.');
+    return true;
+  } catch (error) {
+    console.error('ERROR: Không thể kết nối database:', error.message);
+    return false;
+  }
+}
+
 // Hàm khởi tạo cơ sở dữ liệu
 async function initializeDatabase() {
   try {
+    if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_PASSWORD) {
+      throw new Error('Thiếu thông tin cấu hình database');
+    }
+
+    console.log('Đang kết nối với MySQL...');
     const connection = await mysql.createConnection({
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD
     });
+
+    console.log('Đang tạo database...');
     await connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME}`);
-    console.log(`SUCCESS: Cơ sở dữ liệu ${process.env.DB_NAME} đã được tạo hoặc đã tồn tại.`);
     await connection.end();
+
+    // Kiểm tra kết nối Sequelize
+    const connected = await testConnection();
+    if (!connected) {
+      throw new Error('Không thể kết nối với database qua Sequelize');
+    }
+
+    return true;
   } catch (error) {
-    console.error(`ERROR: Không thể tạo cơ sở dữ liệu ${process.env.DB_NAME}:`, error.message);
+    console.error('ERROR trong initializeDatabase:', error.message);
     throw error;
   }
 }
@@ -76,7 +102,30 @@ Object.values(models).forEach(model => {
 // Hàm thêm dữ liệu mẫu (chạy khi SYNC_MODE=force)
 async function seedData() {
   try {
-    // 1. Thêm dữ liệu mẫu cho User
+    console.log('Bắt đầu seed dữ liệu...');
+    
+    // Kiểm tra kết nối trước khi seed
+    const connected = await testConnection();
+    if (!connected) {
+      throw new Error('Không thể kết nối database trước khi seed');
+    }
+
+    // 1. Thêm Specialty trước (vì Doctor cần)
+    console.log('1. Thêm Specialty...');
+    await models.Specialty.bulkCreate([
+      { name: 'Cardiology', description: 'Chuyên khoa tim mạch', slug: 'cardiology' },
+      { name: 'Neurology', description: 'Chuyên khoa thần kinh', slug: 'neurology' }
+    ]);
+
+    // 2. Thêm Category
+    console.log('2. Thêm Category...');
+    await models.Category.bulkCreate([
+      { name: 'General Health', parent_id: null, slug: 'general-health' },
+      { name: 'Cardiovascular', parent_id: 1, slug: 'cardiovascular' }
+    ]);
+
+    // 3. Thêm User với transaction và logging chi tiết
+    console.log('3. Thêm User...');
     await models.User.bulkCreate([
       {
         email: 'admin1@example.com',
@@ -163,22 +212,8 @@ async function seedData() {
         last_login: '2025-10-01 10:00:00',
         is_active: true
       }
-    ]);
+    ], { individualHooks: true });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng users.');
-
-    // 2. Thêm dữ liệu mẫu cho Specialty
-    await models.Specialty.bulkCreate([
-      { name: 'Cardiology', description: 'Chuyên khoa tim mạch', slug: 'cardiology' },
-      { name: 'Neurology', description: 'Chuyên khoa thần kinh', slug: 'neurology' }
-    ]);
-    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng specialties.');
-
-    // 3. Thêm dữ liệu mẫu cho Category
-    await models.Category.bulkCreate([
-      { name: 'General Health', parent_id: null, slug: 'general-health' },
-      { name: 'Cardiovascular', parent_id: 1, slug: 'cardiovascular' }
-    ]);
-    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng categories.');
 
     // 4. Thêm dữ liệu mẫu cho Medicine
     const categories = await models.Category.findAll();
@@ -248,23 +283,24 @@ async function seedData() {
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng articles.');
 
     // 7. Thêm dữ liệu mẫu cho Interaction
+    const patients = await models.Patient.findAll();
     await models.Interaction.bulkCreate([
       {
-        user_id: users.find(u => u.role === 'patient').id,
+        user_id: patients[0].user_id,
         entity_type: 'article',
         entity_id: 1,
         type: 'like',
         reason: 'Bài viết rất hữu ích.'
       },
       {
-        user_id: users.find(u => u.role === 'patient').id,
+        user_id: patients[0].user_id,
         entity_type: 'disease',
         entity_id: 1,
         type: 'bookmark',
         reason: 'Lưu để tham khảo.'
       },
       {
-        user_id: users[4].id,
+        user_id: patients[1].user_id,
         entity_type: 'article',
         entity_id: 2,
         type: 'share',
@@ -274,17 +310,17 @@ async function seedData() {
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng interactions.');
 
     // 8. Thêm dữ liệu mẫu cho Schedule
-    const doctor = users.find(u => u.role === 'doctor');
+    const doctor = await models.Doctor.findOne({ where: { user_id: users.find(u => u.role === 'doctor').id } });
     await models.Schedule.bulkCreate([
       {
-        doctor_id: doctor.id,
+        doctor_id: doctor.user_id,
         start_time: '2025-10-02 08:00:00',
         end_time: '2025-10-02 12:00:00',
         status: 'available',
         off_reason: null
       },
       {
-        doctor_id: doctor.id,
+        doctor_id: doctor.user_id,
         start_time: '2025-10-03 13:00:00',
         end_time: '2025-10-03 17:00:00',
         status: 'available',
@@ -297,7 +333,7 @@ async function seedData() {
     const specialties = await models.Specialty.findAll();
     await models.Appointment.bulkCreate([
       {
-        patient_id: users.find(u => u.role === 'patient').id,
+        patient_id: patients[0].id,
         doctor_id: doctor.id,
         specialty_id: specialties[0].id,
         schedule_id: 1,
@@ -306,7 +342,7 @@ async function seedData() {
         reason: 'Khám tim mạch định kỳ'
       },
       {
-        patient_id: users[4].id,
+        patient_id: patients[1].id,
         doctor_id: doctor.id,
         specialty_id: specialties[0].id,
         schedule_id: 2,
@@ -321,8 +357,8 @@ async function seedData() {
     await models.Consultation.bulkCreate([
       {
         appointment_id: 1,
-        patient_id: users.find(u => u.role === 'patient').id,
-        doctor_id: doctor.id,
+        patient_id: patients[0].user_id,
+        doctor_id: doctor.user_id,
         start_time: '2025-10-02 10:00:00',
         end_time: '2025-10-02 10:30:00',
         video_link: 'https://meet.example.com/consultation123',
@@ -331,8 +367,8 @@ async function seedData() {
       },
       {
         appointment_id: 2,
-        patient_id: users[4].id,
-        doctor_id: doctor.id,
+        patient_id: patients[1].user_id,
+        doctor_id: doctor.user_id,
         start_time: '2025-10-03 14:00:00',
         end_time: '2025-10-03 14:30:00',
         video_link: 'https://meet.example.com/consultation456',
@@ -346,26 +382,26 @@ async function seedData() {
     await models.ChatMessage.bulkCreate([
       {
         consultation_id: 1,
-        sender_id: users.find(u => u.role === 'patient').id,
-        receiver_id: doctor.id,
+        sender_id: patients[0].user_id,
+        receiver_id: doctor.user_id,
         message: 'Chào bác sĩ, tôi cảm thấy chóng mặt gần đây.'
       },
       {
         consultation_id: 1,
-        sender_id: doctor.id,
-        receiver_id: users.find(u => u.role === 'patient').id,
+        sender_id: doctor.user_id,
+        receiver_id: patients[0].user_id,
         message: 'Chào bạn, hãy mô tả thêm triệu chứng.'
       },
       {
         consultation_id: 2,
-        sender_id: users[4].id,
-        receiver_id: doctor.id,
+        sender_id: patients[1].user_id,
+        receiver_id: doctor.user_id,
         message: 'Bác sĩ ơi, nhịp tim tôi bất thường.'
       },
       {
         consultation_id: 2,
-        sender_id: doctor.id,
-        receiver_id: users[4].id,
+        sender_id: doctor.user_id,
+        receiver_id: patients[1].user_id,
         message: 'Chúng ta sẽ kiểm tra kỹ trong buổi hẹn.'
       }
     ]);
@@ -380,7 +416,7 @@ async function seedData() {
         start_date: '2025-10-01',
         end_date: '2025-12-31',
         specialty_id: specialties[0].id,
-        doctor_id: doctor.id,
+        doctor_id: doctor.user_id,
         apply_count: 0
       },
       {
@@ -390,7 +426,7 @@ async function seedData() {
         start_date: '2025-10-01',
         end_date: '2025-11-30',
         specialty_id: specialties[0].id,
-        doctor_id: doctor.id,
+        doctor_id: doctor.user_id,
         apply_count: 0
       }
     ]);
@@ -400,7 +436,7 @@ async function seedData() {
     await models.Payment.bulkCreate([
       {
         appointment_id: 1,
-        user_id: users.find(u => u.role === 'patient').id,
+        user_id: patients[0].user_id,
         amount: 500000.00,
         discount_id: 1,
         status: 'paid',
@@ -409,7 +445,7 @@ async function seedData() {
       },
       {
         appointment_id: 2,
-        user_id: users[4].id,
+        user_id: patients[1].user_id,
         amount: 0.00,
         discount_id: 2,
         status: 'paid',
@@ -422,21 +458,21 @@ async function seedData() {
     // 14. Thêm dữ liệu mẫu cho Notification
     await models.Notification.bulkCreate([
       {
-        user_id: users.find(u => u.role === 'patient').id,
+        user_id: patients[0].user_id,
         type: 'appointment',
         message: 'Lịch hẹn của bạn vào 10:00 02/10/2025 đã được xác nhận.',
         is_read: false,
         link: '/appointments/1'
       },
       {
-        user_id: doctor.id,
+        user_id: doctor.user_id,
         type: 'appointment',
         message: 'Bạn có lịch hẹn mới vào 10:00 02/10/2025.',
         is_read: false,
         link: '/appointments/1'
       },
       {
-        user_id: users[4].id,
+        user_id: patients[1].user_id,
         type: 'appointment',
         message: 'Lịch hẹn của bạn vào 14:00 03/10/2025 đã được xác nhận.',
         is_read: false,
@@ -446,16 +482,17 @@ async function seedData() {
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng notifications.');
 
     // 15. Thêm dữ liệu mẫu cho SystemSetting
+    const admin = await models.Admin.findOne({ where: { user_id: users.find(u => u.role === 'admin').id } });
     await models.SystemSetting.bulkCreate([
       {
         setting_key: 'clinic_name',
         value_json: { name: 'Phòng khám XYZ' },
-        updated_by: users.find(u => u.role === 'admin').id
+        updated_by: admin.user_id
       },
       {
         setting_key: 'banner_config',
         value_json: { image: '/banners/welcome.jpg', text: 'Chào mừng đến với phòng khám!' },
-        updated_by: users.find(u => u.role === 'admin').id
+        updated_by: admin.user_id
       }
     ]);
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng system_settings.');
@@ -465,7 +502,7 @@ async function seedData() {
       {
         title: 'Cao huyết áp nên ăn gì?',
         content: 'Tôi bị cao huyết áp, cần tư vấn chế độ ăn uống phù hợp.',
-        user_id: users.find(u => u.role === 'patient').id,
+        user_id: patients[0].user_id,
         tags_json: ['hypertension', 'diet', 'health'],
         status: 'open',
         views: 50,
@@ -474,7 +511,7 @@ async function seedData() {
       {
         title: 'Rối loạn nhịp tim có nguy hiểm không?',
         content: 'Tôi hay bị hồi hộp, nhịp tim nhanh. Có nguy hiểm không?',
-        user_id: users[4].id,
+        user_id: patients[1].user_id,
         tags_json: ['arrhythmia', 'cardiology', 'health'],
         status: 'open',
         views: 30,
@@ -487,14 +524,14 @@ async function seedData() {
     await models.Answer.bulkCreate([
       {
         question_id: 1,
-        user_id: doctor.id,
+        user_id: doctor.user_id,
         content: 'Nên ăn ít muối, nhiều rau xanh, và tránh thực phẩm chế biến sẵn.',
         is_pinned: false,
         is_verified: true
       },
       {
         question_id: 2,
-        user_id: doctor.id,
+        user_id: doctor.user_id,
         content: 'Rối loạn nhịp tim cần được kiểm tra bởi bác sĩ chuyên khoa.',
         is_pinned: false,
         is_verified: true
@@ -505,20 +542,20 @@ async function seedData() {
     // 18. Thêm dữ liệu mẫu cho MedicalRecord
     await models.MedicalRecord.bulkCreate([
       {
-        patient_id: users.find(u => u.role === 'patient').id,
-        doctor_id: doctor.id,
+        patient_id: patients[0].user_id,
+        doctor_id: doctor.user_id,
         appointment_id: 1,
         type: 'consultation',
         content_json: { diagnosis: 'Cao huyết áp nhẹ', prescription: 'Amlodipine 5mg/ngày' },
-        shared_with_json: [doctor.id]
+        shared_with_json: [doctor.user_id]
       },
       {
-        patient_id: users[4].id,
-        doctor_id: doctor.id,
+        patient_id: patients[1].user_id,
+        doctor_id: doctor.user_id,
         appointment_id: 2,
         type: 'consultation',
         content_json: { diagnosis: 'Rối loạn nhịp tim', prescription: 'Theo dõi thêm' },
-        shared_with_json: [doctor.id]
+        shared_with_json: [doctor.user_id]
       }
     ]);
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng medical_records.');
@@ -526,14 +563,14 @@ async function seedData() {
     // 19. Thêm dữ liệu mẫu cho AuditLog
     await models.AuditLog.bulkCreate([
       {
-        user_id: users.find(u => u.role === 'admin').id,
+        user_id: admin.user_id,
         action: 'create_appointment',
         entity_type: 'appointment',
         entity_id: 1,
-        details_json: { patient_id: users.find(u => u.role === 'patient').id }
+        details_json: { patient_id: patients[0].id }
       },
       {
-        user_id: users.find(u => u.role === 'admin').id,
+        user_id: admin.user_id,
         action: 'update_system_setting',
         entity_type: 'system_setting',
         entity_id: 1,
@@ -543,6 +580,15 @@ async function seedData() {
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng audit_logs.');
   } catch (error) {
     console.error('ERROR: Không thể thêm dữ liệu mẫu:', error.message);
+    console.error('ERROR trong seedData:', {
+      name: error.name,
+      message: error.message,
+      errors: error.errors?.map(e => ({
+        message: e.message,
+        field: e.path,
+        value: e.value
+      }))
+    });
     throw error;
   }
 }

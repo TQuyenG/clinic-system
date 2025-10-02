@@ -53,33 +53,71 @@ module.exports = (sequelize) => {
   // Hook để tự động tạo bản ghi trong bảng vai trò tương ứng
   User.addHook('afterCreate', async (user, options) => {
     try {
+      console.log(`Bắt đầu hook afterCreate cho người dùng: ${user.email} (role: ${user.role})`);
+
       const { Patient, Staff, Doctor, Admin, Specialty } = sequelize.models;
-      if (user.role === 'patient') {
-        await Patient.create({ user_id: user.id });
-        console.log(`SUCCESS: Tạo bản ghi Patient cho user ${user.email}.`);
-      } else if (user.role === 'staff') {
-        await Staff.create({ user_id: user.id, department: 'General' });
-        console.log(`SUCCESS: Tạo bản ghi Staff cho user ${user.email}.`);
-      } else if (user.role === 'doctor') {
-        const specialty = await Specialty.findOne({ where: { slug: 'cardiology' } });
-        await Doctor.create({
-          user_id: user.id,
-          specialty_id: specialty ? specialty.id : null,
-          experience_years: 5,
-          certifications_json: ['MD'],
-          bio: 'Bác sĩ mới.'
-        });
-        console.log(`SUCCESS: Tạo bản ghi Doctor cho user ${user.email}.`);
-      } else if (user.role === 'admin') {
-        await Admin.create({ user_id: user.id, permissions_json: ['manage_users'] });
-        console.log(`SUCCESS: Tạo bản ghi Admin cho user ${user.email}.`);
+      if (!Patient || !Staff || !Doctor || !Admin) {
+        throw new Error('Không tìm thấy các model cần thiết (Patient, Staff, Doctor, Admin)');
       }
+
+      switch (user.role) {
+        case 'patient':
+          await Patient.create({ user_id: user.id });
+          console.log(`SUCCESS: Đã tạo bản ghi Patient cho user ${user.email} (user_id: ${user.id})`);
+          break;
+
+        case 'staff':
+          await Staff.create({ 
+            user_id: user.id, 
+            department: 'General' 
+          });
+          console.log(`SUCCESS: Đã tạo bản ghi Staff cho user ${user.email} (user_id: ${user.id})`);
+          break;
+
+        case 'doctor':
+          const specialty = await Specialty.findOne({ 
+            where: { slug: 'cardiology' } 
+          });
+          if (!specialty) {
+            console.warn(`WARNING: Không tìm thấy chuyên khoa 'cardiology' cho bác sĩ ${user.email}`);
+          }
+          
+          await Doctor.create({
+            user_id: user.id,
+            specialty_id: specialty ? specialty.id : null,
+            experience_years: 5,
+            certifications_json: ['MD'],
+            bio: 'Bác sĩ mới'
+          });
+          console.log(`SUCCESS: Đã tạo bản ghi Doctor cho user ${user.email} (user_id: ${user.id})`);
+          break;
+
+        case 'admin':
+          await Admin.create({ 
+            user_id: user.id, 
+            permissions_json: ['manage_users'] 
+          });
+          console.log(`SUCCESS: Đã tạo bản ghi Admin cho user ${user.email} (user_id: ${user.id})`);
+          break;
+
+        default:
+          console.warn(`WARNING: Vai trò không hợp lệ: ${user.role} cho user ${user.email}`);
+      }
+
+      console.log(`Hoàn tất hook afterCreate cho user: ${user.email}`);
     } catch (error) {
-      console.error(`ERROR: Không thể tạo bản ghi vai trò cho user ${user.email}:`, error.message);
+      console.error('ERROR trong hook afterCreate:', {
+        email: user.email,
+        role: user.role,
+        error: error.message
+      });
       throw error;
     }
   });
 
+  // Log để kiểm tra hook sau khi định nghĩa model
   console.log('SUCCESS: Model User đã được định nghĩa.');
+  console.log('Hooks của User model sau khi định nghĩa:', Object.keys(User.hooks || {}));
+
   return User;
 };
