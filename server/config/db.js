@@ -424,7 +424,7 @@ async function seedData() {
     console.log('8. Thêm Appointments...');
     const appointments = await models.Appointment.bulkCreate([
       { 
-        code: 'AP00001',  // Giả sử hook hoặc trigger set code
+        //code: 'AP00001',  // Giả sử hook hoặc trigger set code
         patient_id: patients[0].id, 
         doctor_id: doctors[0].id, 
         specialty_id: specialties[0].id, 
@@ -435,7 +435,7 @@ async function seedData() {
         updated_at: new Date() 
       },
       { 
-        code: 'AP00002', 
+        //code: 'AP00002', 
         patient_id: patients[1].id, 
         doctor_id: doctors[1].id, 
         specialty_id: specialties[1].id, 
