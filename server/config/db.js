@@ -158,6 +158,7 @@ async function seedData() {
       // 2 Admins
       {
         email: 'admin1@example.com',
+        username: 'doctor1',
         password_hash: 'hashed_password_1',
         full_name: 'Nguyen Van Admin1',
         phone: '0901234567',

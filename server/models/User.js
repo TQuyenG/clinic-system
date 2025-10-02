@@ -4,19 +4,20 @@ module.exports = (sequelize) => {
   const User = sequelize.define('User', {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     email: { type: DataTypes.STRING(255), unique: true, allowNull: false },
+    username: { type: DataTypes.STRING(50), unique: false, allowNull: false }, // Username bắt buộc
     password_hash: { type: DataTypes.STRING(255), allowNull: false },
-    full_name: { type: DataTypes.STRING(255) },
-    phone: { type: DataTypes.STRING(20) },
-    address: { type: DataTypes.TEXT },
-    gender: { type: DataTypes.ENUM('male', 'female', 'other') },
-    dob: { type: DataTypes.DATE },
-    avatar_url: { type: DataTypes.STRING(255) },
+    full_name: { type: DataTypes.STRING(255), allowNull: true }, // Cho phép null
+    phone: { type: DataTypes.STRING(20), allowNull: true },
+    address: { type: DataTypes.TEXT, allowNull: true },
+    gender: { type: DataTypes.ENUM('male', 'female', 'other'), allowNull: true },
+    dob: { type: DataTypes.DATE, allowNull: true },
+    avatar_url: { type: DataTypes.STRING(255), allowNull: true },
     role: { type: DataTypes.ENUM('admin', 'patient', 'doctor', 'staff'), allowNull: false },
-    is_verified: { type: DataTypes.BOOLEAN, defaultValue: false },
-    verification_token: { type: DataTypes.STRING(255) },
-    reset_token: { type: DataTypes.STRING(255) },
-    reset_expires: { type: DataTypes.DATE },
-    last_login: { type: DataTypes.DATE },
+    is_verified: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: true },
+    verification_token: { type: DataTypes.STRING(255), allowNull: true },
+    reset_token: { type: DataTypes.STRING(255), allowNull: true },
+    reset_expires: { type: DataTypes.DATE, allowNull: true },
+    last_login: { type: DataTypes.DATE, allowNull: true },
     is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
@@ -24,7 +25,7 @@ module.exports = (sequelize) => {
     tableName: 'users',
     timestamps: true,
     underscored: true,
-    indexes: [{ fields: ['email'] }]
+    indexes: [{ fields: ['email'] }, { fields: ['username'] }]
   });
 
   User.associate = (models) => {
@@ -50,6 +51,20 @@ module.exports = (sequelize) => {
     User.hasMany(models.SystemSetting, { foreignKey: 'updated_by' });
   };
 
+  // Hook để tự động tạo username từ email
+  User.addHook('beforeValidate', async (user, options) => {
+    try {
+      console.log('Bắt đầu hook beforeValidate cho User');
+      if (!user.username && user.email) {
+        user.username = user.email.split('@')[0];
+        console.log(`SUCCESS: Tạo username ${user.username} từ email ${user.email}`);
+      }
+    } catch (error) {
+      console.error('ERROR trong hook beforeValidate cho User:', error.message);
+      throw error;
+    }
+  });
+
   // Hook để tự động tạo bản ghi trong bảng vai trò tương ứng
   User.addHook('afterCreate', async (user, options) => {
     try {
@@ -60,7 +75,7 @@ module.exports = (sequelize) => {
         throw new Error('Không tìm thấy các model cần thiết (Patient, Staff, Doctor, Admin)');
       }
 
-      const createOptions = { transaction: options.transaction };  // Pass transaction vào create
+      const createOptions = { transaction: options.transaction };
 
       switch (user.role) {
         case 'patient':
@@ -71,25 +86,22 @@ module.exports = (sequelize) => {
         case 'staff':
           await Staff.create({ 
             user_id: user.id, 
-            department: 'General' 
+            department: null // Cho phép null
           }, createOptions);
           console.log(`SUCCESS: Đã tạo bản ghi Staff cho user ${user.email} (user_id: ${user.id})`);
           break;
 
         case 'doctor':
           const specialty = await Specialty.findOne({ 
-            where: { slug: 'cardiology' } 
+            where: { slug: 'cardiology' },
+            transaction: options.transaction
           });
-          if (!specialty) {
-            console.warn(`WARNING: Không tìm thấy chuyên khoa 'cardiology' cho bác sĩ ${user.email}`);
-          }
-          
           await Doctor.create({
             user_id: user.id,
             specialty_id: specialty ? specialty.id : null,
-            experience_years: 5,
-            certifications_json: ['MD'],
-            bio: 'Bác sĩ mới'
+            experience_years: null,
+            certifications_json: null,
+            bio: null
           }, createOptions);
           console.log(`SUCCESS: Đã tạo bản ghi Doctor cho user ${user.email} (user_id: ${user.id})`);
           break;
@@ -97,7 +109,7 @@ module.exports = (sequelize) => {
         case 'admin':
           await Admin.create({ 
             user_id: user.id, 
-            permissions_json: ['manage_users'] 
+            permissions_json: null 
           }, createOptions);
           console.log(`SUCCESS: Đã tạo bản ghi Admin cho user ${user.email} (user_id: ${user.id})`);
           break;
@@ -117,7 +129,6 @@ module.exports = (sequelize) => {
     }
   });
 
-  // Log để kiểm tra hook sau khi định nghĩa model
   console.log('SUCCESS: Model User đã được định nghĩa.');
   console.log('Hooks của User model sau khi định nghĩa:', Object.keys(User.hooks || {}));
 

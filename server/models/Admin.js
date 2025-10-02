@@ -4,14 +4,16 @@ module.exports = (sequelize) => {
   const Admin = sequelize.define('Admin', {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     user_id: { type: DataTypes.BIGINT, unique: true, allowNull: false },
-    code: { type: DataTypes.STRING(10), unique: true, allowNull: false },  // Thêm allowNull: false để enforce not null
-    permissions_json: { type: DataTypes.JSON },
+    username: { type: DataTypes.STRING(50), unique: false, allowNull: false },
+    code: { type: DataTypes.STRING(10), unique: true, allowNull: false },
+    permissions_json: { type: DataTypes.JSON, allowNull: true }, // Cho phép null
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
     tableName: 'admins',
     timestamps: true,
-    underscored: true
+    underscored: true,
+    indexes: [{ fields: ['username'] }]
   });
 
   Admin.associate = (models) => {
@@ -19,14 +21,26 @@ module.exports = (sequelize) => {
     Admin.hasMany(models.SystemSetting, { foreignKey: 'updated_by', sourceKey: 'user_id' });
   };
 
-  Admin.addHook('beforeValidate', async (admin, options) => {  // Di chuyển sang beforeValidate để set trước validation
+  Admin.addHook('beforeValidate', async (admin, options) => {
     try {
       console.log('Bắt đầu hook beforeValidate cho Admin');
-      const count = await Admin.count({ transaction: options.transaction });  // Pass transaction nếu có
+      // Lấy username từ User
+      const user = await sequelize.models.User.findOne({
+        where: { id: admin.user_id },
+        transaction: options.transaction
+      });
+      if (!user) {
+        throw new Error(`Không tìm thấy User với user_id: ${admin.user_id}`);
+      }
+      admin.username = user.username;
+      console.log(`SUCCESS: Đã gán username ${admin.username} cho Admin`);
+
+      // Tạo code
+      const count = await Admin.count({ transaction: options.transaction });
       admin.code = `AD${String(count + 1).padStart(5, '0')}`;
       console.log(`SUCCESS: Tạo mã ${admin.code} cho quản trị viên mới.`);
     } catch (error) {
-      console.error('ERROR: Không thể tạo mã cho quản trị viên:', error.message);
+      console.error('ERROR trong hook beforeValidate cho Admin:', error.message);
       throw error;
     }
   });
