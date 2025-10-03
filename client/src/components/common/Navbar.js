@@ -68,9 +68,7 @@ const Navbar = () => {
 
         {/* Navigation Menu */}
         <div className={`nav-menu ${isMenuOpen ? 'active' : ''}`}>
-          <Link to="/" onClick={() => setIsMenuOpen(false)}>
-            Trang chủ
-          </Link>
+
           <Link to="/about" onClick={() => setIsMenuOpen(false)}>
             Giới thiệu
           </Link>

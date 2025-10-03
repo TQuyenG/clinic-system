@@ -140,23 +140,27 @@ const HomePage = () => {
       }
     };
 
-    // Fetch doctors from API
-    const fetchDoctors = async () => {
-      try {
-        const response = await fetch('/api/doctors?limit=4');
-        const data = await response.json();
-        setDoctors(data);
-      } catch (error) {
-        console.error('Error fetching doctors:', error);
-        // Fallback to mock data nếu API lỗi
-        setDoctors([
-          { id: 1, full_name: 'BS. Nguyễn Văn A', code: 'BS001', specialty_name: 'Tim mạch', experience_years: 15, avatar_url: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop' },
-          { id: 2, full_name: 'BS. Trần Thị B', code: 'BS002', specialty_name: 'Nhi khoa', experience_years: 12, avatar_url: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&h=400&fit=crop' },
-          { id: 3, full_name: 'BS. Lê Văn C', code: 'BS003', specialty_name: 'Ngoại khoa', experience_years: 18, avatar_url: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&h=400&fit=crop' },
-          { id: 4, full_name: 'BS. Phạm Thị D', code: 'BS004', specialty_name: 'Da liễu', experience_years: 10, avatar_url: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop' }
-        ]);
+    // Fetch doctors from API - CẬP NHẬT PHẦN NÀY
+  const fetchDoctors = async () => {
+    try {
+      // Lấy 3 bác sĩ ngẫu nhiên từ DB qua API users
+      const response = await fetch('http://localhost:3001/api/users/doctors?limit=3&random=true');
+      const data = await response.json();
+      
+      if (data.success && data.doctors) {
+        setDoctors(data.doctors);
+        console.log('Lấy được', data.doctors.length, 'bác sĩ từ database');
+      } else {
+        // Không có bác sĩ trong DB, set empty array
+        setDoctors([]);
+        console.log('Không có bác sĩ trong database');
       }
-    };
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+      // Lỗi API, set empty array
+      setDoctors([]);
+    }
+  };
 
     fetchSpecialties();
     fetchDoctors();
@@ -426,63 +430,74 @@ const HomePage = () => {
       </section>
 
       {/* Doctors Section */}
-      <section className="doctors-section animate-section" id="doctors">
-        <div className="container">
-          <div className={`section-header ${isVisible.doctors ? 'fade-in' : ''}`}>
-            <span className="section-badge">Đội ngũ y tế</span>
-            <h2>Bác sĩ nổi bật</h2>
-            <p className="section-subtitle">
-              Gặp gỡ những bác sĩ xuất sắc của chúng tôi
-            </p>
-          </div>
+<section className="doctors-section animate-section" id="doctors">
+  <div className="container">
+    <div className={`section-header ${isVisible.doctors ? 'fade-in' : ''}`}>
+      <span className="section-badge">Đội ngũ y tế</span>
+      <h2>Bác sĩ nổi bật</h2>
+      <p className="section-subtitle">
+        Gặp gỡ những bác sĩ xuất sắc của chúng tôi
+      </p>
+    </div>
 
-          <div className="doctors-grid">
-            {doctors.map((doctor, index) => (
-              <div 
-                key={doctor.id} 
-                className={`doctor-card ${isVisible.doctors ? 'scale-in' : ''}`}
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="doctor-image-wrapper">
-                  <img 
-                    src={doctor.avatar_url} 
-                    alt={doctor.full_name} 
-                    className="doctor-image" 
-                  />
-                  <div className="doctor-rating">
-                    <FaStar />
-                    <span>5.0</span>
-                  </div>
-                </div>
-                <div className="doctor-info">
-                  <h3>{doctor.full_name}</h3>
-                  <p className="doctor-specialty">
-                    <FaStethoscope />
-                    {doctor.specialty_name}
-                  </p>
-                  <p className="doctor-experience">
-                    <FaAward />
-                    {doctor.experience_years} năm kinh nghiệm
-                  </p>
-                  <Link to={`/doctors/${doctor.code}`} className="doctor-link">
-                    Xem hồ sơ
-                    <FaArrowRight />
-                  </Link>
+    {doctors.length > 0 ? (
+      <>
+        <div className="doctors-grid">
+          {doctors.map((doctor, index) => (
+            <div 
+              key={doctor.id} 
+              className={`doctor-card ${isVisible.doctors ? 'scale-in' : ''}`}
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
+              <div className="doctor-image-wrapper">
+                <img 
+                  src={doctor.avatar_url} 
+                  alt={doctor.full_name} 
+                  className="doctor-image" 
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/400?text=Doctor';
+                  }}
+                />
+                <div className="doctor-rating">
+                  <FaStar />
+                  <span>5.0</span>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {doctors.length > 0 && (
-            <div className="section-footer">
-              <Link to="/doctors" className="btn btn-outline">
-                Xem tất cả bác sĩ
-                <FaArrowRight />
-              </Link>
+              <div className="doctor-info">
+                <h3>{doctor.full_name}</h3>
+                <p className="doctor-specialty">
+                  <FaStethoscope />
+                  {doctor.specialty_name}
+                </p>
+                <p className="doctor-experience">
+                  <FaAward />
+                  {doctor.experience_years} năm kinh nghiệm
+                </p>
+                <Link to={`/doctors/${doctor.code}`} className="doctor-link">
+                  Xem hồ sơ
+                  <FaArrowRight />
+                </Link>
+              </div>
             </div>
-          )}
+          ))}
         </div>
-      </section>
+
+        <div className="section-footer">
+          <Link to="/doctors" className="btn btn-outline">
+            Xem tất cả bác sĩ
+            <FaArrowRight />
+          </Link>
+        </div>
+      </>
+    ) : (
+      <div className="empty-state">
+        <FaUserMd className="empty-icon" />
+        <p>Hiện chưa có bác sĩ nào trong hệ thống</p>
+        <p className="empty-subtext">Vui lòng quay lại sau</p>
+      </div>
+    )}
+  </div>
+</section>
 
       {/* Testimonials Section */}
       <section className="testimonials-section animate-section" id="testimonials">
