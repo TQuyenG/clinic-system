@@ -1,3 +1,6 @@
+// server/app.js
+// Mô tả: Thiết lập server Express, kết nối DB, cấu hình WebSocket và cron job
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');

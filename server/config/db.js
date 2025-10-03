@@ -5,6 +5,7 @@ require('dotenv').config({
 
 const mysql = require('mysql2/promise');
 const { Sequelize } = require('sequelize');
+const bcrypt = require('bcrypt');
 
 // Log để kiểm tra biến môi trường được load
 console.log('Database Config:', {
@@ -151,166 +152,128 @@ async function seedData() {
     ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng categories.');
 
-    // 3. Thêm Users với loop sequential (8 users: 2 admin, 2 staff, 2 doctor, 2 patient)
-    // Hook afterCreate sẽ tự tạo Patients, Staff, Doctors, Admins (mỗi 2 data)
+    // 3. Thêm Users - QUAN TRỌNG: Hash password và set đúng is_active
     console.log('3. Thêm Users...');
+    
+    // Hash password cho tất cả user
+    const hashedPassword = await bcrypt.hash('123456', 10);
+    
     const usersData = [
-      // 2 Admins
+      // 2 Admins - ĐÃ KÍCH HOẠT
       {
         email: 'admin1@example.com',
-        username: 'doctor1',
-        password_hash: 'hashed_password_1',
+        password_hash: hashedPassword,
         full_name: 'Nguyen Van Admin1',
         phone: '0901234567',
         address: '123 Hanoi',
         gender: 'male',
         dob: '1980-01-01',
         role: 'admin',
-        avatar_url: '/avatars/admin1.jpg',
         is_verified: true,
+        is_active: true, // Admin đã kích hoạt sẵn
         verification_token: null,
-        reset_token: null,
-        reset_expires: null,
-        last_login: '2025-10-01 08:00:00',
-        is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
+        verification_expires: null
       },
       {
         email: 'admin2@example.com',
-        password_hash: 'hashed_password_2',
+        password_hash: hashedPassword,
         full_name: 'Tran Thi Admin2',
         phone: '0901234568',
         address: '124 Hanoi',
         gender: 'female',
         dob: '1981-02-02',
         role: 'admin',
-        avatar_url: '/avatars/admin2.jpg',
         is_verified: true,
-        verification_token: null,
-        reset_token: null,
-        reset_expires: null,
-        last_login: '2025-10-02 08:00:00',
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
+        verification_token: null,
+        verification_expires: null
       },
-      // 2 Staff
+      // 2 Staff - ĐÃ KÍCH HOẠT
       {
         email: 'staff1@example.com',
-        password_hash: 'hashed_password_3',
+        password_hash: hashedPassword,
         full_name: 'Le Van Staff1',
         phone: '0901234569',
         address: '125 HCMC',
         gender: 'male',
         dob: '1985-03-03',
         role: 'staff',
-        avatar_url: '/avatars/staff1.jpg',
         is_verified: true,
-        verification_token: null,
-        reset_token: null,
-        reset_expires: null,
-        last_login: '2025-10-01 09:00:00',
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
+        verification_token: null,
+        verification_expires: null
       },
       {
         email: 'staff2@example.com',
-        password_hash: 'hashed_password_4',
+        password_hash: hashedPassword,
         full_name: 'Pham Thi Staff2',
         phone: '0901234570',
         address: '126 HCMC',
         gender: 'female',
         dob: '1986-04-04',
         role: 'staff',
-        avatar_url: '/avatars/staff2.jpg',
         is_verified: true,
-        verification_token: null,
-        reset_token: null,
-        reset_expires: null,
-        last_login: '2025-10-02 09:00:00',
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
+        verification_token: null,
+        verification_expires: null
       },
-      // 2 Doctors
+      // 2 Doctors - ĐÃ KÍCH HOẠT
       {
         email: 'doctor1@example.com',
-        password_hash: 'hashed_password_5',
+        password_hash: hashedPassword,
         full_name: 'Hoang Van Doctor1',
         phone: '0901234571',
         address: '127 Danang',
         gender: 'male',
         dob: '1975-05-05',
         role: 'doctor',
-        avatar_url: '/avatars/doctor1.jpg',
         is_verified: true,
-        verification_token: null,
-        reset_token: null,
-        reset_expires: null,
-        last_login: '2025-10-01 10:00:00',
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
+        verification_token: null,
+        verification_expires: null
       },
       {
         email: 'doctor2@example.com',
-        password_hash: 'hashed_password_6',
+        password_hash: hashedPassword,
         full_name: 'Nguyen Thi Doctor2',
         phone: '0901234572',
         address: '128 Danang',
         gender: 'female',
         dob: '1976-06-06',
         role: 'doctor',
-        avatar_url: '/avatars/doctor2.jpg',
         is_verified: true,
-        verification_token: null,
-        reset_token: null,
-        reset_expires: null,
-        last_login: '2025-10-02 10:00:00',
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
+        verification_token: null,
+        verification_expires: null
       },
-      // 2 Patients
+      // 2 Patients - ĐÃ KÍCH HOẠT
       {
         email: 'patient1@example.com',
-        password_hash: 'hashed_password_7',
+        password_hash: hashedPassword,
         full_name: 'Vo Van Patient1',
         phone: '0901234573',
         address: '129 Hue',
         gender: 'male',
         dob: '1990-07-07',
         role: 'patient',
-        avatar_url: '/avatars/patient1.jpg',
         is_verified: true,
-        verification_token: null,
-        reset_token: null,
-        reset_expires: null,
-        last_login: '2025-10-01 11:00:00',
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
+        verification_token: null,
+        verification_expires: null
       },
       {
         email: 'patient2@example.com',
-        password_hash: 'hashed_password_8',
+        password_hash: hashedPassword,
         full_name: 'Le Thi Patient2',
         phone: '0901234574',
         address: '130 Hue',
         gender: 'female',
         dob: '1991-08-08',
         role: 'patient',
-        avatar_url: '/avatars/patient2.jpg',
         is_verified: true,
-        verification_token: null,
-        reset_token: null,
-        reset_expires: null,
-        last_login: '2025-10-02 11:00:00',
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
+        verification_token: null,
+        verification_expires: null
       }
     ];
 
@@ -321,13 +284,13 @@ async function seedData() {
       users.push(user);
     }
 
-    // Lấy instances từ hook (Patients, Staff, Doctors, Admins)
+    // Lấy instances từ hook
     const admins = await models.Admin.findAll({ transaction });
     const staff = await models.Staff.findAll({ transaction });
     const doctors = await models.Doctor.findAll({ transaction });
     const patients = await models.Patient.findAll({ transaction });
 
-    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng users, patients, staff, doctors, admins qua hook.');
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng users và các bảng role.');
 
     // 4. Thêm Medicines (2 data, sau categories)
     console.log('4. Thêm Medicines...');

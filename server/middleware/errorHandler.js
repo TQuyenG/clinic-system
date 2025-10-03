@@ -1,20 +1,45 @@
+// FILE: server/middleware/errorHandler.js
+// Mô tả: Middleware xử lý lỗi tập trung cho toàn bộ API, log chi tiết lỗi
+
 const errorHandler = (err, req, res, next) => {
-  console.error(err.stack);
-  
-  // Xử lý các loại lỗi cụ thể
+  // Log chi tiết lỗi
+  console.error('==================== LỖI API ====================');
+  console.error('Thời gian:', new Date().toISOString());
+  console.error('Endpoint:', req.method, req.path);
+  console.error('Body:', JSON.stringify(req.body, null, 2));
+  console.error('Lỗi:', {
+    name: err.name,
+    message: err.message,
+    stack: err.stack
+  });
+  console.error('================================================');
+
+  // Xác định status code
+  const statusCode = err.statusCode || err.status || 500;
+
+  // Xác định message
+  let message = err.message || 'Lỗi máy chủ';
+
+  // Xử lý lỗi Sequelize
   if (err.name === 'SequelizeValidationError') {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation error',
-      errors: err.errors.map(e => e.message)
-    });
+    message = err.errors.map(e => e.message).join(', ');
+  } else if (err.name === 'SequelizeUniqueConstraintError') {
+    message = 'Dữ liệu đã tồn tại trong hệ thống';
+  } else if (err.name === 'SequelizeForeignKeyConstraintError') {
+    message = 'Dữ liệu liên quan không hợp lệ';
+  } else if (err.name === 'SequelizeDatabaseError') {
+    message = 'Lỗi cơ sở dữ liệu';
   }
 
-  // Lỗi mặc định
-  res.status(500).json({
+  // Trả về response lỗi
+  res.status(statusCode).json({
     success: false,
-    message: 'Internal Server Error',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
+    message: message,
+    error: process.env.NODE_ENV === 'development' ? {
+      name: err.name,
+      message: err.message,
+      stack: err.stack
+    } : undefined
   });
 };
 

@@ -1,12 +1,13 @@
+// server/models/User.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   const User = sequelize.define('User', {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     email: { type: DataTypes.STRING(255), unique: true, allowNull: false },
-    username: { type: DataTypes.STRING(50), unique: false, allowNull: false }, // Username bắt buộc
+    username: { type: DataTypes.STRING(50), unique: false, allowNull: false },
     password_hash: { type: DataTypes.STRING(255), allowNull: false },
-    full_name: { type: DataTypes.STRING(255), allowNull: true }, // Cho phép null
+    full_name: { type: DataTypes.STRING(255), allowNull: true },
     phone: { type: DataTypes.STRING(20), allowNull: true },
     address: { type: DataTypes.TEXT, allowNull: true },
     gender: { type: DataTypes.ENUM('male', 'female', 'other'), allowNull: true },
@@ -15,10 +16,11 @@ module.exports = (sequelize) => {
     role: { type: DataTypes.ENUM('admin', 'patient', 'doctor', 'staff'), allowNull: false },
     is_verified: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: true },
     verification_token: { type: DataTypes.STRING(255), allowNull: true },
+    verification_expires: { type: DataTypes.DATE, allowNull: true },
     reset_token: { type: DataTypes.STRING(255), allowNull: true },
     reset_expires: { type: DataTypes.DATE, allowNull: true },
     last_login: { type: DataTypes.DATE, allowNull: true },
-    is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
+    is_active: { type: DataTypes.BOOLEAN, defaultValue: false }, // Mặc định FALSE
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
@@ -54,21 +56,27 @@ module.exports = (sequelize) => {
   // Hook để tự động tạo username từ email
   User.addHook('beforeValidate', async (user, options) => {
     try {
-      console.log('Bắt đầu hook beforeValidate cho User');
       if (!user.username && user.email) {
         user.username = user.email.split('@')[0];
-        console.log(`SUCCESS: Tạo username ${user.username} từ email ${user.email}`);
+        console.log(`[Hook beforeValidate] Tạo username ${user.username} từ email ${user.email}`);
       }
     } catch (error) {
-      console.error('ERROR trong hook beforeValidate cho User:', error.message);
+      console.error('[Hook beforeValidate] ERROR:', error.message);
       throw error;
     }
   });
 
   // Hook để tự động tạo bản ghi trong bảng vai trò tương ứng
+  // QUAN TRỌNG: Hook này CHỈ tạo bản ghi role, KHÔNG được sửa user
   User.addHook('afterCreate', async (user, options) => {
     try {
-      console.log(`Bắt đầu hook afterCreate cho người dùng: ${user.email} (role: ${user.role})`);
+      console.log(`[Hook afterCreate] Bắt đầu cho user: ${user.email} (role: ${user.role})`);
+      
+      // Log trạng thái user trước khi hook làm gì
+      console.log(`[Hook afterCreate] Trạng thái user:`);
+      console.log(`  - is_verified: ${user.is_verified}`);
+      console.log(`  - is_active: ${user.is_active}`);
+      console.log(`  - verification_token: ${user.verification_token ? 'CÓ' : 'KHÔNG'}`);
 
       const { Patient, Staff, Doctor, Admin, Specialty } = sequelize.models;
       if (!Patient || !Staff || !Doctor || !Admin) {
@@ -80,15 +88,15 @@ module.exports = (sequelize) => {
       switch (user.role) {
         case 'patient':
           await Patient.create({ user_id: user.id }, createOptions);
-          console.log(`SUCCESS: Đã tạo bản ghi Patient cho user ${user.email} (user_id: ${user.id})`);
+          console.log(`[Hook afterCreate] Đã tạo bản ghi Patient cho user ${user.email}`);
           break;
 
         case 'staff':
           await Staff.create({ 
             user_id: user.id, 
-            department: null // Cho phép null
+            department: null
           }, createOptions);
-          console.log(`SUCCESS: Đã tạo bản ghi Staff cho user ${user.email} (user_id: ${user.id})`);
+          console.log(`[Hook afterCreate] Đã tạo bản ghi Staff cho user ${user.email}`);
           break;
 
         case 'doctor':
@@ -103,7 +111,7 @@ module.exports = (sequelize) => {
             certifications_json: null,
             bio: null
           }, createOptions);
-          console.log(`SUCCESS: Đã tạo bản ghi Doctor cho user ${user.email} (user_id: ${user.id})`);
+          console.log(`[Hook afterCreate] Đã tạo bản ghi Doctor cho user ${user.email}`);
           break;
 
         case 'admin':
@@ -111,16 +119,22 @@ module.exports = (sequelize) => {
             user_id: user.id, 
             permissions_json: null 
           }, createOptions);
-          console.log(`SUCCESS: Đã tạo bản ghi Admin cho user ${user.email} (user_id: ${user.id})`);
+          console.log(`[Hook afterCreate] Đã tạo bản ghi Admin cho user ${user.email}`);
           break;
 
         default:
-          console.warn(`WARNING: Vai trò không hợp lệ: ${user.role} cho user ${user.email}`);
+          console.warn(`[Hook afterCreate] Vai trò không hợp lệ: ${user.role}`);
       }
 
-      console.log(`Hoàn tất hook afterCreate cho user: ${user.email}`);
+      // QUAN TRỌNG: KHÔNG được thay đổi user ở đây
+      // Không được: user.is_active = true;
+      // Không được: user.verification_token = null;
+      // Hook chỉ tạo record role, KHÔNG sửa user!
+
+      console.log(`[Hook afterCreate] Hoàn tất cho user: ${user.email} - KHÔNG thay đổi gì trên user`);
+      
     } catch (error) {
-      console.error('ERROR trong hook afterCreate:', {
+      console.error('[Hook afterCreate] ERROR:', {
         email: user.email,
         role: user.role,
         error: error.message
@@ -130,7 +144,6 @@ module.exports = (sequelize) => {
   });
 
   console.log('SUCCESS: Model User đã được định nghĩa.');
-  console.log('Hooks của User model sau khi định nghĩa:', Object.keys(User.hooks || {}));
 
   return User;
 };
