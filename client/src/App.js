@@ -9,6 +9,8 @@ import UsersPage from './pages/UsersPage';
 import ProfilePage from './pages/ProfilePage';
 import HomePage from './pages/HomePage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import SpecialtyManagementPage from './pages/SpecialtyManagementPage';
+import CategoryManagementPage from './pages/CategoryManagementPage';
 import './App.css';
 
 // Protected Route Component
@@ -85,6 +87,23 @@ function App() {
           element={
             <ProtectedRoute requiredRole="admin">
               <UsersPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/specialties" 
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <SpecialtyManagementPage />
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/categories" 
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <CategoryManagementPage />
             </ProtectedRoute>
           } 
         />

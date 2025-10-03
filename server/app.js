@@ -9,6 +9,8 @@ const userRoutes = require('./routes/userRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const WebSocket = require('ws');
 const cron = require('node-cron');
+const specialtyRoutes = require('./routes/specialtyRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 
 // Khởi tạo ứng dụng Express
 const app = express();
@@ -20,6 +22,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/users', userRoutes);
+app.use('/api/specialties', specialtyRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Error Handler Middleware
 app.use(errorHandler);

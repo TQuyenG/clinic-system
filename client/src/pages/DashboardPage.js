@@ -74,6 +74,8 @@ const DashboardPage = () => {
             {user?.role === 'admin' && (
               <>
                 <a href="/users">Quản lý người dùng</a>
+                <a href="/specialties">Quản lý chuyên khoa</a>
+                <a href="/categories">Quản lý danh mục</a>
                 <a href="/appointments">Quản lý lịch hẹn</a>
                 <a href="/articles">Quản lý bài viết</a>
                 <a href="/statistics">Thống kê</a>

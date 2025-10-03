@@ -548,20 +548,26 @@ exports.getUserById = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { full_name, phone, address, gender, dob, role } = req.body;
+    const { full_name, phone, address, gender, dob, role, specialty_id } = req.body;
 
     const user = await models.User.findByPk(userId);
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Người dùng không tồn tại' 
+      });
     }
 
+    // Cập nhật thông tin cơ bản
     if (full_name !== undefined) user.full_name = full_name;
     if (phone !== undefined) user.phone = phone;
     if (address !== undefined) user.address = address;
     if (gender !== undefined) user.gender = gender;
     if (dob !== undefined) user.dob = dob;
 
+    // Nếu đổi role
     if (role !== undefined && role !== user.role) {
+      // Xóa record role cũ
       if (user.role === 'patient') await models.Patient.destroy({ where: { user_id: userId } });
       if (user.role === 'staff') await models.Staff.destroy({ where: { user_id: userId } });
       if (user.role === 'doctor') await models.Doctor.destroy({ where: { user_id: userId } });
@@ -569,13 +575,26 @@ exports.updateUser = async (req, res) => {
 
       user.role = role;
 
+      // Tạo record role mới
       if (role === 'patient') await models.Patient.create({ user_id: userId });
       if (role === 'staff') await models.Staff.create({ user_id: userId, department: null });
       if (role === 'doctor') {
-        const specialty = await models.Specialty.findOne({ where: { slug: 'cardiology' } });
-        await models.Doctor.create({ user_id: userId, specialty_id: specialty?.id || null });
+        // THÊM: Cho phép chọn specialty_id khi tạo doctor
+        await models.Doctor.create({ 
+          user_id: userId, 
+          specialty_id: specialty_id || null 
+        });
       }
       if (role === 'admin') await models.Admin.create({ user_id: userId, permissions_json: null });
+    }
+
+    // CẬP NHẬT: Nếu user đã là doctor, cho phép cập nhật specialty_id
+    if (user.role === 'doctor' && specialty_id !== undefined) {
+      const doctor = await models.Doctor.findOne({ where: { user_id: userId } });
+      if (doctor) {
+        doctor.specialty_id = specialty_id;
+        await doctor.save();
+      }
     }
 
     await user.save();
@@ -593,7 +612,11 @@ exports.updateUser = async (req, res) => {
     });
   } catch (error) {
     console.error('ERROR trong updateUser:', error);
-    res.status(500).json({ success: false, message: 'Lỗi khi cập nhật người dùng', error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi khi cập nhật người dùng', 
+      error: error.message 
+    });
   }
 };
 

@@ -137,18 +137,25 @@ async function seedData() {
     const categories = await models.Category.bulkCreate([
       { 
         parent_id: null, 
-        name: 'General Health', 
-        slug: 'general-health', 
+        name: 'Tin tức', 
+        slug: 'tin-tuc', 
         created_at: new Date(), 
         updated_at: new Date() 
       },
       { 
-        parent_id: specialties[0].id,  // Giả sử parent_id có thể link, nhưng theo SQL là self-ref
-        name: 'Cardiovascular', 
-        slug: 'cardiovascular', 
+        parent_id: null, 
+        name: 'Thuốc', 
+        slug: 'thuoc', 
         created_at: new Date(), 
         updated_at: new Date() 
-      }
+      },
+      { 
+        parent_id: null, 
+        name: 'Bệnh lý', 
+        slug: 'benh-ly', 
+        created_at: new Date(), 
+        updated_at: new Date() 
+      }   
     ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng categories.');
 

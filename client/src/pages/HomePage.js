@@ -122,23 +122,24 @@ const HomePage = () => {
   useEffect(() => {
     // Fetch specialties from API
     const fetchSpecialties = async () => {
-      try {
-        const response = await fetch('/api/specialties');
-        const data = await response.json();
-        setSpecialties(data);
-      } catch (error) {
-        console.error('Error fetching specialties:', error);
-        // Fallback to mock data nếu API lỗi
-        setSpecialties([
-          { id: 1, name: 'Tim mạch', slug: 'tim-mach', description: 'Chuyên khoa tim mạch với đội ngũ bác sĩ giàu kinh nghiệm', icon: <FaHeartbeat /> },
-          { id: 2, name: 'Nội khoa', slug: 'noi-khoa', description: 'Điều trị các bệnh lý nội khoa tổng quát', icon: <FaStethoscope /> },
-          { id: 3, name: 'Ngoại khoa', slug: 'ngoai-khoa', description: 'Phẫu thuật với công nghệ tiên tiến', icon: <FaProcedures /> },
-          { id: 4, name: 'Nhi khoa', slug: 'nhi-khoa', description: 'Chăm sóc sức khỏe toàn diện cho trẻ em', icon: <FaUsers /> },
-          { id: 5, name: 'Sản phụ khoa', slug: 'san-phu-khoa', description: 'Chăm sóc sức khỏe phụ nữ và thai sản', icon: <FaHeart /> },
-          { id: 6, name: 'Răng hàm mặt', slug: 'rang-ham-mat', description: 'Nha khoa thẩm mỹ và điều trị', icon: <FaStethoscope /> }
-        ]);
-      }
-    };
+  try {
+    // Lấy từ API thực thay vì mock data
+    const response = await fetch('http://localhost:3001/api/specialties');
+    const data = await response.json();
+    
+    if (data.success && data.specialties) {
+      // Map icon cho mỗi specialty
+      const specialtiesWithIcons = data.specialties.map(spec => ({
+        ...spec,
+        icon: <FaStethoscope /> // Hoặc map theo tên để gán icon khác nhau
+      }));
+      setSpecialties(specialtiesWithIcons.slice(0, 6));
+    }
+  } catch (error) {
+    console.error('Error fetching specialties:', error);
+    // Giữ fallback mock data như cũ
+  }
+};
 
     // Fetch doctors from API - CẬP NHẬT PHẦN NÀY
   const fetchDoctors = async () => {
