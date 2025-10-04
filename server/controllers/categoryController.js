@@ -1,26 +1,48 @@
 // ============================================
 // server/controllers/categoryController.js
+// Controller cho quản lý danh mục với category_type
 // ============================================
 
 const { models } = require('../config/db');
 const { Op } = require('sequelize');
 
-// Lấy tất cả danh mục (có cấu trúc cây)
+// Danh sách loại danh mục hợp lệ
+const CATEGORY_TYPES = {
+  TIN_TUC: 'tin_tuc',
+  THUOC: 'thuoc',
+  BENH_LY: 'benh_ly'
+};
+
+const CATEGORY_TYPE_LABELS = {
+  'tin_tuc': 'Tin tức',
+  'thuoc': 'Thuốc',
+  'benh_ly': 'Bệnh lý'
+};
+
+/**
+ * Lấy tất cả danh mục
+ * GET /api/categories
+ */
 exports.getAllCategories = async (req, res) => {
   try {
     const categories = await models.Category.findAll({
-      order: [['created_at', 'DESC']],
-      include: [{
-        model: models.Category,
-        as: 'Children',
-        required: false
-      }]
+      order: [
+        ['category_type', 'ASC'],
+        ['name', 'ASC']
+      ],
+      raw: true
     });
+
+    // Thêm label cho category_type
+    const categoriesWithLabel = categories.map(cat => ({
+      ...cat,
+      category_type_label: CATEGORY_TYPE_LABELS[cat.category_type] || cat.category_type
+    }));
 
     res.status(200).json({
       success: true,
       count: categories.length,
-      categories
+      categories: categoriesWithLabel
     });
   } catch (error) {
     console.error('ERROR trong getAllCategories:', error);
@@ -32,81 +54,89 @@ exports.getAllCategories = async (req, res) => {
   }
 };
 
-// Lấy danh mục cha (3 danh mục lớn: Tin tức, Thuốc, Bệnh lý)
-exports.getParentCategories = async (req, res) => {
+/**
+ * Lấy danh mục theo loại (tin_tuc, thuoc, benh_ly)
+ * GET /api/categories/by-type/:type
+ */
+exports.getCategoriesByType = async (req, res) => {
   try {
-    const parentCategories = await models.Category.findAll({
-      where: { parent_id: null },
-      include: [{
-        model: models.Category,
-        as: 'Children',
-        required: false
-      }],
-      order: [['created_at', 'ASC']]
-    });
+    const { type } = req.params;
 
-    res.status(200).json({
-      success: true,
-      categories: parentCategories
-    });
-  } catch (error) {
-    console.error('ERROR trong getParentCategories:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi khi lấy danh mục cha',
-      error: error.message
-    });
-  }
-};
-
-// Lấy danh mục con theo parent_id
-exports.getCategoriesByParent = async (req, res) => {
-  try {
-    const { parentId } = req.params;
+    // Validate type
+    if (!Object.values(CATEGORY_TYPES).includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Loại danh mục không hợp lệ. Chỉ chấp nhận: tin_tuc, thuoc, benh_ly'
+      });
+    }
 
     const categories = await models.Category.findAll({
-      where: { parent_id: parentId },
-      order: [['created_at', 'DESC']]
+      where: { category_type: type },
+      order: [['name', 'ASC']],
+      raw: true
     });
 
     res.status(200).json({
       success: true,
+      type,
+      type_label: CATEGORY_TYPE_LABELS[type],
       count: categories.length,
       categories
     });
   } catch (error) {
-    console.error('ERROR trong getCategoriesByParent:', error);
+    console.error('ERROR trong getCategoriesByType:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi lấy danh mục con',
+      message: 'Lỗi khi lấy danh mục theo loại',
       error: error.message
     });
   }
 };
 
-// Lấy chi tiết 1 danh mục
+/**
+ * Lấy danh sách các loại danh mục (tin_tuc, thuoc, benh_ly)
+ * GET /api/categories/types
+ */
+exports.getCategoryTypes = async (req, res) => {
+  try {
+    // Đếm số lượng danh mục con của mỗi loại
+    const counts = await Promise.all(
+      Object.values(CATEGORY_TYPES).map(async (type) => {
+        const count = await models.Category.count({
+          where: { category_type: type }
+        });
+        return {
+          type,
+          label: CATEGORY_TYPE_LABELS[type],
+          count
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      types: counts
+    });
+  } catch (error) {
+    console.error('ERROR trong getCategoryTypes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy danh sách loại danh mục',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Lấy chi tiết 1 danh mục
+ * GET /api/categories/:id
+ */
 exports.getCategoryById = async (req, res) => {
   try {
     const { id } = req.params;
 
     const category = await models.Category.findByPk(id, {
-      include: [
-        {
-          model: models.Category,
-          as: 'Parent',
-          required: false
-        },
-        {
-          model: models.Category,
-          as: 'Children',
-          required: false
-        },
-        {
-          model: models.Article,
-          attributes: ['id'],
-          required: false
-        }
-      ]
+      raw: true
     });
 
     if (!category) {
@@ -116,11 +146,17 @@ exports.getCategoryById = async (req, res) => {
       });
     }
 
+    // Đếm số bài viết trong danh mục
+    const articleCount = await models.Article.count({
+      where: { category_id: id }
+    });
+
     res.status(200).json({
       success: true,
       category: {
-        ...category.toJSON(),
-        articleCount: category.Articles?.length || 0
+        ...category,
+        category_type_label: CATEGORY_TYPE_LABELS[category.category_type],
+        article_count: articleCount
       }
     });
   } catch (error) {
@@ -133,11 +169,16 @@ exports.getCategoryById = async (req, res) => {
   }
 };
 
-// Tạo danh mục mới
+/**
+ * Tạo danh mục mới
+ * POST /api/categories
+ * Body: { category_type, name, slug, description }
+ */
 exports.createCategory = async (req, res) => {
   try {
-    const { name, parent_id, slug } = req.body;
+    const { category_type, name, slug, description } = req.body;
 
+    // Validate: Tên danh mục là bắt buộc
     if (!name) {
       return res.status(400).json({
         success: false,
@@ -145,18 +186,23 @@ exports.createCategory = async (req, res) => {
       });
     }
 
-    // Kiểm tra parent_id có tồn tại không
-    if (parent_id) {
-      const parentCategory = await models.Category.findByPk(parent_id);
-      if (!parentCategory) {
-        return res.status(400).json({
-          success: false,
-          message: 'Danh mục cha không tồn tại'
-        });
-      }
+    // Validate: category_type là bắt buộc
+    if (!category_type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Loại danh mục là bắt buộc'
+      });
     }
 
-    // Tự động tạo slug
+    // Validate: category_type phải hợp lệ
+    if (!Object.values(CATEGORY_TYPES).includes(category_type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Loại danh mục không hợp lệ. Chỉ chấp nhận: tin_tuc, thuoc, benh_ly'
+      });
+    }
+
+    // Tự động tạo slug từ tên nếu không nhập
     const finalSlug = slug || name.toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -164,16 +210,33 @@ exports.createCategory = async (req, res) => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
 
+    // Kiểm tra slug có trùng không
+    const existingSlug = await models.Category.findOne({
+      where: { slug: finalSlug }
+    });
+
+    if (existingSlug) {
+      return res.status(400).json({
+        success: false,
+        message: `Slug "${finalSlug}" đã tồn tại. Vui lòng chọn tên khác.`
+      });
+    }
+
+    // Tạo danh mục mới
     const category = await models.Category.create({
+      category_type,
       name,
-      parent_id: parent_id || null,
-      slug: finalSlug
+      slug: finalSlug,
+      description: description || null
     });
 
     res.status(201).json({
       success: true,
       message: 'Tạo danh mục thành công',
-      category
+      category: {
+        ...category.toJSON(),
+        category_type_label: CATEGORY_TYPE_LABELS[category.category_type]
+      }
     });
   } catch (error) {
     console.error('ERROR trong createCategory:', error);
@@ -193,11 +256,15 @@ exports.createCategory = async (req, res) => {
   }
 };
 
-// Cập nhật danh mục
+/**
+ * Cập nhật danh mục
+ * PUT /api/categories/:id
+ * Body: { category_type, name, slug, description }
+ */
 exports.updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, parent_id, slug } = req.body;
+    const { category_type, name, slug, description } = req.body;
 
     const category = await models.Category.findByPk(id);
 
@@ -208,36 +275,46 @@ exports.updateCategory = async (req, res) => {
       });
     }
 
-    // Không cho phép set parent_id = chính nó
-    if (parent_id && parseInt(parent_id) === parseInt(id)) {
+    // Validate category_type nếu có thay đổi
+    if (category_type && !Object.values(CATEGORY_TYPES).includes(category_type)) {
       return res.status(400).json({
         success: false,
-        message: 'Không thể đặt danh mục làm cha của chính nó'
+        message: 'Loại danh mục không hợp lệ'
       });
     }
 
-    // Kiểm tra parent_id mới
-    if (parent_id) {
-      const parentCategory = await models.Category.findByPk(parent_id);
-      if (!parentCategory) {
+    // Kiểm tra slug trùng (nếu có thay đổi)
+    if (slug && slug !== category.slug) {
+      const existingSlug = await models.Category.findOne({
+        where: { 
+          slug,
+          id: { [Op.ne]: id }
+        }
+      });
+
+      if (existingSlug) {
         return res.status(400).json({
           success: false,
-          message: 'Danh mục cha không tồn tại'
+          message: `Slug "${slug}" đã tồn tại`
         });
       }
     }
 
-    // Cập nhật
+    // Cập nhật thông tin
+    if (category_type !== undefined) category.category_type = category_type;
     if (name !== undefined) category.name = name;
-    if (parent_id !== undefined) category.parent_id = parent_id || null;
     if (slug !== undefined) category.slug = slug;
+    if (description !== undefined) category.description = description;
 
     await category.save();
 
     res.status(200).json({
       success: true,
       message: 'Cập nhật danh mục thành công',
-      category
+      category: {
+        ...category.toJSON(),
+        category_type_label: CATEGORY_TYPE_LABELS[category.category_type]
+      }
     });
   } catch (error) {
     console.error('ERROR trong updateCategory:', error);
@@ -249,7 +326,10 @@ exports.updateCategory = async (req, res) => {
   }
 };
 
-// Xóa danh mục
+/**
+ * Xóa danh mục
+ * DELETE /api/categories/:id
+ */
 exports.deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
@@ -263,19 +343,7 @@ exports.deleteCategory = async (req, res) => {
       });
     }
 
-    // Kiểm tra danh mục con
-    const childCount = await models.Category.count({
-      where: { parent_id: id }
-    });
-
-    if (childCount > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Không thể xóa. Có ${childCount} danh mục con. Vui lòng xóa danh mục con trước.`
-      });
-    }
-
-    // Kiểm tra bài viết
+    // Kiểm tra còn bài viết trong danh mục không
     const articleCount = await models.Article.count({
       where: { category_id: id }
     });
@@ -287,6 +355,7 @@ exports.deleteCategory = async (req, res) => {
       });
     }
 
+    // Xóa danh mục
     await category.destroy();
 
     res.status(200).json({

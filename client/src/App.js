@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
 import ProfilePage from './pages/ProfilePage';
 import HomePage from './pages/HomePage';
+import AboutPage from './pages/AboutPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import SpecialtyManagementPage from './pages/SpecialtyManagementPage';
 import CategoryManagementPage from './pages/CategoryManagementPage';
@@ -56,6 +57,14 @@ function App() {
           element={
             <MainLayout>
               <HomePage />
+            </MainLayout>
+          } 
+        />
+        <Route 
+          path="/about" 
+          element={
+            <MainLayout>
+              <AboutPage />
             </MainLayout>
           } 
         />

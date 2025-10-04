@@ -132,32 +132,96 @@ async function seedData() {
     ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng specialties.');
 
-    // 2. Thêm Categories (2 data, trước medicines, diseases, articles)
-    console.log('2. Thêm Categories...');
-    const categories = await models.Category.bulkCreate([
-      { 
-        parent_id: null, 
-        name: 'Tin tức', 
-        slug: 'tin-tuc', 
-        created_at: new Date(), 
-        updated_at: new Date() 
-      },
-      { 
-        parent_id: null, 
-        name: 'Thuốc', 
-        slug: 'thuoc', 
-        created_at: new Date(), 
-        updated_at: new Date() 
-      },
-      { 
-        parent_id: null, 
-        name: 'Bệnh lý', 
-        slug: 'benh-ly', 
-        created_at: new Date(), 
-        updated_at: new Date() 
-      }   
-    ], { transaction });
-    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng categories.');
+    // 2. Thêm Categories - Danh mục con với category_type
+console.log('2. Thêm Categories...');
+const categories = await models.Category.bulkCreate([
+  // Danh mục THUỐC
+  { 
+    category_type: 'thuoc',
+    name: 'Thuốc giảm đau', 
+    slug: 'thuoc-giam-dau',
+    description: 'Các loại thuốc giảm đau, hạ sốt',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_type: 'thuoc',
+    name: 'Thuốc kháng sinh', 
+    slug: 'thuoc-khang-sinh',
+    description: 'Thuốc điều trị nhiễm khuẩn',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_type: 'thuoc',
+    name: 'Thuốc tim mạch', 
+    slug: 'thuoc-tim-mach',
+    description: 'Thuốc điều trị bệnh tim mạch',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_type: 'thuoc',
+    name: 'Thuốc tiêu hóa', 
+    slug: 'thuoc-tieu-hoa',
+    description: 'Thuốc hỗ trợ tiêu hóa',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  
+  // Danh mục BỆNH LÝ
+  { 
+    category_type: 'benh_ly',
+    name: 'Bệnh tim mạch', 
+    slug: 'benh-tim-mach',
+    description: 'Các bệnh lý về tim và mạch máu',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_type: 'benh_ly',
+    name: 'Bệnh tiêu hóa', 
+    slug: 'benh-tieu-hoa',
+    description: 'Các bệnh về đường tiêu hóa',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_type: 'benh_ly',
+    name: 'Bệnh hô hấp', 
+    slug: 'benh-ho-hap',
+    description: 'Các bệnh về đường hô hấp',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_type: 'benh_ly',
+    name: 'Bệnh nội tiết', 
+    slug: 'benh-noi-tiet',
+    description: 'Các bệnh về nội tiết tố',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+
+  // Danh mục TIN TỨC (nếu cần phân loại tin tức)
+  { 
+    category_type: 'tin_tuc',
+    name: 'Tin y tế', 
+    slug: 'tin-y-te',
+    description: 'Tin tức y tế trong nước',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_type: 'tin_tuc',
+    name: 'Tin sức khỏe', 
+    slug: 'tin-suc-khoe',
+    description: 'Thông tin sức khỏe cộng đồng',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  }
+], { transaction });
+console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng categories.');
 
     // 3. Thêm Users - QUAN TRỌNG: Hash password và set đúng is_active
     console.log('3. Thêm Users...');
@@ -299,51 +363,215 @@ async function seedData() {
 
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng users và các bảng role.');
 
-    // 4. Thêm Medicines (2 data, sau categories)
-    console.log('4. Thêm Medicines...');
-    const medicines = await models.Medicine.bulkCreate([
-      { 
-        category_id: categories[0].id, 
-        name: 'Aspirin', 
-        components: 'Acetylsalicylic acid', 
-        medicine_usage: 'Pain relief', 
-        description: 'Common painkiller', 
-        created_at: new Date(), 
-        updated_at: new Date() 
-      },
-      { 
-        category_id: categories[1].id, 
-        name: 'Ibuprofen', 
-        components: 'Ibuprofen', 
-        medicine_usage: 'Anti-inflammatory', 
-        description: 'For inflammation', 
-        created_at: new Date(), 
-        updated_at: new Date() 
-      }
-    ], { transaction });
-    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng medicines.');
+    // ============================================
+// Thay thế phần seed Medicines và Diseases trong server/config/db.js
+// Đặt sau phần seed Categories
+// ============================================
 
-    // 5. Thêm Diseases (2 data, sau categories)
-    console.log('5. Thêm Diseases...');
-    const diseases = await models.Disease.bulkCreate([
-      { 
-        category_id: categories[0].id, 
-        name: 'Hypertension', 
-        symptoms: 'High blood pressure', 
-        description: 'Chronic condition', 
-        created_at: new Date(), 
-        updated_at: new Date() 
-      },
-      { 
-        category_id: categories[1].id, 
-        name: 'Diabetes', 
-        symptoms: 'High blood sugar', 
-        description: 'Metabolic disorder', 
-        created_at: new Date(), 
-        updated_at: new Date() 
-      }
-    ], { transaction });
-    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng diseases.');
+// 4. Thêm Medicines - Liên kết với categories có category_type = 'thuoc'
+console.log('4. Thêm Medicines...');
+
+// Lấy danh mục Thuốc từ categories
+const thuocCategories = categories.filter(cat => cat.category_type === 'thuoc');
+
+const medicines = await models.Medicine.bulkCreate([
+  // Thuốc giảm đau (category_id từ 'Thuốc giảm đau')
+  { 
+    category_id: thuocCategories.find(c => c.slug === 'thuoc-giam-dau')?.id || thuocCategories[0].id,
+    name: 'Paracetamol', 
+    components: 'Acetaminophen 500mg', 
+    medicine_usage: 'Uống 1-2 viên mỗi 4-6 giờ khi cần. Không quá 8 viên/ngày', 
+    description: 'Thuốc giảm đau, hạ sốt phổ biến. An toàn cho cả trẻ em và người lớn.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: thuocCategories.find(c => c.slug === 'thuoc-giam-dau')?.id || thuocCategories[0].id,
+    name: 'Ibuprofen', 
+    components: 'Ibuprofen 400mg', 
+    medicine_usage: 'Uống 1 viên mỗi 6-8 giờ khi đau. Uống sau ăn', 
+    description: 'Thuốc chống viêm, giảm đau mạnh. Hiệu quả với đau cơ, đau khớp.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: thuocCategories.find(c => c.slug === 'thuoc-giam-dau')?.id || thuocCategories[0].id,
+    name: 'Aspirin', 
+    components: 'Acetylsalicylic acid 100mg', 
+    medicine_usage: 'Uống 1 viên/ngày sau bữa tối', 
+    description: 'Thuốc làm loãng máu, phòng ngừa tai biến mạch máu não và nhồi máu cơ tim.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+
+  // Thuốc kháng sinh (category_id từ 'Thuốc kháng sinh')
+  { 
+    category_id: thuocCategories.find(c => c.slug === 'thuoc-khang-sinh')?.id || thuocCategories[1].id,
+    name: 'Amoxicillin', 
+    components: 'Amoxicillin trihydrate 500mg', 
+    medicine_usage: 'Uống 1 viên x 3 lần/ngày. Hoàn thành liệu trình 7-10 ngày', 
+    description: 'Kháng sinh nhóm Penicillin, điều trị nhiễm khuẩn đường hô hấp, tai mũi họng.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: thuocCategories.find(c => c.slug === 'thuoc-khang-sinh')?.id || thuocCategories[1].id,
+    name: 'Azithromycin', 
+    components: 'Azithromycin 250mg', 
+    medicine_usage: 'Ngày 1: 2 viên. Ngày 2-5: 1 viên/ngày', 
+    description: 'Kháng sinh nhóm Macrolide, điều trị viêm phổi, viêm họng, viêm phế quản.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+
+  // Thuốc tim mạch (category_id từ 'Thuốc tim mạch')
+  { 
+    category_id: thuocCategories.find(c => c.slug === 'thuoc-tim-mach')?.id || thuocCategories[2].id,
+    name: 'Atorvastatin', 
+    components: 'Atorvastatin calcium 20mg', 
+    medicine_usage: 'Uống 1 viên/ngày vào buổi tối', 
+    description: 'Thuốc giảm cholesterol, phòng ngừa bệnh tim mạch.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: thuocCategories.find(c => c.slug === 'thuoc-tim-mach')?.id || thuocCategories[2].id,
+    name: 'Losartan', 
+    components: 'Losartan potassium 50mg', 
+    medicine_usage: 'Uống 1 viên/ngày vào buổi sáng', 
+    description: 'Thuốc điều trị tăng huyết áp, bảo vệ thận cho người tiểu đường.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+
+  // Thuốc tiêu hóa (category_id từ 'Thuốc tiêu hóa')
+  { 
+    category_id: thuocCategories.find(c => c.slug === 'thuoc-tieu-hoa')?.id || thuocCategories[3]?.id || thuocCategories[0].id,
+    name: 'Omeprazole', 
+    components: 'Omeprazole 20mg', 
+    medicine_usage: 'Uống 1 viên/ngày trước bữa sáng 30 phút', 
+    description: 'Thuốc ức chế bơm proton, điều trị viêm loét dạ dày, trào ngược dạ dày.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: thuocCategories.find(c => c.slug === 'thuoc-tieu-hoa')?.id || thuocCategories[3]?.id || thuocCategories[0].id,
+    name: 'Domperidone', 
+    components: 'Domperidone 10mg', 
+    medicine_usage: 'Uống 1 viên x 3 lần/ngày trước bữa ăn 15-30 phút', 
+    description: 'Thuốc chống nôn, tăng nhu động dạ dày, giảm đầy hơi khó tiêu.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  }
+], { transaction });
+console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng medicines.');
+
+// 5. Thêm Diseases - Liên kết với categories có category_type = 'benh_ly'
+console.log('5. Thêm Diseases...');
+
+// Lấy danh mục Bệnh lý từ categories
+const benhLyCategories = categories.filter(cat => cat.category_type === 'benh_ly');
+
+const diseases = await models.Disease.bulkCreate([
+  // Bệnh tim mạch (category_id từ 'Bệnh tim mạch')
+  { 
+    category_id: benhLyCategories.find(c => c.slug === 'benh-tim-mach')?.id || benhLyCategories[0].id,
+    name: 'Tăng huyết áp', 
+    symptoms: 'Đau đầu, chóng mặt, ù tai, mệt mỏi, đánh trống ngực, khó thở khi gắng sức', 
+    treatments: 'Thuốc hạ huyết áp (ARB, ACE, lợi tiểu), chế độ ăn ít muối, tập thể dục đều đặn, giảm cân nếu thừa cân',
+    description: 'Tình trạng huyết áp tâm thu ≥140 mmHg hoặc huyết áp tâm trương ≥90 mmHg. Yếu tố nguy cơ gây đột quỵ, nhồi máu cơ tim.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: benhLyCategories.find(c => c.slug === 'benh-tim-mach')?.id || benhLyCategories[0].id,
+    name: 'Nhồi máu cơ tim', 
+    symptoms: 'Đau thắt ngực dữ dội lan ra vai trái, cánh tay, hàm dưới, đổ mồ hôi, khó thở, buồn nôn', 
+    treatments: 'Cấp cứu ngay: tiêu sợi huyết, can thiệp mạch vành, stent, bypass. Điều trị lâu dài: thuốc chống đông, statin, beta-blocker',
+    description: 'Tình trạng động mạch vành bị tắc nghẽn hoàn toàn, cơ tim thiếu máu cục bộ dẫn đến hoại tử. Cấp cứu y khoa.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: benhLyCategories.find(c => c.slug === 'benh-tim-mach')?.id || benhLyCategories[0].id,
+    name: 'Rối loạn lipid máu', 
+    symptoms: 'Thường không có triệu chứng, phát hiện qua xét nghiệm máu', 
+    treatments: 'Thuốc nhóm statin (Atorvastatin, Rosuvastatin), chế độ ăn ít béo bão hòa, tăng cường vận động',
+    description: 'Tình trạng cholesterol toàn phần, LDL-C cao hoặc HDL-C thấp. Nguy cơ xơ vữa động mạch, bệnh tim mạch.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+
+  // Bệnh tiêu hóa (category_id từ 'Bệnh tiêu hóa')
+  { 
+    category_id: benhLyCategories.find(c => c.slug === 'benh-tieu-hoa')?.id || benhLyCategories[1].id,
+    name: 'Viêm loét dạ dày', 
+    symptoms: 'Đau thượng vị, ợ nóng, ợ chua, đầy hơi, chán ăn, buồn nôn, đau sau ăn hoặc đói', 
+    treatments: 'Thuốc ức chế bơm proton (PPI), thuốc kháng H. pylori (nếu dương tính), chế độ ăn nhẹ, chia nhỏ bữa',
+    description: 'Tổn thương niêm mạc dạ dày do vi khuẩn H. pylori, NSAID, stress. Biến chứng: xuất huyết, thủng dạ dày.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: benhLyCategories.find(c => c.slug === 'benh-tieu-hoa')?.id || benhLyCategories[1].id,
+    name: 'Hội chứng ruột kích thích (IBS)', 
+    symptoms: 'Đau bụng, đầy hơi, tiêu chảy hoặc táo bón xen kẽ, cải thiện sau đi tiêu', 
+    treatments: 'Thay đổi chế độ ăn (FODMAP), thuốc chống co thắt, probiotic, quản lý stress',
+    description: 'Rối loạn chức năng đường tiêu hóa mạn tính, không có tổn thương cơ quan. Liên quan đến stress, lo âu.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: benhLyCategories.find(c => c.slug === 'benh-tieu-hoa')?.id || benhLyCategories[1].id,
+    name: 'Viêm đại tràng', 
+    symptoms: 'Đi ngoài phân lỏng có nhầy máu, đau bụng âm ỉ, sốt nhẹ, mệt mỏi', 
+    treatments: 'Kháng sinh (nếu nhiễm khuẩn), thuốc chống viêm, corticosteroid (trường hợp nặng), chế độ ăn dễ tiêu',
+    description: 'Viêm niêm mạc đại tràng do nhiễm khuẩn, virus, ký sinh trùng hoặc tự miễn. Cần phân biệt với IBD.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+
+  // Bệnh hô hấp (category_id từ 'Bệnh hô hấp')
+  { 
+    category_id: benhLyCategories.find(c => c.slug === 'benh-ho-hap')?.id || benhLyCategories[2]?.id || benhLyCategories[0].id,
+    name: 'Hen phế quản', 
+    symptoms: 'Khó thở, thở khò khè, tức ngực, ho khan (đặc biệt ban đêm và sáng sớm)', 
+    treatments: 'Thuốc dãn phế quản (SABA), corticosteroid dạng hít, thuốc kiểm soát lâu dài (ICS/LABA)',
+    description: 'Bệnh viêm mạn tính đường hô hấp, co thắt phế quản. Yếu tố kích thích: dị ứng, khói, không khí lạnh.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: benhLyCategories.find(c => c.slug === 'benh-ho-hap')?.id || benhLyCategories[2]?.id || benhLyCategories[0].id,
+    name: 'Viêm phổi', 
+    symptoms: 'Sốt cao, ho có đờm, khó thở, đau ngực khi hít sâu, mệt mỏi', 
+    treatments: 'Kháng sinh (Amoxicillin, Azithromycin), thuốc hạ sốt, nghỉ ngơi, uống đủ nước',
+    description: 'Nhiễm trùng nhu mô phổi do vi khuẩn, virus hoặc nấm. Chẩn đoán qua X-quang phổi.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+
+  // Bệnh nội tiết (category_id từ 'Bệnh nội tiết')
+  { 
+    category_id: benhLyCategories.find(c => c.slug === 'benh-noi-tiet')?.id || benhLyCategories[3]?.id || benhLyCategories[0].id,
+    name: 'Đái tháo đường type 2', 
+    symptoms: 'Khát nước nhiều, tiểu nhiều, mệt mỏi, sụt cân, lành vết thương chậm, nhìn mờ', 
+    treatments: 'Thuốc uống hạ đường huyết (Metformin), insulin (nếu cần), chế độ ăn kiêng, vận động',
+    description: 'Rối loạn chuyển hóa glucose do kháng insulin. Biến chứng: bệnh thận, mắt, tim mạch, thần kinh.',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  },
+  { 
+    category_id: benhLyCategories.find(c => c.slug === 'benh-noi-tiet')?.id || benhLyCategories[3]?.id || benhLyCategories[0].id,
+    name: 'Cường giáp', 
+    symptoms: 'Tim đánh nhanh, run tay, sụt cân, mất ngủ, hay nóng, mắt lồi (Basedow)', 
+    treatments: 'Thuốc kháng giáp (Methimazole), phẫu thuật cắt tuyến giáp, điều trị iod phóng xạ',
+    description: 'Tuyến giáp tăng tiết hormone T3, T4. Nguyên nhân thường gặp: bệnh Basedow (tự miễn).',
+    created_at: new Date(), 
+    updated_at: new Date() 
+  }
+], { transaction });
+console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng diseases.');
 
     // 6. Thêm Articles (2 data, sau categories và users - author_id từ staff)
     console.log('6. Thêm Articles...');

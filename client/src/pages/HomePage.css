@@ -174,7 +174,7 @@ section {
 .banner-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(5,150,105,0.9), rgba(16,185,129,0.85));
+  background: linear-gradient(135deg, rgba(126, 168, 107, 0.9), rgba(87, 87, 87, 0.85));
 }
 
 .banner-content {
