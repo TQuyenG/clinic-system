@@ -11,6 +11,16 @@ const WebSocket = require('ws');
 const cron = require('node-cron');
 const specialtyRoutes = require('./routes/specialtyRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
+const articleRoutes = require('./routes/articleRoutes');
+// const appointmentRoutes = require('./routes/appointmentRoutes');
+// const scheduleRoutes = require('./routes/scheduleRoutes');
+// const consultationRoutes = require('./routes/consultationRoutes');
+// const paymentRoutes = require('./routes/paymentRoutes');
+// const notificationRoutes = require('./routes/notificationRoutes');
+// const systemRoutes = require('./routes/systemRoutes');
+// const forumRoutes = require('./routes/forumRoutes');
+// const statisticRoutes = require('./routes/statisticRoutes');
+// const medicalRoutes = require('./routes/medicalRoutes');
 
 // Khởi tạo ứng dụng Express
 const app = express();
@@ -24,6 +34,16 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/users', userRoutes);
 app.use('/api/specialties', specialtyRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/articles', articleRoutes);
+// app.use('/api/appointments', appointmentRoutes);
+// app.use('/api/schedules', scheduleRoutes);
+// app.use('/api/consultations', consultationRoutes);
+// app.use('/api/payments', paymentRoutes);
+// app.use('/api/notifications', notificationRoutes);
+// app.use('/api/system', systemRoutes);
+// app.use('/api/forum', forumRoutes);
+// app.use('/api/statistics', statisticRoutes);
+// app.use('/api/medical-records', medicalRoutes);
 
 // Error Handler Middleware
 app.use(errorHandler);

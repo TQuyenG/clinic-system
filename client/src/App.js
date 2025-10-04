@@ -12,9 +12,12 @@ import AboutPage from './pages/AboutPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import SpecialtyManagementPage from './pages/SpecialtyManagementPage';
 import CategoryManagementPage from './pages/CategoryManagementPage';
+import ArticleManagementPage from './pages/ArticleManagementPage';
+import ArticleDetailPage from './pages/ArticleDetailPage';
+import ArticlesListPage from './pages/ArticlesListPage';
 import './App.css';
 
-// Protected Route Component
+// Protected Route Component - SỬA ĐỂ CHẤP NHẬN MẢNG ROLES
 const ProtectedRoute = ({ children, requiredRole }) => {
   const token = localStorage.getItem('token');
   const userStr = localStorage.getItem('user');
@@ -26,7 +29,12 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   if (requiredRole) {
     try {
       const user = JSON.parse(userStr);
-      if (user.role !== requiredRole && !['admin'].includes(user.role)) {
+      
+      // Chấp nhận mảng hoặc string
+      const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+      
+      // Kiểm tra role của user có trong danh sách cho phép không
+      if (!allowedRoles.includes(user.role)) {
         return <Navigate to="/dashboard" replace />;
       }
     } catch (error) {
@@ -37,7 +45,6 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   return children;
 };
 
-// Layout Wrapper cho các trang không cần Header/Navbar/Footer
 const AuthLayout = ({ children }) => {
   return <div className="auth-layout">{children}</div>;
 };
@@ -46,12 +53,12 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Auth Pages - Không có Header/Navbar/Footer */}
+        {/* Auth Pages */}
         <Route path="/login" element={<AuthLayout><LoginPage /></AuthLayout>} />
         <Route path="/register" element={<AuthLayout><RegisterPage /></AuthLayout>} />
         <Route path="/verify-email" element={<AuthLayout><VerifyEmailPage /></AuthLayout>} />
         
-        {/* Public Pages - Có Header/Navbar/Footer */}
+        {/* Public Pages */}
         <Route 
           path="/" 
           element={
@@ -68,8 +75,26 @@ function App() {
             </MainLayout>
           } 
         />
+        {/* Public - Xem bài viết */}
+        <Route 
+          path="/articles/all" 
+          element={
+            <MainLayout>
+              <ArticlesListPage />
+            </MainLayout>
+          } 
+        />
+
+        <Route 
+          path="/articles/:slug" 
+          element={
+            <MainLayout>
+              <ArticleDetailPage />
+            </MainLayout>
+          } 
+        />
         
-        {/* Protected Routes - Có Header/Navbar/Footer */}
+        {/* Protected Routes */}
         <Route 
           path="/dashboard" 
           element={
@@ -99,6 +124,7 @@ function App() {
             </ProtectedRoute>
           } 
         />
+        
         <Route 
           path="/specialties" 
           element={
@@ -107,12 +133,22 @@ function App() {
             </ProtectedRoute>
           } 
         />
-
+        
         <Route 
           path="/categories" 
           element={
             <ProtectedRoute requiredRole="admin">
               <CategoryManagementPage />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Articles - ADMIN VÀ STAFF ĐỀU VÀO ĐƯỢC */}
+        <Route 
+          path="/articles" 
+          element={
+            <ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}>
+              <ArticleManagementPage />
             </ProtectedRoute>
           } 
         />

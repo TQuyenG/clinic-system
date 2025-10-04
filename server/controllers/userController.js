@@ -5,7 +5,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Op, Sequelize } = require('sequelize');
-const { models } = require('../config/db');
+const { models, sequelize } = require('../config/db');
 const { sendVerificationEmail, sendOTPEmail, sendPasswordResetEmail } = require('../utils/emailSender');
 
 // Lưu trữ tạm thời số lần đăng nhập sai
@@ -851,6 +851,38 @@ exports.getDoctorById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Lỗi khi lấy thông tin bác sĩ',
+      error: error.message
+    });
+  }
+};
+
+// Hàm lấy thống kê người dùng (sửa lỗi Sequelize.fn)
+exports.getUserStats = async (req, res) => {
+  try {
+    // Đảm bảo sử dụng Sequelize.fn đúng cách
+    const stats = await models.User.findAll({
+      attributes: [
+        'role',
+        [Sequelize.fn('COUNT', Sequelize.col('id')), 'count'] // Đếm số người dùng theo role
+      ],
+      group: ['role']
+    });
+
+    // Format kết quả
+    const formattedStats = stats.map(stat => ({
+      role: stat.role,
+      count: stat.get('count')
+    }));
+
+    res.status(200).json({
+      success: true,
+      stats: formattedStats
+    });
+  } catch (error) {
+    console.error('ERROR trong getUserStats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy thống kê người dùng',
       error: error.message
     });
   }

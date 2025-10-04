@@ -35,7 +35,7 @@ module.exports = (sequelize) => {
     User.hasOne(models.Staff, { foreignKey: 'user_id' });
     User.hasOne(models.Doctor, { foreignKey: 'user_id' });
     User.hasOne(models.Admin, { foreignKey: 'user_id' });
-    User.hasMany(models.Article, { foreignKey: 'author_id' });
+    User.hasMany(models.Article, { foreignKey: 'author_id', as: 'articles' });
     User.hasMany(models.Notification, { foreignKey: 'user_id' });
     User.hasMany(models.Question, { foreignKey: 'user_id' });
     User.hasMany(models.Answer, { foreignKey: 'user_id' });
