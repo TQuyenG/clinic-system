@@ -1,27 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import mammoth from 'mammoth';
+import * as XLSX from 'xlsx';
 import { 
   FaPlus, FaEdit, FaTrash, FaEye, FaEyeSlash, FaSearch, FaTimes, 
   FaThumbsUp, FaShareAlt, FaFilter, FaSortAmountDown, FaSortAmountUp,
   FaCheck, FaBan, FaRedo, FaInfoCircle, FaExternalLinkAlt, FaClock,
   FaBookmark, FaNewspaper, FaPills, FaDisease, FaUser, FaCalendar,
   FaTag, FaLink, FaExclamationTriangle, FaCheckCircle, FaTimesCircle,
-  FaSpinner, FaFileAlt, FaTable
+  FaSpinner, FaFileAlt, FaTable, FaFlask, FaHospital
 } from 'react-icons/fa';
 import './ArticleManagementPage.css';
 
 const ArticleManagementPage = () => {
   const API_BASE_URL = 'http://localhost:3001';
+  const editorRef = useRef(null);
+  
   const [user, setUser] = useState({});
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [hideOnEdit, setHideOnEdit] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
-  const [showPreview, setShowPreview] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   
   const [filters, setFilters] = useState({
     search: '',
@@ -43,13 +50,65 @@ const ArticleManagementPage = () => {
     content: '',
     category_id: '',
     tags_json: [],
-    source: ''
+    source: '',
+    // Medical fields for medicines
+    composition: '',
+    uses: '',
+    side_effects: '',
+    manufacturer: '',
+    // Medical fields for diseases
+    symptoms: '',
+    treatments: '',
+    description: ''
   });
 
   const [pagination, setPagination] = useState({});
   const [stats, setStats] = useState({});
   const [tagInput, setTagInput] = useState('');
   const [suggestedTags, setSuggestedTags] = useState([]);
+  const [selectedCategoryType, setSelectedCategoryType] = useState('');
+
+  // CKEditor configuration with full features
+  const editorConfig = {
+    toolbar: {
+      items: [
+        'heading', '|',
+        'bold', 'italic', 'underline', 'strikethrough', '|',
+        'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
+        'bulletedList', 'numberedList', '|',
+        'outdent', 'indent', '|',
+        'alignment', '|',
+        'link', 'insertTable', 'blockQuote', 'code', 'codeBlock', '|',
+        'undo', 'redo'
+      ]
+    },
+    fontSize: {
+      options: [9, 11, 13, 'default', 17, 19, 21, 23, 25, 27, 29]
+    },
+    fontFamily: {
+      options: [
+        'default',
+        'Arial, Helvetica, sans-serif',
+        'Courier New, Courier, monospace',
+        'Georgia, serif',
+        'Times New Roman, Times, serif',
+        'Verdana, Geneva, sans-serif'
+      ]
+    },
+    table: {
+      contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells', 'tableProperties', 'tableCellProperties']
+    },
+    image: {
+      toolbar: [
+        'imageTextAlternative', 'imageStyle:inline', 'imageStyle:block', 
+        'imageStyle:side', '|', 'toggleImageCaption', 'imageResize'
+      ],
+      upload: {
+        types: ['jpeg', 'png', 'gif', 'bmp', 'webp', 'svg+xml']
+      }
+    },
+    language: 'vi'
+  };
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
@@ -65,10 +124,35 @@ const ArticleManagementPage = () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/categories`);
       if (response.data.success) {
-        setCategories(response.data.categories || []);
+        const cats = response.data.categories || [];
+        setCategories(cats.filter(c => !c.parent_id));
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
+    }
+  };
+
+  const fetchSubcategories = async (parentId) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/categories/${parentId}/subcategories`);
+      if (response.data.success) {
+        setSubcategories(response.data.subcategories || []);
+      }
+    } catch (error) {
+      console.error('Error fetching subcategories:', error);
+      setSubcategories([]);
+    }
+  };
+
+  const handleCategoryChange = (categoryId) => {
+    const category = categories.find(c => c.id === parseInt(categoryId));
+    if (category) {
+      setSelectedCategoryType(category.category_type);
+      fetchSubcategories(categoryId);
+      setFormData(prev => ({ ...prev, category_id: categoryId }));
+    } else {
+      setSelectedCategoryType('');
+      setSubcategories([]);
     }
   };
 
@@ -79,19 +163,12 @@ const ArticleManagementPage = () => {
       
       let queryFilters = { ...filters };
 
-      if (activeTab === 'pending') {
-        queryFilters.status = 'pending';
-      } else if (activeTab === 'request_edit') {
-        queryFilters.status = 'request_edit';
-      } else if (activeTab === 'approved') {
-        queryFilters.status = 'approved';
-      } else if (activeTab === 'rejected') {
-        queryFilters.status = 'rejected';
-      } else if (activeTab === 'medicine') {
-        queryFilters.category_type = 'thuoc';
-      } else if (activeTab === 'disease') {
-        queryFilters.category_type = 'benh_ly';
-      }
+      if (activeTab === 'pending') queryFilters.status = 'pending';
+      else if (activeTab === 'request_edit') queryFilters.status = 'request_edit';
+      else if (activeTab === 'approved') queryFilters.status = 'approved';
+      else if (activeTab === 'rejected') queryFilters.status = 'rejected';
+      else if (activeTab === 'medicine') queryFilters.category_type = 'thuoc';
+      else if (activeTab === 'disease') queryFilters.category_type = 'benh_ly';
 
       if (user.role === 'staff') {
         queryFilters.author_id = user.id;
@@ -117,6 +194,68 @@ const ArticleManagementPage = () => {
       alert(error.response?.data?.message || 'Lỗi tải danh sách bài viết');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageUpload = (file) => {
+    return new Promise((resolve, reject) => {
+      if (!file || !file.type.startsWith('image/')) {
+        reject('Vui lòng chọn file ảnh hợp lệ');
+        return;
+      }
+
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        reject('Kích thước ảnh không được vượt quá 5MB');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        resolve({ default: e.target.result });
+      };
+      reader.onerror = () => reject('Lỗi đọc file');
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileImport = async (file) => {
+    setUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        let content = '';
+        const fileType = file.name.split('.').pop().toLowerCase();
+
+        if (fileType === 'docx') {
+          const { value } = await mammoth.convertToHtml({ arrayBuffer: e.target.result });
+          content = value;
+        } else if (fileType === 'xlsx' || fileType === 'csv') {
+          const workbook = XLSX.read(e.target.result, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          content = XLSX.utils.sheet_to_html(sheet);
+        } else if (fileType === 'txt') {
+          content = e.target.result.replace(/\n/g, '<br/>');
+        }
+
+        if (editorRef.current) {
+          const currentContent = formData.content || '';
+          setFormData(prev => ({ ...prev, content: currentContent + content }));
+        }
+        setUploadingImage(false);
+        alert('Import file thành công!');
+      };
+
+      if (file.name.endsWith('.txt')) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsArrayBuffer(file);
+      }
+    } catch (error) {
+      console.error('Error importing file:', error);
+      alert('Lỗi import file: ' + error.message);
+      setUploadingImage(false);
     }
   };
 
@@ -175,18 +314,9 @@ const ArticleManagementPage = () => {
 
   const clearFilters = () => {
     setFilters({
-      search: '',
-      status: '',
-      category_id: '',
-      category_type: '',
-      author_id: '',
-      date_from: '',
-      date_to: '',
-      min_views: '',
-      page: 1,
-      limit: 10,
-      sort_by: 'created_at',
-      sort_order: 'DESC'
+      search: '', status: '', category_id: '', category_type: '',
+      author_id: '', date_from: '', date_to: '', min_views: '',
+      page: 1, limit: 10, sort_by: 'created_at', sort_order: 'DESC'
     });
   };
 
@@ -204,17 +334,35 @@ const ArticleManagementPage = () => {
     setHideOnEdit(false);
 
     if (type === 'create') {
-      setFormData({ title: '', content: '', category_id: '', tags_json: [], source: '' });
+      setFormData({ 
+        title: '', content: '', category_id: '', tags_json: [], source: '',
+        composition: '', uses: '', side_effects: '', manufacturer: '',
+        symptoms: '', treatments: '', description: ''
+      });
+      setSelectedCategoryType('');
+      setSubcategories([]);
     } else if (type === 'edit' && article) {
       setFormData({
         title: article.title,
         content: article.content,
         category_id: article.category_id || '',
         tags_json: article.tags_json || [],
-        source: article.source || ''
+        source: article.source || '',
+        composition: article.composition || '',
+        uses: article.uses || '',
+        side_effects: article.side_effects || '',
+        manufacturer: article.manufacturer || '',
+        symptoms: article.symptoms || '',
+        treatments: article.treatments || '',
+        description: article.description || ''
       });
-    } else if (type === 'review' && article) {
-      setShowPreview(true);
+      if (article.category_id) {
+        const category = categories.find(c => c.id === article.category_id);
+        if (category) {
+          setSelectedCategoryType(category.category_type);
+          fetchSubcategories(article.category_id);
+        }
+      }
     }
     setShowModal(true);
   };
@@ -223,9 +371,14 @@ const ArticleManagementPage = () => {
     setShowModal(false);
     setModalType('');
     setSelectedArticle(null);
-    setShowPreview(false);
-    setFormData({ title: '', content: '', category_id: '', tags_json: [], source: '' });
+    setFormData({ 
+      title: '', content: '', category_id: '', tags_json: [], source: '',
+      composition: '', uses: '', side_effects: '', manufacturer: '',
+      symptoms: '', treatments: '', description: ''
+    });
     setHideOnEdit(false);
+    setSelectedCategoryType('');
+    setSubcategories([]);
   };
 
   const handleSubmit = async (e) => {
@@ -408,9 +561,7 @@ const ArticleManagementPage = () => {
             >
               <Icon className="tab-icon" />
               <span className="tab-label">{tab.label}</span>
-              {tab.count > 0 && (
-                <span className="tab-badge">{tab.count}</span>
-              )}
+              {tab.count > 0 && <span className="tab-badge">{tab.count}</span>}
             </button>
           );
         })}
@@ -418,9 +569,7 @@ const ArticleManagementPage = () => {
 
       <div className="filters-panel">
         <div className="filters-header">
-          <h3>
-            <FaFilter /> Bộ lọc nâng cao
-          </h3>
+          <h3><FaFilter /> Bộ lọc nâng cao</h3>
           <button className="btn-clear" onClick={clearFilters}>
             <FaTimes /> Xóa lọc
           </button>
@@ -443,11 +592,7 @@ const ArticleManagementPage = () => {
 
           <div className="filter-item">
             <label>Danh mục</label>
-            <select
-              name="category_id"
-              value={filters.category_id}
-              onChange={handleFilterChange}
-            >
+            <select name="category_id" value={filters.category_id} onChange={handleFilterChange}>
               <option value="">Tất cả danh mục</option>
               {categories.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -457,22 +602,12 @@ const ArticleManagementPage = () => {
 
           <div className="filter-item">
             <label>Từ ngày</label>
-            <input
-              type="date"
-              name="date_from"
-              value={filters.date_from}
-              onChange={handleFilterChange}
-            />
+            <input type="date" name="date_from" value={filters.date_from} onChange={handleFilterChange} />
           </div>
 
           <div className="filter-item">
             <label>Đến ngày</label>
-            <input
-              type="date"
-              name="date_to"
-              value={filters.date_to}
-              onChange={handleFilterChange}
-            />
+            <input type="date" name="date_to" value={filters.date_to} onChange={handleFilterChange} />
           </div>
 
           <div className="filter-item">
@@ -512,6 +647,19 @@ const ArticleManagementPage = () => {
               <th>Danh mục</th>
               {user.role === 'admin' && <th>Tác giả</th>}
               <th>Trạng thái</th>
+              {activeTab === 'medicine' && (
+                <>
+                  <th>Thành phần</th>
+                  <th>Công dụng</th>
+                  <th>Nhà SX</th>
+                </>
+              )}
+              {activeTab === 'disease' && (
+                <>
+                  <th>Triệu chứng</th>
+                  <th>Điều trị</th>
+                </>
+              )}
               <th onClick={() => toggleSort('views')} className="sortable">
                 Thống kê {filters.sort_by === 'views' && (filters.sort_order === 'ASC' ? <FaSortAmountUp /> : <FaSortAmountDown />)}
               </th>
@@ -524,7 +672,7 @@ const ArticleManagementPage = () => {
           <tbody>
             {articles.length === 0 ? (
               <tr>
-                <td colSpan="8" className="empty-state">
+                <td colSpan="12" className="empty-state">
                   <FaInfoCircle /> Không có bài viết nào
                 </td>
               </tr>
@@ -533,21 +681,27 @@ const ArticleManagementPage = () => {
                 <tr key={article.id}>
                   <td>{article.id}</td>
                   <td className="title-cell">
-                    <a
-                      href={`/articles/${article.slug}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="article-link"
-                    >
+                    <a href={`/articles/${article.slug}`} target="_blank" rel="noopener noreferrer" className="article-link">
                       <strong>{article.title}</strong>
                       <FaExternalLinkAlt className="link-icon" />
                     </a>
                   </td>
                   <td>{article.Category?.name || '-'}</td>
-                  {user.role === 'admin' && (
-                    <td>{article.author?.full_name || '-'}</td>
-                  )}
+                  {user.role === 'admin' && <td>{article.author?.full_name || '-'}</td>}
                   <td>{getStatusBadge(article.status)}</td>
+                  {activeTab === 'medicine' && (
+                    <>
+                      <td>{article.composition ? article.composition.substring(0, 50) + '...' : '-'}</td>
+                      <td>{article.uses ? article.uses.substring(0, 50) + '...' : '-'}</td>
+                      <td>{article.manufacturer || '-'}</td>
+                    </>
+                  )}
+                  {activeTab === 'disease' && (
+                    <>
+                      <td>{article.symptoms ? article.symptoms.substring(0, 50) + '...' : '-'}</td>
+                      <td>{article.treatments ? article.treatments.substring(0, 50) + '...' : '-'}</td>
+                    </>
+                  )}
                   <td>
                     <div className="stats-cell">
                       <span><FaEye /> {article.views || 0}</span>
@@ -561,33 +715,17 @@ const ArticleManagementPage = () => {
                       {user.role === 'admin' && (
                         <>
                           {article.status === 'pending' && (
-                            <button
-                              onClick={() => openModal('review', article)}
-                              className="btn-action btn-approve"
-                              title="Phê duyệt"
-                            >
+                            <button onClick={() => openModal('review', article)} className="btn-action btn-approve" title="Phê duyệt">
                               <FaCheck />
                             </button>
                           )}
-                          <button
-                            onClick={() => openModal('edit', article)}
-                            className="btn-action btn-edit"
-                            title="Chỉnh sửa"
-                          >
+                          <button onClick={() => openModal('edit', article)} className="btn-action btn-edit" title="Chỉnh sửa">
                             <FaEdit />
                           </button>
-                          <button
-                            onClick={() => handleToggleVisibility(article.id, article.status)}
-                            className="btn-action btn-visibility"
-                            title={article.status === 'hidden' ? 'Hiện' : 'Ẩn'}
-                          >
+                          <button onClick={() => handleToggleVisibility(article.id, article.status)} className="btn-action btn-visibility" title={article.status === 'hidden' ? 'Hiện' : 'Ẩn'}>
                             {article.status === 'hidden' ? <FaEye /> : <FaEyeSlash />}
                           </button>
-                          <button
-                            onClick={() => handleDelete(article.id, article.title)}
-                            className="btn-action btn-delete"
-                            title="Xóa"
-                          >
+                          <button onClick={() => handleDelete(article.id, article.title)} className="btn-action btn-delete" title="Xóa">
                             <FaTrash />
                           </button>
                         </>
@@ -596,20 +734,12 @@ const ArticleManagementPage = () => {
                       {user.role === 'staff' && (
                         <>
                           {article.status === 'draft' && (
-                            <button
-                              onClick={() => openModal('edit', article)}
-                              className="btn-action btn-edit"
-                              title="Sửa"
-                            >
+                            <button onClick={() => openModal('edit', article)} className="btn-action btn-edit" title="Sửa">
                               <FaEdit />
                             </button>
                           )}
                           {['approved', 'hidden'].includes(article.status) && (
-                            <button
-                              onClick={() => handleRequestEdit(article.id)}
-                              className="btn-action btn-request"
-                              title="Yêu cầu sửa"
-                            >
+                            <button onClick={() => handleRequestEdit(article.id)} className="btn-action btn-request" title="Yêu cầu sửa">
                               <FaInfoCircle />
                             </button>
                           )}
@@ -656,243 +786,321 @@ const ArticleManagementPage = () => {
         </div>
       )}
 
-      {showModal && !showPreview && (
+      {showModal && modalType !== 'review' && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-dialog" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{modalType === 'create' ? 'Tạo bài viết mới' : 'Chỉnh sửa bài viết'}</h2>
-              <button className="btn-close" onClick={closeModal}>
-                <FaTimes />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="modal-body">
-              <div className="form-group">
-                <label>
-                  <FaFileAlt /> Tiêu đề <span className="required">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Nhập tiêu đề bài viết"
-                  required
-                />
+          <div className="modal-dialog modal-split" onClick={e => e.stopPropagation()}>
+            <div className="modal-form-side">
+              <div className="modal-header">
+                <h2>{modalType === 'create' ? 'Tạo bài viết mới' : 'Chỉnh sửa bài viết'}</h2>
+                <button className="btn-close" onClick={closeModal}><FaTimes /></button>
               </div>
 
-              <div className="form-group">
-                <label>
-                  <FaTable /> Danh mục
-                </label>
-                <select
-                  value={formData.category_id}
-                  onChange={e => setFormData(prev => ({ ...prev, category_id: e.target.value }))}
-                >
-                  <option value="">-- Chọn danh mục --</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>
-                      [{cat.category_type}] {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>
-                  <FaEdit /> Nội dung <span className="required">*</span>
-                </label>
-                <textarea
-                  value={formData.content}
-                  onChange={e => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                  rows="15"
-                  required
-                  placeholder="Nhập nội dung bài viết (hỗ trợ HTML)"
-                />
-                <small className="form-hint">
-                  <FaInfoCircle /> Hỗ trợ các thẻ HTML: h1-h6, p, strong, em, u, ul, ol, li, a, img, table, etc.
-                </small>
-              </div>
-
-              <div className="form-group">
-                <label>
-                  <FaTag /> Tags
-                </label>
-                <div className="tags-container">
-                  {formData.tags_json.map((tag, idx) => (
-                    <span key={idx} className="tag-item">
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(tag)}
-                        className="tag-remove"
-                      >
-                        <FaTimes />
-                      </button>
-                    </span>
-                  ))}
+              <form onSubmit={handleSubmit} className="modal-body compact-form">
+                <div className="form-group">
+                  <label><FaFileAlt /> Tiêu đề <span className="required">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Nhập tiêu đề bài viết"
+                    required
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={handleTagInputChange}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && tagInput.trim()) {
-                      e.preventDefault();
-                      addTag(tagInput.trim());
-                    }
-                  }}
-                  placeholder="Nhập tag và nhấn Enter..."
-                />
-                {suggestedTags.length > 0 && (
-                  <div className="tags-suggest">
-                    <small>Gợi ý:</small>
-                    {suggestedTags.map((tag, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => addTag(tag)}
-                        className="tag-suggest-item"
-                      >
-                        {tag}
-                      </button>
+
+                <div className="form-group">
+                  <label><FaTable /> Danh mục chính</label>
+                  <select value={formData.category_id} onChange={e => handleCategoryChange(e.target.value)}>
+                    <option value="">-- Chọn danh mục --</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>[{cat.category_type}] {cat.name}</option>
                     ))}
+                  </select>
+                </div>
+
+                {subcategories.length > 0 && (
+                  <div className="form-group">
+                    <label><FaTable /> Danh mục con</label>
+                    <select value={formData.subcategory_id || ''} onChange={e => setFormData(prev => ({ ...prev, subcategory_id: e.target.value }))}>
+                      <option value="">-- Chọn danh mục con (tùy chọn) --</option>
+                      {subcategories.map(sub => (
+                        <option key={sub.id} value={sub.id}>{sub.name}</option>
+                      ))}
+                    </select>
                   </div>
                 )}
-              </div>
 
-              <div className="form-group">
-                <label>
-                  <FaLink /> Nguồn (nếu có)
-                </label>
-                <input
-                  type="text"
-                  value={formData.source}
-                  onChange={e => setFormData(prev => ({ ...prev, source: e.target.value }))}
-                  placeholder="https://example.com/article"
-                />
-              </div>
+                {selectedCategoryType === 'thuoc' && (
+                  <div className="medical-fields">
+                    <h4><FaPills /> Thông tin thuốc</h4>
+                    <div className="field-row">
+                      <div className="form-group">
+                        <label>Thành phần</label>
+                        <textarea
+                          value={formData.composition}
+                          onChange={e => setFormData(prev => ({ ...prev, composition: e.target.value }))}
+                          placeholder="Thành phần thuốc"
+                          rows="2"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Nhà sản xuất</label>
+                        <input
+                          type="text"
+                          value={formData.manufacturer}
+                          onChange={e => setFormData(prev => ({ ...prev, manufacturer: e.target.value }))}
+                          placeholder="Tên nhà sản xuất"
+                        />
+                      </div>
+                    </div>
+                    <div className="field-row-full">
+                      <div className="form-group">
+                        <label>Công dụng</label>
+                        <textarea
+                          value={formData.uses}
+                          onChange={e => setFormData(prev => ({ ...prev, uses: e.target.value }))}
+                          placeholder="Công dụng của thuốc"
+                          rows="2"
+                        />
+                      </div>
+                    </div>
+                    <div className="field-row-full">
+                      <div className="form-group">
+                        <label>Tác dụng phụ</label>
+                        <textarea
+                          value={formData.side_effects}
+                          onChange={e => setFormData(prev => ({ ...prev, side_effects: e.target.value }))}
+                          placeholder="Tác dụng phụ"
+                          rows="2"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-              {user.role === 'admin' && modalType === 'edit' && (
+                {selectedCategoryType === 'benh_ly' && (
+                  <div className="medical-fields">
+                    <h4><FaDisease /> Thông tin bệnh lý</h4>
+                    <div className="field-row-full">
+                      <div className="form-group">
+                        <label>Triệu chứng</label>
+                        <textarea
+                          value={formData.symptoms}
+                          onChange={e => setFormData(prev => ({ ...prev, symptoms: e.target.value }))}
+                          placeholder="Các triệu chứng"
+                          rows="2"
+                        />
+                      </div>
+                    </div>
+                    <div className="field-row-full">
+                      <div className="form-group">
+                        <label>Phương pháp điều trị</label>
+                        <textarea
+                          value={formData.treatments}
+                          onChange={e => setFormData(prev => ({ ...prev, treatments: e.target.value }))}
+                          placeholder="Cách điều trị"
+                          rows="2"
+                        />
+                      </div>
+                    </div>
+                    <div className="field-row-full">
+                      <div className="form-group">
+                        <label>Mô tả</label>
+                        <textarea
+                          value={formData.description}
+                          onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Mô tả chi tiết"
+                          rows="2"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="form-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={hideOnEdit}
-                      onChange={e => setHideOnEdit(e.target.checked)}
-                    />
-                    <span>Ẩn bài viết sau khi cập nhật</span>
-                  </label>
+                  <label><FaEdit /> Nội dung <span className="required">*</span></label>
+                  <div style={{ marginBottom: '0.5rem', display: 'flex', gap: '0.5rem' }}>
+                    <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0, padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
+                      📁 Import file (Word/Excel/CSV/TXT)
+                      <input
+                        type="file"
+                        accept=".docx,.xlsx,.csv,.txt"
+                        onChange={e => e.target.files[0] && handleFileImport(e.target.files[0])}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  </div>
+                  {uploadingImage && <div style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}><FaSpinner className="spinner" /> Đang tải...</div>}
+                  <CKEditor
+                    editor={ClassicEditor}
+                    data={formData.content}
+                    config={editorConfig}
+                    onReady={editor => { editorRef.current = editor; }}
+                    onChange={(_, editor) => {
+                      const data = editor.getData();
+                      setFormData(prev => ({ ...prev, content: data }));
+                    }}
+                  />
+                  <small className="form-hint">
+                    <FaInfoCircle /> Sử dụng thanh công cụ để định dạng. Hỗ trợ import từ CSV, Excel, Word. Paste ảnh trực tiếp vào editor.
+                  </small>
                 </div>
-              )}
 
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={closeModal}>
-                  Hủy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPreview(true)}
-                  className="btn btn-preview"
-                >
-                  <FaEye /> Xem trước
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  {modalType === 'create' ? 'Tạo bài viết' : 'Cập nhật'}
-                </button>
+                <div className="form-group">
+                  <label><FaTag /> Tags</label>
+                  <div className="tags-container">
+                    {formData.tags_json.map((tag, idx) => (
+                      <span key={idx} className="tag-item">
+                        {tag}
+                        <button type="button" onClick={() => removeTag(tag)} className="tag-remove">
+                          <FaTimes />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={handleTagInputChange}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && tagInput.trim()) {
+                        e.preventDefault();
+                        addTag(tagInput.trim());
+                      }
+                    }}
+                    placeholder="Nhập tag và nhấn Enter..."
+                  />
+                  {suggestedTags.length > 0 && (
+                    <div className="tags-suggest">
+                      <small>Gợi ý:</small>
+                      {suggestedTags.map((tag, idx) => (
+                        <button key={idx} type="button" onClick={() => addTag(tag)} className="tag-suggest-item">
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label><FaLink /> Nguồn (nếu có)</label>
+                  <input
+                    type="text"
+                    value={formData.source}
+                    onChange={e => setFormData(prev => ({ ...prev, source: e.target.value }))}
+                    placeholder="https://example.com/article"
+                  />
+                </div>
+
+                {user.role === 'admin' && modalType === 'edit' && (
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={hideOnEdit}
+                        onChange={e => setHideOnEdit(e.target.checked)}
+                      />
+                      <span>Ẩn bài viết sau khi cập nhật</span>
+                    </label>
+                  </div>
+                )}
+
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={closeModal}>Hủy</button>
+                  <button type="submit" className="btn btn-primary">
+                    {modalType === 'create' ? 'Tạo bài viết' : 'Cập nhật'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="modal-preview-side">
+              <div className="modal-header">
+                <h2>Xem trước</h2>
               </div>
-            </form>
+              <div className="modal-body">
+                <article className="article-preview">
+                  <h1 className="article-title">{formData.title || 'Tiêu đề bài viết'}</h1>
+                  
+                  <div className="article-meta">
+                    <span className="meta-item">
+                      <FaUser /> {user.full_name}
+                    </span>
+                    <span className="meta-item">
+                      <FaCalendar /> {new Date().toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </span>
+                    {formData.category_id && (
+                      <span className="meta-category">
+                        {categories.find(c => c.id === parseInt(formData.category_id))?.name}
+                      </span>
+                    )}
+                  </div>
+
+                  {formData.tags_json.length > 0 && (
+                    <div className="article-tags">
+                      {formData.tags_json.map((tag, idx) => (
+                        <span key={idx} className="preview-tag"><FaTag /> {tag}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="article-content" dangerouslySetInnerHTML={{ __html: formData.content || '<p>Nội dung bài viết sẽ hiển thị ở đây...</p>' }} />
+
+                  {formData.source && (
+                    <div className="article-source">
+                      <FaLink />
+                      <span>Nguồn: </span>
+                      <a href={formData.source} target="_blank" rel="noopener noreferrer">{formData.source}</a>
+                    </div>
+                  )}
+                </article>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {showPreview && (
-        <div className="modal-overlay" onClick={() => modalType === 'review' ? closeModal() : setShowPreview(false)}>
+      {showModal && modalType === 'review' && selectedArticle && (
+        <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-dialog modal-preview" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Xem trước bài viết</h2>
-              <button className="btn-close" onClick={() => modalType === 'review' ? closeModal() : setShowPreview(false)}>
-                <FaTimes />
-              </button>
+              <h2>Phê duyệt bài viết</h2>
+              <button className="btn-close" onClick={closeModal}><FaTimes /></button>
             </div>
 
             <div className="modal-body">
               <article className="article-preview">
-                <h1 className="article-title">
-                  {modalType === 'review' ? selectedArticle?.title : formData.title}
-                </h1>
+                <h1 className="article-title">{selectedArticle.title}</h1>
                 
                 <div className="article-meta">
-                  <span className="meta-item">
-                    <FaUser />
-                    {modalType === 'review' ? selectedArticle?.author?.full_name : user.full_name}
-                  </span>
-                  <span className="meta-item">
-                    <FaCalendar />
-                    {new Date().toLocaleDateString('vi-VN', { 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
-                  </span>
-                  {(modalType === 'review' ? selectedArticle?.Category : categories.find(c => c.id === parseInt(formData.category_id))) && (
-                    <span className="meta-category">
-                      {modalType === 'review' ? selectedArticle?.Category?.name : categories.find(c => c.id === parseInt(formData.category_id))?.name}
-                    </span>
-                  )}
+                  <span className="meta-item"><FaUser /> {selectedArticle.author?.full_name}</span>
+                  <span className="meta-item"><FaCalendar /> {new Date(selectedArticle.created_at).toLocaleDateString('vi-VN')}</span>
+                  {selectedArticle.Category && <span className="meta-category">{selectedArticle.Category.name}</span>}
                 </div>
 
-                {((modalType === 'review' ? selectedArticle?.tags_json : formData.tags_json) || []).length > 0 && (
+                {selectedArticle.tags_json?.length > 0 && (
                   <div className="article-tags">
-                    {(modalType === 'review' ? selectedArticle?.tags_json : formData.tags_json).map((tag, idx) => (
-                      <span key={idx} className="preview-tag">
-                        <FaTag /> {tag}
-                      </span>
+                    {selectedArticle.tags_json.map((tag, idx) => (
+                      <span key={idx} className="preview-tag"><FaTag /> {tag}</span>
                     ))}
                   </div>
                 )}
 
-                <div 
-                  className="article-content"
-                  dangerouslySetInnerHTML={{ 
-                    __html: modalType === 'review' ? selectedArticle?.content : formData.content 
-                  }}
-                />
+                <div className="article-content" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
 
-                {(modalType === 'review' ? selectedArticle?.source : formData.source) && (
+                {selectedArticle.source && (
                   <div className="article-source">
                     <FaLink />
                     <span>Nguồn: </span>
-                    <a 
-                      href={modalType === 'review' ? selectedArticle?.source : formData.source}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {modalType === 'review' ? selectedArticle?.source : formData.source}
-                    </a>
+                    <a href={selectedArticle.source} target="_blank" rel="noopener noreferrer">{selectedArticle.source}</a>
                   </div>
                 )}
-
-                <div className="article-actions">
-                  <button className="action-btn action-like">
-                    <FaThumbsUp /> Thích
-                  </button>
-                  <button className="action-btn action-share">
-                    <FaShareAlt /> Chia sẻ
-                  </button>
-                  <button className="action-btn action-save">
-                    <FaBookmark /> Lưu
-                  </button>
-                </div>
               </article>
 
-              {modalType === 'review' && user.role === 'admin' && selectedArticle?.status === 'pending' && (
+              {user.role === 'admin' && selectedArticle.status === 'pending' && (
                 <div className="review-actions">
                   <h3>Phê duyệt bài viết</h3>
                   <div className="review-buttons">
-                    <button
-                      onClick={() => handleReviewArticle(selectedArticle.id, 'approve')}
-                      className="btn btn-approve"
-                    >
+                    <button onClick={() => handleReviewArticle(selectedArticle.id, 'approve')} className="btn btn-approve">
                       <FaCheck /> Phê duyệt
                     </button>
                     <button
@@ -914,17 +1122,6 @@ const ArticleManagementPage = () => {
                       <FaBan /> Từ chối
                     </button>
                   </div>
-                </div>
-              )}
-
-              {modalType !== 'review' && (
-                <div className="modal-footer">
-                  <button
-                    onClick={() => setShowPreview(false)}
-                    className="btn btn-secondary"
-                  >
-                    Đóng xem trước
-                  </button>
                 </div>
               )}
             </div>
