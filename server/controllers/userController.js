@@ -887,3 +887,158 @@ exports.getUserStats = async (req, res) => {
     });
   }
 };
+
+// ============================================
+// PUBLIC API - Lấy danh sách bác sĩ công khai
+// ============================================
+
+// GET /api/users/doctors/public
+exports.getAllDoctorsPublic = async (req, res) => {
+  try {
+    const { 
+      specialty_id, 
+      min_experience, 
+      search, 
+      page = 1, 
+      limit = 12 
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    // Build where condition cho User
+    const userWhere = {
+      role: 'doctor',
+      is_active: true,
+      is_verified: true
+    };
+
+    if (search) {
+      userWhere[Op.or] = [
+        { full_name: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } }
+      ];
+    }
+
+    // Build where condition cho Doctor
+    const doctorWhere = {};
+    if (specialty_id) {
+      doctorWhere.specialty_id = specialty_id;
+    }
+    if (min_experience) {
+      doctorWhere.experience_years = { [Op.gte]: parseInt(min_experience) };
+    }
+
+    const { count, rows: doctors } = await models.User.findAndCountAll({
+      where: userWhere,
+      attributes: ['id', 'email', 'full_name', 'phone', 'avatar_url', 'gender'],
+      include: [{
+        model: models.Doctor,
+        where: doctorWhere,
+        required: true,
+        include: [{
+          model: models.Specialty,
+          attributes: ['id', 'name', 'slug'],
+          required: false
+        }]
+      }],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [['created_at', 'DESC']],
+      distinct: true
+    });
+
+    const formattedDoctors = doctors.map(user => {
+      const doctor = user.Doctor;
+      return {
+        id: user.id,
+        code: doctor?.code || `BS${String(user.id).padStart(5, '0')}`,
+        full_name: user.full_name || 'Chưa cập nhật',
+        email: user.email,
+        phone: user.phone,
+        gender: user.gender,
+        avatar_url: user.avatar_url || 'https://via.placeholder.com/400?text=Doctor',
+        specialty_id: doctor?.specialty_id,
+        specialty_name: doctor?.Specialty?.name || 'Chưa phân chuyên khoa',
+        specialty_slug: doctor?.Specialty?.slug,
+        experience_years: doctor?.experience_years || 0,
+        bio: doctor?.bio
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      doctors: formattedDoctors,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(count / limit),
+        totalItems: count
+      }
+    });
+
+  } catch (error) {
+    console.error('ERROR trong getAllDoctorsPublic:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy danh sách bác sĩ',
+      error: error.message
+    });
+  }
+};
+
+// GET /api/users/doctors/:code
+exports.getDoctorByCode = async (req, res) => {
+  try {
+    const { code } = req.params;
+
+    const doctor = await models.Doctor.findOne({
+      where: { code },
+      include: [
+        {
+          model: models.User,
+          attributes: ['id', 'email', 'full_name', 'phone', 'avatar_url', 'gender', 'dob']
+        },
+        {
+          model: models.Specialty,
+          attributes: ['id', 'name', 'slug', 'description']
+        }
+      ]
+    });
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bác sĩ'
+      });
+    }
+
+    const user = doctor.User;
+
+    const formattedDoctor = {
+      id: user.id,
+      code: doctor.code,
+      full_name: user.full_name,
+      email: user.email,
+      phone: user.phone,
+      avatar_url: user.avatar_url || 'https://via.placeholder.com/400?text=Doctor',
+      gender: user.gender,
+      dob: user.dob,
+      specialty: doctor.Specialty,
+      experience_years: doctor.experience_years || 0,
+      bio: doctor.bio,
+      certifications: doctor.certifications_json
+    };
+
+    res.status(200).json({
+      success: true,
+      doctor: formattedDoctor
+    });
+
+  } catch (error) {
+    console.error('ERROR trong getDoctorByCode:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy thông tin bác sĩ',
+      error: error.message
+    });
+  }
+};

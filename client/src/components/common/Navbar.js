@@ -1,6 +1,6 @@
-// client/src/components/common/Navbar.js - Updated Version
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { 
   FaSearch, 
   FaUser, 
@@ -18,7 +18,11 @@ import {
   FaCogs,
   FaInfoCircle,
   FaBuilding,
-  FaMicroscope, FaSignInAlt, FaUserPlus, FaBookmark
+  FaMicroscope, 
+  FaSignInAlt, 
+  FaUserPlus, 
+  FaBookmark,
+  FaStethoscope
 } from 'react-icons/fa';
 import NotificationDropdown from './NotificationDropdown';
 import './Navbar.css';
@@ -31,12 +35,18 @@ const Navbar = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [user, setUser] = useState(null);
   const [specialties, setSpecialties] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState({
+    tin_tuc: [],
+    thuoc: [],
+    benh_ly: []
+  });
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [activeMobileColumn, setActiveMobileColumn] = useState(null);
   
   const navigate = useNavigate();
   const searchRef = useRef(null);
+
+  const API_BASE_URL = 'http://localhost:3001';
 
   useEffect(() => {
     // Load user data
@@ -65,10 +75,9 @@ const Navbar = () => {
 
   const fetchSpecialties = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/specialties');
-      const data = await response.json();
-      if (data.success) {
-        setSpecialties(data.specialties || []);
+      const response = await axios.get(`${API_BASE_URL}/api/specialties`);
+      if (response.data.success) {
+        setSpecialties(response.data.specialties || []);
       }
     } catch (error) {
       console.error('Error fetching specialties:', error);
@@ -77,22 +86,14 @@ const Navbar = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/categories');
-      const data = await response.json();
-      if (data.success) {
-        const organized = {
-          tin_tuc: [],
-          thuoc: [],
-          benh_ly: []
-        };
-        
-        data.categories.forEach(cat => {
-          if (organized[cat.category_type]) {
-            organized[cat.category_type].push(cat);
-          }
+      const response = await axios.get(`${API_BASE_URL}/api/articles/categories`);
+      if (response.data.success) {
+        const cats = response.data.categories || [];
+        setCategories({
+          tin_tuc: cats.filter(c => c.category_type === 'tin_tuc'),
+          thuoc: cats.filter(c => c.category_type === 'thuoc'),
+          benh_ly: cats.filter(c => c.category_type === 'benh_ly')
         });
-        
-        setCategories(organized);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -109,11 +110,9 @@ const Navbar = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/api/search?q=${encodeURIComponent(query)}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setSearchResults(data.results || []);
+      const response = await axios.get(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
+      if (response.data.success) {
+        setSearchResults(response.data.results || []);
         setShowSearchResults(true);
       }
     } catch (error) {
@@ -151,50 +150,10 @@ const Navbar = () => {
     setIsMenuOpen(false);
   };
 
-  const groupSearchResults = (results) => {
-    const grouped = {
-      specialty: [],
-      doctor: [],
-      article: [],
-      medicine: [],
-      disease: []
-    };
-
-    results.forEach(result => {
-      if (grouped[result.type]) {
-        grouped[result.type].push(result);
-      }
-    });
-
-    return grouped;
-  };
-
-  const getGroupLabel = (type) => {
-    const labels = {
-      specialty: 'Chuyên khoa',
-      doctor: 'Bác sĩ',
-      article: 'Tin tức',
-      medicine: 'Thuốc',
-      disease: 'Bệnh lý'
-    };
-    return labels[type] || type;
-  };
-
-  const getGroupIcon = (type) => {
-    const icons = {
-      specialty: <FaHospital />,
-      doctor: <FaUserMd />,
-      article: <FaNewspaper />,
-      medicine: <FaPills />,
-      disease: <FaHeartbeat />
-    };
-    return icons[type] || null;
-  };
-
   return (
     <nav className="navbar">
       <div className="nav-container">
-        {/* LOGO - Bên trái */}
+        {/* LOGO */}
         <Link to="/" className="logo" onClick={closeAllDropdowns}>
           <img src={logo} alt="Clinic System" />
         </Link>
@@ -208,7 +167,7 @@ const Navbar = () => {
           {isMenuOpen ? <FaTimes /> : <FaBars />}
         </button>
 
-        {/* CENTER SECTION - Thanh tìm kiếm + Menu */}
+        {/* CENTER SECTION */}
         <div className={`nav-center ${isMenuOpen ? 'active' : ''}`}>
           {/* Search Bar */}
           <div className="search-container" ref={searchRef}>
@@ -224,49 +183,20 @@ const Navbar = () => {
 
             {showSearchResults && searchResults.length > 0 && (
               <div className="search-results">
-                {Object.entries(groupSearchResults(searchResults)).map(([type, items]) => {
-                  if (items.length === 0) return null;
-                  
-                  return (
-                    <div key={type} className="search-results-group">
-                      <div className="search-group-title">
-                        {getGroupIcon(type)}
-                        {getGroupLabel(type)}
-                      </div>
-                      {items.map((result, index) => (
-                        <Link
-                          key={`${type}-${index}`}
-                          to={result.url}
-                          className="search-result-item"
-                          onClick={() => {
-                            setShowSearchResults(false);
-                            setSearchQuery('');
-                            closeAllDropdowns();
-                          }}
-                        >
-                          <span className="result-icon">
-                            {result.type === 'doctor' && <FaUserMd />}
-                            {result.type === 'specialty' && <FaHospital />}
-                            {result.type === 'article' && <FaNewspaper />}
-                            {result.type === 'medicine' && <FaPills />}
-                            {result.type === 'disease' && <FaHeartbeat />}
-                          </span>
-                          <div className="result-content">
-                            <span className="result-title">{result.title}</span>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {showSearchResults && searchResults.length === 0 && searchQuery.trim().length >= 2 && (
-              <div className="search-results">
-                <div className="search-no-results">
-                  Không tìm thấy kết quả cho "{searchQuery}"
-                </div>
+                {searchResults.map((result, index) => (
+                  <Link
+                    key={index}
+                    to={result.url}
+                    className="search-result-item"
+                    onClick={() => {
+                      setShowSearchResults(false);
+                      setSearchQuery('');
+                      closeAllDropdowns();
+                    }}
+                  >
+                    <span className="result-title">{result.title}</span>
+                  </Link>
+                ))}
               </div>
             )}
           </div>
@@ -298,45 +228,87 @@ const Navbar = () => {
               </div>
             </div>
 
-            {/* Đội ngũ bác sĩ */}
-            <div className="nav-item dropdown">
+            {/* Đội ngũ y tế - MEGA MENU */}
+            <div className="nav-item dropdown mega">
               <button 
                 className="nav-link dropdown-toggle"
-                onClick={() => toggleDropdown('doctors')}
+                onClick={() => toggleDropdown('team')}
               >
-                Đội ngũ bác sĩ
-                <FaChevronDown className={`chevron ${activeDropdown === 'doctors' ? 'rotate' : ''}`} />
+                Đội ngũ y tế
+                <FaChevronDown className={`chevron ${activeDropdown === 'team' ? 'rotate' : ''}`} />
               </button>
-              <div className={`dropdown-menu ${activeDropdown === 'doctors' ? 'show' : ''}`}>
-                <Link to="/doctors" onClick={closeAllDropdowns} className="dropdown-header">
-                  <FaUserMd /> Tất cả bác sĩ
-                </Link>
-                <div className="dropdown-divider"></div>
-                {specialties.length > 0 ? (
-                  specialties.slice(0, 8).map(specialty => (
+              <div className={`dropdown-menu mega-menu ${activeDropdown === 'team' ? 'show' : ''}`}>
+                <div className="mega-menu-grid">
+                  {/* Cột Chuyên khoa */}
+                  <div className={`mega-menu-column ${activeMobileColumn === 'specialties' ? 'active' : ''}`}>
                     <Link 
-                      key={specialty.id} 
-                      to={`/doctors?specialty=${specialty.slug}`}
-                      onClick={closeAllDropdowns}
+                      to="/chuyen-khoa"
+                      onClick={(e) => {
+                        if (window.innerWidth <= 768) {
+                          e.preventDefault();
+                          toggleMobileColumn('specialties');
+                        } else {
+                          closeAllDropdowns();
+                        }
+                      }}
+                      className="column-header"
                     >
-                      <FaHospital /> {specialty.name}
+                      <FaStethoscope /> Chuyên khoa
                     </Link>
-                  ))
-                ) : (
-                  <span className="dropdown-empty">Đang tải...</span>
-                )}
-                {specialties.length > 8 && (
-                  <>
-                    <div className="dropdown-divider"></div>
-                    <Link to="/specialties" onClick={closeAllDropdowns} className="dropdown-footer">
-                      Xem tất cả chuyên khoa →
+                    {specialties.length > 0 && (
+                      <div className="column-items">
+                        {specialties.slice(0, 5).map(sp => (
+                          <Link 
+                            key={sp.id} 
+                            to={`/chuyen-khoa/${sp.slug}`}
+                            onClick={closeAllDropdowns}
+                          >
+                            {sp.name}
+                          </Link>
+                        ))}
+                        <Link to="/chuyen-khoa" onClick={closeAllDropdowns} className="view-all">
+                          Xem tất cả →
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cột Bác sĩ */}
+                  <div className={`mega-menu-column ${activeMobileColumn === 'doctors' ? 'active' : ''}`}>
+                    <Link 
+                      to="/bac-si"
+                      onClick={(e) => {
+                        if (window.innerWidth <= 768) {
+                          e.preventDefault();
+                          toggleMobileColumn('doctors');
+                        } else {
+                          closeAllDropdowns();
+                        }
+                      }}
+                      className="column-header"
+                    >
+                      <FaUserMd /> Bác sĩ
                     </Link>
-                  </>
-                )}
+                    <div className="column-items">
+                      <Link to="/bac-si" onClick={closeAllDropdowns}>
+                        Tất cả bác sĩ
+                      </Link>
+                      <Link to="/bac-si?min_experience=5" onClick={closeAllDropdowns}>
+                        Bác sĩ 5+ năm kinh nghiệm
+                      </Link>
+                      <Link to="/bac-si?min_experience=10" onClick={closeAllDropdowns}>
+                        Bác sĩ 10+ năm kinh nghiệm
+                      </Link>
+                      <Link to="/bac-si?min_experience=15" onClick={closeAllDropdowns}>
+                        Bác sĩ 15+ năm kinh nghiệm
+                      </Link>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Cẩm nang y tế */}
+            {/* Cẩm nang y tế - MEGA MENU */}
             <div className="nav-item dropdown mega">
               <button 
                 className="nav-link dropdown-toggle"
@@ -347,6 +319,7 @@ const Navbar = () => {
               </button>
               <div className={`dropdown-menu mega-menu ${activeDropdown === 'articles' ? 'show' : ''}`}>
                 <div className="mega-menu-grid">
+                  {/* Cột Tin tức */}
                   <div className={`mega-menu-column ${activeMobileColumn === 'news' ? 'active' : ''}`}>
                     <Link 
                       to="/tin-tuc" 
@@ -377,6 +350,7 @@ const Navbar = () => {
                     )}
                   </div>
 
+                  {/* Cột Thuốc */}
                   <div className={`mega-menu-column ${activeMobileColumn === 'medicine' ? 'active' : ''}`}>
                     <Link 
                       to="/thuoc" 
@@ -407,6 +381,7 @@ const Navbar = () => {
                     )}
                   </div>
 
+                  {/* Cột Bệnh lý */}
                   <div className={`mega-menu-column ${activeMobileColumn === 'disease' ? 'active' : ''}`}>
                     <Link 
                       to="/benh-ly" 
@@ -442,9 +417,8 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* RIGHT SECTION - Notification & User */}
+        {/* RIGHT SECTION */}
         <div className="nav-right">
-          {/* Notification - Chỉ hiện khi đã đăng nhập */}
           {user && <NotificationDropdown />}
 
           {/* User Dropdown */}
@@ -496,7 +470,7 @@ const Navbar = () => {
                     <FaSignInAlt /> Đăng nhập
                   </Link>
                   <Link to="/register" onClick={closeAllDropdowns} className="dropdown-register">
-                    <FaUserPlus />Đăng ký ngay
+                    <FaUserPlus /> Đăng ký ngay
                   </Link>
                 </>
               )}

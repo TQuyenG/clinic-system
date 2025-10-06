@@ -231,3 +231,66 @@ exports.deleteSpecialty = async (req, res) => {
   }
 };
 
+// Lấy chuyên khoa theo slug + danh sách bác sĩ
+exports.getSpecialtyBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const specialty = await models.Specialty.findOne({
+      where: { slug },
+      include: [{
+        model: models.Doctor,
+        include: [{
+          model: models.User,
+          where: { 
+            is_active: true,
+            is_verified: true 
+          },
+          attributes: ['id', 'full_name', 'email', 'phone', 'avatar_url', 'gender'],
+          required: true
+        }],
+        required: false
+      }]
+    });
+
+    if (!specialty) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy chuyên khoa'
+      });
+    }
+
+    // Format doctors
+    const doctors = specialty.Doctors.map(doctor => ({
+      id: doctor.User.id,
+      code: doctor.code,
+      full_name: doctor.User.full_name,
+      email: doctor.User.email,
+      phone: doctor.User.phone,
+      gender: doctor.User.gender,
+      avatar_url: doctor.User.avatar_url || 'https://via.placeholder.com/400?text=Doctor',
+      experience_years: doctor.experience_years || 0,
+      bio: doctor.bio
+    }));
+
+    res.status(200).json({
+      success: true,
+      specialty: {
+        id: specialty.id,
+        name: specialty.name,
+        slug: specialty.slug,
+        description: specialty.description,
+        doctor_count: doctors.length
+      },
+      doctors
+    });
+  } catch (error) {
+    console.error('ERROR trong getSpecialtyBySlug:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy thông tin chuyên khoa',
+      error: error.message
+    });
+  }
+};
+

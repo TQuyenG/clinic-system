@@ -10,6 +10,7 @@ const { authenticateToken, authorize } = require('../middleware/authMiddleware')
 // Routes công khai - Lấy danh sách chuyên khoa
 router.get('/', specialtyController.getAllSpecialties);
 router.get('/:id', specialtyController.getSpecialtyById);
+router.get('/slug/:slug', specialtyController.getSpecialtyBySlug);
 
 // Routes dành cho Admin
 router.post('/', authenticateToken, authorize('admin'), specialtyController.createSpecialty);

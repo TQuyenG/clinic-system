@@ -12,9 +12,15 @@ router.post('/forgot-password', userController.forgotPassword);
 router.post('/verify-otp', userController.verifyOTP);
 router.post('/reset-password', userController.resetPassword);
 
-// Routes công khai cho bác sĩ
+
+// THÊM MỚI: Routes công khai cho bác sĩ
+router.get('/doctors/public', userController.getAllDoctorsPublic);
+router.get('/doctors/:code', userController.getDoctorByCode);
+
+// Routes cũ (để tương thích backward)
 router.get('/doctors', userController.getDoctors);
 router.get('/doctors/:userId', userController.getDoctorById);
+
 
 // ============ ROUTES CẦN ĐĂNG NHẬP ============
 router.get('/profile', authenticateToken, userController.getProfile);

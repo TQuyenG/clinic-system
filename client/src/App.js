@@ -18,6 +18,10 @@ import NotificationPage from './pages/NotificationsPage';
 import ArticleOrCategoryPage from './pages/ArticleOrCategoryPage';
 import SavedArticlesPage from './pages/SavedArticlesPage';
 import CategoryArticlesPage from './pages/CategoryArticlesPage';
+import SpecialtiesListPage from './pages/SpecialtiesListPage';
+import SpecialtyDetailPage from './pages/SpecialtyDetailPage';
+import DoctorsListPage from './pages/DoctorsListPage';
+import DoctorProfilePage from './pages/DoctorProfilePage';
 import './App.css';
 
 // Protected Route Component
@@ -59,7 +63,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
 
-          {/* Public - Bài viết */}
+          {/* ========== BÀI VIẾT ========== */}
           <Route path="/bai-viet" element={<ArticlesListPage />} />
           
           <Route 
@@ -80,8 +84,14 @@ function App() {
           <Route path="/tin-tuc/:slug" element={<ArticleOrCategoryPage type="tin-tuc" />} />
           <Route path="/thuoc/:slug" element={<ArticleOrCategoryPage type="thuoc" />} />
           <Route path="/benh-ly/:slug" element={<ArticleOrCategoryPage type="benh-ly" />} />
+
+          {/* ========== CHUYÊN KHOA & BÁC SĨ ========== */}
+          <Route path="/chuyen-khoa" element={<SpecialtiesListPage />} />
+          <Route path="/chuyen-khoa/:slug" element={<SpecialtyDetailPage />} />
+          <Route path="/bac-si" element={<DoctorsListPage />} />
+          <Route path="/bac-si/:code" element={<DoctorProfilePage />} />
           
-          {/* Protected Routes */}
+          {/* ========== PROTECTED ROUTES ========== */}
           <Route 
             path="/dashboard" 
             element={
@@ -100,7 +110,16 @@ function App() {
             } 
           />
           
-          {/* Admin Only Routes */}
+          <Route 
+            path="/notifications" 
+            element={
+              <ProtectedRoute>
+                <NotificationPage />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* ========== ADMIN ONLY ROUTES ========== */}
           <Route 
             path="/users" 
             element={
@@ -128,21 +147,12 @@ function App() {
             } 
           />
           
-          {/* Articles Management - Admin, Staff, Doctor */}
+          {/* ========== ARTICLES MANAGEMENT ========== */}
           <Route 
             path="/articles" 
             element={
               <ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}>
                 <ArticleManagementPage />
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="/notifications" 
-            element={
-              <ProtectedRoute>
-                <NotificationPage />
               </ProtectedRoute>
             } 
           />
