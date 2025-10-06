@@ -1,4 +1,4 @@
-// server/models/Medicine.js - Updated
+// server/models/Medicine.js - FIXED
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -29,11 +29,15 @@ module.exports = (sequelize) => {
   });
 
   Medicine.associate = (models) => {
+    // Liên kết với Category
     Medicine.belongsTo(models.Category, { foreignKey: 'category_id' });
+    
+    // Polymorphic relationship với Interaction
     Medicine.hasMany(models.Interaction, { 
       foreignKey: 'entity_id',
       constraints: false,
-      scope: { entity_type: 'medicine' }
+      scope: { entity_type: 'medicine' },
+      as: 'interactions'
     });
   };
 

@@ -6,7 +6,7 @@ module.exports = (sequelize) => {
     user_id: { type: DataTypes.BIGINT, unique: true, allowNull: false },
     username: { type: DataTypes.STRING(50), unique: false, allowNull: false },
     code: { type: DataTypes.STRING(10), unique: true, allowNull: false },
-    medical_history: { type: DataTypes.JSON, allowNull: true }, // Cho phép null
+    medical_history: { type: DataTypes.JSON, allowNull: true },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {

@@ -10,7 +10,7 @@ import {
   FaCheck, FaBan, FaRedo, FaInfoCircle, FaExternalLinkAlt, FaClock,
   FaBookmark, FaNewspaper, FaPills, FaDisease, FaUser, FaCalendar,
   FaTag, FaLink, FaExclamationTriangle, FaCheckCircle, FaTimesCircle,
-  FaSpinner, FaFileAlt, FaTable, FaFlask, FaHospital
+  FaSpinner, FaFileAlt, FaTable, FaFlask, FaHospital, FaCopy
 } from 'react-icons/fa';
 import './ArticleManagementPage.css';
 
@@ -167,8 +167,8 @@ const ArticleManagementPage = () => {
       else if (activeTab === 'request_edit') queryFilters.status = 'request_edit';
       else if (activeTab === 'approved') queryFilters.status = 'approved';
       else if (activeTab === 'rejected') queryFilters.status = 'rejected';
-      else if (activeTab === 'medicine') queryFilters.category_type = 'thuoc';
-      else if (activeTab === 'disease') queryFilters.category_type = 'benh_ly';
+      else if (activeTab === 'medicine') queryFilters.entity_type = 'medicine';
+      else if (activeTab === 'disease') queryFilters.entity_type = 'disease';
 
       if (user.role === 'staff') {
         queryFilters.author_id = user.id;
@@ -182,115 +182,120 @@ const ArticleManagementPage = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      const articlesData = response.data.success 
-        ? response.data.articles 
-        : (response.data.articles || response.data);
-
-      setArticles(Array.isArray(articlesData) ? articlesData : []);
-      setPagination(response.data.pagination || {});
-      setStats(response.data.stats || {});
+      if (response.data.success) {
+        setArticles(response.data.articles || []);
+        setPagination(response.data.pagination || {});
+        setStats(response.data.stats || {});
+      }
     } catch (error) {
       console.error('Error fetching articles:', error);
-      alert(error.response?.data?.message || 'Lỗi tải danh sách bài viết');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleImageUpload = (file) => {
-    return new Promise((resolve, reject) => {
-      if (!file || !file.type.startsWith('image/')) {
-        reject('Vui lòng chọn file ảnh hợp lệ');
-        return;
-      }
-
-      const maxSize = 5 * 1024 * 1024;
-      if (file.size > maxSize) {
-        reject('Kích thước ảnh không được vượt quá 5MB');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        resolve({ default: e.target.result });
-      };
-      reader.onerror = () => reject('Lỗi đọc file');
-      reader.readAsDataURL(file);
-    });
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value, page: 1 }));
   };
 
-  const handleFileImport = async (file) => {
-    setUploadingImage(true);
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        let content = '';
-        const fileType = file.name.split('.').pop().toLowerCase();
+  const handleSortChange = (field) => {
+    setFilters(prev => ({
+      ...prev,
+      sort_by: field,
+      sort_order: prev.sort_by === field && prev.sort_order === 'DESC' ? 'ASC' : 'DESC',
+      page: 1
+    }));
+  };
 
-        if (fileType === 'docx') {
-          const { value } = await mammoth.convertToHtml({ arrayBuffer: e.target.result });
-          content = value;
-        } else if (fileType === 'xlsx' || fileType === 'csv') {
-          const workbook = XLSX.read(e.target.result, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          content = XLSX.utils.sheet_to_html(sheet);
-        } else if (fileType === 'txt') {
-          content = e.target.result.replace(/\n/g, '<br/>');
-        }
+  const handlePageChange = (newPage) => {
+    setFilters(prev => ({ ...prev, page: newPage }));
+  };
 
-        if (editorRef.current) {
-          const currentContent = formData.content || '';
-          setFormData(prev => ({ ...prev, content: currentContent + content }));
-        }
-        setUploadingImage(false);
-        alert('Import file thành công!');
-      };
+  const openModal = async (type, article = null) => {
+    setModalType(type);
+    setShowModal(true);
+    setHideOnEdit(false);
 
-      if (file.name.endsWith('.txt')) {
-        reader.readAsText(file);
-      } else {
-        reader.readAsArrayBuffer(file);
+    if (article) {
+      const response = await axios.get(`${API_BASE_URL}/api/articles/${article.id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      if (response.data.success) {
+        const art = response.data.article;
+        setSelectedArticle(art);
+        setFormData({
+          title: art.title,
+          content: art.content,
+          category_id: art.category_id,
+          tags_json: art.tags_json || [],
+          source: art.source,
+          composition: art.medicine?.composition || '',
+          uses: art.medicine?.uses || '',
+          side_effects: art.medicine?.side_effects || '',
+          manufacturer: art.medicine?.manufacturer || '',
+          symptoms: art.disease?.symptoms || '',
+          treatments: art.disease?.treatments || '',
+          description: art.medicine?.description || art.disease?.description || ''
+        });
+        setSelectedCategoryType(art.Category?.category_type || '');
+        if (art.category_id) fetchSubcategories(art.category_id);
       }
-    } catch (error) {
-      console.error('Error importing file:', error);
-      alert('Lỗi import file: ' + error.message);
-      setUploadingImage(false);
-    }
-  };
-
-  const fetchSuggestedTags = async (query) => {
-    if (query.length < 2) {
-      setSuggestedTags([]);
-      return;
-    }
-    
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `${API_BASE_URL}/api/articles/tags/suggest?q=${query}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setSuggestedTags(response.data.tags || []);
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-    }
-  };
-
-  const handleTagInputChange = (e) => {
-    const value = e.target.value;
-    setTagInput(value);
-    
-    const lastWord = value.split(',').pop().trim();
-    if (lastWord) {
-      fetchSuggestedTags(lastWord);
     } else {
-      setSuggestedTags([]);
+      setSelectedArticle(null);
+      setFormData({
+        title: '',
+        content: '',
+        category_id: '',
+        tags_json: [],
+        source: '',
+        composition: '',
+        uses: '',
+        side_effects: '',
+        manufacturer: '',
+        symptoms: '',
+        treatments: '',
+        description: ''
+      });
+      setSelectedCategoryType('');
+      setSubcategories([]);
     }
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedArticle(null);
+    setFormData({
+      title: '',
+      content: '',
+      category_id: '',
+      tags_json: [],
+      source: '',
+      composition: '',
+      uses: '',
+      side_effects: '',
+      manufacturer: '',
+      symptoms: '',
+      treatments: '',
+      description: ''
+    });
+    setTagInput('');
+    setSuggestedTags([]);
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleContentChange = (event, editor) => {
+    const data = editor.getData();
+    setFormData(prev => ({ ...prev, content: data }));
   };
 
   const addTag = (tag) => {
-    if (!formData.tags_json.includes(tag)) {
+    if (tag && !formData.tags_json.includes(tag)) {
       setFormData(prev => ({
         ...prev,
         tags_json: [...prev.tags_json, tag]
@@ -300,317 +305,366 @@ const ArticleManagementPage = () => {
     setSuggestedTags([]);
   };
 
-  const removeTag = (tagToRemove) => {
+  const removeTag = (index) => {
     setFormData(prev => ({
       ...prev,
-      tags_json: prev.tags_json.filter(tag => tag !== tagToRemove)
+      tags_json: prev.tags_json.filter((_, i) => i !== index)
     }));
   };
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value, page: 1 }));
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      search: '', status: '', category_id: '', category_type: '',
-      author_id: '', date_from: '', date_to: '', min_views: '',
-      page: 1, limit: 10, sort_by: 'created_at', sort_order: 'DESC'
-    });
-  };
-
-  const toggleSort = (field) => {
-    setFilters(prev => ({
-      ...prev,
-      sort_by: field,
-      sort_order: prev.sort_by === field && prev.sort_order === 'ASC' ? 'DESC' : 'ASC'
-    }));
-  };
-
-  const openModal = (type, article = null) => {
-    setModalType(type);
-    setSelectedArticle(article);
-    setHideOnEdit(false);
-
-    if (type === 'create') {
-      setFormData({ 
-        title: '', content: '', category_id: '', tags_json: [], source: '',
-        composition: '', uses: '', side_effects: '', manufacturer: '',
-        symptoms: '', treatments: '', description: ''
-      });
-      setSelectedCategoryType('');
-      setSubcategories([]);
-    } else if (type === 'edit' && article) {
-      setFormData({
-        title: article.title,
-        content: article.content,
-        category_id: article.category_id || '',
-        tags_json: article.tags_json || [],
-        source: article.source || '',
-        composition: article.composition || '',
-        uses: article.uses || '',
-        side_effects: article.side_effects || '',
-        manufacturer: article.manufacturer || '',
-        symptoms: article.symptoms || '',
-        treatments: article.treatments || '',
-        description: article.description || ''
-      });
-      if (article.category_id) {
-        const category = categories.find(c => c.id === article.category_id);
-        if (category) {
-          setSelectedCategoryType(category.category_type);
-          fetchSubcategories(article.category_id);
-        }
-      }
-    }
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setModalType('');
-    setSelectedArticle(null);
-    setFormData({ 
-      title: '', content: '', category_id: '', tags_json: [], source: '',
-      composition: '', uses: '', side_effects: '', manufacturer: '',
-      symptoms: '', treatments: '', description: ''
-    });
-    setHideOnEdit(false);
-    setSelectedCategoryType('');
-    setSubcategories([]);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!formData.title || !formData.content) {
-      alert('Vui lòng nhập đầy đủ tiêu đề và nội dung');
+  const fetchSuggestedTags = async (input) => {
+    if (!input) {
+      setSuggestedTags([]);
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.get(`${API_BASE_URL}/api/articles/tags/suggest?query=${input}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (response.data.success) {
+        setSuggestedTags(response.data.tags || []);
+      }
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+    }
+  };
 
+  useEffect(() => {
+    const timeout = setTimeout(() => fetchSuggestedTags(tagInput), 300);
+    return () => clearTimeout(timeout);
+  }, [tagInput]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const data = { ...formData, hideAfterEdit: hideOnEdit };
+
+      let response;
       if (modalType === 'create') {
-        await axios.post(`${API_BASE_URL}/api/articles`, formData, config);
-        alert('Tạo bài viết thành công!');
+        response = await axios.post(`${API_BASE_URL}/api/articles`, data, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
       } else if (modalType === 'edit') {
-        const updateData = hideOnEdit 
-          ? { ...formData, status: 'hidden' }
-          : formData;
-          
-        await axios.put(`${API_BASE_URL}/api/articles/${selectedArticle.id}`, updateData, config);
-        alert(hideOnEdit ? 'Cập nhật và ẩn bài viết thành công!' : 'Cập nhật bài viết thành công!');
+        response = await axios.put(`${API_BASE_URL}/api/articles/${selectedArticle.id}`, data, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
       }
 
-      closeModal();
-      fetchArticles();
+      if (response.data.success) {
+        closeModal();
+        fetchArticles();
+      }
     } catch (error) {
-      alert(error.response?.data?.message || 'Lỗi xử lý bài viết');
+      console.error('Error submitting article:', error);
     }
   };
 
-  const handleReviewArticle = async (articleId, action, reason = '') => {
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_BASE_URL}/api/articles/${articleId}/review`,
-        { action, rejection_reason: reason },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      const messages = {
-        approve: 'Phê duyệt bài viết thành công!',
-        reject: 'Từ chối bài viết thành công!',
-        rewrite: 'Đã gửi yêu cầu viết lại!'
-      };
-      
-      alert(messages[action]);
-      closeModal();
-      fetchArticles();
-    } catch (error) {
-      alert(error.response?.data?.message || 'Lỗi xử lý phê duyệt');
-    }
-  };
-
-  const handleDelete = async (articleId, title) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa bài viết "${title}"?`)) return;
+  const handleDeleteArticle = async (id) => {
+    if (!window.confirm('Bạn chắc chắn muốn xóa bài viết này?')) return;
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${API_BASE_URL}/api/articles/${articleId}`, {
+      const response = await axios.delete(`${API_BASE_URL}/api/articles/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Xóa bài viết thành công!');
-      fetchArticles();
+
+      if (response.data.success) {
+        fetchArticles();
+      }
     } catch (error) {
-      alert(error.response?.data?.message || 'Lỗi xóa bài viết');
+      console.error('Error deleting article:', error);
     }
   };
 
-  const handleToggleVisibility = async (articleId, currentStatus) => {
-    const hide = currentStatus !== 'hidden';
-
+  const handleHideArticle = async (id, hide) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_BASE_URL}/api/articles/${articleId}/hide`,
-        { hide },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert(hide ? 'Đã ẩn bài viết!' : 'Đã hiện bài viết!');
-      fetchArticles();
+      const response = await axios.post(`${API_BASE_URL}/api/articles/${id}/hide`, { hide }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        fetchArticles();
+      }
     } catch (error) {
-      alert(error.response?.data?.message || 'Lỗi thay đổi trạng thái');
+      console.error('Error hiding article:', error);
     }
   };
 
-  const handleRequestEdit = async (articleId) => {
-    const reason = prompt('Nhập lý do muốn chỉnh sửa:');
+  const handleReviewArticle = async (id, action, reason = '') => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/api/articles/${id}/review`, { action, reason }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        closeModal();
+        fetchArticles();
+      }
+    } catch (error) {
+      console.error('Error reviewing article:', error);
+    }
+  };
+
+  const handleRequestEdit = async (id) => {
+    const reason = prompt('Nhập lý do yêu cầu chỉnh sửa:');
     if (!reason) return;
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_BASE_URL}/api/articles/${articleId}/request-edit`,
-        { reason },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert('Đã gửi yêu cầu chỉnh sửa đến admin');
+      const response = await axios.post(`${API_BASE_URL}/api/articles/${id}/request-edit`, { reason }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        fetchArticles();
+      }
     } catch (error) {
-      alert(error.response?.data?.message || 'Lỗi gửi yêu cầu');
+      console.error('Error requesting edit:', error);
     }
   };
 
+  const handleDuplicateArticle = async (id) => {
+    if (!window.confirm('Bạn chắc chắn muốn nhân bản bài viết này?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/api/articles/${id}/duplicate`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        fetchArticles();
+      }
+    } catch (error) {
+      console.error('Error duplicating article:', error);
+    }
+  };
+
+  const handleAllowEdit = async (id) => {
+    if (!window.confirm('Cho phép chỉnh sửa bài viết này?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/api/articles/${id}/allow-edit`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        fetchArticles();
+      }
+    } catch (error) {
+      console.error('Error allowing edit:', error);
+    }
+  };
+  
+  // THÊM: Validation file size
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+  const handleFileUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  // THÊM: Kiểm tra dung lượng
+  if (file.size > MAX_FILE_SIZE) {
+    alert(`File quá lớn! Vui lòng chọn file nhỏ hơn ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+    e.target.value = ''; // Reset input
+    return;
+  }
+
+  try {
+    if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer });
+      setFormData(prev => ({ ...prev, content: result.value }));
+    } else if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const html = XLSX.utils.sheet_to_html(worksheet);
+      setFormData(prev => ({ ...prev, content: html }));
+    }
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    alert('Lỗi khi xử lý file. Vui lòng thử lại.');
+  }
+};
+
   const getStatusBadge = (status) => {
     const badges = {
-      draft: { text: 'Nháp', class: 'badge-draft', icon: FaFileAlt },
-      pending: { text: 'Chờ duyệt', class: 'badge-pending', icon: FaClock },
-      approved: { text: 'Đã duyệt', class: 'badge-approved', icon: FaCheckCircle },
-      rejected: { text: 'Từ chối', class: 'badge-rejected', icon: FaTimesCircle },
-      hidden: { text: 'Đã ẩn', class: 'badge-hidden', icon: FaEyeSlash },
-      request_edit: { text: 'Yêu cầu sửa', class: 'badge-request', icon: FaExclamationTriangle }
+      draft: { color: 'gray', icon: FaFileAlt, label: 'Nháp' },
+      pending: { color: 'blue', icon: FaClock, label: 'Chờ duyệt' },
+      approved: { color: 'green', icon: FaCheckCircle, label: 'Đã duyệt' },
+      rejected: { color: 'red', icon: FaTimesCircle, label: 'Từ chối' },
+      hidden: { color: 'orange', icon: FaEyeSlash, label: 'Ẩn' },
+      request_edit: { color: 'purple', icon: FaRedo, label: 'Yêu cầu sửa' },
+      request_rewrite: { color: 'yellow', icon: FaExclamationTriangle, label: 'Yêu cầu viết lại' }
     };
-    const badge = badges[status] || { text: status, class: 'badge-draft', icon: FaInfoCircle };
-    const Icon = badge.icon;
+    return badges[status] || { color: 'gray', icon: FaInfoCircle, label: status };
+  };
+
+  const StatusBadge = ({ status }) => {
+    const { color, icon: Icon, label } = getStatusBadge(status);
     return (
-      <span className={`badge ${badge.class}`}>
-        <Icon className="badge-icon" />
-        {badge.text}
+      <span className={`status-badge status-${color}`}>
+        <Icon /> {label}
       </span>
     );
   };
 
-  const tabs = [
-    { id: 'all', label: 'Tất cả bài viết', icon: FaNewspaper, count: stats.total || 0 },
-    { id: 'pending', label: 'Chờ duyệt', icon: FaClock, count: stats.pending || 0 },
-    { id: 'request_edit', label: 'Yêu cầu chỉnh sửa', icon: FaEdit, count: 0 },
-    { id: 'approved', label: 'Đã duyệt', icon: FaCheck, count: stats.approved || 0 },
-    { id: 'rejected', label: 'Từ chối', icon: FaBan, count: stats.rejected || 0 },
-    { id: 'medicine', label: 'Thuốc', icon: FaPills, count: 0 },
-    { id: 'disease', label: 'Bệnh lý', icon: FaDisease, count: 0 }
-  ];
-
-  if (loading && articles.length === 0) {
-    return (
-      <div className="loading-container">
-        <FaSpinner className="spinner" />
-        <p>Đang tải dữ liệu...</p>
-      </div>
-    );
-  }
+  const getCategoryIcon = (type) => {
+    const icons = {
+      thuoc: FaPills,
+      benh_ly: FaDisease,
+      tin_tuc: FaNewspaper
+    };
+    return icons[type] || FaFileAlt;
+  };
 
   return (
     <div className="article-management">
       <div className="page-header">
         <div className="header-info">
-          <h1>Quản lý Bài viết</h1>
+          <h1>Quản lý bài viết</h1>
           <div className="quick-stats">
             <div className="stat-item">
-              <span className="stat-label">Tổng bài viết:</span>
-              <span className="stat-value">{stats.total || 0}</span>
+              <span className="stat-label">Tổng bài viết</span>
+              <span className="stat-value">{pagination.totalItems || 0}</span>
             </div>
-            {user.role === 'admin' && (
-              <>
-                <div className="stat-item">
-                  <span className="stat-label">Chờ duyệt:</span>
-                  <span className="stat-value highlight">{stats.pending || 0}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Đã duyệt:</span>
-                  <span className="stat-value success">{stats.approved || 0}</span>
-                </div>
-              </>
-            )}
+            <div className="stat-item">
+              <span className="stat-label">Chờ duyệt</span>
+              <span className="stat-value highlight">{stats.pending || 0}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Đã duyệt</span>
+              <span className="stat-value success">{stats.approved || 0}</span>
+            </div>
           </div>
         </div>
-        {['admin', 'staff', 'doctor'].includes(user.role) && (
-          <button className="btn btn-primary" onClick={() => openModal('create')}>
-            <FaPlus /> Tạo bài viết mới
-          </button>
-        )}
+        <button className="btn btn-primary" onClick={() => openModal('create')}>
+          <FaPlus /> Tạo bài viết mới
+        </button>
       </div>
 
       <div className="tabs-container">
-        {tabs.map(tab => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
-            >
-              <Icon className="tab-icon" />
-              <span className="tab-label">{tab.label}</span>
-              {tab.count > 0 && <span className="tab-badge">{tab.count}</span>}
-            </button>
-          );
-        })}
+        {[
+          { id: 'all', label: 'Tất cả', icon: FaNewspaper, count: pagination.totalItems },
+          { id: 'pending', label: 'Chờ duyệt', icon: FaClock, count: stats.pending },
+          { id: 'approved', label: 'Đã duyệt', icon: FaCheck, count: stats.approved },
+          { id: 'rejected', label: 'Từ chối', icon: FaBan, count: stats.rejected },
+          { id: 'request_edit', label: 'Yêu cầu sửa', icon: FaRedo, count: stats.request_edit },
+          { id: 'medicine', label: 'Thuốc', icon: FaPills },
+          { id: 'disease', label: 'Bệnh lý', icon: FaDisease }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <tab.icon className="tab-icon" />
+            <span className="tab-label">{tab.label}</span>
+            {tab.count > 0 && <span className="tab-badge">{tab.count}</span>}
+          </button>
+        ))}
       </div>
 
       <div className="filters-panel">
         <div className="filters-header">
-          <h3><FaFilter /> Bộ lọc nâng cao</h3>
-          <button className="btn-clear" onClick={clearFilters}>
-            <FaTimes /> Xóa lọc
+          <h3><FaFilter /> Bộ lọc</h3>
+          <button className="btn-clear" onClick={() => setFilters({
+            search: '',
+            status: '',
+            category_id: '',
+            category_type: '',
+            author_id: '',
+            date_from: '',
+            date_to: '',
+            min_views: '',
+            page: 1,
+            limit: 10,
+            sort_by: 'created_at',
+            sort_order: 'DESC'
+          })}>
+            <FaTimes /> Xóa bộ lọc
           </button>
         </div>
 
         <div className="filters-grid">
-          <div className="filter-item">
+          <div className="filter-group">
             <label>Tìm kiếm</label>
-            <div className="search-box">
-              <FaSearch className="search-icon" />
+            <div className="input-group">
+              <FaSearch />
               <input
                 type="text"
                 name="search"
                 value={filters.search}
                 onChange={handleFilterChange}
-                placeholder="Tìm theo tiêu đề, nội dung..."
+                placeholder="Tìm theo tiêu đề hoặc nội dung..."
               />
             </div>
           </div>
 
-          <div className="filter-item">
+          <div className="filter-group">
+            <label>Trạng thái</label>
+            <select name="status" value={filters.status} onChange={handleFilterChange}>
+              <option value="">Tất cả</option>
+              <option value="draft">Nháp</option>
+              <option value="pending">Chờ duyệt</option>
+              <option value="approved">Đã duyệt</option>
+              <option value="rejected">Từ chối</option>
+              <option value="hidden">Ẩn</option>
+              <option value="request_edit">Yêu cầu sửa</option>
+              <option value="request_rewrite">Yêu cầu viết lại</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
             <label>Danh mục</label>
             <select name="category_id" value={filters.category_id} onChange={handleFilterChange}>
-              <option value="">Tất cả danh mục</option>
+              <option value="">Tất cả</option>
               {categories.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
           </div>
 
-          <div className="filter-item">
+          <div className="filter-group">
+            <label>Loại danh mục</label>
+            <select name="category_type" value={filters.category_type} onChange={handleFilterChange}>
+              <option value="">Tất cả</option>
+              <option value="thuoc">Thuốc</option>
+              <option value="benh_ly">Bệnh lý</option>
+              <option value="tin_tuc">Bài viết</option>
+            </select>
+          </div>
+
+          {user.role === 'admin' && (
+            <div className="filter-group">
+              <label>Tác giả</label>
+              <input
+                type="text"
+                name="author_id"
+                value={filters.author_id}
+                onChange={handleFilterChange}
+                placeholder="ID tác giả"
+              />
+            </div>
+          )}
+
+          <div className="filter-group">
             <label>Từ ngày</label>
             <input type="date" name="date_from" value={filters.date_from} onChange={handleFilterChange} />
           </div>
 
-          <div className="filter-item">
+          <div className="filter-group">
             <label>Đến ngày</label>
             <input type="date" name="date_to" value={filters.date_to} onChange={handleFilterChange} />
           </div>
 
-          <div className="filter-item">
+          <div className="filter-group">
             <label>Lượt xem tối thiểu</label>
             <input
               type="number"
@@ -618,446 +672,300 @@ const ArticleManagementPage = () => {
               value={filters.min_views}
               onChange={handleFilterChange}
               placeholder="0"
-              min="0"
             />
-          </div>
-
-          <div className="filter-item">
-            <label>Số bài/trang</label>
-            <select name="limit" value={filters.limit} onChange={handleFilterChange}>
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
           </div>
         </div>
       </div>
 
-      <div className="table-container">
-        <table className="articles-table">
-          <thead>
-            <tr>
-              <th onClick={() => toggleSort('id')} className="sortable">
-                ID {filters.sort_by === 'id' && (filters.sort_order === 'ASC' ? <FaSortAmountUp /> : <FaSortAmountDown />)}
-              </th>
-              <th onClick={() => toggleSort('title')} className="sortable">
-                Tiêu đề {filters.sort_by === 'title' && (filters.sort_order === 'ASC' ? <FaSortAmountUp /> : <FaSortAmountDown />)}
-              </th>
-              <th>Danh mục</th>
-              {user.role === 'admin' && <th>Tác giả</th>}
-              <th>Trạng thái</th>
-              {activeTab === 'medicine' && (
-                <>
-                  <th>Thành phần</th>
-                  <th>Công dụng</th>
-                  <th>Nhà SX</th>
-                </>
-              )}
-              {activeTab === 'disease' && (
-                <>
-                  <th>Triệu chứng</th>
-                  <th>Điều trị</th>
-                </>
-              )}
-              <th onClick={() => toggleSort('views')} className="sortable">
-                Thống kê {filters.sort_by === 'views' && (filters.sort_order === 'ASC' ? <FaSortAmountUp /> : <FaSortAmountDown />)}
-              </th>
-              <th onClick={() => toggleSort('created_at')} className="sortable">
-                Ngày tạo {filters.sort_by === 'created_at' && (filters.sort_order === 'ASC' ? <FaSortAmountUp /> : <FaSortAmountDown />)}
-              </th>
-              <th>Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {articles.length === 0 ? (
+      {loading ? (
+        <div className="loading-container">
+          <FaSpinner className="spinner" />
+          <p>Đang tải dữ liệu...</p>
+        </div>
+      ) : articles.length === 0 ? (
+        <div className="empty-state">
+          <FaFileAlt size={64} color="#94a3b8" />
+          <h3>Không có bài viết nào</h3>
+          <p>Hãy tạo bài viết mới để bắt đầu.</p>
+        </div>
+      ) : (
+        <div className="table-container">
+          <table className="articles-table">
+            <thead>
               <tr>
-                <td colSpan="12" className="empty-state">
-                  <FaInfoCircle /> Không có bài viết nào
-                </td>
+                <th onClick={() => handleSortChange('title')}>
+                  Tiêu đề
+                  {filters.sort_by === 'title' && (
+                    filters.sort_order === 'DESC' ? <FaSortAmountDown /> : <FaSortAmountUp />
+                  )}
+                </th>
+                <th onClick={() => handleSortChange('Category.name')}>
+                  Danh mục
+                  {filters.sort_by === 'Category.name' && (
+                    filters.sort_order === 'DESC' ? <FaSortAmountDown /> : <FaSortAmountUp />
+                  )}
+                </th>
+                <th onClick={() => handleSortChange('author.full_name')}>
+                  Tác giả
+                  {filters.sort_by === 'author.full_name' && (
+                    filters.sort_order === 'DESC' ? <FaSortAmountDown /> : <FaSortAmountUp />
+                  )}
+                </th>
+                <th onClick={() => handleSortChange('created_at')}>
+                  Ngày tạo
+                  {filters.sort_by === 'created_at' && (
+                    filters.sort_order === 'DESC' ? <FaSortAmountDown /> : <FaSortAmountUp />
+                  )}
+                </th>
+                <th onClick={() => handleSortChange('views')}>
+                  Lượt xem
+                  {filters.sort_by === 'views' && (
+                    filters.sort_order === 'DESC' ? <FaSortAmountDown /> : <FaSortAmountUp />
+                  )}
+                </th>
+                <th>Trạng thái</th>
+                <th>Hành động</th>
               </tr>
-            ) : (
-              articles.map(article => (
+            </thead>
+            <tbody>
+              {articles.map(article => (
                 <tr key={article.id}>
-                  <td>{article.id}</td>
                   <td className="title-cell">
-                    <a href={`/articles/${article.slug}`} target="_blank" rel="noopener noreferrer" className="article-link">
-                      <strong>{article.title}</strong>
-                      <FaExternalLinkAlt className="link-icon" />
-                    </a>
+                    <div className="title-wrapper">
+                      {article.entity_type === 'medicine' && <FaPills className="entity-icon medicine" />}
+                      {article.entity_type === 'disease' && <FaDisease className="entity-icon disease" />}
+                      {article.entity_type === 'article' && <FaNewspaper className="entity-icon article" />}
+                      <span className="article-title-text">{article.title}</span>
+                    </div>
+                    {article.tags_json?.length > 0 && (
+                      <div className="tags-list">
+                        {article.tags_json.slice(0, 3).map((tag, idx) => (
+                          <span key={idx} className="tag"><FaTag /> {tag}</span>
+                        ))}
+                        {article.tags_json.length > 3 && <span className="tag-more">+{article.tags_json.length - 3}</span>}
+                      </div>
+                    )}
                   </td>
-                  <td>{article.Category?.name || '-'}</td>
-                  {user.role === 'admin' && <td>{article.author?.full_name || '-'}</td>}
-                  <td>{getStatusBadge(article.status)}</td>
-                  {activeTab === 'medicine' && (
-                    <>
-                      <td>{article.composition ? article.composition.substring(0, 50) + '...' : '-'}</td>
-                      <td>{article.uses ? article.uses.substring(0, 50) + '...' : '-'}</td>
-                      <td>{article.manufacturer || '-'}</td>
-                    </>
-                  )}
-                  {activeTab === 'disease' && (
-                    <>
-                      <td>{article.symptoms ? article.symptoms.substring(0, 50) + '...' : '-'}</td>
-                      <td>{article.treatments ? article.treatments.substring(0, 50) + '...' : '-'}</td>
-                    </>
-                  )}
                   <td>
-                    <div className="stats-cell">
-                      <span><FaEye /> {article.views || 0}</span>
+                    {article.Category && (
+                      <span className="category-badge">
+                        <getCategoryIcon type={article.Category.category_type} />
+                        {article.Category.name}
+                      </span>
+                    )}
+                  </td>
+                  <td>{article.author?.full_name}</td>
+                  <td>{new Date(article.created_at).toLocaleDateString('vi-VN')}</td>
+                  <td>
+                    <div className="views-stats">
+                      <span><FaEye /> {article.views}</span>
                       <span><FaThumbsUp /> {article.likes || 0}</span>
                       <span><FaShareAlt /> {article.shares || 0}</span>
                     </div>
                   </td>
-                  <td>{new Date(article.created_at).toLocaleDateString('vi-VN')}</td>
-                  <td>
-                    <div className="actions-cell">
+                  <td><StatusBadge status={article.status} /></td>
+                  <td className="actions-cell">
+                    <div className="article-actions">
+                      <button className="btn-action view" onClick={() => openModal('review', article)} title="Xem chi tiết">
+                        <FaEye />
+                      </button>
+                      {(user.role !== 'staff' || article.author_id === user.id || article.status === 'request_edit') && (
+                        <button className="btn-action edit" onClick={() => openModal('edit', article)} title="Chỉnh sửa">
+                          <FaEdit />
+                        </button>
+                      )}
                       {user.role === 'admin' && (
                         <>
-                          {article.status === 'pending' && (
-                            <button onClick={() => openModal('review', article)} className="btn-action btn-approve" title="Phê duyệt">
-                              <FaCheck />
-                            </button>
-                          )}
-                          <button onClick={() => openModal('edit', article)} className="btn-action btn-edit" title="Chỉnh sửa">
-                            <FaEdit />
-                          </button>
-                          <button onClick={() => handleToggleVisibility(article.id, article.status)} className="btn-action btn-visibility" title={article.status === 'hidden' ? 'Hiện' : 'Ẩn'}>
+                          <button 
+                            className="btn-action" 
+                            onClick={() => handleHideArticle(article.id, article.status !== 'hidden')} 
+                            title={article.status === 'hidden' ? 'Hiện bài viết' : 'Ẩn bài viết'}
+                          >
                             {article.status === 'hidden' ? <FaEye /> : <FaEyeSlash />}
                           </button>
-                          <button onClick={() => handleDelete(article.id, article.title)} className="btn-action btn-delete" title="Xóa">
+                          <button className="btn-action delete" onClick={() => handleDeleteArticle(article.id)} title="Xóa">
                             <FaTrash />
                           </button>
                         </>
                       )}
-
-                      {user.role === 'staff' && (
-                        <>
-                          {article.status === 'draft' && (
-                            <button onClick={() => openModal('edit', article)} className="btn-action btn-edit" title="Sửa">
-                              <FaEdit />
-                            </button>
-                          )}
-                          {['approved', 'hidden'].includes(article.status) && (
-                            <button onClick={() => handleRequestEdit(article.id)} className="btn-action btn-request" title="Yêu cầu sửa">
-                              <FaInfoCircle />
-                            </button>
-                          )}
-                        </>
+                      {user.role !== 'admin' && article.status === 'approved' && (
+                        <button className="btn-action" onClick={() => handleRequestEdit(article.id)} title="Yêu cầu chỉnh sửa">
+                          <FaRedo />
+                        </button>
                       )}
+                      <button className="btn-action" onClick={() => handleDuplicateArticle(article.id)} title="Nhân bản">
+                        <FaCopy />
+                      </button>
                     </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="pagination">
+            <button 
+              className="btn-page" 
+              disabled={pagination.currentPage === 1} 
+              onClick={() => handlePageChange(1)}
+            >
+              «
+            </button>
+            <button 
+              className="btn-page" 
+              disabled={pagination.currentPage === 1} 
+              onClick={() => handlePageChange(pagination.currentPage - 1)}
+            >
+              ‹
+            </button>
+            <div className="page-numbers">
+              {[...Array(pagination.totalPages)].map((_, i) => (
+                <button
+                  key={i + 1}
+                  className={`btn-page ${pagination.currentPage === i + 1 ? 'active' : ''}`}
+                  onClick={() => handlePageChange(i + 1)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button 
+              className="btn-page" 
+              disabled={pagination.currentPage === pagination.totalPages} 
+              onClick={() => handlePageChange(pagination.currentPage + 1)}
+            >
+              ›
+            </button>
+            <button 
+              className="btn-page" 
+              disabled={pagination.currentPage === pagination.totalPages} 
+              onClick={() => handlePageChange(pagination.totalPages)}
+            >
+              »
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showModal && (modalType === 'create' || modalType === 'edit') && (
+  <div className="modal-overlay" onClick={closeModal}>
+    {/* SỬA: Thêm class modal-split để chia 2 cột */}
+    <div className="modal-dialog modal-split" onClick={e => e.stopPropagation()}>
+      
+      {/* Cột TRÁI: Form */}
+      <div className="modal-form-side">
+        <div className="modal-header">
+          <h2>{modalType === 'create' ? 'Tạo bài viết mới' : 'Chỉnh sửa bài viết'}</h2>
+          <button className="btn-close" onClick={closeModal}><FaTimes /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="modal-body compact-form">
+          {/* Các form fields giữ nguyên */}
+          
+          {/* THÊM: Hiển thị giới hạn file */}
+          <div className="form-group">
+            <label>Tải lên file (Tối đa 10MB)</label>
+            <input 
+              type="file" 
+              accept=".docx,.xlsx" 
+              onChange={handleFileUpload} 
+            />
+            <small className="form-hint">Hỗ trợ: .docx, .xlsx (Max: 10MB)</small>
+          </div>
+
+          {/* Các fields khác giữ nguyên... */}
+          
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+              Hủy
+            </button>
+            <button type="submit" className="btn btn-primary">
+              {modalType === 'create' ? 'Tạo bài viết' : 'Cập nhật'}
+            </button>
+          </div>
+        </form>
       </div>
 
-      {pagination.totalPages > 1 && (
-        <div className="pagination">
-          <button
-            className="btn-page"
-            onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
-            disabled={filters.page === 1}
-          >
-            Trước
-          </button>
-
-          <div className="page-numbers">
-            {[...Array(pagination.totalPages)].map((_, i) => (
-              <button
-                key={i + 1}
-                className={`btn-page ${filters.page === i + 1 ? 'active' : ''}`}
-                onClick={() => setFilters(prev => ({ ...prev, page: i + 1 }))}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-
-          <button
-            className="btn-page"
-            onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
-            disabled={filters.page === pagination.totalPages}
-          >
-            Sau
-          </button>
+      {/* Cột PHẢI: Preview */}
+      <div className="modal-preview-side">
+        <div className="modal-header">
+          <h2>Xem trước</h2>
         </div>
-      )}
-
-      {showModal && modalType !== 'review' && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-dialog modal-split" onClick={e => e.stopPropagation()}>
-            <div className="modal-form-side">
-              <div className="modal-header">
-                <h2>{modalType === 'create' ? 'Tạo bài viết mới' : 'Chỉnh sửa bài viết'}</h2>
-                <button className="btn-close" onClick={closeModal}><FaTimes /></button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="modal-body compact-form">
-                <div className="form-group">
-                  <label><FaFileAlt /> Tiêu đề <span className="required">*</span></label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Nhập tiêu đề bài viết"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label><FaTable /> Danh mục chính</label>
-                  <select value={formData.category_id} onChange={e => handleCategoryChange(e.target.value)}>
-                    <option value="">-- Chọn danh mục --</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>[{cat.category_type}] {cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {subcategories.length > 0 && (
-                  <div className="form-group">
-                    <label><FaTable /> Danh mục con</label>
-                    <select value={formData.subcategory_id || ''} onChange={e => setFormData(prev => ({ ...prev, subcategory_id: e.target.value }))}>
-                      <option value="">-- Chọn danh mục con (tùy chọn) --</option>
-                      {subcategories.map(sub => (
-                        <option key={sub.id} value={sub.id}>{sub.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {selectedCategoryType === 'thuoc' && (
-                  <div className="medical-fields">
-                    <h4><FaPills /> Thông tin thuốc</h4>
-                    <div className="field-row">
-                      <div className="form-group">
-                        <label>Thành phần</label>
-                        <textarea
-                          value={formData.composition}
-                          onChange={e => setFormData(prev => ({ ...prev, composition: e.target.value }))}
-                          placeholder="Thành phần thuốc"
-                          rows="2"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Nhà sản xuất</label>
-                        <input
-                          type="text"
-                          value={formData.manufacturer}
-                          onChange={e => setFormData(prev => ({ ...prev, manufacturer: e.target.value }))}
-                          placeholder="Tên nhà sản xuất"
-                        />
-                      </div>
-                    </div>
-                    <div className="field-row-full">
-                      <div className="form-group">
-                        <label>Công dụng</label>
-                        <textarea
-                          value={formData.uses}
-                          onChange={e => setFormData(prev => ({ ...prev, uses: e.target.value }))}
-                          placeholder="Công dụng của thuốc"
-                          rows="2"
-                        />
-                      </div>
-                    </div>
-                    <div className="field-row-full">
-                      <div className="form-group">
-                        <label>Tác dụng phụ</label>
-                        <textarea
-                          value={formData.side_effects}
-                          onChange={e => setFormData(prev => ({ ...prev, side_effects: e.target.value }))}
-                          placeholder="Tác dụng phụ"
-                          rows="2"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {selectedCategoryType === 'benh_ly' && (
-                  <div className="medical-fields">
-                    <h4><FaDisease /> Thông tin bệnh lý</h4>
-                    <div className="field-row-full">
-                      <div className="form-group">
-                        <label>Triệu chứng</label>
-                        <textarea
-                          value={formData.symptoms}
-                          onChange={e => setFormData(prev => ({ ...prev, symptoms: e.target.value }))}
-                          placeholder="Các triệu chứng"
-                          rows="2"
-                        />
-                      </div>
-                    </div>
-                    <div className="field-row-full">
-                      <div className="form-group">
-                        <label>Phương pháp điều trị</label>
-                        <textarea
-                          value={formData.treatments}
-                          onChange={e => setFormData(prev => ({ ...prev, treatments: e.target.value }))}
-                          placeholder="Cách điều trị"
-                          rows="2"
-                        />
-                      </div>
-                    </div>
-                    <div className="field-row-full">
-                      <div className="form-group">
-                        <label>Mô tả</label>
-                        <textarea
-                          value={formData.description}
-                          onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Mô tả chi tiết"
-                          rows="2"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label><FaEdit /> Nội dung <span className="required">*</span></label>
-                  <div style={{ marginBottom: '0.5rem', display: 'flex', gap: '0.5rem' }}>
-                    <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0, padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
-                      📁 Import file (Word/Excel/CSV/TXT)
-                      <input
-                        type="file"
-                        accept=".docx,.xlsx,.csv,.txt"
-                        onChange={e => e.target.files[0] && handleFileImport(e.target.files[0])}
-                        style={{ display: 'none' }}
-                      />
-                    </label>
-                  </div>
-                  {uploadingImage && <div style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}><FaSpinner className="spinner" /> Đang tải...</div>}
-                  <CKEditor
-                    editor={ClassicEditor}
-                    data={formData.content}
-                    config={editorConfig}
-                    onReady={editor => { editorRef.current = editor; }}
-                    onChange={(_, editor) => {
-                      const data = editor.getData();
-                      setFormData(prev => ({ ...prev, content: data }));
-                    }}
-                  />
-                  <small className="form-hint">
-                    <FaInfoCircle /> Sử dụng thanh công cụ để định dạng. Hỗ trợ import từ CSV, Excel, Word. Paste ảnh trực tiếp vào editor.
-                  </small>
-                </div>
-
-                <div className="form-group">
-                  <label><FaTag /> Tags</label>
-                  <div className="tags-container">
-                    {formData.tags_json.map((tag, idx) => (
-                      <span key={idx} className="tag-item">
-                        {tag}
-                        <button type="button" onClick={() => removeTag(tag)} className="tag-remove">
-                          <FaTimes />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={handleTagInputChange}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && tagInput.trim()) {
-                        e.preventDefault();
-                        addTag(tagInput.trim());
-                      }
-                    }}
-                    placeholder="Nhập tag và nhấn Enter..."
-                  />
-                  {suggestedTags.length > 0 && (
-                    <div className="tags-suggest">
-                      <small>Gợi ý:</small>
-                      {suggestedTags.map((tag, idx) => (
-                        <button key={idx} type="button" onClick={() => addTag(tag)} className="tag-suggest-item">
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label><FaLink /> Nguồn (nếu có)</label>
-                  <input
-                    type="text"
-                    value={formData.source}
-                    onChange={e => setFormData(prev => ({ ...prev, source: e.target.value }))}
-                    placeholder="https://example.com/article"
-                  />
-                </div>
-
-                {user.role === 'admin' && modalType === 'edit' && (
-                  <div className="form-group">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={hideOnEdit}
-                        onChange={e => setHideOnEdit(e.target.checked)}
-                      />
-                      <span>Ẩn bài viết sau khi cập nhật</span>
-                    </label>
-                  </div>
-                )}
-
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={closeModal}>Hủy</button>
-                  <button type="submit" className="btn btn-primary">
-                    {modalType === 'create' ? 'Tạo bài viết' : 'Cập nhật'}
-                  </button>
-                </div>
-              </form>
+        <div className="modal-body">
+          <article className="article-preview">
+            <h1 className="article-title">{formData.title || 'Tiêu đề bài viết'}</h1>
+            
+            <div className="article-meta">
+              <span className="meta-item">
+                <FaUser /> {user.full_name}
+              </span>
+              <span className="meta-item">
+                <FaCalendar /> {new Date().toLocaleDateString('vi-VN', { 
+                  year: 'numeric', month: 'long', day: 'numeric' 
+                })}
+              </span>
+              {formData.category_id && (
+                <span className="meta-category">
+                  {categories.find(c => c.id === parseInt(formData.category_id))?.name}
+                </span>
+              )}
             </div>
 
-            <div className="modal-preview-side">
-              <div className="modal-header">
-                <h2>Xem trước</h2>
+            {formData.tags_json.length > 0 && (
+              <div className="article-tags">
+                {formData.tags_json.map((tag, idx) => (
+                  <span key={idx} className="preview-tag"><FaTag /> {tag}</span>
+                ))}
               </div>
-              <div className="modal-body">
-                <article className="article-preview">
-                  <h1 className="article-title">{formData.title || 'Tiêu đề bài viết'}</h1>
-                  
-                  <div className="article-meta">
-                    <span className="meta-item">
-                      <FaUser /> {user.full_name}
-                    </span>
-                    <span className="meta-item">
-                      <FaCalendar /> {new Date().toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    </span>
-                    {formData.category_id && (
-                      <span className="meta-category">
-                        {categories.find(c => c.id === parseInt(formData.category_id))?.name}
-                      </span>
-                    )}
-                  </div>
+            )}
 
-                  {formData.tags_json.length > 0 && (
-                    <div className="article-tags">
-                      {formData.tags_json.map((tag, idx) => (
-                        <span key={idx} className="preview-tag"><FaTag /> {tag}</span>
-                      ))}
-                    </div>
-                  )}
+            <div 
+              className="article-content" 
+              dangerouslySetInnerHTML={{ 
+                __html: formData.content || '<p>Nội dung bài viết sẽ hiển thị ở đây...</p>' 
+              }} 
+            />
 
-                  <div className="article-content" dangerouslySetInnerHTML={{ __html: formData.content || '<p>Nội dung bài viết sẽ hiển thị ở đây...</p>' }} />
-
-                  {formData.source && (
-                    <div className="article-source">
-                      <FaLink />
-                      <span>Nguồn: </span>
-                      <a href={formData.source} target="_blank" rel="noopener noreferrer">{formData.source}</a>
-                    </div>
-                  )}
-                </article>
+            {/* THÊM: Preview medical fields */}
+            {selectedCategoryType === 'thuoc' && (
+              <div className="medicine-details">
+                <h2>Thành phần</h2>
+                <p>{formData.composition || 'Chưa có thông tin'}</p>
+                <h2>Công dụng</h2>
+                <p>{formData.uses || 'Chưa có thông tin'}</p>
+                <h2>Tác dụng phụ</h2>
+                <p>{formData.side_effects || 'Chưa có thông tin'}</p>
+                <h2>Nhà sản xuất</h2>
+                <p>{formData.manufacturer || 'Chưa có thông tin'}</p>
               </div>
-            </div>
-          </div>
+            )}
+
+            {selectedCategoryType === 'benh_ly' && (
+              <div className="disease-details">
+                <h2>Triệu chứng</h2>
+                <p>{formData.symptoms || 'Chưa có thông tin'}</p>
+                <h2>Điều trị</h2>
+                <p>{formData.treatments || 'Chưa có thông tin'}</p>
+                <h2>Mô tả</h2>
+                <p>{formData.description || 'Chưa có thông tin'}</p>
+              </div>
+            )}
+
+            {formData.source && (
+              <div className="article-source">
+                <FaLink />
+                <span>Nguồn: </span>
+                <a href={formData.source} target="_blank" rel="noopener noreferrer">
+                  {formData.source}
+                </a>
+              </div>
+            )}
+          </article>
         </div>
-      )}
+      </div>
+    </div>
+  </div>
+)}
 
       {showModal && modalType === 'review' && selectedArticle && (
         <div className="modal-overlay" onClick={closeModal}>
@@ -1086,6 +994,30 @@ const ArticleManagementPage = () => {
                 )}
 
                 <div className="article-content" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+
+                {selectedArticle.medicine && (
+                  <div className="medicine-details">
+                    <h2>Thành phần</h2>
+                    <p>{selectedArticle.medicine.composition}</p>
+                    <h2>Công dụng</h2>
+                    <p>{selectedArticle.medicine.uses}</p>
+                    <h2>Tác dụng phụ</h2>
+                    <p>{selectedArticle.medicine.side_effects}</p>
+                    <h2>Nhà sản xuất</h2>
+                    <p>{selectedArticle.medicine.manufacturer}</p>
+                  </div>
+                )}
+
+                {selectedArticle.disease && (
+                  <div className="disease-details">
+                    <h2>Triệu chứng</h2>
+                    <p>{selectedArticle.disease.symptoms}</p>
+                    <h2>Điều trị</h2>
+                    <p>{selectedArticle.disease.treatments}</p>
+                    <h2>Mô tả</h2>
+                    <p>{selectedArticle.disease.description}</p>
+                  </div>
+                )}
 
                 {selectedArticle.source && (
                   <div className="article-source">

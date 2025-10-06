@@ -1,11 +1,11 @@
-// client/src/pages/ArticlesListPage.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Breadcrumb from '../components/Breadcrumb';
 import { FaSearch, FaTimes, FaEye, FaCalendar, FaUser } from 'react-icons/fa';
 import './ArticlesListPage.css';
 
-const ArticlesListPage = () => {
+const ArticlesListPage = ({ type }) => {
   const navigate = useNavigate();
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -13,7 +13,7 @@ const ArticlesListPage = () => {
   const [filters, setFilters] = useState({
     search: '',
     category_id: '',
-    category_type: '',
+    category_type: type || '',
     page: 1,
     limit: 12
   });
@@ -24,6 +24,10 @@ const ArticlesListPage = () => {
   useEffect(() => {
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, category_type: type || '', page: 1 }));
+  }, [type]);
 
   useEffect(() => {
     fetchArticles();
@@ -69,24 +73,19 @@ const ArticlesListPage = () => {
     setFilters({
       search: '',
       category_id: '',
-      category_type: '',
+      category_type: type || '',
       page: 1,
       limit: 12
     });
   };
 
-  const getCategoryTypeBadge = (type) => {
-    const types = {
-      tin_tuc: { text: 'Tin tức', color: '#3b82f6' },
-      thuoc: { text: 'Thuốc', color: '#10b981' },
-      benh_ly: { text: 'Bệnh lý', color: '#ef4444' }
+  const getCategoryTypeUrl = (article) => {
+    const typeMap = {
+      'tin_tuc': 'tin-tuc',
+      'thuoc': 'thuoc',
+      'benh_ly': 'benh-ly'
     };
-    const typeInfo = types[type] || { text: type, color: '#6b7280' };
-    return (
-      <span className="type-badge" style={{ backgroundColor: typeInfo.color }}>
-        {typeInfo.text}
-      </span>
-    );
+    return `/${typeMap[article.category?.category_type]}/${article.slug}`;
   };
 
   const truncateContent = (html, maxLength = 150) => {
@@ -94,14 +93,38 @@ const ArticlesListPage = () => {
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   };
 
+  const getBreadcrumbItems = () => {
+    const items = [
+      { label: 'Trang chủ', url: '/' },
+      { label: 'Bài viết', url: '/bai-viet' }
+    ];
+
+    if (type) {
+      const typeLabels = {
+        'tin_tuc': 'Tin tức',
+        'thuoc': 'Thuốc',
+        'benh_ly': 'Bệnh lý'
+      };
+      items.push({ label: typeLabels[type], url: null });
+    }
+
+    return items;
+  };
+
   return (
     <div className="articles-list-page">
+      {type && <Breadcrumb items={getBreadcrumbItems()} />}
+
       <div className="page-header">
-        <h1>Bài viết</h1>
+        <h1>
+          {type === 'tin_tuc' && 'Tin tức sức khỏe'}
+          {type === 'thuoc' && 'Cẩm nang thuốc'}
+          {type === 'benh_ly' && 'Bệnh lý'}
+          {!type && 'Tất cả bài viết'}
+        </h1>
         <p className="subtitle">Khám phá kiến thức y tế và sức khỏe</p>
       </div>
 
-      {/* Filters */}
       <div className="filters-bar">
         <div className="search-box">
           <FaSearch />
@@ -119,16 +142,18 @@ const ArticlesListPage = () => {
           )}
         </div>
 
-        <select
-          name="category_type"
-          value={filters.category_type}
-          onChange={handleFilterChange}
-        >
-          <option value="">Tất cả loại</option>
-          <option value="tin_tuc">Tin tức</option>
-          <option value="thuoc">Thuốc</option>
-          <option value="benh_ly">Bệnh lý</option>
-        </select>
+        {!type && (
+          <select
+            name="category_type"
+            value={filters.category_type}
+            onChange={handleFilterChange}
+          >
+            <option value="">Tất cả loại</option>
+            <option value="tin_tuc">Tin tức</option>
+            <option value="thuoc">Thuốc</option>
+            <option value="benh_ly">Bệnh lý</option>
+          </select>
+        )}
 
         <select
           name="category_id"
@@ -146,14 +171,13 @@ const ArticlesListPage = () => {
           }
         </select>
 
-        {(filters.search || filters.category_id || filters.category_type) && (
+        {(filters.search || filters.category_id || (!type && filters.category_type)) && (
           <button className="btn-clear" onClick={clearFilters}>
             <FaTimes /> Xóa lọc
           </button>
         )}
       </div>
 
-      {/* Articles Grid */}
       {loading ? (
         <div className="loading-state">
           <div className="spinner"></div>
@@ -171,11 +195,10 @@ const ArticlesListPage = () => {
               <div 
                 key={article.id} 
                 className="article-card"
-                onClick={() => navigate(`/articles/${article.slug}`)}
+                onClick={() => navigate(getCategoryTypeUrl(article))}
               >
                 <div className="card-header">
-                  {article.Category && getCategoryTypeBadge(article.Category.category_type)}
-                  <span className="category-name">{article.Category?.name}</span>
+                  <span className="category-name">{article.category?.name}</span>
                 </div>
 
                 <h3 className="card-title">{article.title}</h3>
@@ -203,7 +226,6 @@ const ArticlesListPage = () => {
             ))}
           </div>
 
-          {/* Pagination */}
           {pagination.totalPages > 1 && (
             <div className="pagination">
               <button

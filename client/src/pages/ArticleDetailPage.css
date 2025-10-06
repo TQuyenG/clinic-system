@@ -1,5 +1,3 @@
-/* client/src/pages/ArticleDetailPage.css */
-
 .article-detail-page {
   min-height: 100vh;
   background: #f8f9fa;
@@ -7,7 +5,7 @@
 }
 
 .article-container {
-  max-width: 900px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 2rem;
 }
@@ -34,39 +32,25 @@
   color: #3b82f6;
 }
 
-/* Article Header */
-.article-header {
+/* Layout 2 cột: Main Content + Sidebar */
+.article-main-content {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.article-content-area {
   background: white;
-  padding: 2.5rem;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  margin-bottom: 2rem;
+  overflow: hidden;
 }
 
-.article-meta-top {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.category-type-badge {
-  display: inline-block;
-  padding: 0.375rem 0.875rem;
-  border-radius: 12px;
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.article-category {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #6b7280;
-  font-size: 0.9rem;
+/* Article Header */
+.article-header {
+  padding: 2.5rem 2.5rem 1.5rem;
+  border-bottom: 2px solid #f3f4f6;
 }
 
 .article-title {
@@ -81,8 +65,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 2px solid #f3f4f6;
+  margin-bottom: 1.5rem;
 }
 
 .meta-item {
@@ -97,17 +80,40 @@
   color: #9ca3af;
 }
 
-/* Article Content */
+/* Tags */
+.article-tags {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tags-icon {
+  color: #9ca3af;
+  font-size: 1.25rem;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.tag-item {
+  padding: 0.5rem 1rem;
+  background: #eff6ff;
+  color: #1e40af;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Content */
 .article-content {
-  background: white;
-  padding: 3rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  margin-bottom: 2rem;
+  padding: 2.5rem;
 }
 
 .content-body {
-  font-size: 1.125rem;
+  font-size: 1.0625rem;
   line-height: 1.8;
   color: #374151;
 }
@@ -162,90 +168,75 @@
   margin: 2rem 0;
   font-style: italic;
   color: #6b7280;
-}
-
-.content-body code {
-  background: #f3f4f6;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-family: 'Courier New', monospace;
-  font-size: 0.9em;
-}
-
-.content-body pre {
-  background: #1f2937;
-  color: #f3f4f6;
-  padding: 1.5rem;
-  border-radius: 8px;
-  overflow-x: auto;
-  margin: 2rem 0;
-}
-
-.content-body pre code {
-  background: none;
-  padding: 0;
-  color: inherit;
+  background: #f9fafb;
+  padding: 1.25rem 1.5rem;
+  border-radius: 0 8px 8px 0;
 }
 
 .content-body table {
   width: 100%;
   border-collapse: collapse;
   margin: 2rem 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .content-body th,
 .content-body td {
   border: 1px solid #e5e7eb;
-  padding: 0.75rem;
+  padding: 1rem 1.25rem;
   text-align: left;
 }
 
 .content-body th {
   background: #f3f4f6;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-/* Tags */
-.article-tags {
+.content-body tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+/* Source */
+.article-source {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  margin-bottom: 2rem;
+  gap: 0.75rem;
+  margin: 2.5rem 2.5rem 1.5rem;
+  padding: 1.25rem 1.5rem;
+  background: #f9fafb;
+  border-left: 4px solid #3b82f6;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.95rem;
 }
 
-.tags-icon {
-  color: #9ca3af;
+.article-source svg {
+  color: #3b82f6;
   font-size: 1.25rem;
 }
 
-.tags-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+.article-source span {
+  font-weight: 700;
+  color: #374151;
 }
 
-.tag-item {
-  padding: 0.5rem 1rem;
-  background: #eff6ff;
-  color: #1e40af;
-  border-radius: 20px;
-  font-size: 0.875rem;
+.article-source a {
+  color: #3b82f6;
+  text-decoration: none;
   font-weight: 600;
+}
+
+.article-source a:hover {
+  text-decoration: underline;
 }
 
 /* Actions */
 .article-actions {
   display: flex;
   gap: 1rem;
-  padding: 1.5rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  margin-bottom: 2rem;
+  padding: 2rem 2.5rem;
+  border-top: 2px solid #f3f4f6;
 }
 
 .action-btn {
@@ -323,28 +314,57 @@
   background: #f3f4f6;
 }
 
-.share-menu button img {
-  width: 20px;
-  height: 20px;
+/* Sidebar - Thông tin bổ sung */
+.article-sidebar {
+  position: sticky;
+  top: 2rem;
+  height: fit-content;
 }
 
-/* Related Articles */
-.related-articles {
+.medical-info {
   background: white;
-  padding: 2rem;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 2rem;
 }
 
-.related-articles h3 {
+.medical-info h3 {
   font-size: 1.5rem;
   font-weight: 700;
   color: #1a202c;
-  margin: 0 0 1rem 0;
+  margin: 0 0 1.5rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f3f4f6;
 }
 
-.text-muted {
-  color: #9ca3af;
+.info-section {
+  margin-bottom: 1.5rem;
+}
+
+.info-section:last-child {
+  margin-bottom: 0;
+}
+
+.info-section h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 0.75rem 0;
+}
+
+.info-section p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #6b7280;
+  margin: 0;
+}
+
+.medicine-info {
+  border-left: 4px solid #10b981;
+}
+
+.disease-info {
+  border-left: 4px solid #ef4444;
 }
 
 /* Loading & Not Found */
@@ -372,29 +392,34 @@
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+  .article-main-content {
+    grid-template-columns: 1fr;
+  }
+
+  .article-sidebar {
+    position: relative;
+    top: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .article-container {
     padding: 0 1rem;
-  }
-
-  .article-header {
-    padding: 1.5rem;
   }
 
   .article-title {
     font-size: 1.75rem;
   }
 
+  .article-header,
   .article-content {
     padding: 1.5rem;
   }
 
-  .content-body {
-    font-size: 1rem;
-  }
-
   .article-actions {
     flex-direction: column;
+    padding: 1.5rem;
   }
 
   .action-btn {
@@ -403,5 +428,9 @@
 
   .share-dropdown {
     width: 100%;
+  }
+
+  .medical-info {
+    padding: 1.5rem;
   }
 }

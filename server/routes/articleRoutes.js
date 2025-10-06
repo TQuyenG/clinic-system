@@ -1,25 +1,29 @@
-// server/routes/articleRoutes.js - Updated
+// server/routes/articleRoutes.js - Enhanced Routes
 const express = require('express');
 const router = express.Router();
 const articleController = require('../controllers/articleController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
-// Public route - KHÔNG CẦN AUTH
+// ===== PUBLIC ROUTES - KHÔNG CẦN AUTH =====
 router.get('/categories', articleController.getCategories);
-
-// Public - Xem bài viết theo slug (không cần đăng nhập)
 router.get('/slug/:slug', articleController.getArticleBySlug);
-
-// Public - Danh sách bài viết công khai
 router.get('/public', articleController.getPublicArticles);
 
-// Protected routes - CẦN AUTH
+// ➕ MỚI: Route 2 cấp - categoryType/slug
+router.get('/:categoryType/:slug', articleController.getByTypeAndSlug);
+
+// ===== PROTECTED ROUTES - CẦN AUTH =====
 router.get('/', authenticateToken, articleController.getArticles);
 router.get('/tags/suggest', authenticateToken, articleController.suggestTags);
-router.get('/:id', authenticateToken, articleController.getArticleById);
 
-// Staff/Doctor/Admin routes - TẠO BÀI VIẾT
+// ➕ MỚI: Lấy bài viết đã lưu
+router.get('/saved', authenticateToken, articleController.getSavedArticles);
+
+router.get('/:id', authenticateToken, articleController.getArticleById);
+router.get('/:id/interactions', authenticateToken, articleController.getArticleInteractions);
+
+// ===== STAFF/DOCTOR/ADMIN - TẠO & SỬA BÀI VIẾT =====
 router.post('/', 
   authenticateToken, 
   roleMiddleware(['staff', 'doctor', 'admin']), 
@@ -32,19 +36,20 @@ router.put('/:id',
   articleController.updateArticle
 );
 
+// ===== STAFF/DOCTOR - YÊU CẦU CHỈNH SỬA & NHÂN BẢN =====
 router.post('/:id/request-edit', 
   authenticateToken, 
   roleMiddleware(['staff', 'doctor']), 
   articleController.requestEditArticle
 );
 
-router.post('/:id/request-delete', 
+router.post('/:id/duplicate', 
   authenticateToken, 
   roleMiddleware(['staff', 'doctor']), 
-  articleController.requestDeleteArticle
+  articleController.duplicateArticle
 );
 
-// Admin routes - QUẢN LÝ FULL
+// ===== ADMIN - QUẢN LÝ FULL =====
 router.post('/:id/review', 
   authenticateToken, 
   roleMiddleware(['admin']), 
@@ -69,7 +74,12 @@ router.delete('/:id',
   articleController.deleteArticle
 );
 
-// Report route - TẤT CẢ USER
+// ===== TƯƠNG TÁC - TẤT CẢ USER =====
+router.post('/:id/interact', 
+  authenticateToken, 
+  articleController.interactArticle
+);
+
 router.post('/:id/report', 
   authenticateToken, 
   articleController.reportArticle

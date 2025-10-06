@@ -1,3 +1,4 @@
+// server/models/Disease.js - FIXED
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -17,8 +18,16 @@ module.exports = (sequelize) => {
   });
 
   Disease.associate = (models) => {
+    // Liên kết với Category
     Disease.belongsTo(models.Category, { foreignKey: 'category_id' });
-    Disease.hasMany(models.Interaction, { foreignKey: 'disease_id' });
+    
+    // Polymorphic relationship với Interaction
+    Disease.hasMany(models.Interaction, { 
+      foreignKey: 'entity_id',
+      constraints: false,
+      scope: { entity_type: 'disease' },
+      as: 'interactions'
+    });
   };
 
   console.log('SUCCESS: Model Disease đã được định nghĩa.');

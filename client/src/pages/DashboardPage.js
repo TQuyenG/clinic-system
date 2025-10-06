@@ -78,6 +78,7 @@ const DashboardPage = () => {
                 <a href="/categories">Quản lý danh mục</a>
                 <a href="/appointments">Quản lý lịch hẹn</a>
                 <a href="/articles">Quản lý bài viết</a>
+                <a href="/bai-viet-da-luu">Bài viết đã lưu</a>
                 <a href="/statistics">Thống kê</a>
               </>
             )}
@@ -87,6 +88,7 @@ const DashboardPage = () => {
                 <a href="/my-appointments">Lịch hẹn của tôi</a>
                 <a href="/schedules">Lịch làm việc</a>
                 <a href="/consultations">Tư vấn</a>
+                <a href="/bai-viet-da-luu">Bài viết đã lưu</a>
               </>
             )}
             
@@ -95,6 +97,7 @@ const DashboardPage = () => {
                 <a href="/book-appointment">Đặt lịch hẹn</a>
                 <a href="/my-appointments">Lịch hẹn của tôi</a>
                 <a href="/medical-records">Hồ sơ y tế</a>
+                <a href="/bai-viet-da-luu">Bài viết đã lưu</a>
               </>
             )}
             
@@ -102,6 +105,7 @@ const DashboardPage = () => {
               <>
                 <a href="/appointments">Quản lý lịch hẹn</a>
                 <a href="/articles">Quản lý bài viết</a>
+                <a href="/bai-viet-da-luu">Bài viết đã lưu</a>
               </>
             )}
           </nav>
