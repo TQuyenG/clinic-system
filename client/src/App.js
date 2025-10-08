@@ -1,0 +1,167 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import MainLayout from './components/layout/MainLayout';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import DashboardPage from './pages/DashboardPage';
+import UsersPage from './pages/UsersPage';
+import ProfilePage from './pages/ProfilePage';
+import HomePage from './pages/HomePage';
+import AboutPage from './pages/AboutPage';
+import ServicesPage from './pages/ServicesPage';
+import FacilitiesPage from './pages/FacilitiesPage';
+import EquipmentPage from './pages/EquipmentPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import SpecialtyManagementPage from './pages/SpecialtyManagementPage';
+import CategoryManagementPage from './pages/CategoryManagementPage';
+import ArticleManagementPage from './pages/ArticleManagementPage';
+import ArticleDetailPage from './pages/ArticleDetailPage';
+import ArticlesListPage from './pages/ArticlesListPage';
+import NotificationPage from './pages/NotificationsPage';
+import ArticleOrCategoryPage from './pages/ArticleOrCategoryPage';
+import SavedArticlesPage from './pages/SavedArticlesPage';
+import CategoryArticlesPage from './pages/CategoryArticlesPage';
+import SpecialtiesListPage from './pages/SpecialtiesListPage';
+import SpecialtyDetailPage from './pages/SpecialtyDetailPage';
+import DoctorsListPage from './pages/DoctorsListPage';
+import DoctorProfilePage from './pages/DoctorProfilePage';
+import './App.css';
+
+// Protected Route Component
+const ProtectedRoute = ({ children, requiredRole }) => {
+  const token = localStorage.getItem('token');
+  const userStr = localStorage.getItem('user');
+  
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredRole) {
+    try {
+      const user = JSON.parse(userStr);
+      const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+      
+      if (!allowedRoles.includes(user.role)) {
+        return <Navigate to="/dashboard" replace />;
+      }
+    } catch (error) {
+      return <Navigate to="/login" replace />;
+    }
+  }
+
+  return children;
+};
+
+function App() {
+  return (
+    <Router>
+      <MainLayout>
+        <Routes>
+          {/* ========== AUTH PAGES ========== */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/dang-nhap" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/dang-ky" element={<RegisterPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/xac-thuc-email" element={<VerifyEmailPage />} />
+          
+          {/* ========== PUBLIC PAGES ========== */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/trang-chu" element={<HomePage />} />
+
+          {/* Giới thiệu */}
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/gioi-thieu" element={<AboutPage />} />
+          <Route path="/ve-chung-toi" element={<AboutPage />} />
+          
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/dich-vu" element={<ServicesPage />} />
+          
+          <Route path="/co-so-vat-chat" element={<FacilitiesPage />} />
+          
+          <Route path="/trang-thiet-bi" element={<EquipmentPage />} />
+          
+          {/* Điều khoản & Chính sách */}
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/dieu-khoan" element={<TermsPage />} />
+          <Route path="/dieu-khoan-su-dung" element={<TermsPage />} />
+          
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicyPage />} />
+          <Route path="/bao-mat" element={<PrivacyPolicyPage />} />
+
+          {/* ========== BÀI VIẾT ========== */}
+          <Route path="/bai-viet" element={<ArticlesListPage />} />
+          <Route path="/articles" element={<ArticleManagementPage />} />
+          
+          <Route 
+            path="/bai-viet-da-luu" 
+            element={
+              <ProtectedRoute>
+                <SavedArticlesPage />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Danh mục chính - Lọc theo category_type */}
+          <Route path="/tin-tuc" element={<ArticlesListPage type="tin_tuc" />} />
+          
+          <Route path="/thuoc" element={<ArticlesListPage type="thuoc" />} />
+          
+          <Route path="/benh-ly" element={<ArticlesListPage type="benh_ly" />} />
+          
+          {/* Route động 2 cấp: categoryType/slug */}
+          <Route path="/tin-tuc/:slug" element={<ArticleOrCategoryPage type="tin-tuc" />} />
+          <Route path="/news/:slug" element={<ArticleOrCategoryPage type="tin-tuc" />} />
+          
+          <Route path="/thuoc/:slug" element={<ArticleOrCategoryPage type="thuoc" />} />
+          <Route path="/medicine/:slug" element={<ArticleOrCategoryPage type="thuoc" />} />
+          
+          <Route path="/benh-ly/:slug" element={<ArticleOrCategoryPage type="benh-ly" />} />
+          <Route path="/disease/:slug" element={<ArticleOrCategoryPage type="benh-ly" />} />
+
+          {/* ========== CHUYÊN KHOA & BÁC SĨ ========== */}
+          <Route path="/chuyen-khoa" element={<SpecialtiesListPage />} />
+          <Route path="/specialties" element={<SpecialtiesListPage />} />
+          
+          <Route path="/chuyen-khoa/:slug" element={<SpecialtyDetailPage />} />
+          <Route path="/specialties/:slug" element={<SpecialtyDetailPage />} />
+          
+          <Route path="/bac-si" element={<DoctorsListPage />} />
+          <Route path="/doctors" element={<DoctorsListPage />} />
+          
+          <Route path="/bac-si/:code" element={<DoctorProfilePage />} />
+          <Route path="/doctors/:code" element={<DoctorProfilePage />} />
+          
+          {/* ========== PROTECTED ROUTES ========== */}
+          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/ho-so-nguoi-dung" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/thong-bao" element={<ProtectedRoute><NotificationPage /></ProtectedRoute>} />
+          
+          {/* ========== ADMIN ONLY ROUTES ========== */}
+          <Route path="/quan-ly-nguoi-dung" element={<ProtectedRoute requiredRole="admin"><UsersPage /></ProtectedRoute>} />
+          <Route path="/quan-ly-chuyen-khoa" element={<ProtectedRoute requiredRole="admin"><SpecialtyManagementPage /></ProtectedRoute>} />
+          <Route path="/quan-ly-danh-muc" element={<ProtectedRoute requiredRole="admin"><CategoryManagementPage /></ProtectedRoute>} />
+          
+          <Route path="/quan-ly-bai-viet" element={<ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}><ArticleManagementPage /></ProtectedRoute>} />
+          
+          {/* ========== 404 - NOT FOUND ========== */}
+          <Route path="/404" element={
+            <div style={{ textAlign: 'center', padding: '50px' }}>
+              <h1>404 - Không tìm thấy trang</h1>
+              <p>Trang bạn đang tìm kiếm không tồn tại</p>
+              <a href="/">Về trang chủ</a>
+            </div>
+          } />
+          
+          <Route path="*" element={<Navigate to="/404" replace />} />
+        </Routes>
+      </MainLayout>
+    </Router>
+  );
+}
+
+export default App;

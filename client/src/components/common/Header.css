@@ -1,0 +1,108 @@
+
+/* ============================================================ */
+
+/* client/src/components/common/Header.css */
+.header {
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+  color: white;
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+.header-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-info {
+  display: flex;
+  gap: 25px;
+  align-items: center;
+}
+
+.header-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-icon {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.header-welcome {
+  overflow: hidden;
+  max-width: 400px;
+}
+
+.welcome-text {
+  display: inline-block;
+  white-space: nowrap;
+  animation: scroll-left 15s linear infinite;
+  font-weight: 500;
+}
+
+@keyframes scroll-left {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .header-info {
+    gap: 15px;
+  }
+  
+  .header-item span {
+    font-size: 12px;
+  }
+  
+  .welcome-text {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 6px 0;
+  }
+  
+  .header-container {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .header-info {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .header-item {
+    font-size: 11px;
+  }
+  
+  .header-icon {
+    font-size: 10px;
+  }
+  
+  .header-welcome {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-info {
+    flex-direction: column;
+    gap: 5px;
+  }
+}

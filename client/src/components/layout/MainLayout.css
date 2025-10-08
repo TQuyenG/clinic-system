@@ -1,0 +1,20 @@
+/* ============================================================ */
+
+/* client/src/components/layout/MainLayout.css */
+.main-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  /*margin-top: 108px;  Header (38px) + Navbar (70px) */
+  min-height: calc(100vh - 108px - 300px); /* Trừ header, navbar và footer */
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-top: 86px; /* Header nhỏ hơn + Navbar 60px */
+  }
+}
