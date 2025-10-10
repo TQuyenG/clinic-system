@@ -3,8 +3,8 @@
 .footer {
   background: linear-gradient(135deg, #F1F8F4 0%, #E8F5E9 100%);
   border-top: 3px solid #4CAF50;
-  margin-top: auto;
   width: 100%;
+  margin-top: auto;
 }
 
 .footer-container {

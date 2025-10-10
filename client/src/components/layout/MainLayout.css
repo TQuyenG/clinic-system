@@ -1,20 +1,71 @@
-/* ============================================================ */
-
 /* client/src/components/layout/MainLayout.css */
 .main-layout {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  position: relative;
+}
+
+/* Wrapper cho sidebar và content */
+.layout-body {
+  display: flex;
+  flex: 1;
+  min-height: calc(100vh - 108px); /* Trừ header + navbar, đảm bảo đẩy footer xuống dưới */
 }
 
 .main-content {
   flex: 1;
-  /*margin-top: 108px;  Header (38px) + Navbar (70px) */
-  min-height: calc(100vh - 108px - 300px); /* Trừ header, navbar và footer */
+  min-height: calc(100vh - 108px); /* Header + Navbar */
+  margin-left: 0;
+  transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 1;
 }
 
+
+.main-content.with-sidebar.collapsed {
+  margin-left: 0px;
+}
+
+/* Footer luôn full width */
+.main-layout footer {
+  width: 100%;
+  margin-top: auto;
+  position: relative;
+  z-index: 1;
+  margin-left: 0 !important;
+}
+
+/* Responsive cho mobile */
 @media (max-width: 768px) {
   .main-content {
-    margin-top: 86px; /* Header nhỏ hơn + Navbar 60px */
+    min-height: calc(100vh - 86px); /* Mobile navbar height */
+    padding: 1.5rem 1rem;
+  }
+  
+  .main-content.with-sidebar,
+  .main-content.with-sidebar.collapsed {
+    margin-left: 0;
+  }
+
+  .layout-body {
+    min-height: calc(100vh - 86px);
+    flex-direction: column; /* Trên mobile, sidebar không cần bên cạnh */
+  }
+}
+
+/* Animation cho nội dung */
+.main-content > * {
+  animation: fadeInContent 0.4s ease;
+}
+
+@keyframes fadeInContent {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

@@ -1,4 +1,4 @@
-// client/src/pages/DashboardPage.js
+// client/src/pages/DashboardPage.js (modified)
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -66,83 +66,33 @@ const DashboardPage = () => {
         </div>
       </header>
 
-      <div className="dashboard-content">
-        <div className="sidebar">
-          <nav>
-            <a href="/dashboard" className="active">Tổng quan</a>
-            <a href="/ho-so-nguoi-dung">Tài khoản</a>
-            
-            {user?.role === 'admin' && (
-              <>
-                <a href="/quan-ly-nguoi-dung">Quản lý người dùng</a>
-                <a href="/quan-ly-chuyen-khoa">Quản lý chuyên khoa</a>
-                <a href="/quan-ly-danh-muc">Quản lý danh mục</a>
-                <a href="/quan-ly-bai-viet">Quản lý bài viết</a>
-                <a href="/quan-ly-lich-lam-viec">Quản lý lịch làm việc</a>
-                <a href="/quan-ly-lich-hen">Quản lý lịch hẹn</a>
-                <a href="/bai-viet-da-luu">Bài viết đã lưu</a>
-                <a href="/thong-ke">Thống kê</a>
-              </>
-            )}
-            
-            {user?.role === 'doctor' && (
-              <>
-                <a href="/lich-hen-cua-toi">Lịch hẹn của tôi</a>
-                <a href="/quan-ly-lich-lam-viec">Quản lý lịch làm việc</a>
-                <a href="/lich-su-tu-van">Lịch sử tư vấn</a>
-                <a href="/bai-viet-da-luu">Bài viết đã lưu</a>
-              </>
-            )}
-            
-            {user?.role === 'patient' && (
-              <>
-                <a href="/dat-lich-hen">Đặt lịch hẹn</a>
-                <a href="/lich-hen-cua-toi">Lịch hẹn của tôi</a>
-                <a href="/ho-so-y-te">Hồ sơ y tế</a>
-                <a href="/bai-viet-da-luu">Bài viết đã lưu</a>
-              </>
-            )}
-            
-            {user?.role === 'staff' && (
-              <>
-                <a href="/quan-ly-lich-hẹn">Quản lý lịch hẹn</a>
-                <a href="/quan-ly-bai-viet">Quản lý bài viết</a>
-                <a href="/bai-viet-da-luu">Bài viết đã lưu</a>
-              </>
-            )}
-          </nav>
+      {user?.role === 'admin' && stats && (
+        <div className="admin-dashboard">
+          <h2>Chào mừng, {user.full_name}</h2>
+          <p>Chúc một ngày tốt lành.</p>
         </div>
+      )}
 
-        <main className="main-content">
-          {user?.role === 'admin' && stats && (
-            <div className="admin-dashboard">
-              <h2>Chào mừng, {user.full_name}</h2>
-              <p>Chúc một ngày tốt lành.</p>
-            </div>
-          )}
+      {user?.role === 'doctor' && (
+        <div className="doctor-dashboard">
+          <h2>Chào mừng, Bác sĩ {user.full_name}</h2>
+          <p>Lịch hẹn hôm nay và các tính năng của bạn.</p>
+        </div>
+      )}
 
-          {user?.role === 'doctor' && (
-            <div className="doctor-dashboard">
-              <h2>Chào mừng, Bác sĩ {user.full_name}</h2>
-              <p>Lịch hẹn hôm nay và các tính năng của bạn.</p>
-            </div>
-          )}
+      {user?.role === 'patient' && (
+        <div className="patient-dashboard">
+          <h2>Chào mừng, {user.full_name}</h2>
+          <p>Đặt lịch khám và xem hồ sơ y tế của bạn.</p>
+        </div>
+      )}
 
-          {user?.role === 'patient' && (
-            <div className="patient-dashboard">
-              <h2>Chào mừng, {user.full_name}</h2>
-              <p>Đặt lịch khám và xem hồ sơ y tế của bạn.</p>
-            </div>
-          )}
-
-          {user?.role === 'staff' && (
-            <div className="staff-dashboard">
-              <h2>Chào mừng, {user.full_name}</h2>
-              <p>Quản lý lịch hẹn và bài viết.</p>
-            </div>
-          )}
-        </main>
-      </div>
+      {user?.role === 'staff' && (
+        <div className="staff-dashboard">
+          <h2>Chào mừng, {user.full_name}</h2>
+          <p>Quản lý lịch hẹn và bài viết.</p>
+        </div>
+      )}
     </div>
   );
 };
