@@ -1042,3 +1042,59 @@ exports.getDoctorByCode = async (req, res) => {
     });
   }
 };
+
+// Đặt lại mật khẩu bởi Admin (không cần OTP)
+exports.resetPasswordByAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { new_password } = req.body;
+
+    // Kiểm tra quyền admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền thực hiện thao tác này'
+      });
+    }
+
+    if (!new_password || new_password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mật khẩu phải có ít nhất 6 ký tự'
+      });
+    }
+
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Người dùng không tồn tại'
+      });
+    }
+
+    // Hash mật khẩu mới
+    const bcrypt = require('bcrypt');
+    user.password_hash = await bcrypt.hash(new_password, 10);
+    
+    // Xóa các token reset cũ nếu có
+    user.reset_token = null;
+    user.reset_expires = null;
+    
+    await user.save();
+
+    console.log(`[Admin Reset Password] Admin ${req.user.email} đã đặt lại mật khẩu cho user ${user.email}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Đặt lại mật khẩu thành công'
+    });
+
+  } catch (error) {
+    console.error('ERROR trong resetPasswordByAdmin:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi đặt lại mật khẩu',
+      error: error.message
+    });
+  }
+};

@@ -12,15 +12,12 @@ router.post('/forgot-password', userController.forgotPassword);
 router.post('/verify-otp', userController.verifyOTP);
 router.post('/reset-password', userController.resetPassword);
 
-
-// THÊM MỚI: Routes công khai cho bác sĩ
+// Routes công khai cho bác sĩ
 router.get('/doctors/public', userController.getAllDoctorsPublic);
 router.get('/doctors/:code', userController.getDoctorByCode);
 
 // Routes cũ (để tương thích backward)
 router.get('/doctors', userController.getDoctors);
-router.get('/doctors/:userId', userController.getDoctorById);
-
 
 // ============ ROUTES CẦN ĐĂNG NHẬP ============
 router.get('/profile', authenticateToken, userController.getProfile);
@@ -31,6 +28,9 @@ router.put('/change-password', authenticateToken, userController.changePassword)
 router.get('/stats', authenticateToken, authorize('admin'), userController.getUserStats);
 router.get('/search', authenticateToken, authorize('admin'), userController.searchUsers);
 router.get('/all', authenticateToken, authorize('admin'), userController.getAllUsers);
+
+// Route đặt lại mật khẩu bởi Admin
+router.put('/:userId/reset-password-admin', authenticateToken, authorize('admin'), userController.resetPasswordByAdmin);
 
 // Route /:userId phải đặt CUỐI CÙNG để tránh conflict
 router.get('/:userId', authenticateToken, authorize('admin'), userController.getUserById);
