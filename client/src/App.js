@@ -27,6 +27,7 @@ import SpecialtiesListPage from './pages/SpecialtiesListPage';
 import SpecialtyDetailPage from './pages/SpecialtyDetailPage';
 import DoctorsListPage from './pages/DoctorsListPage';
 import DoctorProfilePage from './pages/DoctorProfilePage';
+import HealthForumPage from './pages/HealthForumPage'; // Thêm import cho trang Diễn đàn sức khỏe
 import './App.css';
 
 // Protected Route Component
@@ -71,6 +72,10 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/home" element={<HomePage />} />
           <Route path="/trang-chu" element={<HomePage />} />
+
+          {/* Diễn đàn sức khỏe - MỚI */}
+          <Route path="/dien-dan-suc-khoe" element={<HealthForumPage />} />
+          <Route path="/health-forum" element={<HealthForumPage />} />
 
           {/* Giới thiệu */}
           <Route path="/about" element={<AboutPage />} />

@@ -22,7 +22,8 @@ import {
   FaSignInAlt, 
   FaUserPlus, 
   FaBookmark,
-  FaStethoscope
+  FaStethoscope,
+  FaComments // Biểu tượng cho Diễn đàn sức khỏe
 } from 'react-icons/fa';
 import NotificationDropdown from './NotificationDropdown';
 import './Navbar.css';
@@ -49,20 +50,21 @@ const Navbar = () => {
   const API_BASE_URL = 'http://localhost:3001';
 
   useEffect(() => {
-    // Load user data
+    // Tải dữ liệu người dùng
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     if (token && userStr) {
       try {
         setUser(JSON.parse(userStr));
       } catch (error) {
-        console.error('Error parsing user:', error);
+        console.error('Lỗi khi phân tích dữ liệu người dùng:', error);
       }
     }
 
     fetchSpecialties();
     fetchCategories();
 
+    // Xử lý sự kiện click ngoài khu vực tìm kiếm
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setShowSearchResults(false);
@@ -74,17 +76,19 @@ const Navbar = () => {
   }, []);
 
   const fetchSpecialties = async () => {
+    // Lấy danh sách chuyên khoa
     try {
       const response = await axios.get(`${API_BASE_URL}/api/specialties`);
       if (response.data.success) {
         setSpecialties(response.data.specialties || []);
       }
     } catch (error) {
-      console.error('Error fetching specialties:', error);
+      console.error('Lỗi khi lấy danh sách chuyên khoa:', error);
     }
   };
 
   const fetchCategories = async () => {
+    // Lấy danh sách danh mục bài viết
     try {
       const response = await axios.get(`${API_BASE_URL}/api/articles/categories`);
       if (response.data.success) {
@@ -96,11 +100,12 @@ const Navbar = () => {
         });
       }
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error('Lỗi khi lấy danh sách danh mục:', error);
     }
   };
 
   const handleSearch = async (query) => {
+    // Xử lý tìm kiếm
     setSearchQuery(query);
     
     if (query.trim().length < 2) {
@@ -116,11 +121,12 @@ const Navbar = () => {
         setShowSearchResults(true);
       }
     } catch (error) {
-      console.error('Error searching:', error);
+      console.error('Lỗi khi tìm kiếm:', error);
     }
   };
 
   const handleSearchSubmit = (e) => {
+    // Xử lý khi gửi form tìm kiếm
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
@@ -130,6 +136,7 @@ const Navbar = () => {
   };
 
   const handleLogout = () => {
+    // Xử lý đăng xuất
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
@@ -137,14 +144,17 @@ const Navbar = () => {
   };
 
   const toggleDropdown = (dropdown) => {
+    // Bật/tắt dropdown
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
   };
 
   const toggleMobileColumn = (column) => {
+    // Bật/tắt cột trên giao diện mobile
     setActiveMobileColumn(activeMobileColumn === column ? null : column);
   };
 
   const closeAllDropdowns = () => {
+    // Đóng tất cả dropdown
     setActiveDropdown(null);
     setActiveMobileColumn(null);
     setIsMenuOpen(false);
@@ -158,18 +168,18 @@ const Navbar = () => {
           <img src={logo} alt="Clinic System" />
         </Link>
 
-        {/* Mobile Menu Button */}
+        {/* Nút Menu trên Mobile */}
         <button 
           className="mobile-menu-btn" 
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="Toggle menu"
+          aria-label="Bật/tắt menu"
         >
           {isMenuOpen ? <FaTimes /> : <FaBars />}
         </button>
 
-        {/* CENTER SECTION */}
+        {/* PHẦN GIỮA */}
         <div className={`nav-center ${isMenuOpen ? 'active' : ''}`}>
-          {/* Search Bar */}
+          {/* Thanh Tìm kiếm */}
           <div className="search-container" ref={searchRef}>
             <form className="search-bar" onSubmit={handleSearchSubmit}>
               <FaSearch className="search-icon" />
@@ -201,7 +211,7 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Navigation Menu */}
+          {/* Menu Điều hướng */}
           <div className="nav-menu">
             {/* Giới thiệu */}
             <div className="nav-item dropdown">
@@ -319,6 +329,17 @@ const Navbar = () => {
               </button>
               <div className={`dropdown-menu mega-menu ${activeDropdown === 'articles' ? 'show' : ''}`}>
                 <div className="mega-menu-grid">
+                  {/* Diễn đàn sức khỏe - Liên kết trực tiếp */}
+                  <div className="mega-menu-column">
+                    <Link 
+                      to="/dien-dan-suc-khoe"
+                      className="column-header"
+                      onClick={closeAllDropdowns}
+                    >
+                      <FaComments /> Diễn đàn sức khỏe
+                    </Link>
+                  </div>
+
                   {/* Cột Tin tức */}
                   <div className={`mega-menu-column ${activeMobileColumn === 'news' ? 'active' : ''}`}>
                     <Link 
@@ -417,11 +438,11 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* RIGHT SECTION */}
+        {/* PHẦN PHẢI */}
         <div className="nav-right">
           {user && <NotificationDropdown />}
 
-          {/* User Dropdown */}
+          {/* Dropdown Người dùng */}
           <div className="nav-item dropdown user-dropdown">
             <button 
               className="user-btn"

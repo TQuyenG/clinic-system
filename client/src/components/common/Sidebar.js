@@ -181,6 +181,14 @@ const Sidebar = ({ onToggle }) => {
                 {!collapsed && <span>Quản lý lịch làm việc</span>}
               </Link>
               <Link 
+                to="/quan-ly-bai-viet" 
+                className={location.pathname === '/quan-ly-bai-viet' ? 'active' : ''} 
+                onClick={closeSidebar}
+              >
+                <FaNewspaper />
+                {!collapsed && <span>Quản lý bài viết</span>}
+              </Link>
+              <Link 
                 to="/lich-su-tu-van" 
                 className={location.pathname === '/lich-su-tu-van' ? 'active' : ''} 
                 onClick={closeSidebar}
