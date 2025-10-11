@@ -89,7 +89,8 @@ const models = {
   Question: require('../models/Question')(sequelize),
   Answer: require('../models/Answer')(sequelize),
   MedicalRecord: require('../models/MedicalRecord')(sequelize),
-  AuditLog: require('../models/AuditLog')(sequelize)
+  AuditLog: require('../models/AuditLog')(sequelize),
+  ArticleReviewHistory: require('../models/ArticleReviewHistory')(sequelize)
 };
 
 // Thiết lập quan hệ giữa các model
@@ -550,6 +551,98 @@ if (!thuocCategory || !benhLyCategory || !tinTucCategory) {
       }
     ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng interactions.');
+
+    // ==================== BƯỚC 9: ArticleReviewHistory ====================
+    console.log('9. Thêm ArticleReviewHistory...');
+
+    // Tạo lịch sử cho bài viết pending của staff1
+    await models.ArticleReviewHistory.create({
+      article_id: articles[0].id, // Bài "Lợi ích của tập thể dục"
+      reviewer_id: admins[0].user_id,
+      author_id: staffs[0].user_id,
+      action: 'submit',
+      previous_status: 'draft',
+      new_status: 'pending',
+      created_at: new Date(Date.now() - 86400000 * 2), // 2 ngày trước
+      metadata_json: { version: 1 }
+    }, { transaction });
+
+    // Admin yêu cầu viết lại
+    await models.ArticleReviewHistory.create({
+      article_id: articles[0].id,
+      reviewer_id: admins[0].user_id,
+      author_id: staffs[0].user_id,
+      action: 'request_rewrite',
+      reason: 'Nội dung cần bổ sung thêm các nghiên cứu khoa học. Hình ảnh minh họa chưa rõ ràng.',
+      previous_status: 'pending',
+      new_status: 'request_rewrite',
+      created_at: new Date(Date.now() - 86400000), // 1 ngày trước
+      metadata_json: { version: 1 }
+    }, { transaction });
+
+    // Staff gửi lại
+    await models.ArticleReviewHistory.create({
+      article_id: articles[0].id,
+      reviewer_id: staffs[0].user_id,
+      author_id: staffs[0].user_id,
+      action: 'resubmit',
+      previous_status: 'request_rewrite',
+      new_status: 'pending',
+      created_at: new Date(Date.now() - 3600000 * 12), // 12 giờ trước
+      metadata_json: { version: 2, changes: ['Đã thêm 3 nghiên cứu', 'Thay hình ảnh HD'] }
+    }, { transaction });
+
+    // Bài viết đã được duyệt
+    await models.ArticleReviewHistory.create({
+      article_id: articles[2].id, // Bài Paracetamol (medicine)
+      reviewer_id: admins[0].user_id,
+      author_id: doctors[0].user_id,
+      action: 'submit',
+      previous_status: 'draft',
+      new_status: 'pending',
+      created_at: new Date(Date.now() - 86400000 * 5),
+      metadata_json: { version: 1 }
+    }, { transaction });
+
+    await models.ArticleReviewHistory.create({
+      article_id: articles[2].id,
+      reviewer_id: admins[0].user_id,
+      author_id: doctors[0].user_id,
+      action: 'approve',
+      reason: 'Nội dung chính xác, đầy đủ thông tin.',
+      previous_status: 'pending',
+      new_status: 'approved',
+      created_at: new Date(Date.now() - 86400000 * 4),
+      metadata_json: { version: 1 }
+    }, { transaction });
+
+    // Staff yêu cầu chỉnh sửa bài đã duyệt
+    await models.ArticleReviewHistory.create({
+      article_id: articles[2].id,
+      reviewer_id: doctors[0].user_id,
+      author_id: doctors[0].user_id,
+      action: 'request_edit',
+      reason: 'Cần cập nhật liều lượng mới theo hướng dẫn 2024.',
+      previous_status: 'approved',
+      new_status: 'request_edit',
+      created_at: new Date(Date.now() - 86400000),
+      metadata_json: { version: 1 }
+    }, { transaction });
+
+    // Admin cho phép chỉnh sửa
+    await models.ArticleReviewHistory.create({
+      article_id: articles[2].id,
+      reviewer_id: admins[0].user_id,
+      author_id: doctors[0].user_id,
+      action: 'allow_edit',
+      reason: 'Đồng ý cho phép cập nhật thông tin.',
+      previous_status: 'request_edit',
+      new_status: 'pending',
+      created_at: new Date(Date.now() - 3600000 * 6),
+      metadata_json: { version: 1 }
+    }, { transaction });
+
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng article_review_history.');
 
     await transaction.commit();
     console.log('SUCCESS: Transaction commit thành công. Dữ liệu đã được ghi vào DB.');

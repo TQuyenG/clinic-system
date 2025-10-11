@@ -21,14 +21,27 @@ const notificationRoutes = require('./routes/notificationRoutes');
 // const forumRoutes = require('./routes/forumRoutes');
 // const statisticRoutes = require('./routes/statisticRoutes');
 // const medicalRoutes = require('./routes/medicalRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 // Khởi tạo ứng dụng Express
 const app = express();
 
 // Middleware
+// app.use(cors());
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+// QUAN TRỌNG: Tăng giới hạn body size để xử lý ảnh base64 và nội dung lớn
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' })); // Tăng từ mặc định lên 50MB
+app.use(express.urlencoded({ 
+  limit: '50mb', 
+  extended: true,
+  parameterLimit: 50000 
+}));
+
+// Serve static files cho ảnh đã upload
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/users', userRoutes);
@@ -44,6 +57,7 @@ app.use('/api/notifications', notificationRoutes);
 // app.use('/api/forum', forumRoutes);
 // app.use('/api/statistics', statisticRoutes);
 // app.use('/api/medical-records', medicalRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Error Handler Middleware
 app.use(errorHandler);

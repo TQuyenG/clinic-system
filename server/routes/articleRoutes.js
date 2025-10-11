@@ -9,19 +9,21 @@ const roleMiddleware = require('../middleware/roleMiddleware');
 router.get('/categories', articleController.getCategories);
 router.get('/slug/:slug', articleController.getArticleBySlug);
 router.get('/public', articleController.getPublicArticles);
-
-// ➕ MỚI: Route 2 cấp - categoryType/slug
 router.get('/:categoryType/:slug', articleController.getByTypeAndSlug);
 
 // ===== PROTECTED ROUTES - CẦN AUTH =====
 router.get('/', authenticateToken, articleController.getArticles);
 router.get('/tags/suggest', authenticateToken, articleController.suggestTags);
-
-// ➕ MỚI: Lấy bài viết đã lưu
 router.get('/saved', authenticateToken, articleController.getSavedArticles);
-
 router.get('/:id', authenticateToken, articleController.getArticleById);
 router.get('/:id/interactions', authenticateToken, articleController.getArticleInteractions);
+
+// ===== REVIEW HISTORY =====
+router.get('/:id/review-history', 
+  authenticateToken, 
+  roleMiddleware(['admin', 'staff', 'doctor']), 
+  articleController.getArticleReviewHistory
+);
 
 // ===== STAFF/DOCTOR/ADMIN - TẠO & SỬA BÀI VIẾT =====
 router.post('/', 
@@ -36,11 +38,17 @@ router.put('/:id',
   articleController.updateArticle
 );
 
-// ===== STAFF/DOCTOR - YÊU CẦU CHỈNH SỬA & NHÂN BẢN =====
+// ===== STAFF/DOCTOR - YÊU CẦU CHỈNH SỬA & GỬI LẠI =====
 router.post('/:id/request-edit', 
   authenticateToken, 
   roleMiddleware(['staff', 'doctor']), 
   articleController.requestEditArticle
+);
+
+router.post('/:id/resubmit', 
+  authenticateToken, 
+  roleMiddleware(['staff', 'doctor']), 
+  articleController.resubmitArticle
 );
 
 router.post('/:id/duplicate', 
@@ -54,6 +62,12 @@ router.post('/:id/review',
   authenticateToken, 
   roleMiddleware(['admin']), 
   articleController.reviewArticle
+);
+
+router.post('/:id/respond-edit', 
+  authenticateToken, 
+  roleMiddleware(['admin']), 
+  articleController.respondToEditRequest
 );
 
 router.post('/:id/allow-edit', 

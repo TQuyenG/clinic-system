@@ -1,6 +1,21 @@
-// client/src/pages/SpecialtyManagementPage.js
+// ============================================
+// SpecialtyManagementPage.js - Improved Design
+// ============================================
+
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { 
+  FaPlus, 
+  FaEdit, 
+  FaTrash,
+  FaTimes,
+  FaStethoscope,
+  FaHospital,
+  FaUserMd,
+  FaTable,
+  FaCalendarAlt,
+  FaInfoCircle
+} from 'react-icons/fa';
 import './SpecialtyManagementPage.css';
 
 const SpecialtyManagementPage = () => {
@@ -41,7 +56,6 @@ const SpecialtyManagementPage = () => {
       [name]: value
     }));
 
-    // Tự động tạo slug từ tên
     if (name === 'name' && !editMode) {
       const slug = value.toLowerCase()
         .normalize('NFD')
@@ -116,7 +130,7 @@ const SpecialtyManagementPage = () => {
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa chuyên khoa "${name}"?`)) {
+    if (!window.confirm(`Bạn có chắc muốn xóa chuyên khoa "${name}"?\n\nLưu ý: Không thể xóa nếu còn bác sĩ liên quan.`)) {
       return;
     }
 
@@ -135,126 +149,229 @@ const SpecialtyManagementPage = () => {
     }
   };
 
+  // Calculate statistics
+  const totalSpecialties = specialties.length;
+  const totalDoctors = specialties.reduce((sum, spec) => sum + (spec.doctorCount || 0), 0);
+  const avgDoctorsPerSpecialty = totalSpecialties > 0 ? Math.round(totalDoctors / totalSpecialties) : 0;
+
   if (loading) {
-    return <div className="loading">Đang tải...</div>;
+    return (
+      <div className="specialty-mgmt-page">
+        <div className="specialty-mgmt-loading">
+          <div className="specialty-mgmt-spinner"></div>
+          <p className="specialty-mgmt-loading-text">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="specialty-management">
-      <div className="page-header">
-        <h1>Quản lý Chuyên khoa</h1>
-        <button className="btn btn-primary" onClick={openCreateModal}>
-          + Thêm chuyên khoa mới
-        </button>
-      </div>
-
-      <div className="specialty-table-container">
-        <table className="specialty-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Tên chuyên khoa</th>
-              <th>Slug</th>
-              <th>Mô tả</th>
-              <th>Số bác sĩ</th>
-              <th>Ngày tạo</th>
-              <th>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {specialties.length === 0 ? (
-              <tr>
-                <td colSpan="7" style={{ textAlign: 'center' }}>
-                  Chưa có chuyên khoa nào
-                </td>
-              </tr>
-            ) : (
-              specialties.map(specialty => (
-                <tr key={specialty.id}>
-                  <td>{specialty.id}</td>
-                  <td><strong>{specialty.name}</strong></td>
-                  <td><code>{specialty.slug}</code></td>
-                  <td>{specialty.description || 'Chưa có mô tả'}</td>
-                  <td>{specialty.doctorCount || 0}</td>
-                  <td>{new Date(specialty.created_at).toLocaleDateString('vi-VN')}</td>
-                  <td>
-                    <button
-                      className="btn btn-sm btn-edit"
-                      onClick={() => openEditModal(specialty)}
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      className="btn btn-sm btn-delete"
-                      onClick={() => handleDelete(specialty.id, specialty.name)}
-                    >
-                      Xóa
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Modal thêm/sửa */}
-      {showModal && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editMode ? 'Chỉnh sửa chuyên khoa' : 'Thêm chuyên khoa mới'}</h2>
-              <button className="modal-close" onClick={closeModal}>&times;</button>
+    <div className="specialty-mgmt-page">
+      <div className="specialty-mgmt-container">
+        {/* Header */}
+        <div className="specialty-mgmt-header">
+          <div className="specialty-mgmt-header-content">
+            <div className="specialty-mgmt-title-section">
+              <h1 className="specialty-mgmt-title">
+                <FaStethoscope className="specialty-mgmt-title-icon" />
+                Quản lý Chuyên khoa
+              </h1>
+              <p className="specialty-mgmt-subtitle">
+                Quản lý danh sách chuyên khoa y tế và phân bổ bác sĩ
+              </p>
             </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Tên chuyên khoa <span className="required">*</span></label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="VD: Tim mạch, Nội khoa..."
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Slug (URL thân thiện)</label>
-                <input
-                  type="text"
-                  name="slug"
-                  value={formData.slug}
-                  onChange={handleInputChange}
-                  placeholder="VD: tim-mach"
-                />
-                <small>Tự động tạo nếu để trống</small>
-              </div>
-
-              <div className="form-group">
-                <label>Mô tả</label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="4"
-                  placeholder="Mô tả về chuyên khoa..."
-                />
-              </div>
-
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={closeModal}>
-                  Hủy
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  {editMode ? 'Cập nhật' : 'Tạo mới'}
-                </button>
-              </div>
-            </form>
+            <button className="specialty-mgmt-btn specialty-mgmt-btn-primary" onClick={openCreateModal}>
+              <FaPlus /> Thêm chuyên khoa
+            </button>
           </div>
         </div>
-      )}
+
+        {/* Info Cards */}
+        <div className="specialty-mgmt-info-cards">
+          <div className="specialty-mgmt-info-card">
+            <div className="specialty-mgmt-info-icon">
+              <FaHospital />
+            </div>
+            <div className="specialty-mgmt-info-content">
+              <p className="specialty-mgmt-info-label">Tổng chuyên khoa</p>
+              <p className="specialty-mgmt-info-value">{totalSpecialties}</p>
+            </div>
+          </div>
+
+          <div className="specialty-mgmt-info-card">
+            <div className="specialty-mgmt-info-icon">
+              <FaUserMd />
+            </div>
+            <div className="specialty-mgmt-info-content">
+              <p className="specialty-mgmt-info-label">Tổng bác sĩ</p>
+              <p className="specialty-mgmt-info-value">{totalDoctors}</p>
+            </div>
+          </div>
+
+          <div className="specialty-mgmt-info-card">
+            <div className="specialty-mgmt-info-icon">
+              <FaStethoscope />
+            </div>
+            <div className="specialty-mgmt-info-content">
+              <p className="specialty-mgmt-info-label">Trung bình BS/Khoa</p>
+              <p className="specialty-mgmt-info-value">{avgDoctorsPerSpecialty}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="specialty-mgmt-table-wrapper">
+          <div className="specialty-mgmt-table-header">
+            <h3 className="specialty-mgmt-table-title">
+              <FaTable /> Danh sách chuyên khoa
+            </h3>
+          </div>
+
+          <div className="specialty-mgmt-table-container">
+            <table className="specialty-mgmt-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Tên chuyên khoa</th>
+                  <th>Slug</th>
+                  <th>Mô tả</th>
+                  <th>Số bác sĩ</th>
+                  <th>Ngày tạo</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {specialties.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="specialty-mgmt-table-empty">
+                      <FaInfoCircle className="specialty-mgmt-table-empty-icon" />
+                      Chưa có chuyên khoa nào
+                    </td>
+                  </tr>
+                ) : (
+                  specialties.map(specialty => (
+                    <tr key={specialty.id}>
+                      <td>{specialty.id}</td>
+                      <td className="specialty-mgmt-table-name">{specialty.name}</td>
+                      <td><code>{specialty.slug}</code></td>
+                      <td>{specialty.description || <span style={{ color: 'var(--spec-text-lighter)', fontStyle: 'italic' }}>Chưa có mô tả</span>}</td>
+                      <td>
+                        <span className="specialty-mgmt-table-badge">
+                          {specialty.doctorCount || 0}
+                        </span>
+                      </td>
+                      <td className="specialty-mgmt-table-date">
+                        <FaCalendarAlt style={{ marginRight: '0.5rem', fontSize: '0.875rem' }} />
+                        {new Date(specialty.created_at).toLocaleDateString('vi-VN')}
+                      </td>
+                      <td>
+                        <div className="specialty-mgmt-table-actions">
+                          <button
+                            className="specialty-mgmt-btn specialty-mgmt-btn-sm specialty-mgmt-btn-edit"
+                            onClick={() => openEditModal(specialty)}
+                          >
+                            <FaEdit /> Sửa
+                          </button>
+                          <button
+                            className="specialty-mgmt-btn specialty-mgmt-btn-sm specialty-mgmt-btn-delete"
+                            onClick={() => handleDelete(specialty.id, specialty.name)}
+                          >
+                            <FaTrash /> Xóa
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Modal */}
+        {showModal && (
+          <div className="specialty-mgmt-modal-overlay" onClick={closeModal}>
+            <div className="specialty-mgmt-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="specialty-mgmt-modal-header">
+                <h2 className="specialty-mgmt-modal-title">
+                  {editMode ? (
+                    <><FaEdit /> Chỉnh sửa chuyên khoa</>
+                  ) : (
+                    <><FaPlus /> Thêm chuyên khoa mới</>
+                  )}
+                </h2>
+                <button className="specialty-mgmt-modal-close" onClick={closeModal}>
+                  <FaTimes />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit}>
+                <div className="specialty-mgmt-modal-body">
+                  <div className="specialty-mgmt-form-group">
+                    <label htmlFor="spec-name" className="specialty-mgmt-form-label">
+                      Tên chuyên khoa <span className="specialty-mgmt-form-required">*</span>
+                    </label>
+                    <input
+                      id="spec-name"
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      placeholder="VD: Tim mạch, Nội khoa, Ngoại khoa..."
+                      required
+                      className="specialty-mgmt-form-control"
+                    />
+                  </div>
+
+                  <div className="specialty-mgmt-form-group">
+                    <label htmlFor="spec-slug" className="specialty-mgmt-form-label">
+                      Slug <small style={{ color: 'var(--spec-text-light)' }}>(URL thân thiện)</small>
+                    </label>
+                    <input
+                      id="spec-slug"
+                      type="text"
+                      name="slug"
+                      value={formData.slug}
+                      onChange={handleInputChange}
+                      placeholder="tim-mach"
+                      className="specialty-mgmt-form-control"
+                    />
+                    <small className="specialty-mgmt-form-hint">
+                      Tự động tạo từ tên nếu để trống
+                    </small>
+                  </div>
+
+                  <div className="specialty-mgmt-form-group">
+                    <label htmlFor="spec-desc" className="specialty-mgmt-form-label">Mô tả</label>
+                    <textarea
+                      id="spec-desc"
+                      name="description"
+                      value={formData.description}
+                      onChange={handleInputChange}
+                      rows="4"
+                      placeholder="Mô tả về chuyên khoa, chuyên môn điều trị..."
+                      className="specialty-mgmt-form-control specialty-mgmt-form-textarea"
+                    />
+                  </div>
+                </div>
+
+                <div className="specialty-mgmt-modal-footer">
+                  <button 
+                    type="button" 
+                    className="specialty-mgmt-btn specialty-mgmt-btn-secondary" 
+                    onClick={closeModal}
+                  >
+                    Hủy
+                  </button>
+                  <button type="submit" className="specialty-mgmt-btn specialty-mgmt-btn-primary">
+                    {editMode ? 'Cập nhật' : 'Tạo mới'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

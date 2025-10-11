@@ -56,6 +56,9 @@ const loadEntityData = async (article) => {
   return articleData;
 };
 
+const { ArticleReviewHistory } = models;
+
+
 // ==================== PUBLIC ROUTES ====================
 
 exports.getCategories = async (req, res) => {
@@ -582,34 +585,165 @@ exports.updateArticle = async (req, res) => {
   }
 };
 
+// STAFF YÊU CẦU CHỈNH SỬA BÀI ĐÃ DUYỆT - Có history
 exports.requestEditArticle = async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
     const { id } = req.params;
     const { reason } = req.body;
 
-    const article = await Article.findByPk(id);
+    const article = await Article.findByPk(id, { transaction });
     if (!article) {
+      await transaction.rollback();
       return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
     }
+
+    const prevStatus = article.status;
 
     await article.update({
       status: 'request_edit',
       edit_request_reason: reason
-    });
+    }, { transaction });
+
+    // TẠO LỊCH SỬ
+    await createReviewHistory(
+      article.id,
+      req.user.id,
+      req.user.id,
+      'request_edit',
+      reason,
+      prevStatus,
+      'request_edit',
+      null,
+      transaction
+    );
+
+    await transaction.commit();
 
     await notifyAllAdmins(
       'system',
-      `Staff ${req.user.full_name} yêu cầu chỉnh sửa bài viết "${article.title}". Lý do: ${reason}`,
+      `${req.user.full_name} yêu cầu chỉnh sửa bài viết "${article.title}". Lý do: ${reason}`,
       `/articles/review/${id}`
     );
 
     res.json({ success: true, message: 'Yêu cầu chỉnh sửa đã được gửi' });
   } catch (error) {
+    await transaction.rollback();
     console.error('Error requesting edit:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// ADMIN CHO PHÉP/TỪ CHỐI CHỈNH SỬA - Có history
+exports.respondToEditRequest = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { allow, reason } = req.body; // allow: true/false
+
+    const article = await Article.findByPk(id, { transaction });
+    if (!article) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
+    }
+
+    const prevStatus = article.status;
+    const newStatus = allow ? 'pending' : 'approved';
+
+    await article.update({ 
+      status: newStatus,
+      edit_request_reason: null
+    }, { transaction });
+
+    // TẠO LỊCH SỬ
+    await createReviewHistory(
+      article.id,
+      req.user.id,
+      article.author_id,
+      allow ? 'allow_edit' : 'deny_edit',
+      reason,
+      prevStatus,
+      newStatus,
+      null,
+      transaction
+    );
+
+    await transaction.commit();
+
+    await createNotification(
+      article.author_id,
+      'system',
+      `Admin đã ${allow ? 'cho phép' : 'từ chối'} yêu cầu chỉnh sửa bài viết "${article.title}". ${reason ? `Lý do: ${reason}` : ''}`,
+      `/articles/edit/${id}`
+    );
+
+    res.json({ 
+      success: true, 
+      message: allow ? 'Đã cho phép chỉnh sửa' : 'Đã từ chối yêu cầu',
+      article 
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error responding to edit request:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// STAFF GỬI LẠI SAU KHI SỬA - Có history
+exports.resubmitArticle = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { changes } = req.body; // Mô tả những gì đã sửa
+
+    const article = await Article.findByPk(id, { transaction });
+    if (!article) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
+    }
+
+    const prevStatus = article.status;
+
+    await article.update({
+      status: 'pending'
+    }, { transaction });
+
+    // Tính version từ history
+    const historyCount = await ArticleReviewHistory.count({
+      where: { article_id: id },
+      transaction
+    });
+
+    // TẠO LỊCH SỬ
+    await createReviewHistory(
+      article.id,
+      req.user.id,
+      req.user.id,
+      'resubmit',
+      null,
+      prevStatus,
+      'pending',
+      { version: historyCount + 1, changes },
+      transaction
+    );
+
+    await transaction.commit();
+
+    await notifyAllAdmins(
+      'system',
+      `${req.user.full_name} đã gửi lại bài viết "${article.title}" sau khi chỉnh sửa.`,
+      `/articles/review/${id}`
+    );
+
+    res.json({ success: true, message: 'Đã gửi lại bài viết để phê duyệt' });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error resubmitting article:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ADMIN NHÂN BẢN BÀI VIẾT - Có nhân bản entity liên quan
 exports.duplicateArticle = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
@@ -658,6 +792,7 @@ exports.duplicateArticle = async (req, res) => {
   }
 };
 
+// ADMIN CHO PHÉP CHỈNH SỬA - Không có history
 exports.allowEditArticle = async (req, res) => {
   try {
     const { id } = req.params;
@@ -683,29 +818,51 @@ exports.allowEditArticle = async (req, res) => {
   }
 };
 
+// SỬA LẠI HÀM reviewArticle - Thêm history
 exports.reviewArticle = async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
     const { id } = req.params;
     const { action, reason } = req.body;
 
     const article = await Article.findByPk(id, {
-      include: [{ model: User, as: 'author' }]
+      include: [{ model: User, as: 'author' }],
+      transaction
     });
 
     if (!article) {
+      await transaction.rollback();
       return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
     }
 
-    const messages = {
+    const statusMap = {
       approve: 'approved',
       rewrite: 'request_rewrite',
       reject: 'rejected'
     };
 
+    const prevStatus = article.status;
+    const newStatus = statusMap[action];
+
     await article.update({
-      status: messages[action],
+      status: newStatus,
       rejection_reason: reason || null
-    });
+    }, { transaction });
+
+    // TẠO LỊCH SỬ
+    await createReviewHistory(
+      article.id,
+      req.user.id,
+      article.author_id,
+      action === 'approve' ? 'approve' : action === 'reject' ? 'reject' : 'request_rewrite',
+      reason,
+      prevStatus,
+      newStatus,
+      { reviewer_role: req.user.role },
+      transaction
+    );
+
+    await transaction.commit();
 
     await createNotification(
       article.author_id,
@@ -714,12 +871,14 @@ exports.reviewArticle = async (req, res) => {
       `/articles/${id}`
     );
 
-    res.json({ success: true, message: messages[action], article });
+    res.json({ success: true, message: newStatus, article });
   } catch (error) {
+    await transaction.rollback();
     console.error('Error reviewing article:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 exports.deleteArticle = async (req, res) => {
   const transaction = await sequelize.transaction();
@@ -917,6 +1076,162 @@ exports.getArticleInteractions = async (req, res) => {
     });
   } catch (error) {
     console.error('ERROR: Lỗi khi lấy tương tác bài viết:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==================== REVIEW HISTORY FUNCTIONS ====================
+
+// Lấy lịch sử phê duyệt của 1 bài viết
+exports.getArticleReviewHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const history = await ArticleReviewHistory.findAll({
+      where: { article_id: id },
+      include: [
+        { 
+          model: User, 
+          as: 'reviewer', 
+          attributes: ['id', 'full_name', 'avatar_url', 'role'] 
+        },
+        { 
+          model: User, 
+          as: 'author', 
+          attributes: ['id', 'full_name', 'avatar_url', 'role'] 
+        }
+      ],
+      order: [['created_at', 'ASC']]
+    });
+
+    res.json({ 
+      success: true, 
+      history,
+      count: history.length 
+    });
+  } catch (error) {
+    console.error('Error fetching review history:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Tạo bản ghi lịch sử phê duyệt
+const createReviewHistory = async (articleId, reviewerId, authorId, action, reason, prevStatus, newStatus, metadata = null, transaction) => {
+  try {
+    await ArticleReviewHistory.create({
+      article_id: articleId,
+      reviewer_id: reviewerId,
+      author_id: authorId,
+      action,
+      reason: reason ? reason.substring(0, 500) : null, // Giới hạn 500 ký tự
+      previous_status: prevStatus,
+      new_status: newStatus,
+      metadata_json: metadata
+    }, { transaction });
+  } catch (error) {
+    console.error('Error creating review history:', error);
+    throw error;
+  }
+};
+
+// SỬA LẠI HÀM createArticle - Thêm history
+exports.createArticle = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const {
+      title, content, category_id, tags_json, source,
+      composition, uses, side_effects, manufacturer,
+      symptoms, treatments, description
+    } = req.body;
+
+    const category = await Category.findByPk(category_id, { transaction });
+    if (!category) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Danh mục không tồn tại' });
+    }
+
+    const slug = slugify(title, { lower: true, strict: true });
+
+    const categoryConflict = await Category.findOne({
+      where: { slug, category_type: category.category_type },
+      transaction
+    });
+
+    if (categoryConflict) {
+      await transaction.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Slug này trùng với danh mục. Vui lòng chọn tiêu đề khác.' 
+      });
+    }
+
+    let entity = null;
+    let entityType = 'article';
+
+    if (category.category_type === 'thuoc') {
+      entity = await Medicine.create({
+        category_id,
+        name: title,
+        composition,
+        uses,
+        side_effects,
+        manufacturer,
+        description
+      }, { transaction });
+      entityType = 'medicine';
+    } else if (category.category_type === 'benh_ly') {
+      entity = await Disease.create({
+        category_id,
+        name: title,
+        symptoms,
+        treatments,
+        description
+      }, { transaction });
+      entityType = 'disease';
+    }
+
+    const initialStatus = req.user.role === 'admin' ? 'approved' : 'pending';
+
+    const article = await Article.create({
+      title,
+      slug,
+      content,
+      category_id,
+      author_id: req.user.id,
+      entity_type: entityType,
+      entity_id: entity ? entity.id : null,
+      tags_json: tags_json || [],
+      status: initialStatus,
+      source
+    }, { transaction });
+
+    // TẠO LỊCH SỬ PHÊ DUYỆT
+    await createReviewHistory(
+      article.id,
+      req.user.id,
+      req.user.id,
+      req.user.role === 'admin' ? 'approve' : 'submit',
+      req.user.role === 'admin' ? 'Tự động duyệt bởi admin' : null,
+      'draft',
+      initialStatus,
+      { version: 1 },
+      transaction
+    );
+
+    await transaction.commit();
+
+    if (req.user.role !== 'admin') {
+      await notifyAllAdmins(
+        'system',
+        `${req.user.full_name} đã tạo bài viết mới "${title}" cần phê duyệt.`,
+        `/articles/review/${article.id}`
+      );
+    }
+
+    res.json({ success: true, message: 'Tạo bài viết thành công', article });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error creating article:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
