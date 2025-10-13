@@ -1,4 +1,13 @@
 // server/models/ArticleReviewHistory.js
+/* ===== GHI CHÚ =====
+Các action mới thêm:
+- hide: Admin ẩn bài viết (vì báo cáo, vi phạm...)
+- unhide: Admin hiện lại bài viết đã ẩn
+
+Lưu ý: 
+- Comment trao đổi được lưu riêng trong bảng article_comments
+- Bảng này chỉ lưu các hành động phê duyệt chính
+*/
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -25,19 +34,21 @@ module.exports = (sequelize) => {
       comment: 'ID tác giả bài viết (staff/doctor)'
     },
     action: { 
-      type: DataTypes.ENUM(
-        'submit',           // Staff gửi bài
-        'approve',          // Admin duyệt
-        'reject',           // Admin từ chối
-        'request_rewrite',  // Admin yêu cầu viết lại
-        'resubmit',         // Staff gửi lại sau khi sửa
-        'request_edit',     // Staff yêu cầu chỉnh sửa bài đã duyệt
-        'allow_edit',       // Admin cho phép chỉnh sửa
-        'deny_edit'         // Admin từ chối yêu cầu chỉnh sửa
-      ),
-      allowNull: false,
-      comment: 'Hành động phê duyệt'
-    },
+    type: DataTypes.ENUM(
+      'submit',           // Staff gửi bài lần đầu
+      'approve',          // Admin phê duyệt
+      'reject',           // Admin từ chối
+      'request_rewrite',  // Admin yêu cầu viết lại
+      'resubmit',         // Staff gửi lại sau khi sửa
+      'request_edit',     // Staff yêu cầu chỉnh sửa bài đã duyệt
+      'allow_edit',       // Admin cho phép chỉnh sửa
+      'deny_edit',        // Admin từ chối yêu cầu chỉnh sửa
+      'hide',             // Admin ẩn bài viết
+      'unhide'            // Admin hiện lại bài viết đã ẩn
+    ),
+    allowNull: false,
+    comment: 'Hành động phê duyệt'
+  },
     reason: { 
       type: DataTypes.TEXT,
       allowNull: true,

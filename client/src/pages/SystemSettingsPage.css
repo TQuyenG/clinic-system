@@ -1,0 +1,145 @@
+/* src/pages/SystemSettingsPage.css */
+.system-settings-page {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.system-settings-page h1, .system-settings-page h2, .system-settings-page h3, .system-settings-page h4 {
+  color: #333;
+}
+
+.error-message {
+  color: red;
+  margin-bottom: 10px;
+}
+
+.success-message {
+  color: green;
+  margin-bottom: 10px;
+}
+
+.loading {
+  color: blue;
+  margin-bottom: 10px;
+}
+
+.settings-section {
+  margin-bottom: 30px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 20px;
+}
+
+.edit-item {
+  background: #f9f9f9;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.edit-item input, .edit-item textarea {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.edit-item textarea {
+  min-height: 80px;
+}
+
+.preview-image {
+  max-width: 200px;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.sub-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.sub-item input {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.gallery-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.gallery-item {
+  width: 200px;
+  background: #fff;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.gallery-item img {
+  width: 100%;
+  height: auto;
+}
+
+.btn-add, .btn-remove, .btn-save, .btn-add-sub, .btn-remove-sub {
+  padding: 8px 12px;
+  margin-right: 5px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-add, .btn-add-sub {
+  background: #4CAF50;
+  color: white;
+}
+
+.btn-remove, .btn-remove-sub {
+  background: #f44336;
+  color: white;
+}
+
+.btn-save {
+  background: #2196F3;
+  color: white;
+  font-size: 16px;
+  padding: 10px 20px;
+}
+
+/* react-tabs styles (giữ nguyên) */
+.react-tabs__tab-list {
+  border-bottom: 1px solid #aaa;
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.react-tabs__tab {
+  display: inline-block;
+  border: 1px solid transparent;
+  border-bottom: none;
+  bottom: -1px;
+  position: relative;
+  list-style: none;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.react-tabs__tab--selected {
+  background: #fff;
+  border-color: #aaa;
+  color: black;
+  border-radius: 5px 5px 0 0;
+}
+
+.react-tabs__tab-panel {
+  display: none;
+}
+
+.react-tabs__tab-panel--selected {
+  display: block;
+}

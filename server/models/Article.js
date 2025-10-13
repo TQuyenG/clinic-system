@@ -1,3 +1,16 @@
+// server/models/Article.js
+
+/* ===== GHI CHÚ =====
+Các trạng thái:
+- draft: Bản nháp, staff có thể chỉnh sửa/xóa tự do
+- pending: Đã gửi phê duyệt, chờ admin xử lý
+- approved: Đã được admin phê duyệt, hiển thị public
+- rejected: Admin từ chối
+- hidden: Admin ẩn bài viết (do báo cáo hoặc vi phạm)
+- request_edit: Staff yêu cầu chỉnh sửa bài đã duyệt
+- request_rewrite: Admin yêu cầu viết lại hoàn toàn
+*/
+
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {

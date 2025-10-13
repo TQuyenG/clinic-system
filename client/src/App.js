@@ -1,3 +1,4 @@
+// client/src/App.js - CẬP NHẬT HOÀN CHỈNH
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
@@ -27,7 +28,9 @@ import SpecialtiesListPage from './pages/SpecialtiesListPage';
 import SpecialtyDetailPage from './pages/SpecialtyDetailPage';
 import DoctorsListPage from './pages/DoctorsListPage';
 import DoctorProfilePage from './pages/DoctorProfilePage';
-import HealthForumPage from './pages/HealthForumPage'; // Thêm import cho trang Diễn đàn sức khỏe
+import HealthForumPage from './pages/HealthForumPage';
+import ArticleReviewPage from './pages/ArticleReviewPage';
+import SystemSettingsPage from './pages/SystemSettingsPage';
 import './App.css';
 
 // Protected Route Component
@@ -73,7 +76,7 @@ function App() {
           <Route path="/home" element={<HomePage />} />
           <Route path="/trang-chu" element={<HomePage />} />
 
-          {/* Diễn đàn sức khỏe - MỚI */}
+          {/* Diễn đàn sức khỏe */}
           <Route path="/dien-dan-suc-khoe" element={<HealthForumPage />} />
           <Route path="/health-forum" element={<HealthForumPage />} />
 
@@ -100,7 +103,7 @@ function App() {
 
           {/* ========== BÀI VIẾT ========== */}
           <Route path="/bai-viet" element={<ArticlesListPage />} />
-          <Route path="/articles" element={<ArticleManagementPage />} />
+          <Route path="/articles" element={<ArticlesListPage />} />
           
           <Route 
             path="/bai-viet-da-luu" 
@@ -113,10 +116,13 @@ function App() {
           
           {/* Danh mục chính - Lọc theo category_type */}
           <Route path="/tin-tuc" element={<ArticlesListPage type="tin_tuc" />} />
+          <Route path="/news" element={<ArticlesListPage type="tin_tuc" />} />
           
           <Route path="/thuoc" element={<ArticlesListPage type="thuoc" />} />
+          <Route path="/medicine" element={<ArticlesListPage type="thuoc" />} />
           
           <Route path="/benh-ly" element={<ArticlesListPage type="benh_ly" />} />
+          <Route path="/disease" element={<ArticlesListPage type="benh_ly" />} />
           
           {/* Route động 2 cấp: categoryType/slug */}
           <Route path="/tin-tuc/:slug" element={<ArticleOrCategoryPage type="tin-tuc" />} />
@@ -142,16 +148,103 @@ function App() {
           <Route path="/doctors/:code" element={<DoctorProfilePage />} />
           
           {/* ========== PROTECTED ROUTES ========== */}
-          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/ho-so-nguoi-dung" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/thong-bao" element={<ProtectedRoute><NotificationPage /></ProtectedRoute>} />
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/ho-so-nguoi-dung" 
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/thong-bao" 
+            element={
+              <ProtectedRoute>
+                <NotificationPage />
+              </ProtectedRoute>
+            } 
+          />
           
           {/* ========== ADMIN ONLY ROUTES ========== */}
-          <Route path="/quan-ly-nguoi-dung" element={<ProtectedRoute requiredRole="admin"><UsersPage /></ProtectedRoute>} />
-          <Route path="/quan-ly-chuyen-khoa" element={<ProtectedRoute requiredRole="admin"><SpecialtyManagementPage /></ProtectedRoute>} />
-          <Route path="/quan-ly-danh-muc" element={<ProtectedRoute requiredRole="admin"><CategoryManagementPage /></ProtectedRoute>} />
+          <Route 
+            path="/quan-ly-nguoi-dung" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <UsersPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/quan-ly-chuyen-khoa" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <SpecialtyManagementPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/quan-ly-danh-muc" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <CategoryManagementPage />
+              </ProtectedRoute>
+            } 
+          />
           
-          <Route path="/quan-ly-bai-viet" element={<ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}><ArticleManagementPage /></ProtectedRoute>} />
+          {/* QUẢN LÝ BÀI VIẾT - Admin, Staff, Doctor */}
+          <Route 
+            path="/quan-ly-bai-viet" 
+            element={
+              <ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}>
+                <ArticleManagementPage />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* PHÊ DUYỆT BÀI VIẾT - Route mới với /articles/review/:id */}
+          <Route 
+            path="/articles/review/:id" 
+            element={
+              <ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}>
+                <ArticleReviewPage />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* PHÊ DUYỆT BÀI VIẾT - Alias tiếng Việt */}
+          <Route 
+            path="/phe-duyet-bai-viet/:id" 
+            element={
+              <ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}>
+                <ArticleReviewPage />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/quan-ly-he-thong" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <SystemSettingsPage />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Chi tiết bài viết theo slug (không phải /articles/:id) */}
+          <Route path="/bai-viet/:slug" element={<ArticleDetailPage />} />
+          <Route path="/articles/:slug" element={<ArticleDetailPage />} />
+
+          {/* Danh mục theo slug */}
+          <Route path="/danh-muc/:slug" element={<CategoryArticlesPage />} />
+          <Route path="/category/:slug" element={<CategoryArticlesPage />} />
           
           {/* ========== 404 - NOT FOUND ========== */}
           <Route path="/404" element={

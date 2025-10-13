@@ -152,6 +152,14 @@ const Sidebar = ({ onToggle }) => {
                 {!collapsed && <span>Bài viết đã lưu</span>}
               </Link>
               <Link 
+                to="/quan-ly-he-thong" 
+                className={location.pathname === '/quan-ly-he-thong' ? 'active' : ''} 
+                onClick={closeSidebar}
+              >
+                <FaChartBar />
+                {!collapsed && <span>Quản lý hệ thống</span>}
+              </Link>
+              <Link 
                 to="/thong-ke" 
                 className={location.pathname === '/thong-ke' ? 'active' : ''} 
                 onClick={closeSidebar}

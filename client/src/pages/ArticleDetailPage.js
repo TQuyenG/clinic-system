@@ -1,10 +1,12 @@
+// client/src/pages/ArticleDetailPage.js - HOÀN CHỈNH
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
+import { ArticleReportPopup, ArticleReportsList } from '../components/article/ArticleReportComponents';
 import { 
   FaCalendar, FaUser, FaEye, FaThumbsUp, FaShareAlt, 
-  FaBookmark, FaArrowLeft, FaTag, FaLink
+  FaBookmark, FaArrowLeft, FaTag, FaLink, FaFlag, FaRedo
 } from 'react-icons/fa';
 import './ArticleDetailPage.css';
 
@@ -13,19 +15,42 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
   const navigate = useNavigate();
   const [article, setArticle] = useState(propArticle || null);
   const [loading, setLoading] = useState(!propArticle);
+  const [user, setUser] = useState(null);
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [stats, setStats] = useState({ likes: 0, shares: 0, saves: 0, views: 0 });
+  const [showReportPopup, setShowReportPopup] = useState(false);
 
   const API_BASE_URL = 'http://localhost:3001';
 
   useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user') || 'null');
+    setUser(userData);
+
     if (!propArticle && slug) {
       fetchArticle();
     } else if (propArticle) {
+      trackView();
       fetchInteractions();
     }
   }, [slug, propArticle]);
+
+  useEffect(() => {
+    if (article?.id) {
+      trackView();
+      fetchInteractions();
+    }
+  }, [article?.id]);
+
+  const trackView = async () => {
+    if (!article?.id) return;
+    
+    try {
+      await axios.post(`${API_BASE_URL}/api/articles/${article.id}/view`);
+    } catch (error) {
+      console.error('Error tracking view:', error);
+    }
+  };
 
   const fetchArticle = async () => {
     try {
@@ -34,7 +59,6 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
       
       if (response.data.success) {
         setArticle(response.data.article);
-        fetchInteractions(response.data.article.id);
       }
     } catch (error) {
       console.error('Error fetching article:', error);
@@ -46,16 +70,15 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
     }
   };
 
-  const fetchInteractions = async (articleId) => {
-    const id = articleId || article?.id;
-    if (!id) return;
+  const fetchInteractions = async () => {
+    if (!article?.id) return;
 
     try {
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       
       const response = await axios.get(
-        `${API_BASE_URL}/api/articles/${id}/interactions`,
+        `${API_BASE_URL}/api/articles/${article.id}/interactions`,
         { headers }
       );
 
@@ -99,6 +122,7 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
       }
     } catch (error) {
       console.error('Error interacting:', error);
+      alert('Lỗi: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -151,6 +175,34 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
           console.error('Error tracking share:', error);
         }
       }
+    }
+  };
+
+  const handleRequestEdit = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Vui lòng đăng nhập');
+      navigate('/login');
+      return;
+    }
+
+    const reason = prompt('Nhập lý do yêu cầu chỉnh sửa (max 500 ký tự):');
+    if (!reason) return;
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/articles/${article.id}/request-edit`,
+        { reason: reason.substring(0, 500) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        alert('Đã gửi yêu cầu chỉnh sửa đến admin');
+        navigate('/quan-ly-bai-viet');
+      }
+    } catch (error) {
+      console.error('Error requesting edit:', error);
+      alert('Lỗi: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -223,6 +275,10 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
       </div>
     );
   }
+
+  // Kiểm tra xem user có phải tác giả không
+  const isAuthor = user && article.author_id === user.id;
+  const isApproved = article.status === 'approved';
 
   return (
     <div className="article-detail-page">
@@ -322,8 +378,35 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
                 onClick={() => handleInteraction('save')}
               >
                 <FaBookmark />
-                <span>Lưu</span>
+                <span>{isSaved ? 'Đã lưu' : 'Lưu'}</span>
               </button>
+
+              <button 
+                className="action-btn"
+                onClick={() => {
+                  const token = localStorage.getItem('token');
+                  if (!token) {
+                    alert('Vui lòng đăng nhập để báo cáo');
+                    navigate('/login');
+                    return;
+                  }
+                  setShowReportPopup(true);
+                }}
+              >
+                <FaFlag />
+                <span>Báo cáo</span>
+              </button>
+
+              {/* Nút yêu cầu chỉnh sửa (chỉ tác giả thấy khi bài đã duyệt) */}
+              {isAuthor && isApproved && user.role !== 'admin' && (
+                <button 
+                  className="action-btn action-btn-request"
+                  onClick={handleRequestEdit}
+                >
+                  <FaRedo />
+                  <span>Yêu cầu chỉnh sửa</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -393,6 +476,24 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
             </div>
           )}
         </div>
+
+        {/* Danh sách báo cáo - Chỉ admin thấy */}
+        <ArticleReportsList 
+          articleId={article.id} 
+          onHideArticle={() => navigate('/quan-ly-bai-viet')} 
+        />
+
+        {/* Popup báo cáo */}
+        {showReportPopup && (
+          <ArticleReportPopup
+            articleId={article.id}
+            onClose={() => setShowReportPopup(false)}
+            onSuccess={() => {
+              setShowReportPopup(false);
+              alert('Đã gửi báo cáo thành công');
+            }}
+          />
+        )}
       </div>
     </div>
   );

@@ -90,7 +90,8 @@ const models = {
   Answer: require('../models/Answer')(sequelize),
   MedicalRecord: require('../models/MedicalRecord')(sequelize),
   AuditLog: require('../models/AuditLog')(sequelize),
-  ArticleReviewHistory: require('../models/ArticleReviewHistory')(sequelize)
+  ArticleReviewHistory: require('../models/ArticleReviewHistory')(sequelize),
+  ArticleComment: require('../models/ArticleComment')(sequelize)
 };
 
 // Thiết lập quan hệ giữa các model
@@ -490,67 +491,67 @@ if (!thuocCategory || !benhLyCategory || !tinTucCategory) {
     ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng articles.');
 
-    // ==================== BƯỚC 8: Interactions ====================
-    console.log('8. Thêm Interactions...');
-    const interactions = await models.Interaction.bulkCreate([
-      // Interactions cho Articles thông thường
-      { 
-        user_id: patients[0].id, 
-        entity_type: 'article', 
-        entity_id: articles[0].id, 
-        interaction_type: 'view',
-        ip_address: '192.168.1.1',
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      { 
-        user_id: patients[1].id, 
-        entity_type: 'article', 
-        entity_id: articles[1].id, 
-        interaction_type: 'like',
-        created_at: new Date(),
-        updated_at: new Date()
-      },
+    // // ==================== BƯỚC 8: Interactions ====================
+    // console.log('8. Thêm Interactions...');
+    // const interactions = await models.Interaction.bulkCreate([
+    //   // Interactions cho Articles thông thường
+    //   { 
+    //     user_id: patients[0].id, 
+    //     entity_type: 'article', 
+    //     entity_id: articles[0].id, 
+    //     interaction_type: 'view',
+    //     ip_address: '192.168.1.1',
+    //     created_at: new Date(),
+    //     updated_at: new Date()
+    //   },
+    //   { 
+    //     user_id: patients[1].id, 
+    //     entity_type: 'article', 
+    //     entity_id: articles[1].id, 
+    //     interaction_type: 'like',
+    //     created_at: new Date(),
+    //     updated_at: new Date()
+    //   },
       
-      // Interactions cho Medicines (qua entity_type 'medicine')
-      { 
-        user_id: patients[0].id, 
-        entity_type: 'medicine', 
-        entity_id: medicines[0].id, 
-        interaction_type: 'view',
-        ip_address: '192.168.1.2',
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      { 
-        user_id: doctors[0].id, 
-        entity_type: 'medicine', 
-        entity_id: medicines[1].id, 
-        interaction_type: 'share',
-        created_at: new Date(),
-        updated_at: new Date()
-      },
+    //   // Interactions cho Medicines (qua entity_type 'medicine')
+    //   { 
+    //     user_id: patients[0].id, 
+    //     entity_type: 'medicine', 
+    //     entity_id: medicines[0].id, 
+    //     interaction_type: 'view',
+    //     ip_address: '192.168.1.2',
+    //     created_at: new Date(),
+    //     updated_at: new Date()
+    //   },
+    //   { 
+    //     user_id: doctors[0].id, 
+    //     entity_type: 'medicine', 
+    //     entity_id: medicines[1].id, 
+    //     interaction_type: 'share',
+    //     created_at: new Date(),
+    //     updated_at: new Date()
+    //   },
       
-      // Interactions cho Diseases (qua entity_type 'disease')
-      { 
-        user_id: patients[1].id, 
-        entity_type: 'disease', 
-        entity_id: diseases[0].id, 
-        interaction_type: 'view',
-        ip_address: '192.168.1.3',
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      { 
-        user_id: doctors[1].id, 
-        entity_type: 'disease', 
-        entity_id: diseases[1].id, 
-        interaction_type: 'bookmark',
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    ], { transaction });
-    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng interactions.');
+    //   // Interactions cho Diseases (qua entity_type 'disease')
+    //   { 
+    //     user_id: patients[1].id, 
+    //     entity_type: 'disease', 
+    //     entity_id: diseases[0].id, 
+    //     interaction_type: 'view',
+    //     ip_address: '192.168.1.3',
+    //     created_at: new Date(),
+    //     updated_at: new Date()
+    //   },
+    //   { 
+    //     user_id: doctors[1].id, 
+    //     entity_type: 'disease', 
+    //     entity_id: diseases[1].id, 
+    //     interaction_type: 'bookmark',
+    //     created_at: new Date(),
+    //     updated_at: new Date()
+    //   }
+    // ], { transaction });
+    // console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng interactions.');
 
     // ==================== BƯỚC 9: ArticleReviewHistory ====================
     console.log('9. Thêm ArticleReviewHistory...');
@@ -643,6 +644,446 @@ if (!thuocCategory || !benhLyCategory || !tinTucCategory) {
     }, { transaction });
 
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng article_review_history.');
+
+    // ==================== BƯỚC 10: ArticleComments ====================
+console.log('10. Thêm ArticleComments...');
+
+// Comment cho bài viết pending (articles[1] - "Chế độ ăn lành mạnh")
+await models.ArticleComment.bulkCreate([
+  {
+    article_id: articles[1].id,
+    user_id: admins[0].user_id,
+    comment_text: 'Bài viết này cần bổ sung thêm nguồn tham khảo khoa học. Bạn có thể thêm links đến các nghiên cứu không?',
+    created_at: new Date(Date.now() - 3600000 * 6), // 6 giờ trước
+    updated_at: new Date(Date.now() - 3600000 * 6)
+  },
+  {
+    article_id: articles[1].id,
+    user_id: staffs[1].user_id,
+    comment_text: 'Dạ em đã thêm 3 nguồn từ WHO và Ministry of Health. Anh xem giúp em nhé!',
+    created_at: new Date(Date.now() - 3600000 * 4), // 4 giờ trước
+    updated_at: new Date(Date.now() - 3600000 * 4)
+  },
+  {
+    article_id: articles[1].id,
+    user_id: admins[0].user_id,
+    comment_text: 'OK rồi, em làm tốt lắm. Anh sẽ duyệt bài này.',
+    created_at: new Date(Date.now() - 3600000 * 2), // 2 giờ trước
+    updated_at: new Date(Date.now() - 3600000 * 2)
+  }
+], { transaction });
+
+// Comment cho bài medicine (articles[3] - Amoxicillin)
+await models.ArticleComment.bulkCreate([
+  {
+    article_id: articles[3].id,
+    user_id: admins[0].user_id,
+    comment_text: 'Liều lượng cho trẻ em chưa được nêu rõ. Bác sĩ cần bổ sung thêm phần này.',
+    created_at: new Date(Date.now() - 86400000 * 3), // 3 ngày trước
+    updated_at: new Date(Date.now() - 86400000 * 3)
+  },
+  {
+    article_id: articles[3].id,
+    user_id: doctors[1].user_id,
+    comment_text: 'Em đã thêm bảng liều lượng theo độ tuổi và cân nặng ạ.',
+    created_at: new Date(Date.now() - 86400000 * 2), // 2 ngày trước
+    updated_at: new Date(Date.now() - 86400000 * 2)
+  }
+], { transaction });
+
+console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng article_comments.');
+
+// ==================== BƯỚC 11: Thêm data cho Interactions với view tracking ====================
+console.log('11. Cập nhật Interactions với view tracking...');
+
+// Thêm view tracking cho các bài viết (bao gồm IP để tránh spam)
+await models.Interaction.bulkCreate([
+  // Views cho bài "Lợi ích của tập thể dục"
+      { 
+        user_id: null, // Anonymous view
+        entity_type: 'article', 
+        entity_id: articles[0].id, 
+        interaction_type: 'view',
+        ip_address: '192.168.1.100',
+        created_at: new Date(Date.now() - 86400000 * 5),
+        updated_at: new Date(Date.now() - 86400000 * 5)
+      },
+      { 
+        user_id: patients[0].user_id,
+        entity_type: 'article', 
+        entity_id: articles[0].id, 
+        interaction_type: 'view',
+        ip_address: '192.168.1.101',
+        created_at: new Date(Date.now() - 86400000 * 4),
+        updated_at: new Date(Date.now() - 86400000 * 4)
+      },
+      { 
+        user_id: patients[0].user_id,
+        entity_type: 'article', 
+        entity_id: articles[0].id, 
+        interaction_type: 'like',
+        created_at: new Date(Date.now() - 86400000 * 4),
+        updated_at: new Date(Date.now() - 86400000 * 4)
+      },
+      { 
+        user_id: patients[1].user_id,
+        entity_type: 'article', 
+        entity_id: articles[0].id, 
+        interaction_type: 'save',
+        created_at: new Date(Date.now() - 86400000 * 3),
+        updated_at: new Date(Date.now() - 86400000 * 3)
+      },
+      // Interactions cho bài Paracetamol
+      { 
+        user_id: null,
+        entity_type: 'article', 
+        entity_id: articles[2].id, 
+        interaction_type: 'view',
+        ip_address: '192.168.1.102',
+        created_at: new Date(Date.now() - 86400000 * 2),
+        updated_at: new Date(Date.now() - 86400000 * 2)
+      },
+      { 
+        user_id: patients[0].user_id,
+        entity_type: 'article', 
+        entity_id: articles[2].id, 
+        interaction_type: 'like',
+        created_at: new Date(Date.now() - 86400000),
+        updated_at: new Date(Date.now() - 86400000)
+      },
+      { 
+        user_id: patients[1].user_id,
+        entity_type: 'article', 
+        entity_id: articles[2].id, 
+        interaction_type: 'share',
+        metadata_json: { platform: 'facebook' },
+        created_at: new Date(Date.now() - 3600000 * 12),
+        updated_at: new Date(Date.now() - 3600000 * 12)
+      },
+      // Report cho bài "Chế độ ăn lành mạnh"
+      { 
+        user_id: patients[0].user_id,
+        entity_type: 'article', 
+        entity_id: articles[1].id, 
+        interaction_type: 'report',
+        reason: 'Nội dung không chính xác, thiếu nguồn tham khảo',
+        created_at: new Date(Date.now() - 3600000 * 10),
+        updated_at: new Date(Date.now() - 3600000 * 10)
+      }
+], { transaction });
+
+console.log('SUCCESS: Cập nhật dữ liệu mẫu cho bảng interactions.');
+
+// ==================== BƯỚC 12: Cập nhật views count cho Articles ====================
+console.log('12. Cập nhật views count cho Articles...');
+
+// Đếm views từ interactions và cập nhật vào articles
+for (const article of articles) {
+  const viewCount = await models.Interaction.count({
+    where: {
+      entity_type: 'article',
+      entity_id: article.id,
+      interaction_type: 'view'
+    },
+    transaction
+  });
+
+  await article.update({ views: viewCount }, { transaction });
+}
+
+console.log('SUCCESS: Đã cập nhật views count cho tất cả bài viết.');
+
+// ==================== BƯỚC 13: Thêm history cho hidden article ====================
+console.log('13. Thêm lịch sử ẩn bài viết...');
+
+// Giả lập: Admin ẩn bài viết "Chế độ ăn lành mạnh" do có báo cáo
+const articleToHide = articles[1]; // "Chế độ ăn lành mạnh"
+
+await articleToHide.update({ status: 'hidden' }, { transaction });
+
+await models.ArticleReviewHistory.create({
+  article_id: articleToHide.id,
+  reviewer_id: admins[0].user_id,
+  author_id: articleToHide.author_id,
+  action: 'hide',
+  reason: 'Bài viết có báo cáo vi phạm về nội dung thiếu nguồn tham khảo. Yêu cầu tác giả bổ sung và gửi lại.',
+  previous_status: 'pending',
+  new_status: 'hidden',
+  created_at: new Date(Date.now() - 3600000),
+  metadata_json: { report_count: 1 }
+}, { transaction });
+
+console.log('SUCCESS: Đã thêm lịch sử ẩn bài viết.');
+
+        // ==================== BƯỚC 14: SystemSetting ====================
+    console.log('14. Thêm SystemSettings...');
+    await models.SystemSetting.bulkCreate([
+      {
+        setting_key: 'home',
+        value_json: {
+          bannerSlides: [
+            {
+              title: 'Chào mừng đến với Clinic System',
+              subtitle: 'Nơi sức khỏe của bạn được đặt lên hàng đầu',
+              description: 'Dịch vụ y tế chất lượng cao với đội ngũ bác sĩ tận tâm và chuyên nghiệp',
+              image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&h=800&fit=crop'
+            },
+            {
+              title: 'Công nghệ y tế hiện đại',
+              subtitle: 'Trang thiết bị tiên tiến nhất',
+              description: 'Chẩn đoán chính xác với công nghệ y tế hàng đầu thế giới',
+              image: 'https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=1920&h=800&fit=crop'
+            },
+            {
+              title: 'Đội ngũ bác sĩ chuyên nghiệp',
+              subtitle: 'Giàu kinh nghiệm và tận tâm',
+              description: 'Luôn sẵn sàng chăm sóc sức khỏe của bạn 24/7',
+              image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=1920&h=800&fit=crop'
+            }
+          ],
+          features: [
+            {
+              icon: 'FaUserMd',
+              title: 'Bác sĩ chuyên nghiệp',
+              description: 'Đội ngũ y bác sĩ giàu kinh nghiệm, tận tâm',
+              color: '#4ade80'
+            },
+            {
+              icon: 'FaHospital',
+              title: 'Cơ sở hiện đại',
+              description: 'Trang thiết bị y tế tiên tiến nhất',
+              color: '#22c55e'
+            },
+            {
+              icon: 'FaAmbulance',
+              title: 'Cấp cứu 24/7',
+              description: 'Sẵn sàng phục vụ mọi lúc, mọi nơi',
+              color: '#16a34a'
+            },
+            {
+              icon: 'FaShieldAlt',
+              title: 'An toàn tuyệt đối',
+              description: 'Quy trình khám chữa bệnh chuẩn quốc tế',
+              color: '#15803d'
+            }
+          ],
+          stats: [
+            { number: '15+', label: 'Năm kinh nghiệm', icon: 'FaAward', color: '#4ade80' },
+            { number: '50+', label: 'Bác sĩ chuyên khoa', icon: 'FaUserMd', color: '#22c55e' },
+            { number: '100K+', label: 'Bệnh nhân tin tưởng', icon: 'FaHeart', color: '#16a34a' },
+            { number: '20+', label: 'Chuyên khoa', icon: 'FaStethoscope', color: '#15803d' }
+          ],
+          testimonials: [
+            {
+              name: 'Nguyễn Thị Hương',
+              comment: 'Dịch vụ tuyệt vời, bác sĩ rất tận tâm và chu đáo. Tôi rất hài lòng với chất lượng khám chữa bệnh tại đây.',
+              rating: 5,
+              avatar: 'https://i.pravatar.cc/150?img=1'
+            },
+            {
+              name: 'Trần Văn Nam',
+              comment: 'Cơ sở vật chất hiện đại, quy trình khám nhanh chóng. Đội ngũ y bác sĩ chuyên nghiệp và nhiệt tình.',
+              rating: 5,
+              avatar: 'https://i.pravatar.cc/150?img=2'
+            },
+            {
+              name: 'Lê Thị Mai',
+              comment: 'Phòng khám sạch sẽ, thoáng mát. Bác sĩ khám rất kỹ càng và giải thích rõ ràng về tình trạng bệnh.',
+              rating: 5,
+              avatar: 'https://i.pravatar.cc/150?img=3'
+            }
+          ]
+        }
+      },
+      {
+        setting_key: 'about',
+        value_json: {
+          milestones: [
+            { 
+              year: '2009', 
+              title: 'Thành lập', 
+              description: 'Clinic System được thành lập bởi PGS.TS.BS Trần Văn Minh với tầm nhìn mang đến dịch vụ y tế chất lượng cao cho cộng đồng.',
+              image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=600&h=400&fit=crop'
+            },
+            { 
+              year: '2012', 
+              title: 'Mở rộng cơ sở', 
+              description: 'Khánh thành tòa nhà mới với 100 giường bệnh và trang thiết bị hiện đại nhất khu vực.',
+              image: 'https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?w=600&h=400&fit=crop'
+            },
+            { 
+              year: '2015', 
+              title: 'Chứng nhận ISO', 
+              description: 'Đạt chứng nhận ISO 9001:2015 về hệ thống quản lý chất lượng dịch vụ y tế.',
+              image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&h=400&fit=crop'
+            },
+            { 
+              year: '2018', 
+              title: 'Trung tâm nghiên cứu', 
+              description: 'Thành lập Trung tâm Nghiên cứu và Đào tạo Y khoa, hợp tác với các trường đại học hàng đầu.',
+              image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=600&h=400&fit=crop'
+            },
+            { 
+              year: '2021', 
+              title: 'Chuyển đổi số', 
+              description: 'Triển khai hệ thống quản lý bệnh viện điện tử toàn diện, ứng dụng AI trong chẩn đoán.',
+              image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&h=400&fit=crop'
+            },
+            { 
+              year: '2024', 
+              title: 'Mở rộng mạng lưới', 
+              description: 'Phát triển 5 chi nhánh tại các thành phố lớn, phục vụ hơn 100,000 bệnh nhân mỗi năm.',
+              image: 'https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=600&h=400&fit=crop'
+            }
+          ],
+          values: [
+            {
+              icon: 'FaHeart',
+              title: 'Tận tâm',
+              description: 'Đặt sức khỏe và hạnh phúc của bệnh nhân lên hàng đầu trong mọi quyết định.'
+            },
+            {
+              icon: 'FaShieldAlt',
+              title: 'Chuyên nghiệp',
+              description: 'Tuân thủ nghiêm ngặt các tiêu chuẩn quốc tế về chất lượng và an toàn.'
+            },
+            {
+              icon: 'FaMicroscope',
+              title: 'Đổi mới',
+              description: 'Không ngừng cập nhật công nghệ và phương pháp điều trị tiên tiến nhất.'
+            },
+            {
+              icon: 'FaHandshake',
+              title: 'Tôn trọng',
+              description: 'Lắng nghe và tôn trọng mọi ý kiến, quyền lợi của bệnh nhân và gia đình.'
+            }
+          ],
+          achievements: [
+            { icon: 'FaTrophy', title: 'Top 10 Bệnh viện tư nhân uy tín', year: '2023' },
+            // ... thêm từ code nếu có
+          ],
+          leadership: [], // Nếu có trong code đầy đủ
+          facilities: [] // Nếu có
+        }
+      },
+      {
+        setting_key: 'facilities',
+        value_json: {
+          facilities: [
+            {
+              icon: 'FaBed',
+              title: 'Phòng khám hiện đại',
+              description: 'Hệ thống phòng khám được trang bị đầy đủ tiện nghi, không gian rộng rãi, thoáng mát',
+              image: 'https://via.placeholder.com/600x400?text=Phong+Kham',
+              features: ['15 phòng khám chuyên khoa', 'Hệ thống điều hòa trung tâm', 'Thiết bị y tế hiện đại', 'Không gian riêng tư']
+            },
+            {
+              icon: 'FaBuilding',
+              title: 'Khu nội trú 4 tầng',
+              description: 'Khu điều trị nội trú với 50 giường bệnh, phòng đơn VIP và phòng tập thể',
+              image: 'https://via.placeholder.com/600x400?text=Khu+Noi+Tru',
+              features: ['10 phòng VIP đơn', '20 phòng đôi', '5 phòng tập thể', 'Điều dưỡng 24/7']
+            },
+            {
+              icon: 'FaShieldAlt',
+              title: 'Phòng cấp cứu',
+              description: 'Phòng cấp cứu hoạt động 24/7 với đầy đủ trang thiết bị hồi sức',
+              image: 'https://via.placeholder.com/600x400?text=Cap+Cuu',
+              features: ['Trực 24/7', '3 giường cấp cứu', 'Xe cứu thương', 'Phòng hồi sức tích cực']
+            },
+            {
+              icon: 'FaLeaf',
+              title: 'Khu vực chờ thoáng mát',
+              description: 'Sảnh chờ rộng rãi với cây xanh, ghế ngồi êm ái và không gian yên tĩnh',
+              image: 'https://via.placeholder.com/600x400?text=Sanh+Cho',
+              features: ['Ghế ngồi thoải mái', 'Tivi màn hình lớn', 'Tạp chí & sách báo', 'Cây xanh trang trí']
+            },
+            {
+              icon: 'FaParking',
+              title: 'Bãi đỗ xe miễn phí',
+              description: 'Bãi đỗ xe rộng 200m² với an ninh 24/7, miễn phí cho bệnh nhân',
+              image: 'https://via.placeholder.com/600x400?text=Bai+Do+Xe',
+              features: ['50 chỗ xe máy', '20 chỗ ô tô', 'An ninh 24/7', 'Có mái che']
+            },
+            {
+              icon: 'FaCoffee',
+              title: 'Quán café & Nhà thuốc',
+              description: 'Quán café nhỏ và nhà thuốc tiện lợi ngay trong khuôn viên bệnh viện',
+              image: 'https://via.placeholder.com/600x400?text=Cafe+Nha+Thuoc',
+              features: ['Đồ uống giá ưu đãi', 'Nhà thuốc đầy đủ', 'Thực phẩm chức năng', 'Phục vụ nhanh chóng']
+            }
+          ],
+          amenities: [
+            { icon: 'FaWifi', name: 'WiFi miễn phí' },
+            { icon: 'FaSnowflake', name: 'Điều hòa nhiệt độ' },
+            { icon: 'FaShieldAlt', name: 'An ninh 24/7' },
+            { icon: 'FaCoffee', name: 'Nước uống miễn phí' },
+            { icon: 'FaBed', name: 'Ghế nằm thư giãn' },
+            { icon: 'FaLeaf', name: 'Không gian xanh' }
+          ],
+          gallery: [
+            { url: 'https://via.placeholder.com/400x300?text=Entrance', title: 'Lối vào chính' },
+            { url: 'https://via.placeholder.com/400x300?text=Reception', title: 'Quầy tiếp đón' },
+            { url: 'https://via.placeholder.com/400x300?text=Waiting+Area', title: 'Khu vực chờ' },
+            { url: 'https://via.placeholder.com/400x300?text=Examination', title: 'Phòng khám' }
+            // ... thêm nếu có
+          ]
+        }
+      },
+      {
+        setting_key: 'equipment',
+        value_json: {
+          categories: [
+            { id: 'all', name: 'Tất cả', icon: 'FaStethoscope' },
+            { id: 'imaging', name: 'Chẩn đoán hình ảnh', icon: 'FaXRay' },
+            { id: 'lab', name: 'Xét nghiệm', icon: 'FaMicroscope' },
+            { id: 'cardio', name: 'Tim mạch', icon: 'FaHeartbeat' },
+            { id: 'surgery', name: 'Phẫu thuật', icon: 'FaBone' }
+          ],
+          equipment: [
+            {
+              category: 'imaging',
+              name: 'Máy CT Scanner 64 lát cắt',
+              brand: 'Siemens Somatom',
+              origin: 'Đức',
+              year: '2023',
+              image: 'https://via.placeholder.com/400x300?text=CT+Scanner',
+              features: [
+                'Chụp cắt lớp vi tính 64 lát cắt',
+                'Tốc độ quét nhanh, giảm bức xạ',
+                'Hình ảnh 3D chất lượng cao',
+                'Chẩn đoán chính xác các bệnh lý'
+              ],
+              applications: ['Chấn thương', 'Ung thư', 'Bệnh mạch máu', 'Bệnh phổi']
+            },
+            {
+              category: 'imaging',
+              name: 'Máy MRI 1.5 Tesla',
+              brand: 'GE Signa',
+              origin: 'Mỹ',
+              year: '2022',
+              image: 'https://via.placeholder.com/400x300?text=MRI',
+              features: [
+                'Từ trường 1.5 Tesla',
+                'Không sử dụng tia X',
+                'Hình ảnh mô mềm sắc nét',
+                'An toàn cho người bệnh'
+              ],
+              applications: ['Não bộ', 'Cột sống', 'Khớp', 'Ổ bụng']
+            },
+            // ... thêm các equipment khác từ code
+          ],
+          stats: [
+            { number: '2000m²', label: 'Diện tích' },
+            { number: '50', label: 'Giường bệnh' },
+            { number: '15', label: 'Phòng khám' },
+            { number: '24/7', label: 'Hoạt động' }
+          ]
+        }
+      }
+    ], { transaction, ignoreDuplicates: true });
+
+    console.log('SUCCESS: Seed SystemSetting thành công.');
 
     await transaction.commit();
     console.log('SUCCESS: Transaction commit thành công. Dữ liệu đã được ghi vào DB.');
