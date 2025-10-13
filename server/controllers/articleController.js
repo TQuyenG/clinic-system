@@ -1684,13 +1684,15 @@ exports.getArticleReviewHistory = async (req, res) => {
       include: [
         { 
           model: User, 
-          as: 'action_by', 
-          attributes: ['id', 'full_name', 'avatar_url', 'role'] 
+          as: 'reviewer',  // ✅ Sửa từ 'action_by' thành 'reviewer'
+          attributes: ['id', 'full_name', 'avatar_url', 'role'],
+          required: false  // Cho phép null
         },
         { 
           model: User, 
           as: 'author', 
-          attributes: ['id', 'full_name', 'avatar_url', 'role'] 
+          attributes: ['id', 'full_name', 'avatar_url', 'role'],
+          required: false  // Cho phép null
         }
       ],
       order: [['created_at', 'ASC']]
