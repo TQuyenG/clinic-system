@@ -53,7 +53,7 @@ app.use('/api/articles', articleRoutes);
 // app.use('/api/consultations', consultationRoutes);
 // app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/system', systemRoutes);
+app.use('/api/settings', systemRoutes);
 // app.use('/api/forum', forumRoutes);
 // app.use('/api/statistics', statisticRoutes);
 // app.use('/api/medical-records', medicalRoutes);

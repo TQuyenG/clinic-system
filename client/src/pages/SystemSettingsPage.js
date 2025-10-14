@@ -73,25 +73,36 @@ const SystemSettingsPage = () => {
     const fetchSettings = async () => {
       setLoading(true);
       try {
-        const homeRes = await axios.get('/api/system/settings/home', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        const homeRes = await axios.get('/api/system/settings/home');
+        setHomeData(homeRes.data || {
+          bannerSlides: [],
+          features: [],
+          stats: [],
+          testimonials: []
         });
-        setHomeData(homeRes.data);
 
-        const aboutRes = await axios.get('/api/system/settings/about', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        const aboutRes = await axios.get('/api/system/settings/about');
+        setAboutData(aboutRes.data || {
+          milestones: [],
+          values: [],
+          achievements: [],
+          leadership: [],
+          facilities: []
         });
-        setAboutData(aboutRes.data);
 
-        const facilitiesRes = await axios.get('/api/system/settings/facilities', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        const facilitiesRes = await axios.get('/api/system/settings/facilities');
+        setFacilitiesData(facilitiesRes.data || {
+          facilities: [],
+          amenities: [],
+          gallery: []
         });
-        setFacilitiesData(facilitiesRes.data);
 
-        const equipmentRes = await axios.get('/api/system/settings/equipment', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        const equipmentRes = await axios.get('/api/system/settings/equipment');
+        setEquipmentData(equipmentRes.data || {
+          categories: [],
+          equipment: [],
+          stats: []
         });
-        setEquipmentData(equipmentRes.data);
       } catch (err) {
         setError('Lỗi khi tải dữ liệu: ' + err.message);
       } finally {
@@ -119,7 +130,7 @@ const SystemSettingsPage = () => {
     }
   };
 
-  // Generic handlers (giữ nguyên từ trước)
+  // Generic handler cho array items
   const handleArrayChange = (setter, arrayName, index, field, value) => {
     setter(prev => {
       const newArray = [...prev[arrayName]];
@@ -149,6 +160,61 @@ const SystemSettingsPage = () => {
     }));
   };
 
+  // Home - Banner Slides
+  const defaultBanner = { title: '', subtitle: '', description: '', image: '' };
+
+  // Home - Features
+  const defaultFeature = { icon: '', title: '', description: '', color: '' };
+
+  // Home - Stats
+  const defaultStat = { number: '', label: '', icon: '', color: '' };
+
+  // Home - Testimonials
+  const defaultTestimonial = { name: '', comment: '', rating: 5, avatar: '' };
+
+  // About - Milestones
+  const defaultMilestone = { year: '', title: '', description: '', image: '' };
+
+  // About - Values
+  const defaultValue = { icon: '', title: '', description: '' };
+
+  // About - Achievements
+  const defaultAchievement = { icon: '', title: '', year: '' };
+
+  // About - Leadership
+  const defaultLeader = { name: '', position: '', image: '', description: '' };
+
+  // About - Facilities
+  const defaultAboutFacility = { icon: '', title: '', description: '' };
+
+  // Facilities - Facilities
+  const defaultFacility = { icon: '', title: '', description: '', image: '', features: [] };
+
+  // Facilities - Amenities
+  const defaultAmenity = { icon: '', name: '' };
+
+  // Facilities - Gallery
+  const defaultGalleryItem = { url: '', title: '' };
+
+  // Equipment - Categories
+  const defaultCategory = { id: '', name: '', icon: '' };
+
+  // Equipment - Equipment
+  const defaultEquipmentItem = {
+    category: '',
+    name: '',
+    brand: '',
+    origin: '',
+    year: '',
+    image: '',
+    features: [],
+    applications: []
+  };
+
+  // Equipment - Stats
+  const defaultEquipmentStat = { number: '', label: '' };
+
+  // Handler cho array of strings (như features, applications)
   const handleSubArrayChange = (setter, arrayName, index, subArrayName, subIndex, value) => {
     setter(prev => {
       const newArray = [...prev[arrayName]];
@@ -175,12 +241,13 @@ const SystemSettingsPage = () => {
     });
   };
 
+  // Handler cho multiple upload (gallery)
   const handleMultipleUpload = async (setter, arrayName, files) => {
     const newItems = [];
     for (let file of Array.from(files)) {
       const url = await uploadImage(file);
       if (url) {
-        newItems.push({ url, title: file.name || '' });
+        newItems.push({ url, title: file.name });
       }
     }
     setter(prev => ({
@@ -188,26 +255,6 @@ const SystemSettingsPage = () => {
       [arrayName]: [...prev[arrayName], ...newItems]
     }));
   };
-
-  // Default items (dựa trên cấu trúc)
-  const defaultBanner = { title: '', subtitle: '', description: '', image: '' };
-  const defaultFeature = { icon: '', title: '', description: '', color: '' };
-  const defaultStat = { number: '', label: '', icon: '', color: '' };
-  const defaultTestimonial = { name: '', comment: '', rating: 5, avatar: '' };
-
-  const defaultMilestone = { year: '', title: '', description: '', image: '' };
-  const defaultValue = { icon: '', title: '', description: '' };
-  const defaultAchievement = { icon: '', title: '', year: '' };
-  const defaultLeader = { name: '', position: '', description: '', image: '' };
-  const defaultAboutFacility = { icon: '', title: '', description: '' };
-
-  const defaultFacility = { icon: '', title: '', description: '', image: '', features: [] };
-  const defaultAmenity = { icon: '', name: '' };
-  const defaultGalleryItem = { url: '', title: '' };
-
-  const defaultCategory = { id: '', name: '', icon: '' };
-  const defaultEquipmentItem = { category: '', name: '', brand: '', origin: '', year: '', image: '', features: [], applications: [] };
-  const defaultEquipmentStat = { number: '', label: '' };
 
   return (
     <div className="system-settings-page">
@@ -226,6 +273,8 @@ const SystemSettingsPage = () => {
 
         <TabPanel>
           <h2>Home Page Settings</h2>
+
+          {/* Banner Slides */}
           <section className="settings-section">
             <h3>Banner Slides</h3>
             {homeData.bannerSlides.map((item, index) => (
@@ -242,11 +291,12 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setHomeData, 'bannerSlides', defaultBanner)} className="btn-add"><FaPlus /> Thêm Slide</button>
           </section>
 
+          {/* Features */}
           <section className="settings-section">
             <h3>Features</h3>
             {homeData.features.map((item, index) => (
               <div key={index} className="edit-item">
-                <input type="text" value={item.icon} onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'icon', e.target.value)} placeholder="Icon (e.g. FaUserMd)" />
+                <input type="text" value={item.icon} onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'icon', e.target.value)} placeholder="Icon (e.g. <FaUserMd />)" />
                 <input type="text" value={item.title} onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'title', e.target.value)} placeholder="Title" />
                 <textarea value={item.description} onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'description', e.target.value)} placeholder="Description" />
                 <input type="text" value={item.color} onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'color', e.target.value)} placeholder="Color (e.g. #4ade80)" />
@@ -256,6 +306,7 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setHomeData, 'features', defaultFeature)} className="btn-add"><FaPlus /> Thêm Feature</button>
           </section>
 
+          {/* Stats */}
           <section className="settings-section">
             <h3>Stats</h3>
             {homeData.stats.map((item, index) => (
@@ -270,6 +321,7 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setHomeData, 'stats', defaultStat)} className="btn-add"><FaPlus /> Thêm Stat</button>
           </section>
 
+          {/* Testimonials */}
           <section className="settings-section">
             <h3>Testimonials</h3>
             {homeData.testimonials.map((item, index) => (
@@ -292,6 +344,7 @@ const SystemSettingsPage = () => {
         <TabPanel>
           <h2>About Page Settings</h2>
 
+          {/* Milestones */}
           <section className="settings-section">
             <h3>Milestones</h3>
             {aboutData.milestones.map((item, index) => (
@@ -308,6 +361,7 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setAboutData, 'milestones', defaultMilestone)} className="btn-add"><FaPlus /> Thêm Milestone</button>
           </section>
 
+          {/* Values */}
           <section className="settings-section">
             <h3>Values</h3>
             {aboutData.values.map((item, index) => (
@@ -321,6 +375,7 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setAboutData, 'values', defaultValue)} className="btn-add"><FaPlus /> Thêm Value</button>
           </section>
 
+          {/* Achievements */}
           <section className="settings-section">
             <h3>Achievements</h3>
             {aboutData.achievements.map((item, index) => (
@@ -334,6 +389,7 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setAboutData, 'achievements', defaultAchievement)} className="btn-add"><FaPlus /> Thêm Achievement</button>
           </section>
 
+          {/* Leadership */}
           <section className="settings-section">
             <h3>Leadership</h3>
             {aboutData.leadership.map((item, index) => (
@@ -350,6 +406,7 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setAboutData, 'leadership', defaultLeader)} className="btn-add"><FaPlus /> Thêm Leader</button>
           </section>
 
+          {/* Facilities (in About) */}
           <section className="settings-section">
             <h3>Facilities</h3>
             {aboutData.facilities.map((item, index) => (
@@ -369,6 +426,7 @@ const SystemSettingsPage = () => {
         <TabPanel>
           <h2>Facilities Page Settings</h2>
 
+          {/* Facilities */}
           <section className="settings-section">
             <h3>Facilities</h3>
             {facilitiesData.facilities.map((item, index) => (
@@ -393,6 +451,7 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setFacilitiesData, 'facilities', { ...defaultFacility, features: [] })} className="btn-add"><FaPlus /> Thêm Facility</button>
           </section>
 
+          {/* Amenities */}
           <section className="settings-section">
             <h3>Amenities</h3>
             {facilitiesData.amenities.map((item, index) => (
@@ -405,6 +464,7 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setFacilitiesData, 'amenities', defaultAmenity)} className="btn-add"><FaPlus /> Thêm Amenity</button>
           </section>
 
+          {/* Gallery */}
           <section className="settings-section">
             <h3>Gallery</h3>
             <input type="file" multiple onChange={(e) => handleMultipleUpload(setFacilitiesData, 'gallery', e.target.files)} />
@@ -425,6 +485,7 @@ const SystemSettingsPage = () => {
         <TabPanel>
           <h2>Equipment Page Settings</h2>
 
+          {/* Categories */}
           <section className="settings-section">
             <h3>Categories</h3>
             {equipmentData.categories.map((item, index) => (
@@ -438,6 +499,7 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setEquipmentData, 'categories', defaultCategory)} className="btn-add"><FaPlus /> Thêm Category</button>
           </section>
 
+          {/* Equipment */}
           <section className="settings-section">
             <h3>Equipment</h3>
             {equipmentData.equipment.map((item, index) => (
@@ -472,6 +534,7 @@ const SystemSettingsPage = () => {
             <button onClick={() => addArrayItem(setEquipmentData, 'equipment', { ...defaultEquipmentItem, features: [], applications: [] })} className="btn-add"><FaPlus /> Thêm Equipment</button>
           </section>
 
+          {/* Stats */}
           <section className="settings-section">
             <h3>Stats</h3>
             {equipmentData.stats.map((item, index) => (

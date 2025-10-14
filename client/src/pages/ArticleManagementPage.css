@@ -534,9 +534,8 @@
   align-items: center;
   z-index: 1000;
   backdrop-filter: blur(8px);
-  padding: 0;
+  padding: 1rem;
   animation: fadeIn 0.3s ease;
-  overflow: hidden;
 }
 
 @keyframes fadeIn {
@@ -546,15 +545,19 @@
 
 .article-mgmt-modal {
   background: white;
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   width: 95%;
-  max-width: 1200px;
-  max-height: 85vh;
+  max-width: 1400px;
+  max-height: 90vh;
   overflow: hidden;
   box-shadow: var(--shadow-xl);
   animation: slideUp 0.3s ease;
   display: flex;
   flex-direction: column;
+}
+
+.article-mgmt-modal-large {
+  max-width: 1600px;
 }
 
 @keyframes slideUp {
@@ -571,7 +574,8 @@
 /* Modal với 2 cột: Form | Preview */
 .article-mgmt-modal-split {
   display: flex;
-  height: 90vh;
+  flex: 1;
+  overflow: hidden;
 }
 
 .article-mgmt-modal-form-side,
@@ -580,11 +584,18 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .article-mgmt-modal-form-side {
   border-right: 2px solid var(--border);
   background: var(--bg-gray);
+  flex: 1.2;
+}
+
+.article-mgmt-modal-preview-side {
+  flex: 1;
+  background: white;
 }
 
 /* Tab navigation cho preview trên mobile */
@@ -608,11 +619,16 @@
   font-weight: 600;
   color: var(--text-secondary);
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .article-mgmt-modal-tab-btn.active {
   color: var(--primary);
   border-bottom-color: var(--primary);
+  background: var(--primary-lightest);
 }
 
 .article-mgmt-modal-tab-content {
@@ -1005,10 +1021,36 @@
    CKEDITOR CUSTOM
    ============================================ */
 .article-mgmt-page .ck.ck-editor__main > .ck-editor__editable {
-  border: 2px solid var(--border) !important;
-  border-radius: var(--radius);
-  min-height: 300px;
-}
+    min-height: 250px !important;
+    padding: 0.75rem !important;
+    font-size: 0.9rem !important;
+  }
+
+    .article-mgmt-btn-action {
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .article-mgmt-btn {
+    padding: 0.625rem 1rem;
+    font-size: 0.8125rem;
+  }
+
+  .article-mgmt-preview-title {
+    font-size: 1.25rem;
+  }
+
+  .article-mgmt-preview-content {
+    font-size: 0.875rem;
+  }
+
+  .article-mgmt-medical-fields {
+    padding: 1rem;
+  }
+
+  .article-mgmt-preview-medical {
+    padding: 1rem;
+  }
 
 .article-mgmt-page .ck.ck-editor__main > .ck-editor__editable:focus {
   border-color: var(--primary) !important;
@@ -1289,3 +1331,4 @@
 .article-mgmt-review-timeline::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
 }
+

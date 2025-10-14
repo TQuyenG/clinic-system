@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import { 
   FaStethoscope, 
   FaHeart, 
@@ -37,81 +38,13 @@ const HomePage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState({});
 
-  const bannerSlides = [
-    {
-      title: 'Chào mừng đến với Clinic System',
-      subtitle: 'Nơi sức khỏe của bạn được đặt lên hàng đầu',
-      description: 'Dịch vụ y tế chất lượng cao với đội ngũ bác sĩ tận tâm và chuyên nghiệp',
-      image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&h=800&fit=crop'
-    },
-    {
-      title: 'Công nghệ y tế hiện đại',
-      subtitle: 'Trang thiết bị tiên tiến nhất',
-      description: 'Chẩn đoán chính xác với công nghệ y tế hàng đầu thế giới',
-      image: 'https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=1920&h=800&fit=crop'
-    },
-    {
-      title: 'Đội ngũ bác sĩ chuyên nghiệp',
-      subtitle: 'Giàu kinh nghiệm và tận tâm',
-      description: 'Luôn sẵn sàng chăm sóc sức khỏe của bạn 24/7',
-      image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=1920&h=800&fit=crop'
-    }
-  ];
+  const bannerSlides = [];
 
-  const features = [
-    {
-      icon: <FaUserMd />,
-      title: 'Bác sĩ chuyên nghiệp',
-      description: 'Đội ngũ y bác sĩ giàu kinh nghiệm, tận tâm',
-      color: '#4ade80'
-    },
-    {
-      icon: <FaHospital />,
-      title: 'Cơ sở hiện đại',
-      description: 'Trang thiết bị y tế tiên tiến nhất',
-      color: '#22c55e'
-    },
-    {
-      icon: <FaAmbulance />,
-      title: 'Cấp cứu 24/7',
-      description: 'Sẵn sàng phục vụ mọi lúc, mọi nơi',
-      color: '#16a34a'
-    },
-    {
-      icon: <FaShieldAlt />,
-      title: 'An toàn tuyệt đối',
-      description: 'Quy trình khám chữa bệnh chuẩn quốc tế',
-      color: '#15803d'
-    }
-  ];
+  const features = [];
 
-  const stats = [
-    { number: '15+', label: 'Năm kinh nghiệm', icon: <FaAward />, color: '#4ade80' },
-    { number: '50+', label: 'Bác sĩ chuyên khoa', icon: <FaUserMd />, color: '#22c55e' },
-    { number: '100K+', label: 'Bệnh nhân tin tưởng', icon: <FaHeart />, color: '#16a34a' },
-    { number: '20+', label: 'Chuyên khoa', icon: <FaStethoscope />, color: '#15803d' }
-  ];
+  const stats = [];
 
-  const testimonials = [
-    {
-      name: 'Nguyễn Thị Hương',
-      comment: 'Dịch vụ tuyệt vời, bác sĩ rất tận tâm và chu đáo. Tôi rất hài lòng với chất lượng khám chữa bệnh tại đây.',
-      rating: 5,
-      avatar: 'https://i.pravatar.cc/150?img=1'
-    },
-    {
-      name: 'Trần Văn Nam',
-      comment: 'Cơ sở vật chất hiện đại, quy trình khám nhanh chóng. Đội ngũ y bác sĩ chuyên nghiệp và nhiệt tình.',
-      rating: 5,
-      avatar: 'https://i.pravatar.cc/150?img=2'
-    },
-    {
-      name: 'Lê Thị Mai',
-      comment: 'Phòng khám sạch sẽ, thoáng mát. Bác sĩ khám rất kỹ càng và giải thích rõ ràng về tình trạng bệnh.',
-      rating: 5,
-      avatar: 'https://i.pravatar.cc/150?img=3'
-    }
-  ];
+  const testimonials = [];
 
   useEffect(() => {
     const fetchSpecialties = async () => {
