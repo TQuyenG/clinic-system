@@ -565,7 +565,7 @@ const ArticleManagementPage = () => {
         )}
 
         {/* NÚT CHỈNH SỬA */}
-        {(isAdmin || (isAuthor && ['draft', 'request_edit'].includes(article.status))) && (
+        {(isAdmin || (isAuthor && ['draft', 'request_edit', 'request_rewrite'].includes(article.status))) && (
           <button
             className="article-mgmt-btn-action edit"
             onClick={() => openModal('edit', article)}
@@ -598,7 +598,7 @@ const ArticleManagementPage = () => {
         )}
 
         {/* NÚT ẨN/HIỆN (Admin) */}
-        {isAdmin && (
+        {isAdmin && article.status === 'approved' && (
           <button
             className="article-mgmt-btn-action visibility"
             onClick={() => {

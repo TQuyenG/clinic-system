@@ -677,7 +677,7 @@ exports.createArticle = async (req, res) => {
 /**
  * PUT /api/articles/:id
  * Cập nhật bài viết
- * Quyền: Admin (mọi lúc), Staff/Doctor (chỉ khi draft hoặc request_edit)
+ * Quyền: Admin (mọi lúc), Staff/Doctor (chỉ khi draft, request_edit, request_rewrite)
  */
 exports.updateArticle = async (req, res) => {
   const transaction = await sequelize.transaction();
@@ -686,7 +686,7 @@ exports.updateArticle = async (req, res) => {
     const {
       title, content, category_id, tags_json, source,
       composition, uses, side_effects, manufacturer,
-      symptoms, treatments, description, 
+      symptoms, treatments, description,
       saveAsDraft // ← true = lưu draft, false = gửi pending
     } = req.body;
 
@@ -696,18 +696,21 @@ exports.updateArticle = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
     }
 
+    // [SỬA] Lấy trạng thái gốc của bài viết một cách chính xác
+    const originalStatus = article.status;
+
     // PHÂN QUYỀN
     if (req.user.role !== 'admin' && article.author_id !== req.user.id) {
       await transaction.rollback();
       return res.status(403).json({ success: false, message: 'Bạn không có quyền sửa bài viết này' });
     }
 
-    // Staff/Doctor chỉ sửa được khi draft hoặc request_edit
-    if (req.user.role !== 'admin' && !['draft', 'request_edit'].includes(article.status)) {
+    // [SỬA] Đảm bảo nhân viên có thể sửa bài ở các trạng thái yêu cầu chỉnh sửa
+    if (req.user.role !== 'admin' && !['draft', 'request_edit', 'request_rewrite'].includes(originalStatus)) {
       await transaction.rollback();
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Bạn chỉ có thể sửa bài viết ở trạng thái nháp hoặc được phép chỉnh sửa' 
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn chỉ có thể sửa bài viết ở trạng thái nháp hoặc được phép chỉnh sửa'
       });
     }
 
@@ -720,11 +723,12 @@ exports.updateArticle = async (req, res) => {
     const newSlug = title ? slugify(title, { lower: true, strict: true }) : article.slug;
 
     // Xác định status mới
-    let newStatus = article.status;
+    let newStatus = originalStatus;
     if (req.user.role !== 'admin') {
       newStatus = saveAsDraft ? 'draft' : 'pending';
     }
 
+    // Cập nhật các trường chính của bài viết
     await article.update({
       title: title || article.title,
       slug: newSlug,
@@ -735,45 +739,72 @@ exports.updateArticle = async (req, res) => {
       status: newStatus
     }, { transaction });
 
-    // Cập nhật entity
+    // Cập nhật entity (medicine/disease) nếu có
     if (article.entity_type === 'medicine' && article.entity_id) {
       const medicine = await Medicine.findByPk(article.entity_id, { transaction });
-      await medicine.update({
-        name: title || medicine.name,
-        composition: composition || medicine.composition,
-        uses: uses || medicine.uses,
-        side_effects: side_effects || medicine.side_effects,
-        manufacturer: manufacturer || medicine.manufacturer,
-        description: description || medicine.description
-      }, { transaction });
+      if (medicine) {
+        await medicine.update({
+          name: title || medicine.name,
+          composition: composition || medicine.composition,
+          uses: uses || medicine.uses,
+          side_effects: side_effects || medicine.side_effects,
+          manufacturer: manufacturer || medicine.manufacturer,
+          description: description || medicine.description
+        }, { transaction });
+      }
     } else if (article.entity_type === 'disease' && article.entity_id) {
       const disease = await Disease.findByPk(article.entity_id, { transaction });
-      await disease.update({
-        name: title || disease.name,
-        symptoms: symptoms || disease.symptoms,
-        treatments: treatments || disease.treatments,
-        description: description || disease.description
-      }, { transaction });
+      if (disease) {
+        await disease.update({
+          name: title || disease.name,
+          symptoms: symptoms || disease.symptoms,
+          treatments: treatments || disease.treatments,
+          description: description || disease.description
+        }, { transaction });
+      }
+    }
+
+    // [BỔ SUNG] Logic ghi lịch sử cho hành động "gửi lại" (resubmit)
+    // Điều kiện: Trạng thái mới là 'pending' VÀ trạng thái cũ là một trong các trạng thái cần sửa.
+    if (newStatus === 'pending' && ['request_edit', 'request_rewrite'].includes(originalStatus)) {
+      const historyCount = await ArticleReviewHistory.count({
+        where: { article_id: id },
+        transaction
+      });
+
+      await createReviewHistory(
+        article.id,
+        req.user.id,      // Người thực hiện là user đang đăng nhập (tác giả)
+        article.author_id,
+        'resubmit',       // Hành động là "gửi lại"
+        'Tác giả gửi lại bài viết sau khi chỉnh sửa.', // Lý do mặc định
+        originalStatus,
+        newStatus,
+        { version: historyCount + 1 },
+        transaction
+      );
     }
 
     await transaction.commit();
 
-    // Gửi thông báo nếu gửi phê duyệt
-    if (newStatus === 'pending' && article.status !== 'pending') {
+    // Gửi thông báo nếu bài viết được chuyển sang trạng thái chờ duyệt
+    if (newStatus === 'pending' && originalStatus !== 'pending') {
       await notifyAllAdmins(
         'article',
         `${req.user.full_name} đã cập nhật và gửi phê duyệt bài viết "${article.title}".`,
-        `/articles/review/${article.id}`
+        `/phe-duyet-bai-viet/${article.id}` // [SỬA] Dùng slug thay vì ID cho link thân thiện hơn
       );
     }
 
-    res.json({ 
-      success: true, 
-      message: saveAsDraft ? 'Đã lưu nháp' : 'Cập nhật bài viết thành công', 
-      article 
+    res.json({
+      success: true,
+      message: saveAsDraft ? 'Đã lưu nháp' : 'Cập nhật bài viết thành công và đã gửi đi phê duyệt',
+      article
     });
   } catch (error) {
-    await transaction.rollback();
+    if (transaction.finished !== 'committed') {
+        await transaction.rollback();
+    }
     console.error('Error updating article:', error);
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1187,7 +1218,7 @@ exports.respondToEditRequest = async (req, res) => {
     }
 
     const prevStatus = article.status;
-    const newStatus = allow ? 'pending' : 'approved';
+    const newStatus = allow ? 'request_rewrite' : 'approved';
 
     await article.update({ 
       status: newStatus,
@@ -1684,7 +1715,7 @@ exports.getArticleReviewHistory = async (req, res) => {
       include: [
         { 
           model: User, 
-          as: 'reviewer',  // ✅ Sửa từ 'action_by' thành 'reviewer'
+          as: 'reviewer',  // Sửa từ 'action_by' thành 'reviewer'
           attributes: ['id', 'full_name', 'avatar_url', 'role'],
           required: false  // Cho phép null
         },
