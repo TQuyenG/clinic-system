@@ -1,5 +1,14 @@
+/* 
+ * Tệp: AboutPage.js
+ * Mô tả: Trang "Về chúng tôi" hiển thị thông tin về hệ thống phòng khám, bao gồm sứ mệnh, tầm nhìn, lịch sử phát triển, 
+ * giá trị cốt lõi, đội ngũ lãnh đạo, thành tựu, cơ sở vật chất, và bác sĩ tiêu biểu.
+ * Dữ liệu được lấy từ API /api/system/about, /api/specialties, và /api/users/doctors.
+ * Nếu API thất bại, hiển thị thông báo lỗi.
+ */
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import { 
   FaHospital, 
   FaAward, 
@@ -32,106 +41,32 @@ const AboutPage = () => {
   const [doctors, setDoctors] = useState([]);
   const [isVisible, setIsVisible] = useState({});
   const [currentMilestone, setCurrentMilestone] = useState(0);
+  const [aboutData, setAboutData] = useState({
+    milestones: [],
+    values: [],
+    achievements: [],
+    leadership: [],
+    facilities: []
+  });
+  const [error, setError] = useState(null); // Trạng thái lỗi
   const timelineRef = useRef(null);
 
-  const milestones = [
-    { 
-      year: '2009', 
-      title: 'Thành lập', 
-      description: 'Clinic System được thành lập bởi PGS.TS.BS Trần Văn Minh với tầm nhìn mang đến dịch vụ y tế chất lượng cao cho cộng đồng.',
-      image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=600&h=400&fit=crop'
-    },
-    { 
-      year: '2012', 
-      title: 'Mở rộng cơ sở', 
-      description: 'Khánh thành tòa nhà mới với 100 giường bệnh và trang thiết bị hiện đại nhất khu vực.',
-      image: 'https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?w=600&h=400&fit=crop'
-    },
-    { 
-      year: '2015', 
-      title: 'Chứng nhận ISO', 
-      description: 'Đạt chứng nhận ISO 9001:2015 về hệ thống quản lý chất lượng dịch vụ y tế.',
-      image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&h=400&fit=crop'
-    },
-    { 
-      year: '2018', 
-      title: 'Trung tâm nghiên cứu', 
-      description: 'Thành lập Trung tâm Nghiên cứu và Đào tạo Y khoa, hợp tác với các trường đại học hàng đầu.',
-      image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=600&h=400&fit=crop'
-    },
-    { 
-      year: '2021', 
-      title: 'Chuyển đổi số', 
-      description: 'Triển khai hệ thống quản lý bệnh viện điện tử toàn diện, ứng dụng AI trong chẩn đoán.',
-      image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&h=400&fit=crop'
-    },
-    { 
-      year: '2024', 
-      title: 'Mở rộng mạng lưới', 
-      description: 'Phát triển 5 chi nhánh tại các thành phố lớn, phục vụ hơn 100,000 bệnh nhân mỗi năm.',
-      image: 'https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=600&h=400&fit=crop'
-    }
-  ];
-
-  const values = [
-    {
-      icon: <FaHeart />,
-      title: 'Tận tâm',
-      description: 'Đặt sức khỏe và hạnh phúc của bệnh nhân lên hàng đầu trong mọi quyết định.'
-    },
-    {
-      icon: <FaShieldAlt />,
-      title: 'Chuyên nghiệp',
-      description: 'Tuân thủ nghiêm ngặt các tiêu chuẩn quốc tế về chất lượng và an toàn.'
-    },
-    {
-      icon: <FaMicroscope />,
-      title: 'Đổi mới',
-      description: 'Không ngừng cập nhật công nghệ và phương pháp điều trị tiên tiến nhất.'
-    },
-    {
-      icon: <FaHandshake />,
-      title: 'Tôn trọng',
-      description: 'Lắng nghe và tôn trọng mọi ý kiến, quyền lợi của bệnh nhân và gia đình.'
-    }
-  ];
-
-  const achievements = [
-    { icon: <FaTrophy />, title: 'Top 10 Bệnh viện tư nhân uy tín', year: '2023' },
-    { icon: <FaAward />, title: 'Giải thưởng Chất lượng Dịch vụ Y tế', year: '2022' },
-    { icon: <FaStar />, title: 'Chứng nhận JCI (Joint Commission International)', year: '2021' },
-    { icon: <FaGraduationCap />, title: 'Bệnh viện đào tạo xuất sắc', year: '2023' }
-  ];
-
-  const leadership = [
-    {
-      name: 'PGS.TS.BS Trần Văn Minh',
-      position: 'Giám đốc điều hành & Sáng lập',
-      image: 'https://i.pravatar.cc/300?img=12',
-      description: 'Hơn 30 năm kinh nghiệm trong lĩnh vực y khoa, tốt nghiệp Đại học Y khoa Paris, từng công tác tại nhiều bệnh viện lớn trên thế giới.'
-    },
-    {
-      name: 'TS.BS Nguyễn Thị Hương',
-      position: 'Phó Giám đốc Y khoa',
-      image: 'https://i.pravatar.cc/300?img=5',
-      description: 'Chuyên gia hàng đầu về Tim mạch, tốt nghiệp Johns Hopkins University, đã thực hiện hơn 2,000 ca phẫu thuật tim thành công.'
-    },
-    {
-      name: 'ThS.BS Lê Văn Đức',
-      position: 'Trưởng khoa Ngoại',
-      image: 'https://i.pravatar.cc/300?img=33',
-      description: '15 năm kinh nghiệm phẫu thuật nội soi, đào tạo tại Nhật Bản, tiên phong trong áp dụng kỹ thuật phẫu thuật robot.'
-    }
-  ];
-
-  const facilities = [
-    { icon: <FaBuilding />, title: 'Tòa nhà 12 tầng', description: '150 phòng bệnh tiêu chuẩn quốc tế' },
-    { icon: <FaAmbulance />, title: 'Xe cấp cứu hiện đại', description: 'Đội xe cấp cứu 24/7 với trang thiết bị đầy đủ' },
-    { icon: <FaMicroscope />, title: 'Phòng Lab tiên tiến', description: 'Xét nghiệm với công nghệ tự động hóa cao' },
-    { icon: <FaHeartbeat />, title: 'Phòng mổ vô trùng', description: '8 phòng mổ đạt tiêu chuẩn quốc tế' }
-  ];
-
   useEffect(() => {
+    // Hàm lấy dữ liệu từ API /api/system/about
+    const fetchAboutData = async () => {
+      try {
+        const response = await axios.get('http://localhost:3001/api/system/about');
+        if (response.data) {
+          setAboutData(response.data);
+          setError(null); // Xóa lỗi nếu API thành công
+        }
+      } catch (error) {
+        console.error('Lỗi khi lấy dữ liệu về:', error);
+        setError('Không thể tải thông tin. Vui lòng thử lại sau.');
+      }
+    };
+
+    // Hàm lấy dữ liệu chuyên khoa
     const fetchSpecialties = async () => {
       try {
         const response = await fetch('http://localhost:3001/api/specialties');
@@ -140,10 +75,11 @@ const AboutPage = () => {
           setSpecialties(data.specialties);
         }
       } catch (error) {
-        console.error('Error fetching specialties:', error);
+        console.error('Lỗi khi lấy dữ liệu chuyên khoa:', error);
       }
     };
 
+    // Hàm lấy dữ liệu bác sĩ
     const fetchDoctors = async () => {
       try {
         const response = await fetch('http://localhost:3001/api/users/doctors?limit=6&random=true');
@@ -152,13 +88,15 @@ const AboutPage = () => {
           setDoctors(data.doctors);
         }
       } catch (error) {
-        console.error('Error fetching doctors:', error);
+        console.error('Lỗi khi lấy dữ liệu bác sĩ:', error);
       }
     };
 
+    fetchAboutData();
     fetchSpecialties();
     fetchDoctors();
 
+    // Xử lý hiệu ứng xuất hiện khi cuộn
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach(entry => {
@@ -176,21 +114,36 @@ const AboutPage = () => {
     return () => sections.forEach(section => observer.unobserve(section));
   }, []);
 
+  // Hàm điều hướng timeline
   const nextMilestone = () => {
-    setCurrentMilestone((prev) => (prev + 1) % milestones.length);
+    setCurrentMilestone((prev) => (prev + 1) % aboutData.milestones.length);
   };
 
   const prevMilestone = () => {
-    setCurrentMilestone((prev) => (prev - 1 + milestones.length) % milestones.length);
+    setCurrentMilestone((prev) => (prev - 1 + aboutData.milestones.length) % aboutData.milestones.length);
   };
 
   const goToMilestone = (index) => {
     setCurrentMilestone(index);
   };
 
+  // Nếu có lỗi, hiển thị thông báo
+  if (error) {
+    return (
+      <div className="about-container">
+        <section className="hero">
+          <div className="hero-content">
+            <h1 className="hero-title">Clinic System</h1>
+            <p className="error-text">{error}</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="about-container">
-      {/* Hero Section */}
+      {/* Phần Hero */}
       <section className="hero">
         <div className="hero-overlay"></div>
         <div className="hero-content">
@@ -207,7 +160,7 @@ const AboutPage = () => {
         </div>
       </section>
 
-      {/* Mission & Vision with Images */}
+      {/* Phần Sứ mệnh & Tầm nhìn */}
       <section className="mission-section animate-section" id="mission">
         <div className="section-content">
           <div className="mission-grid">
@@ -228,20 +181,20 @@ const AboutPage = () => {
                 </p>
               </div>
             </div>
+            
             <div className="mission-card">
               <div className="mission-image">
                 <img src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=400&fit=crop" alt="Vision" />
-                <div className="mission-icon-overlay vision-icon">
-                  <FaUserShield />
+                <div className="mission-icon-overlay">
+                  <FaHeartbeat />
                 </div>
               </div>
               <div className="mission-content">
                 <h3 className="mission-title">Tầm nhìn</h3>
                 <p className="mission-text">
-                  Trở thành hệ thống y tế hàng đầu Việt Nam, được công nhận khu vực 
-                  châu Á về chất lượng dịch vụ, đổi mới công nghệ và đào tạo nhân lực 
-                  y tế. Đến năm 2030, phát triển mạng lưới 20 cơ sở với 500+ bác sĩ 
-                  chuyên khoa.
+                  Trở thành hệ thống y tế hàng đầu Việt Nam, dẫn dắt sự đổi mới 
+                  trong chăm sóc sức khỏe, hợp tác quốc tế để mang đến dịch vụ 
+                  y tế xuất sắc, dễ tiếp cận cho mọi người dân.
                 </p>
               </div>
             </div>
@@ -249,57 +202,63 @@ const AboutPage = () => {
         </div>
       </section>
 
-      {/* Timeline - Horizontal Slider */}
+      {/* Phần Lịch sử phát triển */}
       <section className="timeline-section animate-section" id="timeline">
         <div className="section-content">
           <div className="section-header">
-            <span className="section-badge">Hành trình phát triển</span>
-            <h2 className="section-title">Các mốc quan trọng</h2>
-          </div>
-          
-          <div className="timeline-slider" ref={timelineRef}>
-            <button className="timeline-nav prev" onClick={prevMilestone}>
-              <FaChevronLeft />
-            </button>
-            
-            <div className="timeline-track">
-              <div 
-                className="timeline-items"
-                style={{ transform: `translateX(-${currentMilestone * 100}%)` }}
-              >
-                {milestones.map((milestone, index) => (
-                  <div key={index} className="timeline-slide">
-                    <div className="timeline-card">
-                      <div className="timeline-image">
-                        <img src={milestone.image} alt={milestone.title} />
-                        <div className="timeline-year-badge">{milestone.year}</div>
-                      </div>
-                      <div className="timeline-content">
-                        <h3 className="timeline-title">{milestone.title}</h3>
-                        <p className="timeline-desc">{milestone.description}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <button className="timeline-nav next" onClick={nextMilestone}>
-              <FaChevronRight />
-            </button>
+            <span className="section-badge">Hành trình</span>
+            <h2 className="section-title">Lịch sử phát triển</h2>
           </div>
 
-          <div className="timeline-dots">
-            {milestones.map((_, index) => (
-              <button
-                key={index}
-                className={`timeline-dot ${index === currentMilestone ? 'active' : ''}`}
-                onClick={() => goToMilestone(index)}
-              >
-                <span>{milestones[index].year}</span>
-              </button>
-            ))}
-          </div>
+          {aboutData.milestones.length > 0 ? (
+            <>
+              <div className="timeline-slider">
+                <button className="timeline-nav prev" onClick={prevMilestone}>
+                  <FaChevronLeft />
+                </button>
+                
+                <div className="timeline-track">
+                  <div 
+                    className="timeline-items"
+                    style={{ transform: `translateX(-${currentMilestone * 100}%)` }}
+                  >
+                    {aboutData.milestones.map((milestone, index) => (
+                      <div key={index} className="timeline-slide">
+                        <div className="timeline-card">
+                          <div className="timeline-image">
+                            <img src={milestone.image} alt={milestone.title} />
+                            <div className="timeline-year-badge">{milestone.year}</div>
+                          </div>
+                          <div className="timeline-content">
+                            <h3 className="timeline-title">{milestone.title}</h3>
+                            <p className="timeline-desc">{milestone.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <button className="timeline-nav next" onClick={nextMilestone}>
+                  <FaChevronRight />
+                </button>
+              </div>
+
+              <div className="timeline-dots">
+                {aboutData.milestones.map((_, index) => (
+                  <button
+                    key={index}
+                    className={`timeline-dot ${index === currentMilestone ? 'active' : ''}`}
+                    onClick={() => goToMilestone(index)}
+                  >
+                    <span>{aboutData.milestones[index].year}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="loading-text">Đang tải dữ liệu lịch sử phát triển...</p>
+          )}
 
           <div className="timeline-summary">
             <div className="summary-stats">
@@ -324,7 +283,7 @@ const AboutPage = () => {
         </div>
       </section>
 
-      {/* Core Values */}
+      {/* Phần Giá trị cốt lõi */}
       <section className="values-section animate-section" id="values">
         <div className="section-content">
           <div className="section-header">
@@ -332,18 +291,22 @@ const AboutPage = () => {
             <h2 className="section-title">Nguyên tắc hoạt động</h2>
           </div>
           <div className="values-grid">
-            {values.map((value, index) => (
-              <div key={index} className="value-card">
-                <div className="value-icon">{value.icon}</div>
-                <h3 className="value-title">{value.title}</h3>
-                <p className="value-desc">{value.description}</p>
-              </div>
-            ))}
+            {aboutData.values.length > 0 ? (
+              aboutData.values.map((value, index) => (
+                <div key={index} className="value-card">
+                  <div className="value-icon">{value.icon}</div>
+                  <h3 className="value-title">{value.title}</h3>
+                  <p className="value-desc">{value.description}</p>
+                </div>
+              ))
+            ) : (
+              <p className="loading-text">Đang tải dữ liệu giá trị cốt lõi...</p>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Leadership Team */}
+      {/* Phần Đội ngũ lãnh đạo */}
       <section className="leadership-section animate-section" id="leadership">
         <div className="section-content">
           <div className="section-header">
@@ -351,21 +314,25 @@ const AboutPage = () => {
             <h2 className="section-title">Đội ngũ điều hành</h2>
           </div>
           <div className="leadership-grid">
-            {leadership.map((leader, index) => (
-              <div key={index} className="leader-card">
-                <img src={leader.image} alt={leader.name} className="leader-image" />
-                <div className="leader-info">
-                  <h3 className="leader-name">{leader.name}</h3>
-                  <p className="leader-position">{leader.position}</p>
-                  <p className="leader-desc">{leader.description}</p>
+            {aboutData.leadership.length > 0 ? (
+              aboutData.leadership.map((leader, index) => (
+                <div key={index} className="leader-card">
+                  <img src={leader.image} alt={leader.name} className="leader-image" />
+                  <div className="leader-info">
+                    <h3 className="leader-name">{leader.name}</h3>
+                    <p className="leader-position">{leader.position}</p>
+                    <p className="leader-desc">{leader.description}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="loading-text">Đang tải dữ liệu đội ngũ lãnh đạo...</p>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Achievements */}
+      {/* Phần Thành tựu */}
       <section className="achievements-section animate-section" id="achievements">
         <div className="section-content">
           <div className="section-header">
@@ -373,18 +340,22 @@ const AboutPage = () => {
             <h2 className="section-title">Giải thưởng & Chứng nhận</h2>
           </div>
           <div className="achievements-grid">
-            {achievements.map((achievement, index) => (
-              <div key={index} className="achievement-card">
-                <div className="achievement-icon">{achievement.icon}</div>
-                <h3 className="achievement-title">{achievement.title}</h3>
-                <span className="achievement-year">{achievement.year}</span>
-              </div>
-            ))}
+            {aboutData.achievements.length > 0 ? (
+              aboutData.achievements.map((achievement, index) => (
+                <div key={index} className="achievement-card">
+                  <div className="achievement-icon">{achievement.icon}</div>
+                  <h3 className="achievement-title">{achievement.title}</h3>
+                  <span className="achievement-year">{achievement.year}</span>
+                </div>
+              ))
+            ) : (
+              <p className="loading-text">Đang tải dữ liệu thành tựu...</p>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Facilities */}
+      {/* Phần Cơ sở vật chất */}
       <section className="facilities-section animate-section" id="facilities">
         <div className="section-content">
           <div className="section-header">
@@ -392,18 +363,22 @@ const AboutPage = () => {
             <h2 className="section-title">Trang thiết bị hiện đại</h2>
           </div>
           <div className="facilities-grid">
-            {facilities.map((facility, index) => (
-              <div key={index} className="facility-card">
-                <div className="facility-icon">{facility.icon}</div>
-                <h3 className="facility-title">{facility.title}</h3>
-                <p className="facility-desc">{facility.description}</p>
-              </div>
-            ))}
+            {aboutData.facilities.length > 0 ? (
+              aboutData.facilities.map((facility, index) => (
+                <div key={index} className="facility-card">
+                  <div className="facility-icon">{facility.icon}</div>
+                  <h3 className="facility-title">{facility.title}</h3>
+                  <p className="facility-desc">{facility.description}</p>
+                </div>
+              ))
+            ) : (
+              <p className="loading-text">Đang tải dữ liệu cơ sở vật chất...</p>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Doctors Showcase */}
+      {/* Phần Bác sĩ tiêu biểu */}
       <section className="doctors-section animate-section" id="doctors">
         <div className="section-content">
           <div className="section-header">
@@ -451,7 +426,7 @@ const AboutPage = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Phần Kêu gọi hành động (CTA) */}
       <section className="cta-section">
         <div className="cta-content">
           <h2 className="cta-title">Sẵn sàng chăm sóc sức khỏe của bạn?</h2>

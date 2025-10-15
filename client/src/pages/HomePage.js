@@ -11,9 +11,6 @@ import {
   FaCheckCircle,
   FaArrowRight,
   FaStar,
-  FaShieldAlt,
-  FaHospital,
-  FaAmbulance,
   FaPhone,
   FaEnvelope,
   FaMapMarkerAlt,
@@ -28,6 +25,12 @@ const HomePage = () => {
   const [specialties, setSpecialties] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [homeSettings, setHomeSettings] = useState({
+    bannerSlides: [],
+    features: [],
+    stats: [],
+    testimonials: []
+  });
   const [formData, setFormData] = useState({
     email: '',
     specialty: '',
@@ -38,15 +41,17 @@ const HomePage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState({});
 
-  const bannerSlides = [];
-
-  const features = [];
-
-  const stats = [];
-
-  const testimonials = [];
-
   useEffect(() => {
+    const fetchHomeSettings = async () => {
+      try {
+        const response = await axios.get('http://localhost:3001/api/settings/home');
+        if (response.data) {
+          setHomeSettings(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching home settings:', error);
+      }
+    };
     const fetchSpecialties = async () => {
       try {
         const response = await fetch('http://localhost:3001/api/specialties');
@@ -80,11 +85,12 @@ const HomePage = () => {
       }
     };
 
+    fetchHomeSettings();
     fetchSpecialties();
     fetchDoctors();
 
     const slideInterval = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % bannerSlides.length);
+      setCurrentSlide(prev => (prev + 1) % homeSettings.bannerSlides.length);
     }, 5000);
 
     const observer = new IntersectionObserver(
@@ -105,7 +111,7 @@ const HomePage = () => {
       clearInterval(slideInterval);
       sections.forEach(section => observer.unobserve(section));
     };
-  }, []);
+  }, [homeSettings.bannerSlides.length]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -140,18 +146,18 @@ const HomePage = () => {
   };
 
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % bannerSlides.length);
+    setCurrentSlide((prev) => (prev + 1) % homeSettings.bannerSlides.length);
   };
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + bannerSlides.length) % bannerSlides.length);
+    setCurrentSlide((prev) => (prev - 1 + homeSettings.bannerSlides.length) % homeSettings.bannerSlides.length);
   };
 
   return (
     <main className="home-main">
       {/* Banner Slider Section */}
       <section className="banner-slider">
-        {bannerSlides.map((slide, index) => (
+        {homeSettings.bannerSlides.map((slide, index) => (
           <div
             key={index}
             className={`banner-slide ${index === currentSlide ? 'active' : ''}`}
@@ -188,7 +194,7 @@ const HomePage = () => {
         </button>
         
         <div className="slider-dots">
-          {bannerSlides.map((_, index) => (
+          {homeSettings.bannerSlides.map((_, index) => (
             <button
               key={index}
               className={`dot ${index === currentSlide ? 'active' : ''}`}
@@ -203,7 +209,7 @@ const HomePage = () => {
       <section className="features-section animate-section" id="features">
         <div className="container">
           <div className="features-grid">
-            {features.map((feature, index) => (
+            {homeSettings.features.map((feature, index) => (
               <div 
                 key={index} 
                 className={`feature-card ${isVisible.features ? 'fade-in' : ''}`}
@@ -224,7 +230,7 @@ const HomePage = () => {
       <section className="stats-section animate-section" id="stats">
         <div className="container">
           <div className="stats-grid">
-            {stats.map((stat, index) => (
+            {homeSettings.stats.map((stat, index) => (
               <div 
                 key={index} 
                 className={`stat-card ${isVisible.stats ? 'scale-in' : ''}`}
@@ -427,7 +433,7 @@ const HomePage = () => {
           </div>
 
           <div className="testimonials-grid">
-            {testimonials.map((testimonial, index) => (
+            {homeSettings.testimonials.map((testimonial, index) => (
               <div 
                 key={index} 
                 className={`testimonial-card ${isVisible.testimonials ? 'fade-in' : ''}`}

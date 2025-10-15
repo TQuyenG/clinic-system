@@ -1,72 +1,48 @@
-import React, { useState } from 'react';
+// src/pages/FacilitiesPage.js
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { FaBuilding, FaBed, FaParking, FaCoffee, FaWifi, FaSnowflake, FaShieldAlt, FaLeaf } from 'react-icons/fa';
 import './FacilitiesPage.css';
 
 const FacilitiesPage = () => {
   const [selectedImage, setSelectedImage] = useState(null);
+  const [facilitiesData, setFacilitiesData] = useState({
+    facilities: [],
+    amenities: [],
+    gallery: []
+  });
+  const [isVisible, setIsVisible] = useState({});
 
-  const facilities = [
-    {
-      icon: <FaBed />,
-      title: 'Phòng khám hiện đại',
-      description: 'Hệ thống phòng khám được trang bị đầy đủ tiện nghi, không gian rộng rãi, thoáng mát',
-      image: 'https://via.placeholder.com/600x400?text=Phong+Kham',
-      features: ['15 phòng khám chuyên khoa', 'Hệ thống điều hòa trung tâm', 'Thiết bị y tế hiện đại', 'Không gian riêng tư']
-    },
-    {
-      icon: <FaBuilding />,
-      title: 'Khu nội trú 4 tầng',
-      description: 'Khu điều trị nội trú với 50 giường bệnh, phòng đơn VIP và phòng tập thể',
-      image: 'https://via.placeholder.com/600x400?text=Khu+Noi+Tru',
-      features: ['10 phòng VIP đơn', '20 phòng đôi', '5 phòng tập thể', 'Điều dưỡng 24/7']
-    },
-    {
-      icon: <FaShieldAlt />,
-      title: 'Phòng cấp cứu',
-      description: 'Phòng cấp cứu hoạt động 24/7 với đầy đủ trang thiết bị hồi sức',
-      image: 'https://via.placeholder.com/600x400?text=Cap+Cuu',
-      features: ['Trực 24/7', '3 giường cấp cứu', 'Xe cứu thương', 'Phòng hồi sức tích cực']
-    },
-    {
-      icon: <FaLeaf />,
-      title: 'Khu vực chờ thoáng mát',
-      description: 'Sảnh chờ rộng rãi với cây xanh, ghế ngồi êm ái và không gian yên tĩnh',
-      image: 'https://via.placeholder.com/600x400?text=Sanh+Cho',
-      features: ['Ghế ngồi thoải mái', 'Tivi màn hình lớn', 'Tạp chí & sách báo', 'Cây xanh trang trí']
-    },
-    {
-      icon: <FaParking />,
-      title: 'Bãi đỗ xe miễn phí',
-      description: 'Bãi đỗ xe rộng 200m² với an ninh 24/7, miễn phí cho bệnh nhân',
-      image: 'https://via.placeholder.com/600x400?text=Bai+Do+Xe',
-      features: ['50 chỗ xe máy', '20 chỗ ô tô', 'An ninh 24/7', 'Có mái che']
-    },
-    {
-      icon: <FaCoffee />,
-      title: 'Quán café & Nhà thuốc',
-      description: 'Quán café nhỏ và nhà thuốc tiện lợi ngay trong khuôn viên bệnh viện',
-      image: 'https://via.placeholder.com/600x400?text=Cafe+Nha+Thuoc',
-      features: ['Đồ uống giá ưu đãi', 'Nhà thuốc đầy đủ', 'Thực phẩm chức năng', 'Phục vụ nhanh chóng']
-    }
-  ];
+  useEffect(() => {
+    const fetchFacilitiesData = async () => {
+      try {
+        const response = await axios.get('http://localhost:3001/api/system/facilities');
+        if (response.data) {
+          setFacilitiesData(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching facilities data:', error);
+      }
+    };
 
-  const amenities = [
-    { icon: <FaWifi />, name: 'WiFi miễn phí' },
-    { icon: <FaSnowflake />, name: 'Điều hòa nhiệt độ' },
-    { icon: <FaShieldAlt />, name: 'An ninh 24/7' },
-    { icon: <FaCoffee />, name: 'Nước uống miễn phí' },
-    { icon: <FaBed />, name: 'Ghế nằm thư giãn' },
-    { icon: <FaLeaf />, name: 'Không gian xanh' }
-  ];
+    fetchFacilitiesData();
 
-  const gallery = [
-    { url: 'https://via.placeholder.com/400x300?text=Entrance', title: 'Lối vào chính' },
-    { url: 'https://via.placeholder.com/400x300?text=Reception', title: 'Quầy tiếp đón' },
-    { url: 'https://via.placeholder.com/400x300?text=Waiting+Area', title: 'Khu vực chờ' },
-    { url: 'https://via.placeholder.com/400x300?text=Examination', title: 'Phòng khám' },
-    { url: 'https://via.placeholder.com/400x300?text=Lab', title: 'Phòng xét nghiệm' },
-    { url: 'https://via.placeholder.com/400x300?text=Pharmacy', title: 'Nhà thuốc' }
-  ];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            setIsVisible(prev => ({ ...prev, [entry.target.id]: true }));
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    const sections = document.querySelectorAll('.animate-section');
+    sections.forEach(section => observer.observe(section));
+
+    return () => sections.forEach(section => observer.unobserve(section));
+  }, []);
 
   return (
     <div className="facilities-page">
@@ -81,10 +57,10 @@ const FacilitiesPage = () => {
       </section>
 
       {/* Amenities Bar */}
-      <section className="amenities-bar">
+      <section className="amenities-bar animate-section" id="amenities">
         <div className="container">
           <div className="amenities-grid">
-            {amenities.map((amenity, index) => (
+            {facilitiesData.amenities.map((amenity, index) => (
               <div key={index} className="amenity-item">
                 {amenity.icon}
                 <span>{amenity.name}</span>
@@ -95,11 +71,11 @@ const FacilitiesPage = () => {
       </section>
 
       {/* Main Facilities */}
-      <section className="facilities-section">
+      <section className="facilities-section animate-section" id="facilities">
         <div className="container">
           <h2 className="section-title">Các khu vực chính</h2>
           <div className="facilities-grid">
-            {facilities.map((facility, index) => (
+            {facilitiesData.facilities.map((facility, index) => (
               <div key={index} className="facility-card">
                 <div className="facility-image" onClick={() => setSelectedImage(facility.image)}>
                   <img src={facility.image} alt={facility.title} />
@@ -124,11 +100,11 @@ const FacilitiesPage = () => {
       </section>
 
       {/* Gallery */}
-      <section className="gallery-section">
+      <section className="gallery-section animate-section" id="gallery">
         <div className="container">
           <h2 className="section-title">Thư viện hình ảnh</h2>
           <div className="gallery-grid">
-            {gallery.map((item, index) => (
+            {facilitiesData.gallery.map((item, index) => (
               <div key={index} className="gallery-item" onClick={() => setSelectedImage(item.url)}>
                 <img src={item.url} alt={item.title} />
                 <div className="gallery-caption">{item.title}</div>
@@ -139,7 +115,7 @@ const FacilitiesPage = () => {
       </section>
 
       {/* Stats */}
-      <section className="facilities-stats">
+      <section className="facilities-stats animate-section" id="stats">
         <div className="container">
           <div className="stats-grid">
             <div className="stat-item">
