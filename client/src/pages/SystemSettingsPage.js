@@ -192,8 +192,8 @@ const SystemSettingsPage = () => {
   // Default data structures
   const defaults = {
     banner: { title: '', subtitle: '', description: '', image: '' },
-    feature: { icon: '', title: '', description: '', color: '#4ade80' },
-    stat: { number: '', label: '', icon: '', color: '#4ade80' },
+    feature: { icon: '', title: '', description: '', color: '#10b981' },
+    stat: { number: '', label: '', icon: '', color: '#10b981' },
     testimonial: { name: '', comment: '', rating: 5, avatar: '' },
     milestone: { year: '', title: '', description: '', image: '' },
     value: { icon: '', title: '', description: '' },
@@ -241,54 +241,66 @@ const SystemSettingsPage = () => {
         {/* HOME PAGE TAB */}
         <TabPanel className="sys-settings-tab-panel">
           <h2 className="sys-settings-section-title">Home Page Settings</h2>
+          
+          <div className="sys-settings-top-save">
+            <button
+              onClick={() => saveSettings('home', homeData)}
+              className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
+              disabled={loading}
+            >
+              <FaSave /> Lưu Home Settings
+            </button>
+          </div>
 
           {/* Banner Slides */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Banner Slides</h3>
-            {homeData.bannerSlides.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.title}
-                  onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'title', e.target.value)}
-                  placeholder="Tiêu đề"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.subtitle}
-                  onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'subtitle', e.target.value)}
-                  placeholder="Phụ đề"
-                  className="sys-settings-input"
-                />
-                <textarea
-                  value={item.description}
-                  onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'description', e.target.value)}
-                  placeholder="Mô tả"
-                  className="sys-settings-textarea"
-                />
-                <input
-                  type="text"
-                  value={item.image}
-                  onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'image', e.target.value)}
-                  placeholder="URL hình ảnh"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleArrayImageUpload(setHomeData, 'bannerSlides', index, 'image', e.target.files[0])}
-                  className="sys-settings-file-input"
-                />
-                {item.image && <img src={item.image} alt="Banner" className="sys-settings-preview-img" />}
-                <button
-                  onClick={() => removeArrayItem(setHomeData, 'bannerSlides', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {homeData.bannerSlides.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'title', e.target.value)}
+                    placeholder="Tiêu đề"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.subtitle}
+                    onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'subtitle', e.target.value)}
+                    placeholder="Phụ đề"
+                    className="sys-settings-input"
+                  />
+                  <textarea
+                    value={item.description}
+                    onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'description', e.target.value)}
+                    placeholder="Mô tả"
+                    className="sys-settings-textarea"
+                  />
+                  <input
+                    type="text"
+                    value={item.image}
+                    onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'image', e.target.value)}
+                    placeholder="URL hình ảnh"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleArrayImageUpload(setHomeData, 'bannerSlides', index, 'image', e.target.files[0])}
+                    className="sys-settings-file-input"
+                  />
+                  {item.image && <img src={item.image} alt="Banner" className="sys-settings-preview-img" />}
+                  <button
+                    onClick={() => removeArrayItem(setHomeData, 'bannerSlides', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setHomeData, 'bannerSlides', defaults.banner)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -300,43 +312,45 @@ const SystemSettingsPage = () => {
           {/* Features */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Features</h3>
-            {homeData.features.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.icon}
-                  onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'icon', e.target.value)}
-                  placeholder="Icon"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.title}
-                  onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'title', e.target.value)}
-                  placeholder="Tiêu đề"
-                  className="sys-settings-input"
-                />
-                <textarea
-                  value={item.description}
-                  onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'description', e.target.value)}
-                  placeholder="Mô tả"
-                  className="sys-settings-textarea"
-                />
-                <input
-                  type="text"
-                  value={item.color}
-                  onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'color', e.target.value)}
-                  placeholder="Màu (e.g. #4ade80)"
-                  className="sys-settings-input"
-                />
-                <button
-                  onClick={() => removeArrayItem(setHomeData, 'features', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {homeData.features.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.icon}
+                    onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'icon', e.target.value)}
+                    placeholder="Icon"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'title', e.target.value)}
+                    placeholder="Tiêu đề"
+                    className="sys-settings-input"
+                  />
+                  <textarea
+                    value={item.description}
+                    onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'description', e.target.value)}
+                    placeholder="Mô tả"
+                    className="sys-settings-textarea"
+                  />
+                  <input
+                    type="text"
+                    value={item.color}
+                    onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'color', e.target.value)}
+                    placeholder="Màu (e.g. #10b981)"
+                    className="sys-settings-input"
+                  />
+                  <button
+                    onClick={() => removeArrayItem(setHomeData, 'features', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setHomeData, 'features', defaults.feature)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -348,44 +362,46 @@ const SystemSettingsPage = () => {
           {/* Stats */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Stats</h3>
-            {homeData.stats.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.number}
-                  onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'number', e.target.value)}
-                  placeholder="Số liệu"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.label}
-                  onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'label', e.target.value)}
-                  placeholder="Nhãn"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.icon}
-                  onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'icon', e.target.value)}
-                  placeholder="Icon"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.color}
-                  onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'color', e.target.value)}
-                  placeholder="Màu"
-                  className="sys-settings-input"
-                />
-                <button
-                  onClick={() => removeArrayItem(setHomeData, 'stats', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {homeData.stats.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.number}
+                    onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'number', e.target.value)}
+                    placeholder="Số liệu"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.label}
+                    onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'label', e.target.value)}
+                    placeholder="Nhãn"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.icon}
+                    onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'icon', e.target.value)}
+                    placeholder="Icon"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.color}
+                    onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'color', e.target.value)}
+                    placeholder="Màu"
+                    className="sys-settings-input"
+                  />
+                  <button
+                    onClick={() => removeArrayItem(setHomeData, 'stats', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setHomeData, 'stats', defaults.stat)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -397,52 +413,54 @@ const SystemSettingsPage = () => {
           {/* Testimonials */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Testimonials</h3>
-            {homeData.testimonials.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'name', e.target.value)}
-                  placeholder="Tên"
-                  className="sys-settings-input"
-                />
-                <textarea
-                  value={item.comment}
-                  onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'comment', e.target.value)}
-                  placeholder="Bình luận"
-                  className="sys-settings-textarea"
-                />
-                <input
-                  type="number"
-                  value={item.rating}
-                  onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'rating', Number(e.target.value))}
-                  placeholder="Đánh giá (1-5)"
-                  min="1"
-                  max="5"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.avatar}
-                  onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'avatar', e.target.value)}
-                  placeholder="URL ảnh đại diện"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleArrayImageUpload(setHomeData, 'testimonials', index, 'avatar', e.target.files[0])}
-                  className="sys-settings-file-input"
-                />
-                {item.avatar && <img src={item.avatar} alt="Avatar" className="sys-settings-preview-img" />}
-                <button
-                  onClick={() => removeArrayItem(setHomeData, 'testimonials', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {homeData.testimonials.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'name', e.target.value)}
+                    placeholder="Tên"
+                    className="sys-settings-input"
+                  />
+                  <textarea
+                    value={item.comment}
+                    onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'comment', e.target.value)}
+                    placeholder="Bình luận"
+                    className="sys-settings-textarea"
+                  />
+                  <input
+                    type="number"
+                    value={item.rating}
+                    onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'rating', Number(e.target.value))}
+                    placeholder="Đánh giá (1-5)"
+                    min="1"
+                    max="5"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.avatar}
+                    onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'avatar', e.target.value)}
+                    placeholder="URL ảnh đại diện"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleArrayImageUpload(setHomeData, 'testimonials', index, 'avatar', e.target.files[0])}
+                    className="sys-settings-file-input"
+                  />
+                  {item.avatar && <img src={item.avatar} alt="Avatar" className="sys-settings-preview-img" />}
+                  <button
+                    onClick={() => removeArrayItem(setHomeData, 'testimonials', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setHomeData, 'testimonials', defaults.testimonial)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -450,67 +468,71 @@ const SystemSettingsPage = () => {
               <FaPlus /> Thêm Testimonial
             </button>
           </section>
-
-          <button
-            onClick={() => saveSettings('home', homeData)}
-            className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
-            disabled={loading}
-          >
-            <FaSave /> Lưu Home Settings
-          </button>
         </TabPanel>
 
         {/* ABOUT PAGE TAB */}
         <TabPanel className="sys-settings-tab-panel">
           <h2 className="sys-settings-section-title">About Page Settings</h2>
+          
+          <div className="sys-settings-top-save">
+            <button
+              onClick={() => saveSettings('about', aboutData)}
+              className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
+              disabled={loading}
+            >
+              <FaSave /> Lưu About Settings
+            </button>
+          </div>
 
           {/* Milestones */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Milestones</h3>
-            {aboutData.milestones.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.year}
-                  onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'year', e.target.value)}
-                  placeholder="Năm"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.title}
-                  onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'title', e.target.value)}
-                  placeholder="Tiêu đề"
-                  className="sys-settings-input"
-                />
-                <textarea
-                  value={item.description}
-                  onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'description', e.target.value)}
-                  placeholder="Mô tả"
-                  className="sys-settings-textarea"
-                />
-                <input
-                  type="text"
-                  value={item.image}
-                  onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'image', e.target.value)}
-                  placeholder="URL hình ảnh"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleArrayImageUpload(setAboutData, 'milestones', index, 'image', e.target.files[0])}
-                  className="sys-settings-file-input"
-                />
-                {item.image && <img src={item.image} alt="Milestone" className="sys-settings-preview-img" />}
-                <button
-                  onClick={() => removeArrayItem(setAboutData, 'milestones', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {aboutData.milestones.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.year}
+                    onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'year', e.target.value)}
+                    placeholder="Năm"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'title', e.target.value)}
+                    placeholder="Tiêu đề"
+                    className="sys-settings-input"
+                  />
+                  <textarea
+                    value={item.description}
+                    onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'description', e.target.value)}
+                    placeholder="Mô tả"
+                    className="sys-settings-textarea"
+                  />
+                  <input
+                    type="text"
+                    value={item.image}
+                    onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'image', e.target.value)}
+                    placeholder="URL hình ảnh"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleArrayImageUpload(setAboutData, 'milestones', index, 'image', e.target.files[0])}
+                    className="sys-settings-file-input"
+                  />
+                  {item.image && <img src={item.image} alt="Milestone" className="sys-settings-preview-img" />}
+                  <button
+                    onClick={() => removeArrayItem(setAboutData, 'milestones', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setAboutData, 'milestones', defaults.milestone)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -522,36 +544,38 @@ const SystemSettingsPage = () => {
           {/* Values */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Values</h3>
-            {aboutData.values.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.icon}
-                  onChange={(e) => handleArrayChange(setAboutData, 'values', index, 'icon', e.target.value)}
-                  placeholder="Icon"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.title}
-                  onChange={(e) => handleArrayChange(setAboutData, 'values', index, 'title', e.target.value)}
-                  placeholder="Tiêu đề"
-                  className="sys-settings-input"
-                />
-                <textarea
-                  value={item.description}
-                  onChange={(e) => handleArrayChange(setAboutData, 'values', index, 'description', e.target.value)}
-                  placeholder="Mô tả"
-                  className="sys-settings-textarea"
-                />
-                <button
-                  onClick={() => removeArrayItem(setAboutData, 'values', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {aboutData.values.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.icon}
+                    onChange={(e) => handleArrayChange(setAboutData, 'values', index, 'icon', e.target.value)}
+                    placeholder="Icon"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => handleArrayChange(setAboutData, 'values', index, 'title', e.target.value)}
+                    placeholder="Tiêu đề"
+                    className="sys-settings-input"
+                  />
+                  <textarea
+                    value={item.description}
+                    onChange={(e) => handleArrayChange(setAboutData, 'values', index, 'description', e.target.value)}
+                    placeholder="Mô tả"
+                    className="sys-settings-textarea"
+                  />
+                  <button
+                    onClick={() => removeArrayItem(setAboutData, 'values', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setAboutData, 'values', defaults.value)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -563,37 +587,39 @@ const SystemSettingsPage = () => {
           {/* Achievements */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Achievements</h3>
-            {aboutData.achievements.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.icon}
-                  onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'icon', e.target.value)}
-                  placeholder="Icon"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.title}
-                  onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'title', e.target.value)}
-                  placeholder="Tiêu đề"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.year}
-                  onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'year', e.target.value)}
-                  placeholder="Năm"
-                  className="sys-settings-input"
-                />
-                <button
-                  onClick={() => removeArrayItem(setAboutData, 'achievements', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {aboutData.achievements.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.icon}
+                    onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'icon', e.target.value)}
+                    placeholder="Icon"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'title', e.target.value)}
+                    placeholder="Tiêu đề"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.year}
+                    onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'year', e.target.value)}
+                    placeholder="Năm"
+                    className="sys-settings-input"
+                  />
+                  <button
+                    onClick={() => removeArrayItem(setAboutData, 'achievements', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setAboutData, 'achievements', defaults.achievement)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -605,50 +631,52 @@ const SystemSettingsPage = () => {
           {/* Leadership */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Leadership</h3>
-            {aboutData.leadership.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'name', e.target.value)}
-                  placeholder="Tên"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.position}
-                  onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'position', e.target.value)}
-                  placeholder="Chức vụ"
-                  className="sys-settings-input"
-                />
-                <textarea
-                  value={item.description}
-                  onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'description', e.target.value)}
-                  placeholder="Mô tả"
-                  className="sys-settings-textarea"
-                />
-                <input
-                  type="text"
-                  value={item.image}
-                  onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'image', e.target.value)}
-                  placeholder="URL hình ảnh"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleArrayImageUpload(setAboutData, 'leadership', index, 'image', e.target.files[0])}
-                  className="sys-settings-file-input"
-                />
-                {item.image && <img src={item.image} alt="Leader" className="sys-settings-preview-img" />}
-                <button
-                  onClick={() => removeArrayItem(setAboutData, 'leadership', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {aboutData.leadership.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'name', e.target.value)}
+                    placeholder="Tên"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.position}
+                    onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'position', e.target.value)}
+                    placeholder="Chức vụ"
+                    className="sys-settings-input"
+                  />
+                  <textarea
+                    value={item.description}
+                    onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'description', e.target.value)}
+                    placeholder="Mô tả"
+                    className="sys-settings-textarea"
+                  />
+                  <input
+                    type="text"
+                    value={item.image}
+                    onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'image', e.target.value)}
+                    placeholder="URL hình ảnh"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleArrayImageUpload(setAboutData, 'leadership', index, 'image', e.target.files[0])}
+                    className="sys-settings-file-input"
+                  />
+                  {item.image && <img src={item.image} alt="Leader" className="sys-settings-preview-img" />}
+                  <button
+                    onClick={() => removeArrayItem(setAboutData, 'leadership', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setAboutData, 'leadership', defaults.leader)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -660,36 +688,38 @@ const SystemSettingsPage = () => {
           {/* Facilities */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Facilities</h3>
-            {aboutData.facilities.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.icon}
-                  onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'icon', e.target.value)}
-                  placeholder="Icon"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.title}
-                  onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'title', e.target.value)}
-                  placeholder="Tiêu đề"
-                  className="sys-settings-input"
-                />
-                <textarea
-                  value={item.description}
-                  onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'description', e.target.value)}
-                  placeholder="Mô tả"
-                  className="sys-settings-textarea"
-                />
-                <button
-                  onClick={() => removeArrayItem(setAboutData, 'facilities', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {aboutData.facilities.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.icon}
+                    onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'icon', e.target.value)}
+                    placeholder="Icon"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'title', e.target.value)}
+                    placeholder="Tiêu đề"
+                    className="sys-settings-input"
+                  />
+                  <textarea
+                    value={item.description}
+                    onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'description', e.target.value)}
+                    placeholder="Mô tả"
+                    className="sys-settings-textarea"
+                  />
+                  <button
+                    onClick={() => removeArrayItem(setAboutData, 'facilities', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setAboutData, 'facilities', defaults.aboutFacility)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -697,93 +727,97 @@ const SystemSettingsPage = () => {
               <FaPlus /> Thêm Facility
             </button>
           </section>
-
-          <button
-            onClick={() => saveSettings('about', aboutData)}
-            className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
-            disabled={loading}
-          >
-            <FaSave /> Lưu About Settings
-          </button>
         </TabPanel>
 
         {/* FACILITIES PAGE TAB */}
         <TabPanel className="sys-settings-tab-panel">
           <h2 className="sys-settings-section-title">Facilities Page Settings</h2>
+          
+          <div className="sys-settings-top-save">
+            <button
+              onClick={() => saveSettings('facilities', facilitiesData)}
+              className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
+              disabled={loading}
+            >
+              <FaSave /> Lưu Facilities Settings
+            </button>
+          </div>
 
           {/* Facilities */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Facilities</h3>
-            {facilitiesData.facilities.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.icon}
-                  onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'icon', e.target.value)}
-                  placeholder="Icon"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.title}
-                  onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'title', e.target.value)}
-                  placeholder="Tiêu đề"
-                  className="sys-settings-input"
-                />
-                <textarea
-                  value={item.description}
-                  onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'description', e.target.value)}
-                  placeholder="Mô tả"
-                  className="sys-settings-textarea"
-                />
-                <input
-                  type="text"
-                  value={item.image}
-                  onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'image', e.target.value)}
-                  placeholder="URL hình ảnh"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleArrayImageUpload(setFacilitiesData, 'facilities', index, 'image', e.target.files[0])}
-                  className="sys-settings-file-input"
-                />
-                {item.image && <img src={item.image} alt="Facility" className="sys-settings-preview-img" />}
-                
-                <h4 className="sys-settings-subitem-title">Features:</h4>
-                {(item.features || []).map((feature, subIndex) => (
-                  <div key={subIndex} className="sys-settings-subitem">
-                    <input
-                      type="text"
-                      value={feature}
-                      onChange={(e) => handleSubArrayChange(setFacilitiesData, 'facilities', index, 'features', subIndex, e.target.value)}
-                      placeholder="Feature"
-                      className="sys-settings-input-inline"
-                    />
-                    <button
-                      onClick={() => removeSubArrayItem(setFacilitiesData, 'facilities', index, 'features', subIndex)}
-                      className="sys-settings-btn sys-settings-btn-danger-sm"
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => addSubArrayItem(setFacilitiesData, 'facilities', index, 'features')}
-                  className="sys-settings-btn sys-settings-btn-secondary-sm"
-                >
-                  <FaPlus /> Thêm Feature
-                </button>
-                
-                <button
-                  onClick={() => removeArrayItem(setFacilitiesData, 'facilities', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa Facility
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {facilitiesData.facilities.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.icon}
+                    onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'icon', e.target.value)}
+                    placeholder="Icon"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'title', e.target.value)}
+                    placeholder="Tiêu đề"
+                    className="sys-settings-input"
+                  />
+                  <textarea
+                    value={item.description}
+                    onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'description', e.target.value)}
+                    placeholder="Mô tả"
+                    className="sys-settings-textarea"
+                  />
+                  <input
+                    type="text"
+                    value={item.image}
+                    onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'image', e.target.value)}
+                    placeholder="URL hình ảnh"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleArrayImageUpload(setFacilitiesData, 'facilities', index, 'image', e.target.files[0])}
+                    className="sys-settings-file-input"
+                  />
+                  {item.image && <img src={item.image} alt="Facility" className="sys-settings-preview-img" />}
+                  
+                  <h4 className="sys-settings-subitem-title">Features:</h4>
+                  {(item.features || []).map((feature, subIndex) => (
+                    <div key={subIndex} className="sys-settings-subitem">
+                      <input
+                        type="text"
+                        value={feature}
+                        onChange={(e) => handleSubArrayChange(setFacilitiesData, 'facilities', index, 'features', subIndex, e.target.value)}
+                        placeholder="Feature"
+                        className="sys-settings-input-inline"
+                      />
+                      <button
+                        onClick={() => removeSubArrayItem(setFacilitiesData, 'facilities', index, 'features', subIndex)}
+                        className="sys-settings-btn sys-settings-btn-danger-sm"
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => addSubArrayItem(setFacilitiesData, 'facilities', index, 'features')}
+                    className="sys-settings-btn sys-settings-btn-secondary-sm"
+                  >
+                    <FaPlus /> Thêm Feature
+                  </button>
+                  
+                  <button
+                    onClick={() => removeArrayItem(setFacilitiesData, 'facilities', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa Facility
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setFacilitiesData, 'facilities', { ...defaults.facility, features: [] })}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -795,30 +829,32 @@ const SystemSettingsPage = () => {
           {/* Amenities */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Amenities</h3>
-            {facilitiesData.amenities.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.icon}
-                  onChange={(e) => handleArrayChange(setFacilitiesData, 'amenities', index, 'icon', e.target.value)}
-                  placeholder="Icon"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange(setFacilitiesData, 'amenities', index, 'name', e.target.value)}
-                  placeholder="Tên"
-                  className="sys-settings-input"
-                />
-                <button
-                  onClick={() => removeArrayItem(setFacilitiesData, 'amenities', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {facilitiesData.amenities.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.icon}
+                    onChange={(e) => handleArrayChange(setFacilitiesData, 'amenities', index, 'icon', e.target.value)}
+                    placeholder="Icon"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => handleArrayChange(setFacilitiesData, 'amenities', index, 'name', e.target.value)}
+                    placeholder="Tên"
+                    className="sys-settings-input"
+                  />
+                  <button
+                    onClick={() => removeArrayItem(setFacilitiesData, 'amenities', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setFacilitiesData, 'amenities', defaults.amenity)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -858,54 +894,58 @@ const SystemSettingsPage = () => {
               ))}
             </div>
           </section>
-
-          <button
-            onClick={() => saveSettings('facilities', facilitiesData)}
-            className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
-            disabled={loading}
-          >
-            <FaSave /> Lưu Facilities Settings
-          </button>
         </TabPanel>
 
         {/* EQUIPMENT PAGE TAB */}
         <TabPanel className="sys-settings-tab-panel">
           <h2 className="sys-settings-section-title">Equipment Page Settings</h2>
+          
+          <div className="sys-settings-top-save">
+            <button
+              onClick={() => saveSettings('equipment', equipmentData)}
+              className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
+              disabled={loading}
+            >
+              <FaSave /> Lưu Equipment Settings
+            </button>
+          </div>
 
           {/* Categories */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Categories</h3>
-            {equipmentData.categories.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.id}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'categories', index, 'id', e.target.value)}
-                  placeholder="ID"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'categories', index, 'name', e.target.value)}
-                  placeholder="Tên"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.icon}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'categories', index, 'icon', e.target.value)}
-                  placeholder="Icon"
-                  className="sys-settings-input"
-                />
-                <button
-                  onClick={() => removeArrayItem(setEquipmentData, 'categories', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {equipmentData.categories.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.id}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'categories', index, 'id', e.target.value)}
+                    placeholder="ID"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'categories', index, 'name', e.target.value)}
+                    placeholder="Tên"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.icon}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'categories', index, 'icon', e.target.value)}
+                    placeholder="Icon"
+                    className="sys-settings-input"
+                  />
+                  <button
+                    onClick={() => removeArrayItem(setEquipmentData, 'categories', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setEquipmentData, 'categories', defaults.category)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -917,116 +957,118 @@ const SystemSettingsPage = () => {
           {/* Equipment */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Equipment</h3>
-            {equipmentData.equipment.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.category}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'category', e.target.value)}
-                  placeholder="Danh mục"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'name', e.target.value)}
-                  placeholder="Tên"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.brand}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'brand', e.target.value)}
-                  placeholder="Thương hiệu"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.origin}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'origin', e.target.value)}
-                  placeholder="Xuất xứ"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.year}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'year', e.target.value)}
-                  placeholder="Năm"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.image}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'image', e.target.value)}
-                  placeholder="URL hình ảnh"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleArrayImageUpload(setEquipmentData, 'equipment', index, 'image', e.target.files[0])}
-                  className="sys-settings-file-input"
-                />
-                {item.image && <img src={item.image} alt="Equipment" className="sys-settings-preview-img" />}
-                
-                <h4 className="sys-settings-subitem-title">Features:</h4>
-                {(item.features || []).map((feature, subIndex) => (
-                  <div key={subIndex} className="sys-settings-subitem">
-                    <input
-                      type="text"
-                      value={feature}
-                      onChange={(e) => handleSubArrayChange(setEquipmentData, 'equipment', index, 'features', subIndex, e.target.value)}
-                      placeholder="Feature"
-                      className="sys-settings-input-inline"
-                    />
-                    <button
-                      onClick={() => removeSubArrayItem(setEquipmentData, 'equipment', index, 'features', subIndex)}
-                      className="sys-settings-btn sys-settings-btn-danger-sm"
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => addSubArrayItem(setEquipmentData, 'equipment', index, 'features')}
-                  className="sys-settings-btn sys-settings-btn-secondary-sm"
-                >
-                  <FaPlus /> Thêm Feature
-                </button>
-                
-                <h4 className="sys-settings-subitem-title">Applications:</h4>
-                {(item.applications || []).map((app, subIndex) => (
-                  <div key={subIndex} className="sys-settings-subitem">
-                    <input
-                      type="text"
-                      value={app}
-                      onChange={(e) => handleSubArrayChange(setEquipmentData, 'equipment', index, 'applications', subIndex, e.target.value)}
-                      placeholder="Application"
-                      className="sys-settings-input-inline"
-                    />
-                    <button
-                      onClick={() => removeSubArrayItem(setEquipmentData, 'equipment', index, 'applications', subIndex)}
-                      className="sys-settings-btn sys-settings-btn-danger-sm"
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => addSubArrayItem(setEquipmentData, 'equipment', index, 'applications')}
-                  className="sys-settings-btn sys-settings-btn-secondary-sm"
-                >
-                  <FaPlus /> Thêm Application
-                </button>
-                
-                <button
-                  onClick={() => removeArrayItem(setEquipmentData, 'equipment', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa Equipment
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {equipmentData.equipment.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.category}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'category', e.target.value)}
+                    placeholder="Danh mục"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'name', e.target.value)}
+                    placeholder="Tên"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.brand}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'brand', e.target.value)}
+                    placeholder="Thương hiệu"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.origin}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'origin', e.target.value)}
+                    placeholder="Xuất xứ"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.year}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'year', e.target.value)}
+                    placeholder="Năm"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.image}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'image', e.target.value)}
+                    placeholder="URL hình ảnh"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleArrayImageUpload(setEquipmentData, 'equipment', index, 'image', e.target.files[0])}
+                    className="sys-settings-file-input"
+                  />
+                  {item.image && <img src={item.image} alt="Equipment" className="sys-settings-preview-img" />}
+                  
+                  <h4 className="sys-settings-subitem-title">Features:</h4>
+                  {(item.features || []).map((feature, subIndex) => (
+                    <div key={subIndex} className="sys-settings-subitem">
+                      <input
+                        type="text"
+                        value={feature}
+                        onChange={(e) => handleSubArrayChange(setEquipmentData, 'equipment', index, 'features', subIndex, e.target.value)}
+                        placeholder="Feature"
+                        className="sys-settings-input-inline"
+                      />
+                      <button
+                        onClick={() => removeSubArrayItem(setEquipmentData, 'equipment', index, 'features', subIndex)}
+                        className="sys-settings-btn sys-settings-btn-danger-sm"
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => addSubArrayItem(setEquipmentData, 'equipment', index, 'features')}
+                    className="sys-settings-btn sys-settings-btn-secondary-sm"
+                  >
+                    <FaPlus /> Thêm Feature
+                  </button>
+                  
+                  <h4 className="sys-settings-subitem-title">Applications:</h4>
+                  {(item.applications || []).map((app, subIndex) => (
+                    <div key={subIndex} className="sys-settings-subitem">
+                      <input
+                        type="text"
+                        value={app}
+                        onChange={(e) => handleSubArrayChange(setEquipmentData, 'equipment', index, 'applications', subIndex, e.target.value)}
+                        placeholder="Application"
+                        className="sys-settings-input-inline"
+                      />
+                      <button
+                        onClick={() => removeSubArrayItem(setEquipmentData, 'equipment', index, 'applications', subIndex)}
+                        className="sys-settings-btn sys-settings-btn-danger-sm"
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => addSubArrayItem(setEquipmentData, 'equipment', index, 'applications')}
+                    className="sys-settings-btn sys-settings-btn-secondary-sm"
+                  >
+                    <FaPlus /> Thêm Application
+                  </button>
+                  
+                  <button
+                    onClick={() => removeArrayItem(setEquipmentData, 'equipment', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa Equipment
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setEquipmentData, 'equipment', { ...defaults.equipmentItem, features: [], applications: [] })}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -1038,30 +1080,32 @@ const SystemSettingsPage = () => {
           {/* Stats */}
           <section className="sys-settings-section">
             <h3 className="sys-settings-subsection-title">Stats</h3>
-            {equipmentData.stats.map((item, index) => (
-              <div key={index} className="sys-settings-card">
-                <input
-                  type="text"
-                  value={item.number}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'stats', index, 'number', e.target.value)}
-                  placeholder="Số liệu"
-                  className="sys-settings-input"
-                />
-                <input
-                  type="text"
-                  value={item.label}
-                  onChange={(e) => handleArrayChange(setEquipmentData, 'stats', index, 'label', e.target.value)}
-                  placeholder="Nhãn"
-                  className="sys-settings-input"
-                />
-                <button
-                  onClick={() => removeArrayItem(setEquipmentData, 'stats', index)}
-                  className="sys-settings-btn sys-settings-btn-danger"
-                >
-                  <FaTrash /> Xóa
-                </button>
-              </div>
-            ))}
+            <div className="sys-settings-grid">
+              {equipmentData.stats.map((item, index) => (
+                <div key={index} className="sys-settings-card">
+                  <input
+                    type="text"
+                    value={item.number}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'stats', index, 'number', e.target.value)}
+                    placeholder="Số liệu"
+                    className="sys-settings-input"
+                  />
+                  <input
+                    type="text"
+                    value={item.label}
+                    onChange={(e) => handleArrayChange(setEquipmentData, 'stats', index, 'label', e.target.value)}
+                    placeholder="Nhãn"
+                    className="sys-settings-input"
+                  />
+                  <button
+                    onClick={() => removeArrayItem(setEquipmentData, 'stats', index)}
+                    className="sys-settings-btn sys-settings-btn-danger"
+                  >
+                    <FaTrash /> Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => addArrayItem(setEquipmentData, 'stats', defaults.equipmentStat)}
               className="sys-settings-btn sys-settings-btn-primary"
@@ -1069,14 +1113,6 @@ const SystemSettingsPage = () => {
               <FaPlus /> Thêm Stat
             </button>
           </section>
-
-          <button
-            onClick={() => saveSettings('equipment', equipmentData)}
-            className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
-            disabled={loading}
-          >
-            <FaSave /> Lưu Equipment Settings
-          </button>
         </TabPanel>
       </Tabs>
     </div>

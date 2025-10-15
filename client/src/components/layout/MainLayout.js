@@ -17,7 +17,7 @@ const MainLayout = ({ children }) => {
     '/dashboard', '/ho-so-nguoi-dung', '/quan-ly-nguoi-dung', '/quan-ly-chuyen-khoa',
     '/quan-ly-danh-muc', '/quan-ly-bai-viet', '/quan-ly-lich-lam-viec', '/quan-ly-lich-hen',
     '/bai-viet-da-luu', '/thong-ke', '/lich-hen-cua-toi', '/lich-su-tu-van',
-    '/dat-lich-hen', '/ho-so-y-te', '/thong-bao'
+    '/dat-lich-hen', '/ho-so-y-te', '/thong-bao', '/cai-dat-tai-khoan', '/quan-ly-he-thong'
   ];
 
   const showSidebar = !!token && dashboardPaths.some(path => location.pathname.startsWith(path));
