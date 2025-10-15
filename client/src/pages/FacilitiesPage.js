@@ -1,7 +1,9 @@
 // src/pages/FacilitiesPage.js
+// Lấy dữ liệu động từ database thông qua API /api/settings/facilities
+
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaBuilding, FaBed, FaParking, FaCoffee, FaWifi, FaSnowflake, FaShieldAlt, FaLeaf } from 'react-icons/fa';
+import { FaCheckCircle } from 'react-icons/fa';
 import './FacilitiesPage.css';
 
 const FacilitiesPage = () => {
@@ -12,16 +14,21 @@ const FacilitiesPage = () => {
     gallery: []
   });
   const [isVisible, setIsVisible] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchFacilitiesData = async () => {
       try {
-        const response = await axios.get('http://localhost:3001/api/system/facilities');
+        const response = await axios.get('http://localhost:3001/api/settings/facilities');
         if (response.data) {
           setFacilitiesData(response.data);
         }
       } catch (error) {
         console.error('Error fetching facilities data:', error);
+        setError('Không thể tải thông tin cơ sở vật chất. Vui lòng thử lại sau.');
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -44,6 +51,32 @@ const FacilitiesPage = () => {
     return () => sections.forEach(section => observer.unobserve(section));
   }, []);
 
+  if (loading) {
+    return (
+      <div className="facilities-page">
+        <section className="facilities-hero">
+          <div className="container">
+            <h1>Cơ sở vật chất</h1>
+            <p className="hero-subtitle">Đang tải thông tin...</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="facilities-page">
+        <section className="facilities-hero">
+          <div className="container">
+            <h1>Cơ sở vật chất</h1>
+            <p className="error-text">{error}</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="facilities-page">
       {/* Hero */}
@@ -57,62 +90,80 @@ const FacilitiesPage = () => {
       </section>
 
       {/* Amenities Bar */}
-      <section className="amenities-bar animate-section" id="amenities">
-        <div className="container">
-          <div className="amenities-grid">
-            {facilitiesData.amenities.map((amenity, index) => (
-              <div key={index} className="amenity-item">
-                {amenity.icon}
-                <span>{amenity.name}</span>
-              </div>
-            ))}
+      {facilitiesData.amenities.length > 0 && (
+        <section className="amenities-bar animate-section" id="amenities">
+          <div className="container">
+            <div className="amenities-grid">
+              {facilitiesData.amenities.map((amenity, index) => (
+                <div key={index} className="amenity-item">
+                  {typeof amenity.icon === 'string' ? (
+                    <FaCheckCircle />
+                  ) : (
+                    amenity.icon
+                  )}
+                  <span>{amenity.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Main Facilities */}
-      <section className="facilities-section animate-section" id="facilities">
-        <div className="container">
-          <h2 className="section-title">Các khu vực chính</h2>
-          <div className="facilities-grid">
-            {facilitiesData.facilities.map((facility, index) => (
-              <div key={index} className="facility-card">
-                <div className="facility-image" onClick={() => setSelectedImage(facility.image)}>
-                  <img src={facility.image} alt={facility.title} />
-                  <div className="facility-overlay">
-                    <span>Xem chi tiết</span>
+      {facilitiesData.facilities.length > 0 && (
+        <section className="facilities-section animate-section" id="facilities">
+          <div className="container">
+            <h2 className="section-title">Các khu vực chính</h2>
+            <div className="facilities-grid">
+              {facilitiesData.facilities.map((facility, index) => (
+                <div key={index} className="facility-card">
+                  <div className="facility-image" onClick={() => setSelectedImage(facility.image)}>
+                    <img src={facility.image} alt={facility.title} />
+                    <div className="facility-overlay">
+                      <span>Xem chi tiết</span>
+                    </div>
+                  </div>
+                  <div className="facility-content">
+                    <div className="facility-icon">
+                      {typeof facility.icon === 'string' ? (
+                        <FaCheckCircle />
+                      ) : (
+                        facility.icon
+                      )}
+                    </div>
+                    <h3>{facility.title}</h3>
+                    <p>{facility.description}</p>
+                    {facility.features && facility.features.length > 0 && (
+                      <ul className="facility-features">
+                        {facility.features.map((feature, idx) => (
+                          <li key={idx}>✓ {feature}</li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </div>
-                <div className="facility-content">
-                  <div className="facility-icon">{facility.icon}</div>
-                  <h3>{facility.title}</h3>
-                  <p>{facility.description}</p>
-                  <ul className="facility-features">
-                    {facility.features.map((feature, idx) => (
-                      <li key={idx}>✓ {feature}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Gallery */}
-      <section className="gallery-section animate-section" id="gallery">
-        <div className="container">
-          <h2 className="section-title">Thư viện hình ảnh</h2>
-          <div className="gallery-grid">
-            {facilitiesData.gallery.map((item, index) => (
-              <div key={index} className="gallery-item" onClick={() => setSelectedImage(item.url)}>
-                <img src={item.url} alt={item.title} />
-                <div className="gallery-caption">{item.title}</div>
-              </div>
-            ))}
+      {facilitiesData.gallery.length > 0 && (
+        <section className="gallery-section animate-section" id="gallery">
+          <div className="container">
+            <h2 className="section-title">Thư viện hình ảnh</h2>
+            <div className="gallery-grid">
+              {facilitiesData.gallery.map((item, index) => (
+                <div key={index} className="gallery-item" onClick={() => setSelectedImage(item.url)}>
+                  <img src={item.url} alt={item.title} />
+                  <div className="gallery-caption">{item.title}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Stats */}
       <section className="facilities-stats animate-section" id="stats">

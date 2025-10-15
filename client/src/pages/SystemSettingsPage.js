@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import axios from 'axios';
-import { FaSave, FaUpload, FaTrash, FaPlus } from 'react-icons/fa';
+import { FaSave, FaUpload, FaTrash, FaPlus, FaSpinner } from 'react-icons/fa';
 import 'react-tabs/style/react-tabs.css';
 import './SystemSettingsPage.css';
-
 
 const SystemSettingsPage = () => {
   const [loading, setLoading] = useState(false);
@@ -42,10 +41,8 @@ const SystemSettingsPage = () => {
     stats: []
   });
 
-  // Base URL for API requests (matching HomePage.js)
   const API_BASE_URL = 'http://localhost:3001/api';
 
-  // Common headers with authentication
   const getHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem('token')}`,
     'Content-Type': 'application/json'
@@ -82,26 +79,19 @@ const SystemSettingsPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const endpoints = [
-          { url: `${API_BASE_URL}/settings/home`, setter: setHomeData, default: { bannerSlides: [], features: [], stats: [], testimonials: [] } },
-          { url: `${API_BASE_URL}/system/about`, setter: setAboutData, default: { milestones: [], values: [], achievements: [], leadership: [], facilities: [] } },
-          { url: `${API_BASE_URL}/system/facilities`, setter: setFacilitiesData, default: { facilities: [], amenities: [], gallery: [] } },
-          { url: `${API_BASE_URL}/system/equipment`, setter: setEquipmentData, default: { categories: [], equipment: [], stats: [] } }
-        ];
+        const [homeRes, aboutRes, facilitiesRes, equipmentRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/settings/home`),
+          axios.get(`${API_BASE_URL}/settings/about`),
+          axios.get(`${API_BASE_URL}/settings/facilities`),
+          axios.get(`${API_BASE_URL}/settings/equipment`)
+        ]);
 
-        const promises = endpoints.map(async ({ url, setter, default: defaultData }) => {
-          try {
-            const response = await axios.get(url, { headers: getHeaders() });
-            setter(response.data || defaultData);
-          } catch (err) {
-            console.error(`Error fetching ${url}:`, err);
-            setter(defaultData); // Fallback to default if API fails
-            throw new Error(`Failed to fetch ${url}: ${err.message}`);
-          }
-        });
-
-        await Promise.all(promises);
+        setHomeData(homeRes.data || { bannerSlides: [], features: [], stats: [], testimonials: [] });
+        setAboutData(aboutRes.data || { milestones: [], values: [], achievements: [], leadership: [], facilities: [] });
+        setFacilitiesData(facilitiesRes.data || { facilities: [], amenities: [], gallery: [] });
+        setEquipmentData(equipmentRes.data || { categories: [], equipment: [], stats: [] });
       } catch (err) {
+        console.error('Error fetching settings:', err);
         setError(`Lỗi khi tải dữ liệu: ${err.message}`);
       } finally {
         setLoading(false);
@@ -118,6 +108,7 @@ const SystemSettingsPage = () => {
     try {
       await axios.put(`${API_BASE_URL}/settings/${page}`, data, { headers: getHeaders() });
       setSuccess(`Lưu ${page} settings thành công!`);
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(`Lưu ${page} thất bại: ${err.message}`);
     } finally {
@@ -125,7 +116,7 @@ const SystemSettingsPage = () => {
     }
   };
 
-  // Generic handler for array items
+  // Generic handlers
   const handleArrayChange = (setter, arrayName, index, field, value) => {
     setter(prev => {
       const newArray = [...prev[arrayName]];
@@ -134,7 +125,6 @@ const SystemSettingsPage = () => {
     });
   };
 
-  // Handle image upload for arrays
   const handleArrayImageUpload = async (setter, arrayName, index, field, file) => {
     const url = await uploadImage(file);
     if (url) {
@@ -142,7 +132,6 @@ const SystemSettingsPage = () => {
     }
   };
 
-  // Add new item to array
   const addArrayItem = (setter, arrayName, defaultItem) => {
     setter(prev => ({
       ...prev,
@@ -150,7 +139,6 @@ const SystemSettingsPage = () => {
     }));
   };
 
-  // Remove item from array
   const removeArrayItem = (setter, arrayName, index) => {
     setter(prev => ({
       ...prev,
@@ -158,27 +146,27 @@ const SystemSettingsPage = () => {
     }));
   };
 
-  // Handle sub-array changes (e.g., features, applications)
   const handleSubArrayChange = (setter, arrayName, index, subArrayName, subIndex, value) => {
     setter(prev => {
       const newArray = [...prev[arrayName]];
-      const newSubArray = [...newArray[index][subArrayName]];
+      const newSubArray = [...(newArray[index][subArrayName] || [])];
       newSubArray[subIndex] = value;
       newArray[index][subArrayName] = newSubArray;
       return { ...prev, [arrayName]: newArray };
     });
   };
 
-  // Add sub-array item
   const addSubArrayItem = (setter, arrayName, index, subArrayName) => {
     setter(prev => {
       const newArray = [...prev[arrayName]];
+      if (!newArray[index][subArrayName]) {
+        newArray[index][subArrayName] = [];
+      }
       newArray[index][subArrayName] = [...newArray[index][subArrayName], ''];
       return { ...prev, [arrayName]: newArray };
     });
   };
 
-  // Remove sub-array item
   const removeSubArrayItem = (setter, arrayName, index, subArrayName, subIndex) => {
     setter(prev => {
       const newArray = [...prev[arrayName]];
@@ -187,13 +175,12 @@ const SystemSettingsPage = () => {
     });
   };
 
-  // Handle multiple image uploads for gallery
   const handleMultipleUpload = async (setter, arrayName, files) => {
     const newItems = [];
     for (let file of Array.from(files)) {
       const url = await uploadImage(file);
       if (url) {
-        newItems.push({ url, title: file.name });
+        newItems.push({ url, title: file.name.replace(/\.[^/.]+$/, '') });
       }
     }
     setter(prev => ({
@@ -203,215 +190,227 @@ const SystemSettingsPage = () => {
   };
 
   // Default data structures
-  const defaultBanner = { title: '', subtitle: '', description: '', image: '' };
-  const defaultFeature = { icon: '', title: '', description: '', color: '#4ade80' };
-  const defaultStat = { number: '', label: '', icon: '', color: '#4ade80' };
-  const defaultTestimonial = { name: '', comment: '', rating: 5, avatar: '' };
-  const defaultMilestone = { year: '', title: '', description: '', image: '' };
-  const defaultValue = { icon: '', title: '', description: '' };
-  const defaultAchievement = { icon: '', title: '', year: '' };
-  const defaultLeader = { name: '', position: '', image: '', description: '' };
-  const defaultAboutFacility = { icon: '', title: '', description: '' };
-  const defaultFacility = { icon: '', title: '', description: '', image: '', features: [] };
-  const defaultAmenity = { icon: '', name: '' };
-  const defaultGalleryItem = { url: '', title: '' };
-  const defaultCategory = { id: '', name: '', icon: '' };
-  const defaultEquipmentItem = { category: '', name: '', brand: '', origin: '', year: '', image: '', features: [], applications: [] };
-  const defaultEquipmentStat = { number: '', label: '' };
+  const defaults = {
+    banner: { title: '', subtitle: '', description: '', image: '' },
+    feature: { icon: '', title: '', description: '', color: '#4ade80' },
+    stat: { number: '', label: '', icon: '', color: '#4ade80' },
+    testimonial: { name: '', comment: '', rating: 5, avatar: '' },
+    milestone: { year: '', title: '', description: '', image: '' },
+    value: { icon: '', title: '', description: '' },
+    achievement: { icon: '', title: '', year: '' },
+    leader: { name: '', position: '', image: '', description: '' },
+    aboutFacility: { icon: '', title: '', description: '' },
+    facility: { icon: '', title: '', description: '', image: '', features: [] },
+    amenity: { icon: '', name: '' },
+    galleryItem: { url: '', title: '' },
+    category: { id: '', name: '', icon: '' },
+    equipmentItem: { category: '', name: '', brand: '', origin: '', year: '', image: '', features: [], applications: [] },
+    equipmentStat: { number: '', label: '' }
+  };
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Quản lý Hệ thống - Chỉnh sửa Trang Tĩnh</h1>
-      {error && <div className="bg-red-100 text-red-700 p-2 mb-4 rounded">{error}</div>}
-      {success && <div className="bg-green-100 text-green-700 p-2 mb-4 rounded">{success}</div>}
-      {loading && <div className="text-center">Đang xử lý...</div>}
+    <div className="sys-settings-container">
+      <h1 className="sys-settings-title">Quản lý Hệ thống - Chỉnh sửa Trang Tĩnh</h1>
+      
+      {error && (
+        <div className="sys-settings-alert sys-settings-alert-error">
+          {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="sys-settings-alert sys-settings-alert-success">
+          {success}
+        </div>
+      )}
+      
+      {loading && (
+        <div className="sys-settings-loading">
+          <FaSpinner className="sys-settings-spinner" /> Đang xử lý...
+        </div>
+      )}
 
-      <Tabs className="mt-4">
-        <TabList className="flex border-b">
-          <Tab className="px-4 py-2 cursor-pointer hover:bg-gray-100">Home Page</Tab>
-          <Tab className="px-4 py-2 cursor-pointer hover:bg-gray-100">About Page</Tab>
-          <Tab className="px-4 py-2 cursor-pointer hover:bg-gray-100">Facilities Page</Tab>
-          <Tab className="px-4 py-2 cursor-pointer hover:bg-gray-100">Equipment Page</Tab>
+      <Tabs className="sys-settings-tabs">
+        <TabList className="sys-settings-tab-list">
+          <Tab className="sys-settings-tab">Home Page</Tab>
+          <Tab className="sys-settings-tab">About Page</Tab>
+          <Tab className="sys-settings-tab">Facilities Page</Tab>
+          <Tab className="sys-settings-tab">Equipment Page</Tab>
         </TabList>
 
-        <TabPanel className="mt-4">
-          <h2 className="text-xl font-semibold mb-2">Home Page Settings</h2>
+        {/* HOME PAGE TAB */}
+        <TabPanel className="sys-settings-tab-panel">
+          <h2 className="sys-settings-section-title">Home Page Settings</h2>
 
           {/* Banner Slides */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Banner Slides</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Banner Slides</h3>
             {homeData.bannerSlides.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.title}
                   onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'title', e.target.value)}
                   placeholder="Tiêu đề"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.subtitle}
                   onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'subtitle', e.target.value)}
                   placeholder="Phụ đề"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <textarea
                   value={item.description}
                   onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'description', e.target.value)}
                   placeholder="Mô tả"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-textarea"
                 />
                 <input
                   type="text"
                   value={item.image}
                   onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'image', e.target.value)}
                   placeholder="URL hình ảnh"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleArrayImageUpload(setHomeData, 'bannerSlides', index, 'image', e.target.files[0])}
-                  className="mb-2"
+                  className="sys-settings-file-input"
                 />
-                {item.image && <img src={item.image} alt="Banner" className="w-32 h-32 object-cover mb-2" />}
+                {item.image && <img src={item.image} alt="Banner" className="sys-settings-preview-img" />}
                 <button
                   onClick={() => removeArrayItem(setHomeData, 'bannerSlides', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setHomeData, 'bannerSlides', defaultBanner)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setHomeData, 'bannerSlides', defaults.banner)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Slide
             </button>
           </section>
 
           {/* Features */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Features</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Features</h3>
             {homeData.features.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.icon}
                   onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'icon', e.target.value)}
-                  placeholder="Icon (e.g. <FaUserMd />)"
-                  className="w-full p-2 mb-2 border rounded"
+                  placeholder="Icon"
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.title}
                   onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'title', e.target.value)}
                   placeholder="Tiêu đề"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <textarea
                   value={item.description}
                   onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'description', e.target.value)}
                   placeholder="Mô tả"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-textarea"
                 />
                 <input
                   type="text"
                   value={item.color}
                   onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'color', e.target.value)}
                   placeholder="Màu (e.g. #4ade80)"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <button
                   onClick={() => removeArrayItem(setHomeData, 'features', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setHomeData, 'features', defaultFeature)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setHomeData, 'features', defaults.feature)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Feature
             </button>
           </section>
 
           {/* Stats */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Stats</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Stats</h3>
             {homeData.stats.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.number}
                   onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'number', e.target.value)}
                   placeholder="Số liệu"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.label}
                   onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'label', e.target.value)}
                   placeholder="Nhãn"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.icon}
                   onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'icon', e.target.value)}
                   placeholder="Icon"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.color}
                   onChange={(e) => handleArrayChange(setHomeData, 'stats', index, 'color', e.target.value)}
                   placeholder="Màu"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <button
                   onClick={() => removeArrayItem(setHomeData, 'stats', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setHomeData, 'stats', defaultStat)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setHomeData, 'stats', defaults.stat)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Stat
             </button>
           </section>
 
           {/* Testimonials */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Testimonials</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Testimonials</h3>
             {homeData.testimonials.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.name}
                   onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'name', e.target.value)}
                   placeholder="Tên"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <textarea
                   value={item.comment}
                   onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'comment', e.target.value)}
                   placeholder="Bình luận"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-textarea"
                 />
                 <input
                   type="number"
@@ -420,34 +419,33 @@ const SystemSettingsPage = () => {
                   placeholder="Đánh giá (1-5)"
                   min="1"
                   max="5"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.avatar}
                   onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'avatar', e.target.value)}
                   placeholder="URL ảnh đại diện"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleArrayImageUpload(setHomeData, 'testimonials', index, 'avatar', e.target.files[0])}
-                  className="mb-2"
+                  className="sys-settings-file-input"
                 />
-                {item.avatar && <img src={item.avatar} alt="Avatar" className="w-32 h-32 object-cover mb-2" />}
+                {item.avatar && <img src={item.avatar} alt="Avatar" className="sys-settings-preview-img" />}
                 <button
                   onClick={() => removeArrayItem(setHomeData, 'testimonials', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setHomeData, 'testimonials', defaultTestimonial)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setHomeData, 'testimonials', defaults.testimonial)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Testimonial
             </button>
@@ -455,252 +453,246 @@ const SystemSettingsPage = () => {
 
           <button
             onClick={() => saveSettings('home', homeData)}
-            className="bg-green-500 text-white p-2 rounded hover:bg-green-600"
+            className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
             disabled={loading}
           >
             <FaSave /> Lưu Home Settings
           </button>
         </TabPanel>
 
-        <TabPanel className="mt-4">
-          <h2 className="text-xl font-semibold mb-2">About Page Settings</h2>
+        {/* ABOUT PAGE TAB */}
+        <TabPanel className="sys-settings-tab-panel">
+          <h2 className="sys-settings-section-title">About Page Settings</h2>
 
           {/* Milestones */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Milestones</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Milestones</h3>
             {aboutData.milestones.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.year}
                   onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'year', e.target.value)}
                   placeholder="Năm"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.title}
                   onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'title', e.target.value)}
                   placeholder="Tiêu đề"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <textarea
                   value={item.description}
                   onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'description', e.target.value)}
                   placeholder="Mô tả"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-textarea"
                 />
                 <input
                   type="text"
                   value={item.image}
                   onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'image', e.target.value)}
                   placeholder="URL hình ảnh"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleArrayImageUpload(setAboutData, 'milestones', index, 'image', e.target.files[0])}
-                  className="mb-2"
+                  className="sys-settings-file-input"
                 />
-                {item.image && <img src={item.image} alt="Milestone" className="w-32 h-32 object-cover mb-2" />}
+                {item.image && <img src={item.image} alt="Milestone" className="sys-settings-preview-img" />}
                 <button
                   onClick={() => removeArrayItem(setAboutData, 'milestones', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setAboutData, 'milestones', defaultMilestone)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setAboutData, 'milestones', defaults.milestone)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Milestone
             </button>
           </section>
 
           {/* Values */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Values</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Values</h3>
             {aboutData.values.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.icon}
                   onChange={(e) => handleArrayChange(setAboutData, 'values', index, 'icon', e.target.value)}
                   placeholder="Icon"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.title}
                   onChange={(e) => handleArrayChange(setAboutData, 'values', index, 'title', e.target.value)}
                   placeholder="Tiêu đề"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <textarea
                   value={item.description}
                   onChange={(e) => handleArrayChange(setAboutData, 'values', index, 'description', e.target.value)}
                   placeholder="Mô tả"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-textarea"
                 />
                 <button
                   onClick={() => removeArrayItem(setAboutData, 'values', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setAboutData, 'values', defaultValue)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setAboutData, 'values', defaults.value)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Value
             </button>
           </section>
 
           {/* Achievements */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Achievements</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Achievements</h3>
             {aboutData.achievements.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.icon}
                   onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'icon', e.target.value)}
                   placeholder="Icon"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.title}
                   onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'title', e.target.value)}
                   placeholder="Tiêu đề"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.year}
                   onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'year', e.target.value)}
                   placeholder="Năm"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <button
                   onClick={() => removeArrayItem(setAboutData, 'achievements', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setAboutData, 'achievements', defaultAchievement)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setAboutData, 'achievements', defaults.achievement)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Achievement
             </button>
           </section>
 
           {/* Leadership */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Leadership</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Leadership</h3>
             {aboutData.leadership.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.name}
                   onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'name', e.target.value)}
                   placeholder="Tên"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.position}
                   onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'position', e.target.value)}
                   placeholder="Chức vụ"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <textarea
                   value={item.description}
                   onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'description', e.target.value)}
                   placeholder="Mô tả"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-textarea"
                 />
                 <input
                   type="text"
                   value={item.image}
                   onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'image', e.target.value)}
                   placeholder="URL hình ảnh"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleArrayImageUpload(setAboutData, 'leadership', index, 'image', e.target.files[0])}
-                  className="mb-2"
+                  className="sys-settings-file-input"
                 />
-                {item.image && <img src={item.image} alt="Leader" className="w-32 h-32 object-cover mb-2" />}
+                {item.image && <img src={item.image} alt="Leader" className="sys-settings-preview-img" />}
                 <button
                   onClick={() => removeArrayItem(setAboutData, 'leadership', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setAboutData, 'leadership', defaultLeader)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setAboutData, 'leadership', defaults.leader)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Leader
             </button>
           </section>
 
-          {/* Facilities (About) */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Facilities</h3>
+          {/* Facilities */}
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Facilities</h3>
             {aboutData.facilities.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.icon}
                   onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'icon', e.target.value)}
                   placeholder="Icon"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.title}
                   onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'title', e.target.value)}
                   placeholder="Tiêu đề"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <textarea
                   value={item.description}
                   onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'description', e.target.value)}
                   placeholder="Mô tả"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-textarea"
                 />
                 <button
                   onClick={() => removeArrayItem(setAboutData, 'facilities', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setAboutData, 'facilities', defaultAboutFacility)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setAboutData, 'facilities', defaults.aboutFacility)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Facility
             </button>
@@ -708,69 +700,70 @@ const SystemSettingsPage = () => {
 
           <button
             onClick={() => saveSettings('about', aboutData)}
-            className="bg-green-500 text-white p-2 rounded hover:bg-green-600"
+            className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
             disabled={loading}
           >
             <FaSave /> Lưu About Settings
           </button>
         </TabPanel>
 
-        <TabPanel className="mt-4">
-          <h2 className="text-xl font-semibold mb-2">Facilities Page Settings</h2>
+        {/* FACILITIES PAGE TAB */}
+        <TabPanel className="sys-settings-tab-panel">
+          <h2 className="sys-settings-section-title">Facilities Page Settings</h2>
 
           {/* Facilities */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Facilities</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Facilities</h3>
             {facilitiesData.facilities.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.icon}
                   onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'icon', e.target.value)}
                   placeholder="Icon"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.title}
                   onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'title', e.target.value)}
                   placeholder="Tiêu đề"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <textarea
                   value={item.description}
                   onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'description', e.target.value)}
                   placeholder="Mô tả"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-textarea"
                 />
                 <input
                   type="text"
                   value={item.image}
                   onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'image', e.target.value)}
                   placeholder="URL hình ảnh"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleArrayImageUpload(setFacilitiesData, 'facilities', index, 'image', e.target.files[0])}
-                  className="mb-2"
+                  className="sys-settings-file-input"
                 />
-                {item.image && <img src={item.image} alt="Facility" className="w-32 h-32 object-cover mb-2" />}
-                <h4 className="font-medium">Features:</h4>
-                {item.features.map((feature, subIndex) => (
-                  <div key={subIndex} className="flex mb-2">
+                {item.image && <img src={item.image} alt="Facility" className="sys-settings-preview-img" />}
+                
+                <h4 className="sys-settings-subitem-title">Features:</h4>
+                {(item.features || []).map((feature, subIndex) => (
+                  <div key={subIndex} className="sys-settings-subitem">
                     <input
                       type="text"
                       value={feature}
                       onChange={(e) => handleSubArrayChange(setFacilitiesData, 'facilities', index, 'features', subIndex, e.target.value)}
                       placeholder="Feature"
-                      className="w-full p-2 border rounded"
+                      className="sys-settings-input-inline"
                     />
                     <button
                       onClick={() => removeSubArrayItem(setFacilitiesData, 'facilities', index, 'features', subIndex)}
-                      className="ml-2 text-red-500 hover:text-red-700"
+                      className="sys-settings-btn sys-settings-btn-danger-sm"
                     >
                       <FaTrash />
                     </button>
@@ -778,86 +771,86 @@ const SystemSettingsPage = () => {
                 ))}
                 <button
                   onClick={() => addSubArrayItem(setFacilitiesData, 'facilities', index, 'features')}
-                  className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+                  className="sys-settings-btn sys-settings-btn-secondary-sm"
                 >
                   <FaPlus /> Thêm Feature
                 </button>
+                
                 <button
                   onClick={() => removeArrayItem(setFacilitiesData, 'facilities', index)}
-                  className="text-red-500 hover:text-red-700 mt-2"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa Facility
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setFacilitiesData, 'facilities', { ...defaultFacility, features: [] })}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setFacilitiesData, 'facilities', { ...defaults.facility, features: [] })}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Facility
             </button>
           </section>
 
           {/* Amenities */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Amenities</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Amenities</h3>
             {facilitiesData.amenities.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.icon}
                   onChange={(e) => handleArrayChange(setFacilitiesData, 'amenities', index, 'icon', e.target.value)}
                   placeholder="Icon"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.name}
                   onChange={(e) => handleArrayChange(setFacilitiesData, 'amenities', index, 'name', e.target.value)}
                   placeholder="Tên"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <button
                   onClick={() => removeArrayItem(setFacilitiesData, 'amenities', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setFacilitiesData, 'amenities', defaultAmenity)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setFacilitiesData, 'amenities', defaults.amenity)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Amenity
             </button>
           </section>
 
           {/* Gallery */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Gallery</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Gallery</h3>
             <input
               type="file"
               multiple
               accept="image/*"
               onChange={(e) => handleMultipleUpload(setFacilitiesData, 'gallery', e.target.files)}
-              className="mb-2"
+              className="sys-settings-file-input sys-settings-file-input-multiple"
             />
-            <div className="grid grid-cols-3 gap-4">
+            <div className="sys-settings-gallery-grid">
               {facilitiesData.gallery.map((item, index) => (
-                <div key={index} className="border p-2 rounded">
-                  <img src={item.url} alt={item.title} className="w-full h-32 object-cover mb-2" />
+                <div key={index} className="sys-settings-gallery-item">
+                  <img src={item.url} alt={item.title} className="sys-settings-gallery-img" />
                   <input
                     type="text"
                     value={item.title}
                     onChange={(e) => handleArrayChange(setFacilitiesData, 'gallery', index, 'title', e.target.value)}
                     placeholder="Tiêu đề"
-                    className="w-full p-2 mb-2 border rounded"
+                    className="sys-settings-input"
                   />
                   <button
                     onClick={() => removeArrayItem(setFacilitiesData, 'gallery', index)}
-                    className="text-red-500 hover:text-red-700"
+                    className="sys-settings-btn sys-settings-btn-danger-sm"
                   >
                     <FaTrash /> Xóa
                   </button>
@@ -868,129 +861,127 @@ const SystemSettingsPage = () => {
 
           <button
             onClick={() => saveSettings('facilities', facilitiesData)}
-            className="bg-green-500 text-white p-2 rounded hover:bg-green-600"
+            className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
             disabled={loading}
           >
             <FaSave /> Lưu Facilities Settings
           </button>
         </TabPanel>
 
-        <TabPanel className="mt-4">
-          <h2 className="text-xl font-semibold mb-2">Equipment Page Settings</h2>
+        {/* EQUIPMENT PAGE TAB */}
+        <TabPanel className="sys-settings-tab-panel">
+          <h2 className="sys-settings-section-title">Equipment Page Settings</h2>
 
           {/* Categories */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Categories</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Categories</h3>
             {equipmentData.categories.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.id}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'categories', index, 'id', e.target.value)}
                   placeholder="ID"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.name}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'categories', index, 'name', e.target.value)}
                   placeholder="Tên"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.icon}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'categories', index, 'icon', e.target.value)}
                   placeholder="Icon"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <button
                   onClick={() => removeArrayItem(setEquipmentData, 'categories', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setEquipmentData, 'categories', defaultCategory)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setEquipmentData, 'categories', defaults.category)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Category
             </button>
           </section>
 
           {/* Equipment */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Equipment</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Equipment</h3>
             {equipmentData.equipment.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.category}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'category', e.target.value)}
                   placeholder="Danh mục"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.name}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'name', e.target.value)}
                   placeholder="Tên"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.brand}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'brand', e.target.value)}
                   placeholder="Thương hiệu"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.origin}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'origin', e.target.value)}
                   placeholder="Xuất xứ"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.year}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'year', e.target.value)}
                   placeholder="Năm"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.image}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'image', e.target.value)}
                   placeholder="URL hình ảnh"
-                  className="w-full p-2 mb-2 border rounded"
+                  className="sys-settings-input"
                 />
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleArrayImageUpload(setEquipmentData, 'equipment', index, 'image', e.target.files[0])}
-                  className="mb-2"
+                  className="sys-settings-file-input"
                 />
-                {item.image && <img src={item.image} alt="Equipment" className="w-32 h-32 object-cover mb-2" />}
-                <h4 className="font-medium">Features:</h4>
-                {item.features.map((feature, subIndex) => (
-                  <div key={subIndex} className="flex mb-2">
+                {item.image && <img src={item.image} alt="Equipment" className="sys-settings-preview-img" />}
+                
+                <h4 className="sys-settings-subitem-title">Features:</h4>
+                {(item.features || []).map((feature, subIndex) => (
+                  <div key={subIndex} className="sys-settings-subitem">
                     <input
                       type="text"
                       value={feature}
                       onChange={(e) => handleSubArrayChange(setEquipmentData, 'equipment', index, 'features', subIndex, e.target.value)}
                       placeholder="Feature"
-                      className="w-full p-2 border rounded"
+                      className="sys-settings-input-inline"
                     />
                     <button
                       onClick={() => removeSubArrayItem(setEquipmentData, 'equipment', index, 'features', subIndex)}
-                      className="ml-2 text-red-500 hover:text-red-700"
+                      className="sys-settings-btn sys-settings-btn-danger-sm"
                     >
                       <FaTrash />
                     </button>
@@ -998,23 +989,24 @@ const SystemSettingsPage = () => {
                 ))}
                 <button
                   onClick={() => addSubArrayItem(setEquipmentData, 'equipment', index, 'features')}
-                  className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+                  className="sys-settings-btn sys-settings-btn-secondary-sm"
                 >
                   <FaPlus /> Thêm Feature
                 </button>
-                <h4 className="font-medium mt-2">Applications:</h4>
-                {item.applications.map((app, subIndex) => (
-                  <div key={subIndex} className="flex mb-2">
+                
+                <h4 className="sys-settings-subitem-title">Applications:</h4>
+                {(item.applications || []).map((app, subIndex) => (
+                  <div key={subIndex} className="sys-settings-subitem">
                     <input
                       type="text"
                       value={app}
                       onChange={(e) => handleSubArrayChange(setEquipmentData, 'equipment', index, 'applications', subIndex, e.target.value)}
                       placeholder="Application"
-                      className="w-full p-2 border rounded"
+                      className="sys-settings-input-inline"
                     />
                     <button
                       onClick={() => removeSubArrayItem(setEquipmentData, 'equipment', index, 'applications', subIndex)}
-                      className="ml-2 text-red-500 hover:text-red-700"
+                      className="sys-settings-btn sys-settings-btn-danger-sm"
                     >
                       <FaTrash />
                     </button>
@@ -1022,58 +1014,57 @@ const SystemSettingsPage = () => {
                 ))}
                 <button
                   onClick={() => addSubArrayItem(setEquipmentData, 'equipment', index, 'applications')}
-                  className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+                  className="sys-settings-btn sys-settings-btn-secondary-sm"
                 >
                   <FaPlus /> Thêm Application
                 </button>
+                
                 <button
                   onClick={() => removeArrayItem(setEquipmentData, 'equipment', index)}
-                  className="text-red-500 hover:text-red-700 mt-2"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa Equipment
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setEquipmentData, 'equipment', { ...defaultEquipmentItem, features: [], applications: [] })}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setEquipmentData, 'equipment', { ...defaults.equipmentItem, features: [], applications: [] })}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Equipment
             </button>
           </section>
 
           {/* Stats */}
-          <section className="mb-4">
-            <h3 className="text-lg font-medium">Stats</h3>
+          <section className="sys-settings-section">
+            <h3 className="sys-settings-subsection-title">Stats</h3>
             {equipmentData.stats.map((item, index) => (
-              <div key={index} className="border p-4 mb-2 rounded">
+              <div key={index} className="sys-settings-card">
                 <input
                   type="text"
                   value={item.number}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'stats', index, 'number', e.target.value)}
                   placeholder="Số liệu"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <input
                   type="text"
                   value={item.label}
                   onChange={(e) => handleArrayChange(setEquipmentData, 'stats', index, 'label', e.target.value)}
                   placeholder="Nhãn"
-                  className="w-full p-2 mb-2 border rounded"
-                  required
+                  className="sys-settings-input"
                 />
                 <button
                   onClick={() => removeArrayItem(setEquipmentData, 'stats', index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="sys-settings-btn sys-settings-btn-danger"
                 >
                   <FaTrash /> Xóa
                 </button>
               </div>
             ))}
             <button
-              onClick={() => addArrayItem(setEquipmentData, 'stats', defaultEquipmentStat)}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              onClick={() => addArrayItem(setEquipmentData, 'stats', defaults.equipmentStat)}
+              className="sys-settings-btn sys-settings-btn-primary"
             >
               <FaPlus /> Thêm Stat
             </button>
@@ -1081,7 +1072,7 @@ const SystemSettingsPage = () => {
 
           <button
             onClick={() => saveSettings('equipment', equipmentData)}
-            className="bg-green-500 text-white p-2 rounded hover:bg-green-600"
+            className="sys-settings-btn sys-settings-btn-success sys-settings-btn-save"
             disabled={loading}
           >
             <FaSave /> Lưu Equipment Settings
