@@ -1,21 +1,27 @@
-// src/pages/FacilitiesPage.js
-// Lấy dữ liệu động từ database thông qua API /api/settings/facilities
+/* 
+ * Tệp: FacilitiesPage.js - PHIÊN BẢN MỚI
+ * Mô tả: Trang "Cơ sở vật chất" với 5 sections theo yêu cầu mới
+ * API: /api/settings/facilities
+ */
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaCheckCircle } from 'react-icons/fa';
+import * as FaIcons from 'react-icons/fa';
 import './FacilitiesPage.css';
 
 const FacilitiesPage = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [facilitiesData, setFacilitiesData] = useState({
-    facilities: [],
+    banner: {},
     amenities: [],
-    gallery: []
+    facilities: [],
+    gallery: [],
+    stats: []
   });
   const [isVisible, setIsVisible] = useState({});
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const iconMap = { ...FaIcons };
 
   useEffect(() => {
     const fetchFacilitiesData = async () => {
@@ -23,12 +29,11 @@ const FacilitiesPage = () => {
         const response = await axios.get('http://localhost:3001/api/settings/facilities');
         if (response.data) {
           setFacilitiesData(response.data);
+          setError(null);
         }
       } catch (error) {
-        console.error('Error fetching facilities data:', error);
+        console.error('Lỗi khi lấy dữ liệu cơ sở vật chất:', error);
         setError('Không thể tải thông tin cơ sở vật chất. Vui lòng thử lại sau.');
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -45,119 +50,108 @@ const FacilitiesPage = () => {
       { threshold: 0.1 }
     );
 
-    const sections = document.querySelectorAll('.animate-section');
+    const sections = document.querySelectorAll('.facilitiespage-animate-section');
     sections.forEach(section => observer.observe(section));
 
     return () => sections.forEach(section => observer.unobserve(section));
   }, []);
 
-  if (loading) {
-    return (
-      <div className="facilities-page">
-        <section className="facilities-hero">
-          <div className="container">
-            <h1>Cơ sở vật chất</h1>
-            <p className="hero-subtitle">Đang tải thông tin...</p>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
   if (error) {
     return (
-      <div className="facilities-page">
-        <section className="facilities-hero">
-          <div className="container">
-            <h1>Cơ sở vật chất</h1>
-            <p className="error-text">{error}</p>
-          </div>
+      <div className="facilitiespage-page">
+        <section className="facilitiespage-hero">
+          <p className="facilitiespage-error-text">{error}</p>
         </section>
       </div>
     );
   }
 
   return (
-    <div className="facilities-page">
-      {/* Hero */}
-      <section className="facilities-hero">
-        <div className="container">
-          <h1>Cơ sở vật chất</h1>
-          <p className="hero-subtitle">
-            Không gian hiện đại, sạch sẽ và thân thiện, được thiết kế để mang lại sự thoải mái tối đa cho bệnh nhân
+    <div className="facilitiespage-page">
+      {/* 1. Banner */}
+      <section className="facilitiespage-hero"
+        style={{ 
+          background: facilitiesData.banner?.image 
+            ? `linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.85) 100%), url(${facilitiesData.banner.image})` 
+            : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}>
+        <div className="facilitiespage-container">
+          <h1>{facilitiesData.banner?.title || 'Cơ sở vật chất'}</h1>
+          <p className="facilitiespage-hero-subtitle">
+            {facilitiesData.banner?.subtitle || facilitiesData.banner?.description || 
+              'Không gian hiện đại, sạch sẽ và thân thiện, được thiết kế để mang lại sự thoải mái tối đa cho bệnh nhân'}
           </p>
         </div>
       </section>
 
-      {/* Amenities Bar */}
-      {facilitiesData.amenities.length > 0 && (
-        <section className="amenities-bar animate-section" id="amenities">
-          <div className="container">
-            <div className="amenities-grid">
-              {facilitiesData.amenities.map((amenity, index) => (
-                <div key={index} className="amenity-item">
-                  {typeof amenity.icon === 'string' ? (
-                    <FaCheckCircle />
-                  ) : (
-                    amenity.icon
-                  )}
-                  <span>{amenity.name}</span>
-                </div>
-              ))}
+      {/* 2. Tiện ích */}
+      {facilitiesData.amenities && facilitiesData.amenities.length > 0 && (
+        <section className="facilitiespage-section-container facilitiespage-amenities-bar facilitiespage-animate-section" id="amenities">
+          <div className="facilitiespage-container">
+            <h2 className="facilitiespage-section-title">Tiện ích</h2>
+            <div className="facilitiespage-amenities-grid">
+              {facilitiesData.amenities.map((amenity, index) => {
+                const Icon = iconMap[amenity.icon] || iconMap.FaWifi;
+                return (
+                  <div key={index} className="facilitiespage-amenity-item">
+                    <Icon />
+                    <span>{amenity.name}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
       )}
 
-      {/* Main Facilities */}
-      {facilitiesData.facilities.length > 0 && (
-        <section className="facilities-section animate-section" id="facilities">
-          <div className="container">
-            <h2 className="section-title">Các khu vực chính</h2>
-            <div className="facilities-grid">
-              {facilitiesData.facilities.map((facility, index) => (
-                <div key={index} className="facility-card">
-                  <div className="facility-image" onClick={() => setSelectedImage(facility.image)}>
-                    <img src={facility.image} alt={facility.title} />
-                    <div className="facility-overlay">
-                      <span>Xem chi tiết</span>
+      {/* 3. Các khu vực chính */}
+      {facilitiesData.facilities && facilitiesData.facilities.length > 0 && (
+        <section className="facilitiespage-section-container facilitiespage-facilities-section facilitiespage-animate-section" id="facilities">
+          <div className="facilitiespage-container">
+            <h2 className="facilitiespage-section-title">Các khu vực chính</h2>
+            <div className="facilitiespage-facilities-grid">
+              {facilitiesData.facilities.map((facility, index) => {
+                const Icon = iconMap[facility.icon] || iconMap.FaBuilding;
+                return (
+                  <div key={index} className="facilitiespage-facility-card">
+                    <div className="facilitiespage-facility-image" onClick={() => setSelectedImage(facility.image)}>
+                      <img src={facility.image} alt={facility.alt || facility.title} />
+                      <div className="facilitiespage-facility-overlay">
+                        <span>Xem chi tiết</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="facility-content">
-                    <div className="facility-icon">
-                      {typeof facility.icon === 'string' ? (
-                        <FaCheckCircle />
-                      ) : (
-                        facility.icon
+                    <div className="facilitiespage-facility-content">
+                      <div className="facilitiespage-facility-icon"><Icon /></div>
+                      <h3>{facility.title}</h3>
+                      <p>{facility.description}</p>
+                      {facility.features && facility.features.length > 0 && (
+                        <ul className="facilitiespage-facility-features">
+                          {facility.features.map((feature, idx) => (
+                            <li key={idx}>✓ {feature}</li>
+                          ))}
+                        </ul>
                       )}
                     </div>
-                    <h3>{facility.title}</h3>
-                    <p>{facility.description}</p>
-                    {facility.features && facility.features.length > 0 && (
-                      <ul className="facility-features">
-                        {facility.features.map((feature, idx) => (
-                          <li key={idx}>✓ {feature}</li>
-                        ))}
-                      </ul>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>
       )}
 
-      {/* Gallery */}
-      {facilitiesData.gallery.length > 0 && (
-        <section className="gallery-section animate-section" id="gallery">
-          <div className="container">
-            <h2 className="section-title">Thư viện hình ảnh</h2>
-            <div className="gallery-grid">
+      {/* 4. Thư viện hình ảnh */}
+      {facilitiesData.gallery && facilitiesData.gallery.length > 0 && (
+        <section className="facilitiespage-section-container facilitiespage-gallery-section facilitiespage-animate-section" id="gallery">
+          <div className="facilitiespage-container">
+            <h2 className="facilitiespage-section-title">Thư viện hình ảnh</h2>
+            <div className="facilitiespage-gallery-grid">
               {facilitiesData.gallery.map((item, index) => (
-                <div key={index} className="gallery-item" onClick={() => setSelectedImage(item.url)}>
-                  <img src={item.url} alt={item.title} />
-                  <div className="gallery-caption">{item.title}</div>
+                <div key={index} className="facilitiespage-gallery-item" onClick={() => setSelectedImage(item.url)}>
+                  <img src={item.url} alt={item.alt || item.title} />
+                  <div className="facilitiespage-gallery-caption">{item.title}</div>
                 </div>
               ))}
             </div>
@@ -165,36 +159,29 @@ const FacilitiesPage = () => {
         </section>
       )}
 
-      {/* Stats */}
-      <section className="facilities-stats animate-section" id="stats">
-        <div className="container">
-          <div className="stats-grid">
-            <div className="stat-item">
-              <div className="stat-number">2000m²</div>
-              <div className="stat-label">Diện tích</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-number">50</div>
-              <div className="stat-label">Giường bệnh</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-number">15</div>
-              <div className="stat-label">Phòng khám</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-number">24/7</div>
-              <div className="stat-label">Hoạt động</div>
+      {/* 5. Thống kê */}
+      {facilitiesData.stats && facilitiesData.stats.length > 0 && (
+        <section className="facilitiespage-section-container facilitiespage-facilities-stats facilitiespage-animate-section" id="stats">
+          <div className="facilitiespage-container">
+            <h2 className="facilitiespage-section-title">Thống kê</h2>
+            <div className="facilitiespage-stats-grid">
+              {facilitiesData.stats.map((stat, index) => (
+                <div key={index} className="facilitiespage-stat-item">
+                  <div className="facilitiespage-stat-number">{stat.number}</div>
+                  <div className="facilitiespage-stat-label">{stat.label}</div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Image Modal */}
       {selectedImage && (
-        <div className="image-modal" onClick={() => setSelectedImage(null)}>
-          <div className="modal-content">
+        <div className="facilitiespage-image-modal" onClick={() => setSelectedImage(null)}>
+          <div className="facilitiespage-modal-content" onClick={(e) => e.stopPropagation()}>
             <img src={selectedImage} alt="Preview" />
-            <button className="modal-close">&times;</button>
+            <button className="facilitiespage-modal-close" onClick={() => setSelectedImage(null)}>&times;</button>
           </div>
         </div>
       )}

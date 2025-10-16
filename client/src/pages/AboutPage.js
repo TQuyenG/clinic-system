@@ -1,40 +1,34 @@
 /* 
- * File: AboutPage.js
- * Mô tả: Trang "Về chúng tôi" lấy dữ liệu động từ database thông qua API
- * API endpoint: /api/settings/about
+ * Tệp: AboutPage.js - PHIÊN BẢN MỚI
+ * Mô tả: Trang "Về chúng tôi" với 10 sections theo yêu cầu mới
+ * API: /api/settings/about, /api/specialties, /api/users/doctors
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { 
-  FaHospital, 
-  FaAward, 
-  FaUserMd, 
-  FaStethoscope,
-  FaCheckCircle,
-  FaCalendarAlt,
-  FaStar,
-  FaArrowRight,
-  FaChevronLeft,
-  FaChevronRight
-} from 'react-icons/fa';
+import * as FaIcons from 'react-icons/fa';
 import './AboutPage.css';
 
 const AboutPage = () => {
   const [specialties, setSpecialties] = useState([]);
   const [doctors, setDoctors] = useState([]);
-  const [isVisible, setIsVisible] = useState({});
   const [currentMilestone, setCurrentMilestone] = useState(0);
   const [aboutData, setAboutData] = useState({
+    banner: {},
+    mission: {},
+    vision: {},
     milestones: [],
+    stats: [],
     values: [],
-    achievements: [],
     leadership: [],
+    achievements: [],
     facilities: []
   });
-  const [loading, setLoading] = useState(true);
+  const [isVisible, setIsVisible] = useState({});
   const [error, setError] = useState(null);
+
+  const iconMap = { ...FaIcons };
 
   useEffect(() => {
     const fetchAboutData = async () => {
@@ -42,12 +36,11 @@ const AboutPage = () => {
         const response = await axios.get('http://localhost:3001/api/settings/about');
         if (response.data) {
           setAboutData(response.data);
+          setError(null);
         }
       } catch (error) {
-        console.error('Error fetching about data:', error);
+        console.error('Lỗi khi lấy dữ liệu về:', error);
         setError('Không thể tải thông tin. Vui lòng thử lại sau.');
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -59,7 +52,7 @@ const AboutPage = () => {
           setSpecialties(data.specialties);
         }
       } catch (error) {
-        console.error('Error fetching specialties:', error);
+        console.error('Lỗi khi lấy dữ liệu chuyên khoa:', error);
       }
     };
 
@@ -71,7 +64,7 @@ const AboutPage = () => {
           setDoctors(data.doctors);
         }
       } catch (error) {
-        console.error('Error fetching doctors:', error);
+        console.error('Lỗi khi lấy dữ liệu bác sĩ:', error);
       }
     };
 
@@ -90,7 +83,7 @@ const AboutPage = () => {
       { threshold: 0.1 }
     );
 
-    const sections = document.querySelectorAll('.animate-section');
+    const sections = document.querySelectorAll('.aboutpage-animate-section');
     sections.forEach(section => observer.observe(section));
 
     return () => sections.forEach(section => observer.unobserve(section));
@@ -108,105 +101,102 @@ const AboutPage = () => {
     setCurrentMilestone(index);
   };
 
-  if (loading) {
-    return (
-      <div className="about-container">
-        <section className="hero">
-          <div className="hero-content">
-            <h1 className="hero-title">Clinic System</h1>
-            <p className="hero-subtitle">Đang tải thông tin...</p>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
   if (error) {
     return (
-      <div className="about-container">
-        <section className="hero">
-          <div className="hero-content">
-            <h1 className="hero-title">Clinic System</h1>
-            <p className="error-text">{error}</p>
-          </div>
+      <div className="aboutpage-container">
+        <section className="aboutpage-hero">
+          <p className="aboutpage-error-text">{error}</p>
         </section>
       </div>
     );
   }
 
   return (
-    <div className="about-container">
-      {/* Hero Section */}
-      <section className="hero">
-        <div className="hero-overlay"></div>
-        <div className="hero-content">
-          <div className="hero-badge">
-            <FaHospital />
+    <div className="aboutpage-container">
+      {/* 1. Banner */}
+      <section className="aboutpage-hero" 
+        style={{ backgroundImage: `url(${aboutData.banner?.image || 'https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=1920&h=600&fit=crop'})` }}>
+        <div className="aboutpage-hero-overlay"></div>
+        <div className="aboutpage-hero-content">
+          <div className="aboutpage-hero-badge">
+            <FaIcons.FaHospital />
             <span>Về chúng tôi</span>
           </div>
-          <h1 className="hero-title">Clinic System</h1>
-          <h2 className="hero-subtitle">Đồng hành cùng sức khỏe cộng đồng từ 2009</h2>
-          <p className="hero-description">
-            Với hơn 15 năm kinh nghiệm, chúng tôi tự hào là đơn vị tiên phong trong việc 
-            mang đến dịch vụ y tế chất lượng cao, kết hợp chuyên môn xuất sắc và công nghệ hiện đại.
+          <h1 className="aboutpage-hero-title">{aboutData.banner?.title || 'Clinic System'}</h1>
+          <h2 className="aboutpage-hero-subtitle">{aboutData.banner?.subtitle || 'Đồng hành cùng sức khỏe cộng đồng'}</h2>
+          <p className="aboutpage-hero-description">
+            {aboutData.banner?.description || 'Với hơn 15 năm kinh nghiệm, chúng tôi tự hào là đơn vị tiên phong...'}
           </p>
         </div>
       </section>
 
-      {/* Mission & Vision Section */}
-      <section className="mission-section animate-section" id="mission">
-        <div className="section-content">
-          <div className="mission-grid">
-            {aboutData.values.slice(0, 2).map((value, index) => (
-              <div key={index} className="mission-card">
-                <div className="mission-image">
-                  <img 
-                    src={value.image || `https://images.unsplash.com/photo-${index === 0 ? '1631217868264-e5b90bb7e133' : '1576091160550-2173dba999ef'}?w=600&h=400&fit=crop`} 
-                    alt={value.title} 
-                  />
-                  <div className="mission-icon-overlay">
-                    {value.icon || <FaCheckCircle />}
+      {/* 2. Sứ mệnh & Tầm nhìn */}
+      <section className="aboutpage-section-container aboutpage-mission-section aboutpage-animate-section" id="mission">
+        <div className="aboutpage-section-content">
+          <h2 className="aboutpage-section-title">Sứ mệnh & Tầm nhìn</h2>
+          <div className="aboutpage-mission-grid">
+            {/* Sứ mệnh */}
+            {aboutData.mission && aboutData.mission.title && (
+              <div className="aboutpage-mission-card">
+                <div className="aboutpage-mission-image">
+                  <img src={aboutData.mission.image || 'https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=600&h=400&fit=crop'} 
+                    alt={aboutData.mission.alt || 'Sứ mệnh'} />
+                  <div className="aboutpage-mission-icon-overlay">
+                    {iconMap[aboutData.mission.icon] ? React.createElement(iconMap[aboutData.mission.icon]) : <FaIcons.FaLeaf />}
                   </div>
                 </div>
-                <div className="mission-content">
-                  <h3 className="mission-title">{value.title}</h3>
-                  <p className="mission-text">{value.description}</p>
+                <div className="aboutpage-mission-content">
+                  <h3 className="aboutpage-mission-title">{aboutData.mission.title}</h3>
+                  <p className="aboutpage-mission-text">{aboutData.mission.description}</p>
                 </div>
               </div>
-            ))}
+            )}
+            
+            {/* Tầm nhìn */}
+            {aboutData.vision && aboutData.vision.title && (
+              <div className="aboutpage-mission-card">
+                <div className="aboutpage-mission-image">
+                  <img src={aboutData.vision.image || 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=400&fit=crop'} 
+                    alt={aboutData.vision.alt || 'Tầm nhìn'} />
+                  <div className="aboutpage-mission-icon-overlay">
+                    {iconMap[aboutData.vision.icon] ? React.createElement(iconMap[aboutData.vision.icon]) : <FaIcons.FaHeartbeat />}
+                  </div>
+                </div>
+                <div className="aboutpage-mission-content">
+                  <h3 className="aboutpage-mission-title">{aboutData.vision.title}</h3>
+                  <p className="aboutpage-mission-text">{aboutData.vision.description}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Timeline Section */}
-      {aboutData.milestones.length > 0 && (
-        <section className="timeline-section animate-section" id="timeline">
-          <div className="section-content">
-            <div className="section-header">
-              <span className="section-badge">Hành trình</span>
-              <h2 className="section-title">Lịch sử phát triển</h2>
-            </div>
-
-            <div className="timeline-slider">
-              <button className="timeline-nav prev" onClick={prevMilestone}>
-                <FaChevronLeft />
+      {/* 3. Lịch sử phát triển */}
+      {aboutData.milestones && aboutData.milestones.length > 0 && (
+        <section className="aboutpage-section-container aboutpage-timeline-section aboutpage-animate-section" id="timeline">
+          <div className="aboutpage-section-content">
+            <h2 className="aboutpage-section-title">Lịch sử phát triển</h2>
+            <div className="aboutpage-timeline-slider">
+              <button className="aboutpage-timeline-nav aboutpage-prev" onClick={prevMilestone}>
+                <FaIcons.FaChevronLeft />
               </button>
               
-              <div className="timeline-track">
+              <div className="aboutpage-timeline-track">
                 <div 
-                  className="timeline-items"
+                  className="aboutpage-timeline-items"
                   style={{ transform: `translateX(-${currentMilestone * 100}%)` }}
                 >
                   {aboutData.milestones.map((milestone, index) => (
-                    <div key={index} className="timeline-slide">
-                      <div className="timeline-card">
-                        <div className="timeline-image">
-                          <img src={milestone.image} alt={milestone.title} />
-                          <div className="timeline-year-badge">{milestone.year}</div>
+                    <div key={index} className="aboutpage-timeline-slide">
+                      <div className="aboutpage-timeline-card">
+                        <div className="aboutpage-timeline-image">
+                          <img src={milestone.image} alt={milestone.alt || milestone.title} />
+                          <div className="aboutpage-timeline-year-badge">{milestone.year}</div>
                         </div>
-                        <div className="timeline-content">
-                          <h3 className="timeline-title">{milestone.title}</h3>
-                          <p className="timeline-desc">{milestone.description}</p>
+                        <div className="aboutpage-timeline-content">
+                          <h3 className="aboutpage-timeline-title">{milestone.title}</h3>
+                          <p className="aboutpage-timeline-desc">{milestone.description}</p>
                         </div>
                       </div>
                     </div>
@@ -214,84 +204,74 @@ const AboutPage = () => {
                 </div>
               </div>
               
-              <button className="timeline-nav next" onClick={nextMilestone}>
-                <FaChevronRight />
+              <button className="aboutpage-timeline-nav aboutpage-next" onClick={nextMilestone}>
+                <FaIcons.FaChevronRight />
               </button>
             </div>
 
-            <div className="timeline-dots">
-              {aboutData.milestones.map((milestone, index) => (
+            <div className="aboutpage-timeline-dots">
+              {aboutData.milestones.map((_, index) => (
                 <button
                   key={index}
-                  className={`timeline-dot ${index === currentMilestone ? 'active' : ''}`}
+                  className={`aboutpage-timeline-dot ${index === currentMilestone ? 'active' : ''}`}
                   onClick={() => goToMilestone(index)}
                 >
-                  <span>{milestone.year}</span>
+                  <span>{aboutData.milestones[index].year}</span>
                 </button>
               ))}
             </div>
 
-            <div className="timeline-summary">
-              <div className="summary-stats">
-                <div className="summary-stat">
-                  <h4>15+</h4>
-                  <p>Năm phát triển</p>
-                </div>
-                <div className="summary-stat">
-                  <h4>100K+</h4>
-                  <p>Bệnh nhân/năm</p>
-                </div>
-                <div className="summary-stat">
-                  <h4>50+</h4>
-                  <p>Bác sĩ chuyên khoa</p>
-                </div>
-                <div className="summary-stat">
-                  <h4>5</h4>
-                  <p>Chi nhánh</p>
+            {/* 4. Thống kê - Hiển thị ở đây thay vì hardcode */}
+            {aboutData.stats && aboutData.stats.length > 0 && (
+              <div className="aboutpage-timeline-summary">
+                <div className="aboutpage-summary-stats">
+                  {aboutData.stats.map((stat, index) => (
+                    <div key={index} className="aboutpage-summary-stat">
+                      <h4>{stat.number}</h4>
+                      <p>{stat.label}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* 5. Nguyên tắc hoạt động */}
+      {aboutData.values && aboutData.values.length > 0 && (
+        <section className="aboutpage-section-container aboutpage-values-section aboutpage-animate-section" id="values">
+          <div className="aboutpage-section-content">
+            <h2 className="aboutpage-section-title">Nguyên tắc hoạt động</h2>
+            <div className="aboutpage-values-grid">
+              {aboutData.values.map((value, index) => {
+                const Icon = iconMap[value.icon] || iconMap.FaHeart;
+                return (
+                  <div key={index} className="aboutpage-value-card">
+                    <div className="aboutpage-value-icon"><Icon /></div>
+                    <h3 className="aboutpage-value-title">{value.title}</h3>
+                    <p className="aboutpage-value-desc">{value.description}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
       )}
 
-      {/* Values Section */}
-      {aboutData.values.length > 0 && (
-        <section className="values-section animate-section" id="values">
-          <div className="section-content">
-            <div className="section-header">
-              <span className="section-badge">Giá trị cốt lõi</span>
-              <h2 className="section-title">Nguyên tắc hoạt động</h2>
-            </div>
-            <div className="values-grid">
-              {aboutData.values.map((value, index) => (
-                <div key={index} className="value-card">
-                  <div className="value-icon">{value.icon || <FaCheckCircle />}</div>
-                  <h3 className="value-title">{value.title}</h3>
-                  <p className="value-desc">{value.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Leadership Section */}
-      {aboutData.leadership.length > 0 && (
-        <section className="leadership-section animate-section" id="leadership">
-          <div className="section-content">
-            <div className="section-header">
-              <span className="section-badge">Ban lãnh đạo</span>
-              <h2 className="section-title">Đội ngũ điều hành</h2>
-            </div>
-            <div className="leadership-grid">
+      {/* 6. Đội ngũ điều hành */}
+      {aboutData.leadership && aboutData.leadership.length > 0 && (
+        <section className="aboutpage-section-container aboutpage-leadership-section aboutpage-animate-section" id="leadership">
+          <div className="aboutpage-section-content">
+            <h2 className="aboutpage-section-title">Đội ngũ điều hành</h2>
+            <div className="aboutpage-leadership-grid">
               {aboutData.leadership.map((leader, index) => (
-                <div key={index} className="leader-card">
-                  <img src={leader.image} alt={leader.name} className="leader-image" />
-                  <div className="leader-info">
-                    <h3 className="leader-name">{leader.name}</h3>
-                    <p className="leader-position">{leader.position}</p>
-                    <p className="leader-desc">{leader.description}</p>
+                <div key={index} className="aboutpage-leader-card">
+                  <img src={leader.image} alt={leader.alt || leader.name} className="aboutpage-leader-image" />
+                  <div className="aboutpage-leader-info">
+                    <h3 className="aboutpage-leader-name">{leader.name}</h3>
+                    <p className="aboutpage-leader-position">{leader.position}</p>
+                    <p className="aboutpage-leader-desc">{leader.description}</p>
                   </div>
                 </div>
               ))}
@@ -300,105 +280,103 @@ const AboutPage = () => {
         </section>
       )}
 
-      {/* Achievements Section */}
-      {aboutData.achievements.length > 0 && (
-        <section className="achievements-section animate-section" id="achievements">
-          <div className="section-content">
-            <div className="section-header">
-              <span className="section-badge">Thành tựu</span>
-              <h2 className="section-title">Giải thưởng & Chứng nhận</h2>
-            </div>
-            <div className="achievements-grid">
-              {aboutData.achievements.map((achievement, index) => (
-                <div key={index} className="achievement-card">
-                  <div className="achievement-icon">{achievement.icon || <FaAward />}</div>
-                  <h3 className="achievement-title">{achievement.title}</h3>
-                  <span className="achievement-year">{achievement.year}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Facilities Section */}
-      {aboutData.facilities.length > 0 && (
-        <section className="facilities-section animate-section" id="facilities">
-          <div className="section-content">
-            <div className="section-header">
-              <span className="section-badge">Cơ sở vật chất</span>
-              <h2 className="section-title">Trang thiết bị hiện đại</h2>
-            </div>
-            <div className="facilities-grid">
-              {aboutData.facilities.map((facility, index) => (
-                <div key={index} className="facility-card">
-                  <div className="facility-icon">{facility.icon || <FaHospital />}</div>
-                  <h3 className="facility-title">{facility.title}</h3>
-                  <p className="facility-desc">{facility.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Doctors Section */}
-      {doctors.length > 0 && (
-        <section className="doctors-section animate-section" id="doctors">
-          <div className="section-content">
-            <div className="section-header">
-              <span className="section-badge">Đội ngũ y bác sĩ</span>
-              <h2 className="section-title">Bác sĩ tiêu biểu</h2>
-              <p className="section-subtitle">
-                Đội ngũ hơn 50 bác sĩ chuyên khoa giỏi, tận tâm với nghề
-              </p>
-            </div>
-            <div className="doctors-grid">
-              {doctors.map((doctor) => (
-                <div key={doctor.id} className="doctor-card">
-                  <img 
-                    src={doctor.avatar_url} 
-                    alt={doctor.full_name} 
-                    className="doctor-image"
-                    onError={(e) => e.target.src = 'https://via.placeholder.com/300?text=Doctor'}
-                  />
-                  <div className="doctor-info">
-                    <h3 className="doctor-name">{doctor.full_name}</h3>
-                    <p className="doctor-specialty">
-                      <FaStethoscope />
-                      {doctor.specialty_name}
-                    </p>
-                    <p className="doctor-experience">
-                      <FaAward />
-                      {doctor.experience_years} năm kinh nghiệm
-                    </p>
+      {/* 7. Giải thưởng & Chứng nhận */}
+      {aboutData.achievements && aboutData.achievements.length > 0 && (
+        <section className="aboutpage-section-container aboutpage-achievements-section aboutpage-animate-section" id="achievements">
+          <div className="aboutpage-section-content">
+            <h2 className="aboutpage-section-title">Giải thưởng & Chứng nhận</h2>
+            <div className="aboutpage-achievements-grid">
+              {aboutData.achievements.map((achievement, index) => {
+                const Icon = iconMap[achievement.icon] || iconMap.FaTrophy;
+                return (
+                  <div key={index} className="aboutpage-achievement-card">
+                    <div className="aboutpage-achievement-icon"><Icon /></div>
+                    <h3 className="aboutpage-achievement-title">{achievement.title}</h3>
+                    <span className="aboutpage-achievement-year">{achievement.year}</span>
                   </div>
-                </div>
-              ))}
-            </div>
-            <div className="section-footer">
-              <Link to="/doctors" className="btn-outline">
-                Xem tất cả bác sĩ
-                <FaArrowRight />
-              </Link>
+                );
+              })}
             </div>
           </div>
         </section>
       )}
 
-      {/* CTA Section */}
-      <section className="cta-section">
-        <div className="cta-content">
-          <h2 className="cta-title">Sẵn sàng chăm sóc sức khỏe của bạn?</h2>
-          <p className="cta-text">
+      {/* 8. Trang thiết bị hiện đại */}
+      {aboutData.facilities && aboutData.facilities.length > 0 && (
+        <section className="aboutpage-section-container aboutpage-facilities-section aboutpage-animate-section" id="facilities">
+          <div className="aboutpage-section-content">
+            <h2 className="aboutpage-section-title">Trang thiết bị hiện đại</h2>
+            <div className="aboutpage-facilities-grid">
+              {aboutData.facilities.map((facility, index) => {
+                const Icon = iconMap[facility.icon] || iconMap.FaBuilding;
+                return (
+                  <div key={index} className="aboutpage-facility-card">
+                    <div className="aboutpage-facility-icon"><Icon /></div>
+                    <h3 className="aboutpage-facility-title">{facility.title}</h3>
+                    <p className="aboutpage-facility-desc">{facility.description}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 9. Bác sĩ tiêu biểu */}
+      <section className="aboutpage-section-container aboutpage-doctors-section aboutpage-animate-section" id="doctors">
+        <div className="aboutpage-section-content">
+          <h2 className="aboutpage-section-title">Bác sĩ tiêu biểu</h2>
+          {doctors.length > 0 ? (
+            <>
+              <div className="aboutpage-doctors-grid">
+                {doctors.map((doctor) => (
+                  <div key={doctor.id} className="aboutpage-doctor-card">
+                    <img 
+                      src={doctor.avatar_url} 
+                      alt={doctor.full_name} 
+                      className="aboutpage-doctor-image"
+                      onError={(e) => e.target.src = 'https://via.placeholder.com/300?text=Doctor'}
+                    />
+                    <div className="aboutpage-doctor-info">
+                      <h3 className="aboutpage-doctor-name">{doctor.full_name}</h3>
+                      <p className="aboutpage-doctor-specialty">
+                        <FaIcons.FaStethoscope />
+                        {doctor.specialty_name}
+                      </p>
+                      <p className="aboutpage-doctor-experience">
+                        <FaIcons.FaAward />
+                        {doctor.experience_years} năm kinh nghiệm
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="aboutpage-section-footer">
+                <Link to="/doctors" className="aboutpage-btn-outline">
+                  Xem tất cả bác sĩ
+                  <FaIcons.FaArrowRight />
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p className="aboutpage-loading-text">Đang cập nhật thông tin bác sĩ...</p>
+          )}
+        </div>
+      </section>
+
+      {/* 10. CTA - Hardcode theo yêu cầu */}
+      <section className="aboutpage-section-container aboutpage-cta-section">
+        <div className="aboutpage-cta-content">
+          <h2 className="aboutpage-cta-title">Sẵn sàng chăm sóc sức khỏe của bạn?</h2>
+          <p className="aboutpage-cta-text">
             Đặt lịch khám ngay hôm nay để được tư vấn và chăm sóc bởi đội ngũ y bác sĩ chuyên nghiệp
           </p>
-          <div className="cta-buttons">
-            <Link to="/book-appointment" className="btn-primary">
-              <FaCalendarAlt />
+          <div className="aboutpage-cta-buttons">
+            <Link to="/book-appointment" className="aboutpage-btn-primary">
+              <FaIcons.FaCalendarAlt />
               Đặt lịch khám
             </Link>
-            <Link to="/contact" className="btn-secondary">
+            <Link to="/contact" className="aboutpage-btn-secondary">
               Liên hệ tư vấn
             </Link>
           </div>

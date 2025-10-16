@@ -1,31 +1,47 @@
-// src/pages/EquipmentPage.js
-// Lấy dữ liệu động từ database thông qua API /api/settings/equipment
+/* 
+ * Tệp: EquipmentPage.js - PHIÊN BẢN HOÀN CHỈNH
+ * Mô tả: Trang "Trang thiết bị y tế" với 6 sections theo yêu cầu mới
+ * API: /api/settings/equipment
+ * Sections:
+ * 1. Banner - Từ API
+ * 2. Thống kê - Từ API
+ * 3. Danh mục thiết bị - Từ API với filter
+ * 4. Danh sách thiết bị - Từ API, filter theo category
+ * 5. Cam kết chất lượng - Từ API
+ * 6. CTA - Hardcode
+ */
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaStethoscope, FaCheckCircle } from 'react-icons/fa';
+import * as FaIcons from 'react-icons/fa';
 import './EquipmentPage.css';
 
 const EquipmentPage = () => {
   const [activeCategory, setActiveCategory] = useState('all');
   const [equipmentData, setEquipmentData] = useState({
+    banner: {},
+    stats: [],
     categories: [],
     equipment: [],
-    stats: []
+    quality: []
   });
   const [isVisible, setIsVisible] = useState({});
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const iconMap = { ...FaIcons };
 
   useEffect(() => {
     const fetchEquipmentData = async () => {
+      setLoading(true);
       try {
         const response = await axios.get('http://localhost:3001/api/settings/equipment');
         if (response.data) {
           setEquipmentData(response.data);
+          setError(null);
         }
       } catch (error) {
-        console.error('Error fetching equipment data:', error);
+        console.error('Lỗi khi lấy dữ liệu trang thiết bị:', error);
         setError('Không thể tải thông tin trang thiết bị. Vui lòng thử lại sau.');
       } finally {
         setLoading(false);
@@ -45,36 +61,37 @@ const EquipmentPage = () => {
       { threshold: 0.1 }
     );
 
-    const sections = document.querySelectorAll('.animate-section');
+    const sections = document.querySelectorAll('.equipmentpage-animate-section');
     sections.forEach(section => observer.observe(section));
 
     return () => sections.forEach(section => observer.unobserve(section));
   }, []);
 
+  // Filter equipment by category
   const filteredEquipment = activeCategory === 'all' 
-    ? equipmentData.equipment 
-    : equipmentData.equipment.filter(item => item.category === activeCategory);
+    ? (equipmentData.equipment || [])
+    : (equipmentData.equipment || []).filter(item => item.category === activeCategory);
 
+  // Loading state
   if (loading) {
     return (
-      <div className="equipment-page">
-        <section className="equipment-hero">
-          <div className="container">
-            <h1>Trang thiết bị y tế</h1>
-            <p className="hero-subtitle">Đang tải thông tin...</p>
+      <div className="equipmentpage-page">
+        <section className="equipmentpage-hero">
+          <div className="equipmentpage-container">
+            <p>Đang tải dữ liệu...</p>
           </div>
         </section>
       </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <div className="equipment-page">
-        <section className="equipment-hero">
-          <div className="container">
-            <h1>Trang thiết bị y tế</h1>
-            <p className="error-text">{error}</p>
+      <div className="equipmentpage-page">
+        <section className="equipmentpage-hero">
+          <div className="equipmentpage-container">
+            <p className="equipmentpage-error-text">{error}</p>
           </div>
         </section>
       </div>
@@ -82,27 +99,35 @@ const EquipmentPage = () => {
   }
 
   return (
-    <div className="equipment-page">
-      {/* Hero Section */}
-      <section className="equipment-hero">
-        <div className="container">
-          <h1>Trang thiết bị y tế</h1>
-          <p className="hero-subtitle">
-            Đầu tư trang thiết bị hiện đại từ các thương hiệu hàng đầu thế giới, 
-            đảm bảo chẩn đoán và điều trị chính xác, hiệu quả
+    <div className="equipmentpage-page">
+      {/* 1. Banner */}
+      <section className="equipmentpage-hero"
+        style={{ 
+          background: equipmentData.banner?.image 
+            ? `linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.85) 100%), url(${equipmentData.banner.image})` 
+            : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}>
+        <div className="equipmentpage-container">
+          <h1>{equipmentData.banner?.title || 'Trang thiết bị y tế'}</h1>
+          <p className="equipmentpage-hero-subtitle">
+            {equipmentData.banner?.subtitle || equipmentData.banner?.description || 
+              'Đầu tư trang thiết bị hiện đại từ các thương hiệu hàng đầu thế giới, đảm bảo chẩn đoán và điều trị chính xác, hiệu quả'}
           </p>
         </div>
       </section>
 
-      {/* Stats */}
-      {equipmentData.stats.length > 0 && (
-        <section className="equipment-stats animate-section" id="stats">
-          <div className="container">
-            <div className="stats-grid">
+      {/* 2. Thống kê */}
+      {equipmentData.stats && equipmentData.stats.length > 0 && (
+        <section className="equipmentpage-section-container equipmentpage-equipment-stats equipmentpage-animate-section" id="stats">
+          <div className="equipmentpage-container">
+            <h2 className="equipmentpage-section-title">Thống kê</h2>
+            <div className="equipmentpage-stats-grid">
               {equipmentData.stats.map((stat, index) => (
-                <div key={index} className="stat-item">
-                  <div className="stat-number">{stat.number}</div>
-                  <div className="stat-label">{stat.label}</div>
+                <div key={index} className="equipmentpage-stat-item">
+                  <div className="equipmentpage-stat-number">{stat.number}</div>
+                  <div className="equipmentpage-stat-label">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -110,52 +135,70 @@ const EquipmentPage = () => {
         </section>
       )}
 
-      {/* Categories Filter */}
-      {equipmentData.categories.length > 0 && (
-        <section className="equipment-categories animate-section" id="categories">
-          <div className="container">
-            <div className="categories-filter">
-              {equipmentData.categories.map(cat => (
-                <button
-                  key={cat.id}
-                  className={`category-btn ${activeCategory === cat.id ? 'active' : ''}`}
-                  onClick={() => setActiveCategory(cat.id)}
-                >
-                  {typeof cat.icon === 'string' ? (
-                    <FaStethoscope />
-                  ) : (
-                    cat.icon
-                  )}
-                  <span>{cat.name}</span>
-                </button>
-              ))}
+      {/* 3. Danh mục thiết bị */}
+      {equipmentData.categories && equipmentData.categories.length > 0 && (
+        <section className="equipmentpage-section-container equipmentpage-equipment-categories equipmentpage-animate-section" id="categories">
+          <div className="equipmentpage-container">
+            <h2 className="equipmentpage-section-title">Danh mục thiết bị</h2>
+            <div className="equipmentpage-categories-filter">
+              <button
+                className={`equipmentpage-category-btn ${activeCategory === 'all' ? 'active' : ''}`}
+                onClick={() => setActiveCategory('all')}
+              >
+                <FaIcons.FaThLarge />
+                <span>Tất cả</span>
+              </button>
+              {equipmentData.categories.map((cat, index) => {
+                const Icon = iconMap[cat.icon] || iconMap.FaStethoscope;
+                return (
+                  <button
+                    key={cat.id || index}
+                    className={`equipmentpage-category-btn ${activeCategory === cat.id ? 'active' : ''}`}
+                    onClick={() => setActiveCategory(cat.id)}
+                  >
+                    <Icon />
+                    <span>{cat.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </section>
       )}
 
-      {/* Equipment Grid */}
-      {filteredEquipment.length > 0 && (
-        <section className="equipment-grid-section animate-section" id="equipment">
-          <div className="container">
-            <div className="equipment-grid">
+      {/* 4. Danh sách thiết bị */}
+      <section className="equipmentpage-section-container equipmentpage-equipment-grid-section equipmentpage-animate-section" id="equipment">
+        <div className="equipmentpage-container">
+          <h2 className="equipmentpage-section-title">Danh sách thiết bị</h2>
+          {filteredEquipment && filteredEquipment.length > 0 ? (
+            <div className="equipmentpage-equipment-grid">
               {filteredEquipment.map((item, index) => (
-                <div key={index} className="equipment-card">
-                  <div className="equipment-image">
-                    <img src={item.image} alt={item.name} />
-                    {item.year && <div className="equipment-badge">{item.year}</div>}
+                <div key={index} className="equipmentpage-equipment-card">
+                  <div className="equipmentpage-equipment-image">
+                    <img 
+                      src={item.image || 'https://via.placeholder.com/400x300?text=Equipment'} 
+                      alt={item.alt || item.name} 
+                      onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/400x300?text=Equipment';
+                      }}
+                    />
+                    {item.year && (
+                      <div className="equipmentpage-equipment-badge">{item.year}</div>
+                    )}
                   </div>
                   
-                  <div className="equipment-content">
+                  <div className="equipmentpage-equipment-content">
                     <h3>{item.name}</h3>
                     
-                    <div className="equipment-meta">
-                      {item.brand && <span className="brand">Hãng: {item.brand}</span>}
-                      {item.origin && <span className="origin">Xuất xứ: {item.origin}</span>}
-                    </div>
+                    {(item.brand || item.origin) && (
+                      <div className="equipmentpage-equipment-meta">
+                        {item.brand && <span className="equipmentpage-brand">Hãng: {item.brand}</span>}
+                        {item.origin && <span className="equipmentpage-origin">Xuất xứ: {item.origin}</span>}
+                      </div>
+                    )}
 
-                    {item.features && item.features.length > 0 && (
-                      <div className="equipment-features">
+                    {item.features && Array.isArray(item.features) && item.features.length > 0 && (
+                      <div className="equipmentpage-equipment-features">
                         <h4>Tính năng nổi bật:</h4>
                         <ul>
                           {item.features.map((feature, idx) => (
@@ -165,12 +208,12 @@ const EquipmentPage = () => {
                       </div>
                     )}
 
-                    {item.applications && item.applications.length > 0 && (
-                      <div className="equipment-applications">
+                    {item.applications && Array.isArray(item.applications) && item.applications.length > 0 && (
+                      <div className="equipmentpage-equipment-applications">
                         <h4>Ứng dụng:</h4>
-                        <div className="application-tags">
+                        <div className="equipmentpage-application-tags">
                           {item.applications.map((app, idx) => (
-                            <span key={idx} className="app-tag">{app}</span>
+                            <span key={idx} className="equipmentpage-app-tag">{app}</span>
                           ))}
                         </div>
                       </div>
@@ -179,57 +222,40 @@ const EquipmentPage = () => {
                 </div>
               ))}
             </div>
-          </div>
-        </section>
-      )}
-
-      {filteredEquipment.length === 0 && !loading && (
-        <section className="equipment-grid-section">
-          <div className="container">
-            <p className="empty-message">Không có thiết bị nào trong danh mục này.</p>
-          </div>
-        </section>
-      )}
-
-      {/* Quality Assurance */}
-      <section className="quality-section animate-section" id="quality">
-        <div className="container">
-          <h2 className="section-title">Cam kết chất lượng</h2>
-          
-          <div className="quality-grid">
-            <div className="quality-card">
-              <FaCheckCircle className="quality-icon" />
-              <h3>Nhập khẩu chính hãng</h3>
-              <p>100% thiết bị nhập khẩu từ các nhà sản xuất uy tín hàng đầu thế giới như Siemens, GE, Philips, Olympus...</p>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '3rem', color: '#666' }}>
+              <p>Không có thiết bị nào trong danh mục này.</p>
             </div>
-            
-            <div className="quality-card">
-              <FaCheckCircle className="quality-icon" />
-              <h3>Bảo trì định kỳ</h3>
-              <p>Lịch bảo trì và kiểm định chặt chẽ theo tiêu chuẩn quốc tế, đảm bảo thiết bị luôn hoạt động tốt nhất</p>
-            </div>
-            
-            <div className="quality-card">
-              <FaCheckCircle className="quality-icon" />
-              <h3>Đội ngũ kỹ thuật viên</h3>
-              <p>Được đào tạo bài bản, có chứng chỉ vận hành và bảo trì các thiết bị y tế chuyên dụng</p>
-            </div>
-            
-            <div className="quality-card">
-              <FaCheckCircle className="quality-icon" />
-              <h3>Cập nhật công nghệ</h3>
-              <p>Liên tục đầu tư nâng cấp và bổ sung thiết bị mới nhất để phục vụ tốt nhất cho người bệnh</p>
-            </div>
-          </div>
+          )}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="equipment-cta">
-        <div className="container">
-          <h2>Trải nghiệm dịch vụ y tế chất lượng cao</h2>
+      {/* 5. Cam kết chất lượng */}
+      {equipmentData.quality && equipmentData.quality.length > 0 && (
+        <section className="equipmentpage-section-container equipmentpage-quality-section equipmentpage-animate-section" id="quality">
+          <div className="equipmentpage-container">
+            <h2 className="equipmentpage-section-title">Cam kết chất lượng</h2>
+            <div className="equipmentpage-quality-grid">
+              {equipmentData.quality.map((item, index) => (
+                <div key={index} className="equipmentpage-quality-card">
+                  <h3>{item.title}</h3>
+                  <p>{item.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 6. CTA - Hardcode theo yêu cầu */}
+      <section className="equipmentpage-section-container equipmentpage-equipment-cta">
+        <div className="equipmentpage-container">
+          <h2>Trải nghiệm dịch vụ</h2>
           <p>Đặt lịch khám ngay hôm nay để được sử dụng các trang thiết bị hiện đại nhất</p>
-          <button className="btn-primary" onClick={() => window.location.href = '/book-appointment'}>
+          <button 
+            className="equipmentpage-btn-primary" 
+            onClick={() => window.location.href = '/book-appointment'}
+          >
             Đặt lịch khám
           </button>
         </div>
@@ -238,4 +264,4 @@ const EquipmentPage = () => {
   );
 };
 
-export default EquipmentPage;
+export default EquipmentPage
