@@ -1,16 +1,54 @@
-// server/routes/uploadRoutes.js
+// server/routes/uploadRoutes.js - CẬP NHẬT
 const express = require('express');
 const router = express.Router();
-const uploadController = require('../controllers/uploadController');
+const upload = require('../config/upload');
 const { authenticateToken } = require('../middleware/authMiddleware');
+const path = require('path');
+const fs = require('fs');
 
-// Upload single image cho CKEditor (dùng field name 'upload')
-router.post('/image', authenticateToken, uploadController.uploadImage);
+// Upload single image - XÓA ẢNH CŨ TRƯỚC KHI UPLOAD MỚI
+router.post('/image', authenticateToken, upload.single('image'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Không có file nào được upload' 
+      });
+    }
 
-// Upload multiple images
-router.post('/images', authenticateToken, uploadController.uploadMultipleImages);
+    // Xóa ảnh cũ nếu có
+    if (req.body.oldImage) {
+      const oldImagePath = path.join(__dirname, '..', req.body.oldImage);
+      if (fs.existsSync(oldImagePath)) {
+        try {
+          fs.unlinkSync(oldImagePath);
+          console.log('Đã xóa ảnh cũ:', req.body.oldImage);
+        } catch (err) {
+          console.error('Lỗi khi xóa ảnh cũ:', err);
+        }
+      }
+    }
 
-// Delete image
-router.delete('/image/:filename', authenticateToken, uploadController.deleteImage);
+    // URL của ảnh đã upload
+    const imageUrl = `/uploads/images/${req.file.filename}`;
+    
+    // Response format
+    res.json({
+      success: true,
+      url: imageUrl,
+      file: {
+        name: req.file.originalname,
+        size: req.file.size,
+        url: imageUrl
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
 
 module.exports = router;

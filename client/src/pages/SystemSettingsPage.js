@@ -1,37 +1,71 @@
 /* 
- * Tệp: SystemSettingsPage.js - PHIÊN BẢN MỚI
- * Mô tả: Quản lý cài đặt hệ thống cho các trang Home, About, Facilities, Equipment
- * Cải tiến: Đầy đủ các section theo yêu cầu, đổi tên tiếng Việt, sửa lỗi icon picker
+ * Tệp: SystemSettingsPage.js - PHẦN 1: SETUP & TAB HOME
+ * Mô tả: Import, setup, Toast, IconPicker, và toàn bộ TAB HOME đầy đủ
+ * 
+ * Cập nhật: 
+ * - Loại bỏ header dính cứng (không còn top: 60px, sidebar bắt đầu từ top: 0).
+ * - Di chuyển sidebar sang bên phải màn hình (right: 0 thay vì left: 0).
+ * - Sidebar thu gọn khi không hover (width: var(--sidebar-width-closed)), mở rộng khi hover (width: var(--sidebar-width-open)).
+ * - Sidebar chỉ chứa: Header (title và icon), Actions (Lưu tất cả và Export), và TabList (các tab xếp dọc).
+ * - Các TabPanel (nội dung chính của từng tab) được di chuyển ra ngoài sidebar, vào phần main-content để tránh bị ẩn khi sidebar thu gọn.
+ * - Container điều chỉnh padding-right để chừa chỗ cho sidebar thu gọn (padding: 20px 80px 40px 20px;).
+ * - Sửa lỗi "bị nhầm sidebar cho hết content tab nên không hiện gì cả" bằng cách tách TabPanel ra ngoài.
+ * - Sidebar hoạt động như floating panel (fixed, luôn giữ vị trí, mở rộng khi hover giống popup hoặc bong bóng chat).
+ * - Không còn header dính trên cùng; tất cả nội dung nằm trong body bình thường.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import axios from 'axios';
-import { FaSave, FaTrash, FaPlus, FaSpinner, FaChevronDown, FaChevronUp, FaTimes } from 'react-icons/fa';
+import { 
+  FaSave, FaTrash, FaPlus, FaSpinner, FaChevronDown, FaChevronUp, FaTimes,
+  FaDownload, FaFileExcel, FaFileWord, FaFileCsv, FaCheckCircle, FaExclamationCircle,
+  FaHome, FaInfoCircle, FaBuilding, FaTools, FaCog
+} from 'react-icons/fa';
 import * as FaIcons from 'react-icons/fa';
 import * as MdIcons from 'react-icons/md';
 import * as FiIcons from 'react-icons/fi';
+import * as XLSX from 'xlsx';
 import 'react-tabs/style/react-tabs.css';
 import './SystemSettingsPage.css';
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
-// Danh sách icon
+// ==================== DANH SÁCH ICON ====================
 const iconList = [
   ...Object.keys(FaIcons).filter(icon => icon.startsWith('Fa')).map(icon => ({ name: icon, library: 'fa' })),
   ...Object.keys(MdIcons).filter(icon => icon.startsWith('Md')).map(icon => ({ name: icon, library: 'md' })),
   ...Object.keys(FiIcons).filter(icon => icon.startsWith('Fi')).map(icon => ({ name: icon, library: 'fi' })),
-].slice(0, 200); // Giới hạn 200 icon
+].slice(0, 200);
 
 const iconMap = { ...FaIcons, ...MdIcons, ...FiIcons };
 
-// Component Icon Picker - SỬA LỖI: Click vào modal không đóng picker
+// ==================== COMPONENT TOAST NOTIFICATION ====================
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`sys-settings-toast sys-settings-toast-${type}`}>
+      {type === 'success' ? <FaCheckCircle /> : <FaExclamationCircle />}
+      <span>{message}</span>
+      <button onClick={onClose} className="sys-settings-toast-close">
+        <FaTimes />
+      </button>
+    </div>
+  );
+};
+
+// ==================== COMPONENT ICON PICKER ====================
 const CustomIconPicker = ({ value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const pickerRef = useRef(null);
 
-  // Đóng picker khi click bên ngoài
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (pickerRef.current && !pickerRef.current.contains(event.target)) {
@@ -111,28 +145,20 @@ const CustomIconPicker = ({ value, onChange }) => {
   );
 };
 
+// ==================== MAIN COMPONENT ====================
 const SystemSettingsPage = () => {
-  // Default data structures
+  // Default data structures (giữ nguyên như cũ)
   const defaultHomeData = {
     bannerSlides: [],
     features: [],
     aboutSection: { 
-      image: '', 
-      alt: '', 
-      title: '', 
-      yearsExperience: '', 
-      highlights: [],
-      buttonText: 'Xem thêm',
-      buttonLink: '/about'
+      image: '', alt: '', title: '', yearsExperience: '', highlights: [],
+      buttonText: 'Xem thêm', buttonLink: '/about'
     },
     testimonials: [],
     bookingSection: {
-      title: 'Đặt lịch khám bệnh',
-      description: '',
-      features: [],
-      hotline: '1900 xxxx',
-      email: 'contact@clinic.com',
-      address: '123 Đường ABC, TP.HCM'
+      title: 'Đặt lịch khám bệnh', description: '', features: [],
+      hotline: '1900 xxxx', email: 'contact@clinic.com', address: '123 Đường ABC, TP.HCM'
     }
   };
 
@@ -140,38 +166,26 @@ const SystemSettingsPage = () => {
     banner: { image: '', alt: '', title: '', subtitle: '', description: '' },
     mission: { image: '', alt: '', icon: 'FaLeaf', title: '', description: '' },
     vision: { image: '', alt: '', icon: 'FaHeartbeat', title: '', description: '' },
-    milestones: [],
-    stats: [],
-    values: [],
-    leadership: [],
-    achievements: [],
-    facilities: []
+    milestones: [], stats: [], values: [], leadership: [], achievements: [], facilities: []
   };
 
   const defaultFacilitiesData = {
     banner: { image: '', alt: '', title: '', subtitle: '', description: '' },
-    amenities: [],
-    facilities: [],
-    gallery: [],
-    stats: []
+    amenities: [], facilities: [], gallery: [], stats: []
   };
 
   const defaultEquipmentData = {
     banner: { image: '', alt: '', title: '', subtitle: '', description: '' },
-    stats: [],
-    categories: [],
-    equipment: [],
-    quality: []
+    stats: [], categories: [], equipment: [], quality: []
   };
 
-  // State
+  // State (giữ nguyên như cũ)
   const [homeData, setHomeData] = useState(defaultHomeData);
   const [aboutData, setAboutData] = useState(defaultAboutData);
   const [facilitiesData, setFacilitiesData] = useState(defaultFacilitiesData);
   const [equipmentData, setEquipmentData] = useState(defaultEquipmentData);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [successMessages, setSuccessMessages] = useState([]);
+  const [toasts, setToasts] = useState([]);
   const [openSections, setOpenSections] = useState({
     home: { bannerSlides: true, features: true, aboutSection: true, testimonials: true, bookingSection: true },
     about: { banner: true, mission: true, milestones: true, stats: true, values: true, leadership: true, achievements: true, facilities: true },
@@ -180,7 +194,17 @@ const SystemSettingsPage = () => {
   });
   const [imageOptions, setImageOptions] = useState({});
 
-  // Toggle section
+  // ==================== TOAST MANAGEMENT ==================== (giữ nguyên)
+  const addToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+
+  // ==================== TOGGLE SECTION ==================== (giữ nguyên)
   const toggleSection = (tab, section) => {
     setOpenSections(prev => ({
       ...prev,
@@ -188,7 +212,7 @@ const SystemSettingsPage = () => {
     }));
   };
 
-  // Fetch data
+  // ==================== FETCH DATA ==================== (giữ nguyên)
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -208,8 +232,9 @@ const SystemSettingsPage = () => {
         setAboutData({ ...defaultAboutData, ...(aboutRes.data || {}) });
         setFacilitiesData({ ...defaultFacilitiesData, ...(facilitiesRes.data || {}) });
         setEquipmentData({ ...defaultEquipmentData, ...(equipmentRes.data || {}) });
+        addToast('Tải dữ liệu thành công!', 'success');
       } catch (err) {
-        setError('Lỗi khi tải dữ liệu: ' + err.message);
+        addToast('Lỗi khi tải dữ liệu: ' + err.message, 'error');
       } finally {
         setLoading(false);
       }
@@ -217,7 +242,7 @@ const SystemSettingsPage = () => {
     fetchData();
   }, []);
 
-  // Array handlers
+  // ==================== ARRAY HANDLERS ==================== (giữ nguyên)
   const handleArrayChange = (setter, arrayKey, index, field, value) => {
     setter(prev => {
       const newArray = [...(prev[arrayKey] || [])];
@@ -240,12 +265,12 @@ const SystemSettingsPage = () => {
     }));
   };
 
-  // Image upload
+  // ==================== IMAGE UPLOAD ==================== (giữ nguyên)
   const handleArrayImageUpload = async (setter, arrayKey, index, field, file) => {
     if (!file) return;
     const token = localStorage.getItem('token');
     if (!token) {
-      setError('Vui lòng đăng nhập lại để upload ảnh.');
+      addToast('Vui lòng đăng nhập lại để upload ảnh.', 'error');
       return;
     }
     
@@ -259,23 +284,45 @@ const SystemSettingsPage = () => {
           Authorization: `Bearer ${token}`
         }
       });
-      handleArrayChange(setter, arrayKey, index, field, response.data.url);
+      
+      const imageUrl = response.data.url;
+      handleArrayChange(setter, arrayKey, index, field, imageUrl);
+      addToast('Upload ảnh thành công!', 'success');
     } catch (err) {
-      setError('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message));
+      addToast('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message), 'error');
     }
   };
 
-  // Single image upload
   const handleSingleImageUpload = async (setter, path, file) => {
     if (!file) return;
     const token = localStorage.getItem('token');
     if (!token) {
-      setError('Vui lòng đăng nhập lại để upload ảnh.');
+      addToast('Vui lòng đăng nhập lại để upload ảnh.', 'error');
       return;
+    }
+
+    const keys = path.split('.');
+    let oldImageUrl = null;
+    if (keys.length === 2) {
+      const parentKey = keys[0];
+      const childKey = keys[1];
+      if (setter === setHomeData) {
+        oldImageUrl = homeData[parentKey]?.[childKey];
+      } else if (setter === setAboutData) {
+        oldImageUrl = aboutData[parentKey]?.[childKey];
+      } else if (setter === setFacilitiesData) {
+        oldImageUrl = facilitiesData[parentKey]?.[childKey];
+      } else if (setter === setEquipmentData) {
+        oldImageUrl = equipmentData[parentKey]?.[childKey];
+      }
     }
 
     const formData = new FormData();
     formData.append('image', file);
+    
+    if (oldImageUrl && oldImageUrl.startsWith('/uploads/')) {
+      formData.append('oldImage', oldImageUrl);
+    }
 
     try {
       const response = await axios.post(`${API_BASE_URL}/upload/image`, formData, {
@@ -285,9 +332,9 @@ const SystemSettingsPage = () => {
         }
       });
       
-      // Update nested object
+      const imageUrl = response.data.url;
+      
       setter(prev => {
-        const keys = path.split('.');
         const newData = { ...prev };
         let current = newData;
         
@@ -296,23 +343,23 @@ const SystemSettingsPage = () => {
           current = current[keys[i]];
         }
         
-        current[keys[keys.length - 1]] = response.data.url;
+        current[keys[keys.length - 1]] = imageUrl;
         return newData;
       });
+      
+      addToast('Upload ảnh thành công!', 'success');
     } catch (err) {
-      setError('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message));
+      addToast('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message), 'error');
     }
   };
 
-  // Image option handler
   const handleImageOptionChange = (key, option) => {
     setImageOptions(prev => ({ ...prev, [key]: option }));
   };
 
-  // Save data
+  // ==================== SAVE DATA ==================== (giữ nguyên)
   const saveData = async (endpoint, data, successMessage) => {
     setLoading(true);
-    setError(null);
 
     try {
       const token = localStorage.getItem('token');
@@ -322,63 +369,231 @@ const SystemSettingsPage = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setSuccessMessages(prev => [...prev, successMessage]);
-      setTimeout(() => {
-        setSuccessMessages(prev => prev.filter(msg => msg !== successMessage));
-      }, 3000);
+      addToast(successMessage, 'success');
     } catch (err) {
-      setError('Lỗi khi lưu dữ liệu: ' + (err.response?.data?.message || err.message));
+      addToast('Lỗi khi lưu dữ liệu: ' + (err.response?.data?.message || err.message), 'error');
     } finally {
       setLoading(false);
     }
   };
 
+  // ==================== EXPORT FUNCTIONS ==================== (giữ nguyên)
+  const exportToJSON = (data, filename) => {
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    addToast(`Xuất ${filename}.json thành công!`, 'success');
+  };
+
+  const exportToExcel = (data, filename) => {
+    try {
+      const wb = XLSX.utils.book_new();
+      
+      const flattenData = (obj, prefix = '') => {
+        let result = {};
+        for (let key in obj) {
+          if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+            Object.assign(result, flattenData(obj[key], `${prefix}${key}.`));
+          } else if (Array.isArray(obj[key])) {
+            result[`${prefix}${key}`] = JSON.stringify(obj[key]);
+          } else {
+            result[`${prefix}${key}`] = obj[key];
+          }
+        }
+        return result;
+      };
+
+      const flatData = [flattenData(data)];
+      const ws = XLSX.utils.json_to_sheet(flatData);
+      XLSX.utils.book_append_sheet(wb, ws, 'Data');
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+      addToast(`Xuất ${filename}.xlsx thành công!`, 'success');
+    } catch (err) {
+      addToast('Lỗi khi xuất Excel: ' + err.message, 'error');
+    }
+  };
+
+  const exportToCSV = (data, filename) => {
+    try {
+      const flattenData = (obj, prefix = '') => {
+        let result = {};
+        for (let key in obj) {
+          if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+            Object.assign(result, flattenData(obj[key], `${prefix}${key}.`));
+          } else if (Array.isArray(obj[key])) {
+            result[`${prefix}${key}`] = JSON.stringify(obj[key]);
+          } else {
+            result[`${prefix}${key}`] = obj[key];
+          }
+        }
+        return result;
+      };
+
+      const flatData = flattenData(data);
+      const headers = Object.keys(flatData).join(',');
+      const values = Object.values(flatData).map(v => `"${v}"`).join(',');
+      const csv = `${headers}\n${values}`;
+      
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${filename}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      addToast(`Xuất ${filename}.csv thành công!`, 'success');
+    } catch (err) {
+      addToast('Lỗi khi xuất CSV: ' + err.message, 'error');
+    }
+  };
+
+  const exportAllData = (format) => {
+    const allData = {
+      home: homeData,
+      about: aboutData,
+      facilities: facilitiesData,
+      equipment: equipmentData,
+      exportedAt: new Date().toISOString()
+    };
+
+    const filename = `system_settings_${new Date().toISOString().split('T')[0]}`;
+
+    switch (format) {
+      case 'json':
+        exportToJSON(allData, filename);
+        break;
+      case 'excel':
+        exportToExcel(allData, filename);
+        break;
+      case 'csv':
+        exportToCSV(allData, filename);
+        break;
+      default:
+        addToast('Định dạng không hợp lệ!', 'error');
+    }
+  };
+
+  // ==================== LOADING STATE ==================== (giữ nguyên)
   if (loading && !homeData.bannerSlides) {
-    return <div className="sys-settings-loading"><FaSpinner className="sys-settings-spinner" /> Đang tải dữ liệu...</div>;
+    return (
+      <div className="sys-settings-loading">
+        <FaSpinner className="sys-settings-spinner" /> Đang tải dữ liệu...
+      </div>
+    );
   }
 
+  // ==================== RENDER ====================
+  // Cấu trúc mới: Tabs wrap toàn bộ, sidebar chỉ chứa TabList, Actions, Header; TabPanels ở main-content.
   return (
     <div className="sys-settings-container">
-      {error && <div className="sys-settings-alert sys-settings-alert-error">{error}</div>}
-      {successMessages.map((msg, index) => (
-        <div key={index} className="sys-settings-alert sys-settings-alert-success">{msg}</div>
-      ))}
-
-      <h2 className="sys-settings-title">Quản lý Cài đặt Hệ thống</h2>
-
-      <div className="sys-settings-top-save">
-        <button
-          onClick={async () => {
-            setSuccessMessages([]);
-            await Promise.all([
-              saveData('home', homeData, 'Lưu trang Home thành công!'),
-              saveData('about', aboutData, 'Lưu trang About thành công!'),
-              saveData('facilities', facilitiesData, 'Lưu trang Facilities thành công!'),
-              saveData('equipment', equipmentData, 'Lưu trang Equipment thành công!')
-            ]);
-          }}
-          className="sys-settings-btn sys-settings-btn-primary"
-          disabled={loading}
-        >
-          <FaSave /> Lưu Tất cả
-        </button>
+      {/* TOAST CONTAINER - fixed ở top right */}
+      <div className="sys-settings-toast-container">
+        {toasts.map(toast => (
+          <Toast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        ))}
       </div>
 
-      <Tabs>
-        <TabList className="sys-settings-tab-list">
-          <Tab className="sys-settings-tab">Home</Tab>
-          <Tab className="sys-settings-tab">About</Tab>
-          <Tab className="sys-settings-tab">Facilities</Tab>
-          <Tab className="sys-settings-tab">Equipment</Tab>
-        </TabList>
+      {/* MAIN CONTENT - chứa Tabs và TabPanels */}
+      <div className="sys-settings-main-content">
+        <Tabs>
+          {/* SIDEBAR - fixed bên phải, thu gọn/mở rộng khi hover */}
+          <div className="sys-settings-sidebar">
+            {/* SIDEBAR HEADER */}
+            <div className="sys-settings-sidebar-header">
+              <div className="sys-settings-sidebar-icon">
+                <FaCog />
+              </div>
+              <h2 className="sys-settings-sidebar-title">Cài đặt Hệ thống</h2>
+            </div>
 
-        {/* ==================== TAB HOME ==================== */}
+            {/* SIDEBAR ACTIONS */}
+            <div className="sys-settings-sidebar-actions">
+              <button
+                onClick={async () => {
+                  await Promise.all([
+                    saveData('home', homeData, 'Lưu trang Home thành công!'),
+                    saveData('about', aboutData, 'Lưu trang About thành công!'),
+                    saveData('facilities', facilitiesData, 'Lưu trang Facilities thành công!'),
+                    saveData('equipment', equipmentData, 'Lưu trang Equipment thành công!')
+                  ]);
+                }}
+                className="sys-settings-sidebar-btn sys-settings-sidebar-btn-primary"
+                disabled={loading}
+              >
+                <FaSave />
+                <span>Lưu Tất cả</span>
+              </button>
+
+              <div className="sys-settings-sidebar-export-dropdown">
+                <button className="sys-settings-sidebar-btn sys-settings-sidebar-btn-secondary">
+                  <FaDownload />
+                  <span>Xuất dữ liệu</span>
+                </button>
+                <div className="sys-settings-sidebar-export-menu">
+                  <button onClick={() => exportAllData('json')}>
+                    <FaFileCsv /> Xuất JSON
+                  </button>
+                  <button onClick={() => exportAllData('excel')}>
+                    <FaFileExcel /> Xuất Excel
+                  </button>
+                  <button onClick={() => exportAllData('csv')}>
+                    <FaFileCsv /> Xuất CSV
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* SIDEBAR TABS - chỉ TabList */}
+            <div className="sys-settings-sidebar-tabs">
+              <TabList className="sys-settings-tab-list">
+                <Tab className="sys-settings-tab">
+                  <span className="sys-settings-tab-icon"><FaHome /></span>
+                  <span className="sys-settings-tab-text">Home</span>
+                </Tab>
+                <Tab className="sys-settings-tab">
+                  <span className="sys-settings-tab-icon"><FaInfoCircle /></span>
+                  <span className="sys-settings-tab-text">About</span>
+                </Tab>
+                <Tab className="sys-settings-tab">
+                  <span className="sys-settings-tab-icon"><FaBuilding /></span>
+                  <span className="sys-settings-tab-text">Facilities</span>
+                </Tab>
+                <Tab className="sys-settings-tab">
+                  <span className="sys-settings-tab-icon"><FaTools /></span>
+                  <span className="sys-settings-tab-text">Equipment</span>
+                </Tab>
+              </TabList>
+            </div>
+          </div>
+
+        {/* ==================== TAB HOME - ĐẦY ĐỦ ==================== */}
         <TabPanel className="sys-settings-tab-panel">
-          {/* 1. Banner Slides */}
+          
+          {/* SECTION 1: BANNER SLIDES */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('home', 'bannerSlides')}>
               <h3 className="sys-settings-section-title">1. Banner Slides (Tối đa 4)</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('home', homeData, 'Lưu Banner Slides thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -393,7 +608,6 @@ const SystemSettingsPage = () => {
                   }}
                   className="sys-settings-btn sys-settings-btn-primary"
                   disabled={(homeData.bannerSlides || []).length >= 4}
-                  style={{ fontSize: '0.8rem', padding: '5px 10px' }}
                 >
                   <FaPlus /> Thêm
                 </button>
@@ -408,9 +622,10 @@ const SystemSettingsPage = () => {
                     const option = imageOptions[key] || 'upload';
                     return (
                       <div key={index} className="sys-settings-card">
-                        <h4 style={{ marginBottom: '12px', color: '#10b981' }}>Slide {index + 1}</h4>
+                        <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                          Slide {index + 1}
+                        </h4>
                         
-                        {/* Image */}
                         <label className="sys-settings-label">Chọn cách thêm ảnh</label>
                         <div className="sys-settings-image-options">
                           <label>
@@ -433,7 +648,9 @@ const SystemSettingsPage = () => {
                             onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'image', e.target.value)}
                             className="sys-settings-input" />
                         )}
-                        {slide.image && <img src={slide.image} alt={slide.alt || ''} className="sys-settings-preview-img" />}
+                        {slide.image && (
+                          <img src={slide.image} alt={slide.alt || ''} className="sys-settings-preview-img" />
+                        )}
                         
                         <label className="sys-settings-label">Alt Text</label>
                         <input type="text" value={slide.alt || ''} placeholder="Mô tả ảnh"
@@ -472,10 +689,11 @@ const SystemSettingsPage = () => {
                         <label className="sys-settings-label">Màu nút CTA</label>
                         <input type="color" value={slide.buttonColor || '#10b981'}
                           onChange={(e) => handleArrayChange(setHomeData, 'bannerSlides', index, 'buttonColor', e.target.value)}
-                          style={{ width: '100%', height: '40px', border: '1px solid #d1d5db', borderRadius: '4px' }} />
+                          style={{ width: '100%', height: '40px', border: '2px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer' }} />
                         
                         <button type="button" onClick={() => removeArrayItem(setHomeData, 'bannerSlides', index)}
-                          className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                          className="sys-settings-btn sys-settings-btn-danger" 
+                          style={{ marginTop: '16px', width: '100%' }}>
                           <FaTrash /> Xóa Slide
                         </button>
                       </div>
@@ -484,20 +702,33 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('home', homeData, 'Lưu Banner Slides thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Banner Slides
-            </button>
           </section>
 
-          {/* 2. Tính năng nổi bật */}
+           {/* SECTION 2: TÍNH NĂNG NỔI BẬT */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('home', 'features')}>
               <h3 className="sys-settings-section-title">2. Tính năng nổi bật</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setHomeData, 'features', { icon: 'FaStethoscope', title: '', description: '', iconBgColor: '#10b981' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('home', homeData, 'Lưu Tính năng thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setHomeData, 'features', { 
+                    icon: 'FaStethoscope', 
+                    title: '', 
+                    description: '', 
+                    iconBgColor: '#10b981' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.home.features ? <FaChevronUp /> : <FaChevronDown />}
@@ -508,6 +739,10 @@ const SystemSettingsPage = () => {
                 <div className="sys-settings-grid">
                   {(homeData.features || []).map((feature, index) => (
                     <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Tính năng {index + 1}
+                      </h4>
+
                       <label className="sys-settings-label">Icon</label>
                       <CustomIconPicker value={feature.icon || ''} 
                         onChange={(icon) => handleArrayChange(setHomeData, 'features', index, 'icon', icon)} />
@@ -515,7 +750,7 @@ const SystemSettingsPage = () => {
                       <label className="sys-settings-label">Màu nền icon</label>
                       <input type="color" value={feature.iconBgColor || '#10b981'}
                         onChange={(e) => handleArrayChange(setHomeData, 'features', index, 'iconBgColor', e.target.value)}
-                        style={{ width: '100%', height: '40px', border: '1px solid #d1d5db', borderRadius: '4px' }} />
+                        style={{ width: '100%', height: '40px', border: '2px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer' }} />
                       
                       <label className="sys-settings-label">Tiêu đề</label>
                       <input type="text" value={feature.title || ''} placeholder="Tiêu đề tính năng"
@@ -528,7 +763,8 @@ const SystemSettingsPage = () => {
                         className="sys-settings-textarea" />
                       
                       <button type="button" onClick={() => removeArrayItem(setHomeData, 'features', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
                         <FaTrash /> Xóa
                       </button>
                     </div>
@@ -536,23 +772,34 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('home', homeData, 'Lưu Tính năng thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Tính năng
-            </button>
           </section>
 
-          {/* 3. Về chúng tôi */}
+          {/* SECTION 3: VỀ CHÚNG TÔI */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('home', 'aboutSection')}>
               <h3 className="sys-settings-section-title">3. Về chúng tôi</h3>
-              {openSections.home.aboutSection ? <FaChevronUp /> : <FaChevronDown />}
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('home', homeData, 'Lưu Về chúng tôi thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.home.aboutSection ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
             </div>
             {openSections.home.aboutSection && (
               <div className="sys-settings-section-content">
                 <div className="sys-settings-grid">
                   <div className="sys-settings-card">
-                    {/* Image */}
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Thông tin chung
+                    </h4>
+
                     <label className="sys-settings-label">Hình ảnh</label>
                     <div className="sys-settings-image-options">
                       <label>
@@ -595,17 +842,24 @@ const SystemSettingsPage = () => {
                       className="sys-settings-input" />
                     
                     <label className="sys-settings-label">Điểm nổi bật (mỗi dòng: Icon|Tiêu đề|Mô tả)</label>
-                    <textarea value={(homeData.aboutSection?.highlights || []).map(h => `${h.icon}|${h.title}|${h.description}`).join('\n')}
+                    <textarea 
+                      value={(homeData.aboutSection?.highlights || []).map(h => `${h.icon}|${h.title}|${h.description}`).join('\n')}
                       onChange={(e) => {
                         const lines = e.target.value.split('\n').filter(line => line.trim());
                         const highlights = lines.map(line => {
                           const [icon, title, description] = line.split('|');
-                          return { icon: icon?.trim() || 'FaCheckCircle', title: title?.trim() || '', description: description?.trim() || '' };
+                          return { 
+                            icon: icon?.trim() || 'FaCheckCircle', 
+                            title: title?.trim() || '', 
+                            description: description?.trim() || '' 
+                          };
                         });
                         setHomeData(prev => ({ ...prev, aboutSection: { ...prev.aboutSection, highlights }}));
                       }}
                       placeholder="FaCheckCircle|Đội ngũ bác sĩ giàu kinh nghiệm|Các chuyên gia y tế được đào tạo bài bản"
-                      className="sys-settings-textarea" />
+                      className="sys-settings-textarea"
+                      style={{ minHeight: '120px' }}
+                    />
                     
                     <label className="sys-settings-label">Text nút "Xem thêm"</label>
                     <input type="text" value={homeData.aboutSection?.buttonText || ''} placeholder="Xem thêm"
@@ -620,20 +874,35 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('home', homeData, 'Lưu Về chúng tôi thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Về chúng tôi
-            </button>
           </section>
 
-          {/* 4. Đánh giá từ bệnh nhân */}
+          {/* SECTION 4: ĐÁNH GIÁ TỪ BỆNH NHÂN */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('home', 'testimonials')}>
               <h3 className="sys-settings-section-title">4. Đánh giá từ bệnh nhân</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setHomeData, 'testimonials', { name: '', role: '', comment: '', avatar: '', alt: '', rating: 5 }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('home', homeData, 'Lưu Đánh giá thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setHomeData, 'testimonials', { 
+                    name: '', 
+                    role: '', 
+                    comment: '', 
+                    avatar: '', 
+                    alt: '', 
+                    rating: 5 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.home.testimonials ? <FaChevronUp /> : <FaChevronDown />}
@@ -647,6 +916,10 @@ const SystemSettingsPage = () => {
                     const option = imageOptions[key] || 'upload';
                     return (
                       <div key={index} className="sys-settings-card">
+                        <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                          Đánh giá {index + 1}
+                        </h4>
+
                         <label className="sys-settings-label">Ảnh</label>
                         <div className="sys-settings-image-options">
                           <label>
@@ -669,7 +942,9 @@ const SystemSettingsPage = () => {
                             onChange={(e) => handleArrayChange(setHomeData, 'testimonials', index, 'avatar', e.target.value)}
                             className="sys-settings-input" />
                         )}
-                        {testimonial.avatar && <img src={testimonial.avatar} alt={testimonial.alt || ''} className="sys-settings-preview-img" />}
+                        {testimonial.avatar && (
+                          <img src={testimonial.avatar} alt={testimonial.alt || ''} className="sys-settings-preview-img" />
+                        )}
                         
                         <label className="sys-settings-label">Alt Text</label>
                         <input type="text" value={testimonial.alt || ''} placeholder="Ảnh bệnh nhân"
@@ -697,7 +972,8 @@ const SystemSettingsPage = () => {
                           className="sys-settings-input" />
                         
                         <button type="button" onClick={() => removeArrayItem(setHomeData, 'testimonials', index)}
-                          className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                          className="sys-settings-btn sys-settings-btn-danger" 
+                          style={{ marginTop: '16px', width: '100%' }}>
                           <FaTrash /> Xóa
                         </button>
                       </div>
@@ -706,22 +982,34 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('home', homeData, 'Lưu Đánh giá thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Đánh giá
-            </button>
           </section>
 
-          {/* 5. Đặt lịch khám bệnh */}
+          {/* SECTION 5: ĐẶT LỊCH KHÁM BỆNH */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('home', 'bookingSection')}>
               <h3 className="sys-settings-section-title">5. Đặt lịch khám bệnh</h3>
-              {openSections.home.bookingSection ? <FaChevronUp /> : <FaChevronDown />}
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('home', homeData, 'Lưu Đặt lịch khám thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.home.bookingSection ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
             </div>
             {openSections.home.bookingSection && (
               <div className="sys-settings-section-content">
                 <div className="sys-settings-grid">
                   <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Thông tin đặt lịch
+                    </h4>
+
                     <label className="sys-settings-label">Tiêu đề section</label>
                     <input type="text" value={homeData.bookingSection?.title || ''} placeholder="Đặt lịch khám bệnh"
                       onChange={(e) => setHomeData(prev => ({ ...prev, bookingSection: { ...prev.bookingSection, title: e.target.value }}))}
@@ -733,17 +1021,23 @@ const SystemSettingsPage = () => {
                       className="sys-settings-textarea" />
                     
                     <label className="sys-settings-label">Tính năng (mỗi dòng: Icon|Text)</label>
-                    <textarea value={(homeData.bookingSection?.features || []).map(f => `${f.icon}|${f.text}`).join('\n')}
+                    <textarea 
+                      value={(homeData.bookingSection?.features || []).map(f => `${f.icon}|${f.text}`).join('\n')}
                       onChange={(e) => {
                         const lines = e.target.value.split('\n').filter(line => line.trim());
                         const features = lines.map(line => {
                           const [icon, text] = line.split('|');
-                          return { icon: icon?.trim() || 'FaCheckCircle', text: text?.trim() || '' };
+                          return { 
+                            icon: icon?.trim() || 'FaCheckCircle', 
+                            text: text?.trim() || '' 
+                          };
                         });
                         setHomeData(prev => ({ ...prev, bookingSection: { ...prev.bookingSection, features }}));
                       }}
                       placeholder="FaCheckCircle|Xác nhận nhanh qua email"
-                      className="sys-settings-textarea" />
+                      className="sys-settings-textarea"
+                      style={{ minHeight: '100px' }}
+                    />
                     
                     <label className="sys-settings-label">Hotline</label>
                     <input type="text" value={homeData.bookingSection?.hotline || ''} placeholder="1900 xxxx"
@@ -763,25 +1057,38 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('home', homeData, 'Lưu Đặt lịch khám thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Đặt lịch khám
-            </button>
           </section>
         </TabPanel>
 
-        {/* ==================== TAB ABOUT ==================== */}
+        {/* ==================== TAB ABOUT - ĐẦY ĐỦ ==================== */}
         <TabPanel className="sys-settings-tab-panel">
-          {/* 1. Banner */}
+          
+          {/* SECTION 1: BANNER */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('about', 'banner')}>
               <h3 className="sys-settings-section-title">1. Banner</h3>
-              {openSections.about.banner ? <FaChevronUp /> : <FaChevronDown />}
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('about', aboutData, 'Lưu Banner thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.about.banner ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
             </div>
             {openSections.about.banner && (
               <div className="sys-settings-section-content">
                 <div className="sys-settings-grid">
                   <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Banner About
+                    </h4>
+
                     <label className="sys-settings-label">Hình ảnh</label>
                     <div className="sys-settings-image-options">
                       <label>
@@ -804,7 +1111,9 @@ const SystemSettingsPage = () => {
                         onChange={(e) => setAboutData(prev => ({ ...prev, banner: { ...prev.banner, image: e.target.value }}))}
                         className="sys-settings-input" />
                     )}
-                    {aboutData.banner?.image && <img src={aboutData.banner.image} alt="" className="sys-settings-preview-img" />}
+                    {aboutData.banner?.image && (
+                      <img src={aboutData.banner.image} alt="" className="sys-settings-preview-img" />
+                    )}
                     
                     <label className="sys-settings-label">Alt Text</label>
                     <input type="text" value={aboutData.banner?.alt || ''} placeholder="Banner về chúng tôi"
@@ -829,25 +1138,35 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('about', aboutData, 'Lưu Banner thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Banner
-            </button>
           </section>
 
-          {/* 2. Sứ mệnh & Tầm nhìn */}
+          {/* SECTION 2: SỨ MỆNH & TẦM NHÌN */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('about', 'mission')}>
               <h3 className="sys-settings-section-title">2. Sứ mệnh & Tầm nhìn</h3>
-              {openSections.about.mission ? <FaChevronUp /> : <FaChevronDown />}
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('about', aboutData, 'Lưu Sứ mệnh & Tầm nhìn thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.about.mission ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
             </div>
             {openSections.about.mission && (
               <div className="sys-settings-section-content">
                 <div className="sys-settings-grid">
-                  {/* Sứ mệnh */}
+                  {/* SỨ MỆNH */}
                   <div className="sys-settings-card">
-                    <h4 style={{ marginBottom: '12px', color: '#10b981' }}>Sứ mệnh</h4>
-                    
+                    <h4 style={{ marginBottom: '12px', color: '#10b981', fontWeight: 'bold' }}>
+                      Sứ mệnh
+                    </h4>
+
                     <label className="sys-settings-label">Hình ảnh</label>
                     <div className="sys-settings-image-options">
                       <label>
@@ -870,7 +1189,9 @@ const SystemSettingsPage = () => {
                         onChange={(e) => setAboutData(prev => ({ ...prev, mission: { ...prev.mission, image: e.target.value }}))}
                         className="sys-settings-input" />
                     )}
-                    {aboutData.mission?.image && <img src={aboutData.mission.image} alt="" className="sys-settings-preview-img" />}
+                    {aboutData.mission?.image && (
+                      <img src={aboutData.mission.image} alt="" className="sys-settings-preview-img" />
+                    )}
                     
                     <label className="sys-settings-label">Alt Text</label>
                     <input type="text" value={aboutData.mission?.alt || ''} placeholder="Sứ mệnh của chúng tôi"
@@ -892,10 +1213,12 @@ const SystemSettingsPage = () => {
                       className="sys-settings-textarea" />
                   </div>
 
-                  {/* Tầm nhìn */}
+                  {/* TẦM NHÌN */}
                   <div className="sys-settings-card">
-                    <h4 style={{ marginBottom: '12px', color: '#10b981' }}>Tầm nhìn</h4>
-                    
+                    <h4 style={{ marginBottom: '12px', color: '#10b981', fontWeight: 'bold' }}>
+                      Tầm nhìn
+                    </h4>
+
                     <label className="sys-settings-label">Hình ảnh</label>
                     <div className="sys-settings-image-options">
                       <label>
@@ -918,7 +1241,9 @@ const SystemSettingsPage = () => {
                         onChange={(e) => setAboutData(prev => ({ ...prev, vision: { ...prev.vision, image: e.target.value }}))}
                         className="sys-settings-input" />
                     )}
-                    {aboutData.vision?.image && <img src={aboutData.vision.image} alt="" className="sys-settings-preview-img" />}
+                    {aboutData.vision?.image && (
+                      <img src={aboutData.vision.image} alt="" className="sys-settings-preview-img" />
+                    )}
                     
                     <label className="sys-settings-label">Alt Text</label>
                     <input type="text" value={aboutData.vision?.alt || ''} placeholder="Tầm nhìn của chúng tôi"
@@ -942,20 +1267,34 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('about', aboutData, 'Lưu Sứ mệnh & Tầm nhìn thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Sứ mệnh & Tầm nhìn
-            </button>
           </section>
 
-          {/* 3. Lịch sử phát triển */}
+          {/* SECTION 3: LỊCH SỬ PHÁT TRIỂN */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('about', 'milestones')}>
               <h3 className="sys-settings-section-title">3. Lịch sử phát triển</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setAboutData, 'milestones', { year: '', title: '', description: '', image: '', alt: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('about', aboutData, 'Lưu Lịch sử phát triển thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setAboutData, 'milestones', { 
+                    year: '', 
+                    title: '', 
+                    description: '', 
+                    image: '', 
+                    alt: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.about.milestones ? <FaChevronUp /> : <FaChevronDown />}
@@ -969,6 +1308,10 @@ const SystemSettingsPage = () => {
                     const option = imageOptions[key] || 'upload';
                     return (
                       <div key={index} className="sys-settings-card">
+                        <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                          Mốc {index + 1}
+                        </h4>
+
                         <label className="sys-settings-label">Năm (không trùng)</label>
                         <input type="text" value={milestone.year || ''} placeholder="2009"
                           onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'year', e.target.value)}
@@ -1006,7 +1349,9 @@ const SystemSettingsPage = () => {
                             onChange={(e) => handleArrayChange(setAboutData, 'milestones', index, 'image', e.target.value)}
                             className="sys-settings-input" />
                         )}
-                        {milestone.image && <img src={milestone.image} alt={milestone.alt || ''} className="sys-settings-preview-img" />}
+                        {milestone.image && (
+                          <img src={milestone.image} alt={milestone.alt || ''} className="sys-settings-preview-img" />
+                        )}
                         
                         <label className="sys-settings-label">Alt Text</label>
                         <input type="text" value={milestone.alt || ''} placeholder="Mô tả ảnh"
@@ -1014,7 +1359,8 @@ const SystemSettingsPage = () => {
                           className="sys-settings-input" />
                         
                         <button type="button" onClick={() => removeArrayItem(setAboutData, 'milestones', index)}
-                          className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                          className="sys-settings-btn sys-settings-btn-danger" 
+                          style={{ marginTop: '16px', width: '100%' }}>
                           <FaTrash /> Xóa
                         </button>
                       </div>
@@ -1023,20 +1369,31 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('about', aboutData, 'Lưu Lịch sử phát triển thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Lịch sử phát triển
-            </button>
           </section>
 
-          {/* 4. Thống kê */}
+          {/* SECTION 4: THỐNG KÊ */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('about', 'stats')}>
               <h3 className="sys-settings-section-title">4. Thống kê</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setAboutData, 'stats', { number: '', label: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('about', aboutData, 'Lưu Thống kê thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setAboutData, 'stats', { 
+                    number: '', 
+                    label: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.about.stats ? <FaChevronUp /> : <FaChevronDown />}
@@ -1047,6 +1404,10 @@ const SystemSettingsPage = () => {
                 <div className="sys-settings-grid">
                   {(aboutData.stats || []).map((stat, index) => (
                     <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Thống kê {index + 1}
+                      </h4>
+
                       <label className="sys-settings-label">Số liệu</label>
                       <input type="text" value={stat.number || ''} placeholder="15+"
                         onChange={(e) => handleArrayChange(setAboutData, 'stats', index, 'number', e.target.value)}
@@ -1058,7 +1419,8 @@ const SystemSettingsPage = () => {
                         className="sys-settings-input" />
                       
                       <button type="button" onClick={() => removeArrayItem(setAboutData, 'stats', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
                         <FaTrash /> Xóa
                       </button>
                     </div>
@@ -1066,20 +1428,32 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('about', aboutData, 'Lưu Thống kê thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Thống kê
-            </button>
           </section>
 
-          {/* 5. Nguyên tắc hoạt động */}
+          {/* SECTION 5: NGUYÊN TẮC HOẠT ĐỘNG */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('about', 'values')}>
               <h3 className="sys-settings-section-title">5. Nguyên tắc hoạt động</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setAboutData, 'values', { icon: 'FaHeart', title: '', description: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('about', aboutData, 'Lưu Nguyên tắc thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setAboutData, 'values', { 
+                    icon: 'FaHeart', 
+                    title: '', 
+                    description: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.about.values ? <FaChevronUp /> : <FaChevronDown />}
@@ -1090,6 +1464,10 @@ const SystemSettingsPage = () => {
                 <div className="sys-settings-grid">
                   {(aboutData.values || []).map((value, index) => (
                     <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Giá trị {index + 1}
+                      </h4>
+
                       <label className="sys-settings-label">Icon</label>
                       <CustomIconPicker value={value.icon || ''} 
                         onChange={(icon) => handleArrayChange(setAboutData, 'values', index, 'icon', icon)} />
@@ -1105,7 +1483,8 @@ const SystemSettingsPage = () => {
                         className="sys-settings-textarea" />
                       
                       <button type="button" onClick={() => removeArrayItem(setAboutData, 'values', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
                         <FaTrash /> Xóa
                       </button>
                     </div>
@@ -1113,20 +1492,34 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('about', aboutData, 'Lưu Nguyên tắc thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Nguyên tắc
-            </button>
           </section>
 
-          {/* 6. Đội ngũ điều hành */}
+          {/* SECTION 6: ĐỘI NGŨ ĐIỀU HÀNH */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('about', 'leadership')}>
               <h3 className="sys-settings-section-title">6. Đội ngũ điều hành</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setAboutData, 'leadership', { name: '', position: '', description: '', image: '', alt: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('about', aboutData, 'Lưu Đội ngũ điều hành thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setAboutData, 'leadership', { 
+                    name: '', 
+                    position: '', 
+                    description: '', 
+                    image: '', 
+                    alt: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.about.leadership ? <FaChevronUp /> : <FaChevronDown />}
@@ -1140,6 +1533,10 @@ const SystemSettingsPage = () => {
                     const option = imageOptions[key] || 'upload';
                     return (
                       <div key={index} className="sys-settings-card">
+                        <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                          Lãnh đạo {index + 1}
+                        </h4>
+
                         <label className="sys-settings-label">Tên</label>
                         <input type="text" value={leader.name || ''} placeholder="TS. Nguyễn Văn A"
                           onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'name', e.target.value)}
@@ -1177,7 +1574,9 @@ const SystemSettingsPage = () => {
                             onChange={(e) => handleArrayChange(setAboutData, 'leadership', index, 'image', e.target.value)}
                             className="sys-settings-input" />
                         )}
-                        {leader.image && <img src={leader.image} alt={leader.alt || ''} className="sys-settings-preview-img" />}
+                        {leader.image && (
+                          <img src={leader.image} alt={leader.alt || ''} className="sys-settings-preview-img" />
+                        )}
                         
                         <label className="sys-settings-label">Alt Text</label>
                         <input type="text" value={leader.alt || ''} placeholder="Ảnh lãnh đạo"
@@ -1185,7 +1584,8 @@ const SystemSettingsPage = () => {
                           className="sys-settings-input" />
                         
                         <button type="button" onClick={() => removeArrayItem(setAboutData, 'leadership', index)}
-                          className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                          className="sys-settings-btn sys-settings-btn-danger" 
+                          style={{ marginTop: '16px', width: '100%' }}>
                           <FaTrash /> Xóa
                         </button>
                       </div>
@@ -1194,20 +1594,32 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('about', aboutData, 'Lưu Đội ngũ điều hành thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Đội ngũ điều hành
-            </button>
           </section>
 
-          {/* 7. Giải thưởng & Chứng nhận */}
+          {/* SECTION 7: GIẢI THƯỞNG & CHỨNG NHẬN */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('about', 'achievements')}>
               <h3 className="sys-settings-section-title">7. Giải thưởng & Chứng nhận</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setAboutData, 'achievements', { icon: 'FaTrophy', title: '', year: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('about', aboutData, 'Lưu Giải thưởng thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setAboutData, 'achievements', { 
+                    icon: 'FaTrophy', 
+                    title: '', 
+                    year: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.about.achievements ? <FaChevronUp /> : <FaChevronDown />}
@@ -1218,6 +1630,10 @@ const SystemSettingsPage = () => {
                 <div className="sys-settings-grid">
                   {(aboutData.achievements || []).map((achievement, index) => (
                     <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Thành tựu {index + 1}
+                      </h4>
+
                       <label className="sys-settings-label">Icon</label>
                       <CustomIconPicker value={achievement.icon || ''} 
                         onChange={(icon) => handleArrayChange(setAboutData, 'achievements', index, 'icon', icon)} />
@@ -1233,7 +1649,8 @@ const SystemSettingsPage = () => {
                         className="sys-settings-input" />
                       
                       <button type="button" onClick={() => removeArrayItem(setAboutData, 'achievements', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
                         <FaTrash /> Xóa
                       </button>
                     </div>
@@ -1241,20 +1658,32 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('about', aboutData, 'Lưu Giải thưởng thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Giải thưởng
-            </button>
           </section>
 
-          {/* 8. Trang thiết bị hiện đại */}
+          {/* SECTION 8: TRANG THIẾT BỊ HIỆN ĐẠI */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('about', 'facilities')}>
               <h3 className="sys-settings-section-title">8. Trang thiết bị hiện đại</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setAboutData, 'facilities', { icon: 'FaBuilding', title: '', description: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('about', aboutData, 'Lưu Trang thiết bị thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setAboutData, 'facilities', { 
+                    icon: 'FaBuilding', 
+                    title: '', 
+                    description: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.about.facilities ? <FaChevronUp /> : <FaChevronDown />}
@@ -1265,6 +1694,10 @@ const SystemSettingsPage = () => {
                 <div className="sys-settings-grid">
                   {(aboutData.facilities || []).map((facility, index) => (
                     <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Cơ sở {index + 1}
+                      </h4>
+
                       <label className="sys-settings-label">Icon</label>
                       <CustomIconPicker value={facility.icon || ''} 
                         onChange={(icon) => handleArrayChange(setAboutData, 'facilities', index, 'icon', icon)} />
@@ -1280,7 +1713,8 @@ const SystemSettingsPage = () => {
                         className="sys-settings-textarea" />
                       
                       <button type="button" onClick={() => removeArrayItem(setAboutData, 'facilities', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
                         <FaTrash /> Xóa
                       </button>
                     </div>
@@ -1288,25 +1722,39 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('about', aboutData, 'Lưu Trang thiết bị thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Trang thiết bị
-            </button>
           </section>
+
         </TabPanel>
 
-        {/* ==================== TAB FACILITIES ==================== */}
+        {/* ==================== TAB FACILITIES - ĐẦY ĐỦ ==================== */}
         <TabPanel className="sys-settings-tab-panel">
-          {/* 1. Banner */}
+          
+          {/* SECTION 1: BANNER */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('facilities', 'banner')}>
               <h3 className="sys-settings-section-title">1. Banner</h3>
-              {openSections.facilities.banner ? <FaChevronUp /> : <FaChevronDown />}
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('facilities', facilitiesData, 'Lưu Banner thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.facilities.banner ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
             </div>
             {openSections.facilities.banner && (
               <div className="sys-settings-section-content">
                 <div className="sys-settings-grid">
                   <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Banner Facilities
+                    </h4>
+
                     <label className="sys-settings-label">Hình ảnh</label>
                     <div className="sys-settings-image-options">
                       <label>
@@ -1329,7 +1777,9 @@ const SystemSettingsPage = () => {
                         onChange={(e) => setFacilitiesData(prev => ({ ...prev, banner: { ...prev.banner, image: e.target.value }}))}
                         className="sys-settings-input" />
                     )}
-                    {facilitiesData.banner?.image && <img src={facilitiesData.banner.image} alt="" className="sys-settings-preview-img" />}
+                    {facilitiesData.banner?.image && (
+                      <img src={facilitiesData.banner.image} alt="" className="sys-settings-preview-img" />
+                    )}
                     
                     <label className="sys-settings-label">Alt Text</label>
                     <input type="text" value={facilitiesData.banner?.alt || ''} placeholder="Banner cơ sở vật chất"
@@ -1354,20 +1804,31 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('facilities', facilitiesData, 'Lưu Banner thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Banner
-            </button>
           </section>
 
-          {/* 2. Tiện ích */}
+          {/* SECTION 2: TIỆN ÍCH */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('facilities', 'amenities')}>
               <h3 className="sys-settings-section-title">2. Tiện ích</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setFacilitiesData, 'amenities', { icon: 'FaWifi', name: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('facilities', facilitiesData, 'Lưu Tiện ích thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setFacilitiesData, 'amenities', { 
+                    icon: 'FaWifi', 
+                    name: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.facilities.amenities ? <FaChevronUp /> : <FaChevronDown />}
@@ -1378,6 +1839,10 @@ const SystemSettingsPage = () => {
                 <div className="sys-settings-grid">
                   {(facilitiesData.amenities || []).map((amenity, index) => (
                     <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Tiện ích {index + 1}
+                      </h4>
+
                       <label className="sys-settings-label">Icon</label>
                       <CustomIconPicker value={amenity.icon || ''} 
                         onChange={(icon) => handleArrayChange(setFacilitiesData, 'amenities', index, 'icon', icon)} />
@@ -1388,7 +1853,8 @@ const SystemSettingsPage = () => {
                         className="sys-settings-input" />
                       
                       <button type="button" onClick={() => removeArrayItem(setFacilitiesData, 'amenities', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
                         <FaTrash /> Xóa
                       </button>
                     </div>
@@ -1396,20 +1862,35 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('facilities', facilitiesData, 'Lưu Tiện ích thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Tiện ích
-            </button>
           </section>
 
-          {/* 3. Các khu vực chính */}
+          {/* SECTION 3: CÁC KHU VỰC CHÍNH */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('facilities', 'facilities')}>
               <h3 className="sys-settings-section-title">3. Các khu vực chính</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setFacilitiesData, 'facilities', { icon: 'FaBuilding', title: '', description: '', image: '', alt: '', features: [] }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('facilities', facilitiesData, 'Lưu Khu vực thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setFacilitiesData, 'facilities', { 
+                    icon: 'FaBuilding', 
+                    title: '', 
+                    description: '', 
+                    image: '', 
+                    alt: '', 
+                    features: [] 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.facilities.facilities ? <FaChevronUp /> : <FaChevronDown />}
@@ -1423,6 +1904,10 @@ const SystemSettingsPage = () => {
                     const option = imageOptions[key] || 'upload';
                     return (
                       <div key={index} className="sys-settings-card">
+                        <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                          Khu vực {index + 1}
+                        </h4>
+
                         <label className="sys-settings-label">Icon</label>
                         <CustomIconPicker value={facility.icon || ''} 
                           onChange={(icon) => handleArrayChange(setFacilitiesData, 'facilities', index, 'icon', icon)} />
@@ -1459,7 +1944,9 @@ const SystemSettingsPage = () => {
                             onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'image', e.target.value)}
                             className="sys-settings-input" />
                         )}
-                        {facility.image && <img src={facility.image} alt={facility.alt || ''} className="sys-settings-preview-img" />}
+                        {facility.image && (
+                          <img src={facility.image} alt={facility.alt || ''} className="sys-settings-preview-img" />
+                        )}
                         
                         <label className="sys-settings-label">Alt Text</label>
                         <input type="text" value={facility.alt || ''} placeholder="Ảnh phòng khám"
@@ -1467,12 +1954,16 @@ const SystemSettingsPage = () => {
                           className="sys-settings-input" />
                         
                         <label className="sys-settings-label">Tính năng (mỗi dòng 1 tính năng)</label>
-                        <textarea value={(facility.features || []).join('\n')} placeholder="Trang bị đầy đủ..."
+                        <textarea 
+                          value={(facility.features || []).join('\n')} 
+                          placeholder="Trang bị đầy đủ..."
                           onChange={(e) => handleArrayChange(setFacilitiesData, 'facilities', index, 'features', e.target.value.split('\n').filter(f => f.trim()))}
-                          className="sys-settings-textarea" />
+                          className="sys-settings-textarea" 
+                        />
                         
                         <button type="button" onClick={() => removeArrayItem(setFacilitiesData, 'facilities', index)}
-                          className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                          className="sys-settings-btn sys-settings-btn-danger" 
+                          style={{ marginTop: '16px', width: '100%' }}>
                           <FaTrash /> Xóa
                         </button>
                       </div>
@@ -1481,20 +1972,32 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('facilities', facilitiesData, 'Lưu Khu vực thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Khu vực
-            </button>
           </section>
 
-          {/* 4. Thư viện hình ảnh */}
+          {/* SECTION 4: THƯ VIỆN HÌNH ẢNH */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('facilities', 'gallery')}>
               <h3 className="sys-settings-section-title">4. Thư viện hình ảnh</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setFacilitiesData, 'gallery', { url: '', title: '', alt: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('facilities', facilitiesData, 'Lưu Thư viện thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setFacilitiesData, 'gallery', { 
+                    url: '', 
+                    title: '', 
+                    alt: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.facilities.gallery ? <FaChevronUp /> : <FaChevronDown />}
@@ -1508,6 +2011,10 @@ const SystemSettingsPage = () => {
                     const option = imageOptions[key] || 'upload';
                     return (
                       <div key={index} className="sys-settings-card">
+                        <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                          Ảnh {index + 1}
+                        </h4>
+
                         <label className="sys-settings-label">Hình ảnh</label>
                         <div className="sys-settings-image-options">
                           <label>
@@ -1530,7 +2037,9 @@ const SystemSettingsPage = () => {
                             onChange={(e) => handleArrayChange(setFacilitiesData, 'gallery', index, 'url', e.target.value)}
                             className="sys-settings-input" />
                         )}
-                        {item.url && <img src={item.url} alt={item.alt || ''} className="sys-settings-preview-img" />}
+                        {item.url && (
+                          <img src={item.url} alt={item.alt || ''} className="sys-settings-preview-img" />
+                        )}
                         
                         <label className="sys-settings-label">Tiêu đề ảnh</label>
                         <input type="text" value={item.title || ''} placeholder="Phòng chờ"
@@ -1543,7 +2052,8 @@ const SystemSettingsPage = () => {
                           className="sys-settings-input" />
                         
                         <button type="button" onClick={() => removeArrayItem(setFacilitiesData, 'gallery', index)}
-                          className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                          className="sys-settings-btn sys-settings-btn-danger" 
+                          style={{ marginTop: '16px', width: '100%' }}>
                           <FaTrash /> Xóa
                         </button>
                       </div>
@@ -1552,20 +2062,31 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('facilities', facilitiesData, 'Lưu Thư viện thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Thư viện
-            </button>
           </section>
 
-          {/* 5. Thống kê */}
+          {/* SECTION 5: THỐNG KÊ */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('facilities', 'stats')}>
               <h3 className="sys-settings-section-title">5. Thống kê</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setFacilitiesData, 'stats', { number: '', label: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('facilities', facilitiesData, 'Lưu Thống kê thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setFacilitiesData, 'stats', { 
+                    number: '', 
+                    label: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.facilities.stats ? <FaChevronUp /> : <FaChevronDown />}
@@ -1576,6 +2097,10 @@ const SystemSettingsPage = () => {
                 <div className="sys-settings-grid">
                   {(facilitiesData.stats || []).map((stat, index) => (
                     <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Thống kê {index + 1}
+                      </h4>
+
                       <label className="sys-settings-label">Số liệu</label>
                       <input type="text" value={stat.number || ''} placeholder="2000m²"
                         onChange={(e) => handleArrayChange(setFacilitiesData, 'stats', index, 'number', e.target.value)}
@@ -1587,7 +2112,8 @@ const SystemSettingsPage = () => {
                         className="sys-settings-input" />
                       
                       <button type="button" onClick={() => removeArrayItem(setFacilitiesData, 'stats', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
                         <FaTrash /> Xóa
                       </button>
                     </div>
@@ -1595,25 +2121,39 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('facilities', facilitiesData, 'Lưu Thống kê thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Thống kê
-            </button>
           </section>
+
         </TabPanel>
 
-        {/* ==================== TAB EQUIPMENT ==================== */}
+        {/* ==================== TAB EQUIPMENT - ĐẦY ĐỦ ==================== */}
         <TabPanel className="sys-settings-tab-panel">
-          {/* 1. Banner */}
+          
+          {/* SECTION 1: BANNER */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('equipment', 'banner')}>
               <h3 className="sys-settings-section-title">1. Banner</h3>
-              {openSections.equipment.banner ? <FaChevronUp /> : <FaChevronDown />}
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('equipment', equipmentData, 'Lưu Banner thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.equipment.banner ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
             </div>
             {openSections.equipment.banner && (
               <div className="sys-settings-section-content">
                 <div className="sys-settings-grid">
                   <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Banner Equipment
+                    </h4>
+
                     <label className="sys-settings-label">Hình ảnh</label>
                     <div className="sys-settings-image-options">
                       <label>
@@ -1636,7 +2176,9 @@ const SystemSettingsPage = () => {
                         onChange={(e) => setEquipmentData(prev => ({ ...prev, banner: { ...prev.banner, image: e.target.value }}))}
                         className="sys-settings-input" />
                     )}
-                    {equipmentData.banner?.image && <img src={equipmentData.banner.image} alt="" className="sys-settings-preview-img" />}
+                    {equipmentData.banner?.image && (
+                      <img src={equipmentData.banner.image} alt="" className="sys-settings-preview-img" />
+                    )}
                     
                     <label className="sys-settings-label">Alt Text</label>
                     <input type="text" value={equipmentData.banner?.alt || ''} placeholder="Banner trang thiết bị"
@@ -1661,20 +2203,31 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('equipment', equipmentData, 'Lưu Banner thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Banner
-            </button>
           </section>
 
-          {/* 2. Thống kê */}
+          {/* SECTION 2: THỐNG KÊ */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('equipment', 'stats')}>
               <h3 className="sys-settings-section-title">2. Thống kê</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setEquipmentData, 'stats', { number: '', label: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('equipment', equipmentData, 'Lưu Thống kê thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setEquipmentData, 'stats', { 
+                    number: '', 
+                    label: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.equipment.stats ? <FaChevronUp /> : <FaChevronDown />}
@@ -1685,6 +2238,10 @@ const SystemSettingsPage = () => {
                 <div className="sys-settings-grid">
                   {(equipmentData.stats || []).map((stat, index) => (
                     <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Thống kê {index + 1}
+                      </h4>
+
                       <label className="sys-settings-label">Số liệu</label>
                       <input type="text" value={stat.number || ''} placeholder="50+"
                         onChange={(e) => handleArrayChange(setEquipmentData, 'stats', index, 'number', e.target.value)}
@@ -1696,7 +2253,8 @@ const SystemSettingsPage = () => {
                         className="sys-settings-input" />
                       
                       <button type="button" onClick={() => removeArrayItem(setEquipmentData, 'stats', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
                         <FaTrash /> Xóa
                       </button>
                     </div>
@@ -1704,20 +2262,32 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('equipment', equipmentData, 'Lưu Thống kê thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Thống kê
-            </button>
           </section>
 
-          {/* 3. Danh mục thiết bị */}
+          {/* SECTION 3: DANH MỤC THIẾT BỊ */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('equipment', 'categories')}>
               <h3 className="sys-settings-section-title">3. Danh mục thiết bị</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setEquipmentData, 'categories', { id: '', name: '', icon: 'FaStethoscope' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('equipment', equipmentData, 'Lưu Danh mục thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setEquipmentData, 'categories', { 
+                    id: '', 
+                    name: '', 
+                    icon: 'FaStethoscope' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.equipment.categories ? <FaChevronUp /> : <FaChevronDown />}
@@ -1728,6 +2298,10 @@ const SystemSettingsPage = () => {
                 <div className="sys-settings-grid">
                   {(equipmentData.categories || []).map((category, index) => (
                     <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Danh mục {index + 1}
+                      </h4>
+
                       <label className="sys-settings-label">ID danh mục</label>
                       <input type="text" value={category.id || ''} placeholder="diagnostic"
                         onChange={(e) => handleArrayChange(setEquipmentData, 'categories', index, 'id', e.target.value)}
@@ -1743,7 +2317,8 @@ const SystemSettingsPage = () => {
                         onChange={(icon) => handleArrayChange(setEquipmentData, 'categories', index, 'icon', icon)} />
                       
                       <button type="button" onClick={() => removeArrayItem(setEquipmentData, 'categories', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
                         <FaTrash /> Xóa
                       </button>
                     </div>
@@ -1751,23 +2326,38 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('equipment', equipmentData, 'Lưu Danh mục thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Danh mục
-            </button>
           </section>
 
-          {/* 4. Danh sách thiết bị */}
+          {/* SECTION 4: DANH SÁCH THIẾT BỊ */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('equipment', 'equipment')}>
               <h3 className="sys-settings-section-title">4. Danh sách thiết bị</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('equipment', equipmentData, 'Lưu Danh sách thiết bị thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
                   addArrayItem(setEquipmentData, 'equipment', { 
-                    name: '', category: '', brand: '', origin: '', year: '', 
-                    image: '', alt: '', features: [], applications: [] 
-                  }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+                    name: '', 
+                    category: '', 
+                    brand: '', 
+                    origin: '', 
+                    year: '', 
+                    image: '', 
+                    alt: '', 
+                    features: [], 
+                    applications: [] 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.equipment.equipment ? <FaChevronUp /> : <FaChevronDown />}
@@ -1781,6 +2371,10 @@ const SystemSettingsPage = () => {
                     const option = imageOptions[key] || 'upload';
                     return (
                       <div key={index} className="sys-settings-card">
+                        <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                          Thiết bị {index + 1}
+                        </h4>
+
                         <label className="sys-settings-label">Tên thiết bị</label>
                         <input type="text" value={item.name || ''} placeholder="Máy MRI 3.0 Tesla"
                           onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'name', e.target.value)}
@@ -1833,7 +2427,9 @@ const SystemSettingsPage = () => {
                             onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'image', e.target.value)}
                             className="sys-settings-input" />
                         )}
-                        {item.image && <img src={item.image} alt={item.alt || ''} className="sys-settings-preview-img" />}
+                        {item.image && (
+                          <img src={item.image} alt={item.alt || ''} className="sys-settings-preview-img" />
+                        )}
                         
                         <label className="sys-settings-label">Alt Text</label>
                         <input type="text" value={item.alt || ''} placeholder="Ảnh thiết bị"
@@ -1841,17 +2437,24 @@ const SystemSettingsPage = () => {
                           className="sys-settings-input" />
                         
                         <label className="sys-settings-label">Tính năng (mỗi dòng 1 tính năng)</label>
-                        <textarea value={(item.features || []).join('\n')} placeholder="Độ phân giải cao..."
+                        <textarea 
+                          value={(item.features || []).join('\n')} 
+                          placeholder="Độ phân giải cao..."
                           onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'features', e.target.value.split('\n').filter(f => f.trim()))}
-                          className="sys-settings-textarea" />
+                          className="sys-settings-textarea" 
+                        />
                         
                         <label className="sys-settings-label">Ứng dụng (mỗi dòng 1 ứng dụng)</label>
-                        <textarea value={(item.applications || []).join('\n')} placeholder="Chẩn đoán ung thư..."
+                        <textarea 
+                          value={(item.applications || []).join('\n')} 
+                          placeholder="Chẩn đoán ung thư..."
                           onChange={(e) => handleArrayChange(setEquipmentData, 'equipment', index, 'applications', e.target.value.split('\n').filter(a => a.trim()))}
-                          className="sys-settings-textarea" />
+                          className="sys-settings-textarea" 
+                        />
                         
                         <button type="button" onClick={() => removeArrayItem(setEquipmentData, 'equipment', index)}
-                          className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                          className="sys-settings-btn sys-settings-btn-danger" 
+                          style={{ marginTop: '16px', width: '100%' }}>
                           <FaTrash /> Xóa
                         </button>
                       </div>
@@ -1860,20 +2463,31 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('equipment', equipmentData, 'Lưu Danh sách thiết bị thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Danh sách thiết bị
-            </button>
           </section>
 
-          {/* 5. Cam kết chất lượng */}
+          {/* SECTION 5: CAM KẾT CHẤT LƯỢNG */}
           <section className="sys-settings-section">
             <div className="sys-settings-section-header" onClick={() => toggleSection('equipment', 'quality')}>
               <h3 className="sys-settings-section-title">5. Cam kết chất lượng</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); 
-                  addArrayItem(setEquipmentData, 'quality', { title: '', description: '' }); }}
-                  className="sys-settings-btn sys-settings-btn-primary" style={{ fontSize: '0.8rem', padding: '5px 10px' }}>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('equipment', equipmentData, 'Lưu Cam kết thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setEquipmentData, 'quality', { 
+                    title: '', 
+                    description: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
                   <FaPlus /> Thêm
                 </button>
                 {openSections.equipment.quality ? <FaChevronUp /> : <FaChevronDown />}
@@ -1884,6 +2498,10 @@ const SystemSettingsPage = () => {
                 <div className="sys-settings-grid">
                   {(equipmentData.quality || []).map((item, index) => (
                     <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Cam kết {index + 1}
+                      </h4>
+
                       <label className="sys-settings-label">Tiêu đề</label>
                       <input type="text" value={item.title || ''} placeholder="Nhập khẩu chính hãng"
                         onChange={(e) => handleArrayChange(setEquipmentData, 'quality', index, 'title', e.target.value)}
@@ -1895,7 +2513,8 @@ const SystemSettingsPage = () => {
                         className="sys-settings-textarea" />
                       
                       <button type="button" onClick={() => removeArrayItem(setEquipmentData, 'quality', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" style={{ marginTop: '12px' }}>
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
                         <FaTrash /> Xóa
                       </button>
                     </div>
@@ -1903,13 +2522,11 @@ const SystemSettingsPage = () => {
                 </div>
               </div>
             )}
-            <button onClick={() => saveData('equipment', equipmentData, 'Lưu Cam kết thành công!')}
-              className="sys-settings-btn sys-settings-btn-primary sys-settings-section-save">
-              <FaSave /> Lưu Cam kết chất lượng
-            </button>
           </section>
+
         </TabPanel>
       </Tabs>
+      </div>
     </div>
   );
 };

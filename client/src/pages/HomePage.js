@@ -85,12 +85,6 @@ const HomePage = () => {
     fetchSpecialties();
     fetchDoctors();
 
-    const slideInterval = setInterval(() => {
-      if (homeSettings.bannerSlides && homeSettings.bannerSlides.length > 0) {
-        setCurrentSlide(prev => (prev + 1) % homeSettings.bannerSlides.length);
-      }
-    }, 5000);
-
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach(entry => {
@@ -106,10 +100,22 @@ const HomePage = () => {
     sections.forEach(section => observer.observe(section));
 
     return () => {
-      clearInterval(slideInterval);
       sections.forEach(section => observer.unobserve(section));
     };
-  }, [homeSettings.bannerSlides]);
+  }, []); // SỬA LỖI: Chỉ chạy 1 lần khi component mount
+
+  // Slider interval riêng, chỉ chạy khi có bannerSlides
+  useEffect(() => {
+    if (!homeSettings.bannerSlides || homeSettings.bannerSlides.length <= 1) {
+      return; // Không chạy interval nếu chỉ có 1 hoặc 0 slide
+    }
+
+    const slideInterval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % homeSettings.bannerSlides.length);
+    }, 5000);
+
+    return () => clearInterval(slideInterval);
+  }, [homeSettings.bannerSlides]); // Chỉ phụ thuộc vào bannerSlides
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -340,7 +346,8 @@ const HomePage = () => {
                         alt={doctor.full_name} 
                         className="homepage-doctor-image" 
                         onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/400?text=Doctor';
+                          e.target.onerror = null; // Ngăn loop vô hạn
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f0f0f0" width="400" height="300"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="18" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3EDoctor%3C/text%3E%3C/svg%3E';
                         }}
                       />
                       <div className="homepage-doctor-rating">
