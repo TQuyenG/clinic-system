@@ -211,181 +211,749 @@
   line-height: 1.7;
 }
 
-/* Timeline Section */
+/* ==================== TIMELINE SECTION - CAROUSEL VERTICAL ==================== */
 .aboutpage-timeline-section {
   padding: 5rem 0;
-}
-
-.aboutpage-timeline-slider {
+  background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
   position: relative;
-  max-width: 800px;
-  margin: 0 auto 3rem;
   overflow: hidden;
-  border-radius: var(--aboutpage-radius-xl);
-  box-shadow: var(--aboutpage-shadow-lg);
 }
 
-.aboutpage-timeline-nav {
+/* Background decorations */
+.aboutpage-timeline-section::before {
+  content: '';
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
+  left: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.aboutpage-timeline-section::after {
+  content: '';
+  position: absolute;
+  bottom: -10%;
+  right: -10%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(102, 126, 234, 0.05) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.aboutpage-section-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Timeline Wrapper */
+.aboutpage-timeline-wrapper {
+  position: relative;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* Timeline Container */
+.aboutpage-timeline-container {
+  position: relative;
+  height: 600px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  border-radius: 0;
+  background: transparent;
+  
+  /* Hide scrollbar */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.aboutpage-timeline-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Timeline Track */
+.aboutpage-timeline-track {
+  position: relative;
+  padding: 200px 0;
+  min-height: calc(350px * var(--milestone-count, 5) + 400px);
+}
+
+/* Timeline Item - Grid Layout 3 columns */
+.aboutpage-timeline-item {
+  display: grid;
+  grid-template-columns: 1fr 120px 1fr;
+  gap: 3rem;
+  align-items: center;
+  padding: 0 3rem;
+  height: 350px;
+  margin-bottom: 0;
+  position: relative;
+  opacity: 0.4;
+  filter: blur(2px);
+  transform: scale(0.85);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+/* Active item - To hơn và nổi bật */
+.aboutpage-timeline-item.active {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1.05);
+  z-index: 2;
+}
+
+/* Adjacent items - Mờ nhẹ hơn */
+.aboutpage-timeline-item.adjacent {
+  opacity: 0.6;
+  filter: blur(1px);
+  transform: scale(0.92);
+}
+
+/* Left Column */
+.aboutpage-timeline-left {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  grid-column: 1;
+}
+
+/* Center Column - Year Badge */
+.aboutpage-timeline-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  grid-column: 2;
+  z-index: 3;
+}
+
+/* Right Column */
+.aboutpage-timeline-right {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  grid-column: 3;
+}
+
+/* Year Badge - Không phóng to */
+.aboutpage-timeline-year {
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--aboutpage-primary) 0%, #667eea 100%);
+  border-radius: 50%;
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 800;
+  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+  transition: all 0.4s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.aboutpage-timeline-year::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(102, 126, 234, 0.3) 100%);
+  z-index: -1;
+}
+
+/* Active: Chỉ thay đổi shadow và animation */
+.aboutpage-timeline-item.active .aboutpage-timeline-year {
+  box-shadow: 0 15px 40px rgba(16, 185, 129, 0.7);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    box-shadow: 0 15px 40px rgba(16, 185, 129, 0.7);
+  }
+  50% { 
+    box-shadow: 0 20px 50px rgba(16, 185, 129, 0.9);
+  }
+}
+
+/* Image Wrapper */
+.aboutpage-timeline-image-wrapper {
+  width: 320px;
+  height: 220px;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Active: Ảnh to hơn */
+.aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper {
+  width: 440px;
+  height: 310px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* Khi ảnh ở bên trái (index lẻ), dịch sang phải khi phóng to */
+.aboutpage-timeline-item:nth-child(odd).active .aboutpage-timeline-left .aboutpage-timeline-image-wrapper {
+  transform: translateX(50px);
+}
+
+/* Khi ảnh ở bên phải (index chẵn), dịch sang trái khi phóng to */
+.aboutpage-timeline-item:nth-child(even).active .aboutpage-timeline-right .aboutpage-timeline-image-wrapper {
+  transform: translateX(-50px);
+}
+
+.aboutpage-timeline-image-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+  filter: grayscale(40%);
+}
+
+.aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper img {
+  transform: scale(1.05);
+  filter: grayscale(0%);
+}
+
+.aboutpage-timeline-image-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.5) 100%);
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper::after {
+  opacity: 0.3;
+}
+
+/* Icon Badge */
+.aboutpage-timeline-icon {
+  position: absolute;
+  top: 15px;
+  left: 15px;
   width: 50px;
   height: 50px;
-  background: rgba(255,255,255,0.8);
+  background: rgba(255, 255, 255, 0.95);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: var(--aboutpage-transition);
-  z-index: 3;
-}
-
-.aboutpage-timeline-nav:hover {
-  background: white;
-  box-shadow: var(--aboutpage-shadow);
-}
-
-.aboutpage-prev {
-  left: -25px;
-}
-
-.aboutpage-next {
-  right: -25px;
-}
-
-.aboutpage-timeline-track {
-  overflow: hidden;
-}
-
-.aboutpage-timeline-items {
-  display: flex;
-  transition: transform 0.5s ease;
-}
-
-.aboutpage-timeline-slide {
-  min-width: 100%;
-  padding: 2rem;
-}
-
-.aboutpage-timeline-card {
-  display: flex;
-  gap: 2rem;
-  background: white;
-  border-radius: var(--aboutpage-radius-xl);
-  overflow: hidden;
-  box-shadow: var(--aboutpage-shadow-md);
-}
-
-.aboutpage-timeline-image {
-  flex: 1;
-  position: relative;
-  min-width: 300px;
-}
-
-.aboutpage-timeline-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.aboutpage-timeline-year-badge {
-  position: absolute;
-  bottom: 1rem;
-  left: 1rem;
-  background: var(--aboutpage-primary);
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 2rem;
-  font-weight: 700;
-}
-
-.aboutpage-timeline-content {
-  flex: 1;
-  padding: 2rem;
-}
-
-.aboutpage-timeline-title {
+  color: var(--aboutpage-primary);
   font-size: 1.5rem;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+  transition: all 0.3s ease;
+  opacity: 0;
+}
+
+.aboutpage-timeline-item.active .aboutpage-timeline-icon {
+  opacity: 1;
+  transform: rotate(360deg) scale(1.15);
+}
+
+/* Content - Text dịch chuyển ngược với ảnh */
+.aboutpage-timeline-content {
+  max-width: 420px;
+  padding: 1rem 1.5rem;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Active: Content to hơn */
+.aboutpage-timeline-item.active .aboutpage-timeline-content {
+  max-width: 480px;
+  padding: 1.5rem 2rem;
+}
+
+/* Index lẻ: Ảnh trái, Text phải - Text dịch sang TRÁI khi active (ngược với ảnh) */
+.aboutpage-timeline-item:nth-child(odd).active .aboutpage-timeline-right .aboutpage-timeline-content {
+  transform: translateX(-40px);
+}
+
+/* Index chẵn: Text trái, Ảnh phải - Text dịch sang PHẢI khi active (ngược với ảnh) */
+.aboutpage-timeline-item:nth-child(even).active .aboutpage-timeline-left .aboutpage-timeline-content {
+  transform: translateX(40px);
+}
+
+/* Title */
+.aboutpage-timeline-title {
+  font-size: 1.3rem;
   font-weight: 700;
+  margin-bottom: 0.8rem;
+  color: var(--aboutpage-text-dark);
+  transition: all 0.4s ease;
+  line-height: 1.4;
+}
+
+/* Active: Title to hơn */
+.aboutpage-timeline-item.active .aboutpage-timeline-title {
+  font-size: 1.8rem;
+  color: var(--aboutpage-primary);
   margin-bottom: 1rem;
 }
 
+/* Description */
 .aboutpage-timeline-desc {
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: var(--aboutpage-text-gray);
   line-height: 1.7;
+  margin-bottom: 0.8rem;
+  transition: all 0.4s ease;
 }
 
+/* Active: Description to hơn */
+.aboutpage-timeline-item.active .aboutpage-timeline-desc {
+  font-size: 1.15rem;
+  line-height: 1.8;
+  margin-bottom: 1rem;
+  color: #4b5563;
+}
+
+/* Tags */
+.aboutpage-timeline-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  transition: all 0.4s ease;
+}
+
+.aboutpage-timeline-tag {
+  padding: 0.35rem 0.8rem;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #047857;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  opacity: 0.7;
+}
+
+/* Active: Tags to hơn và rõ hơn */
+.aboutpage-timeline-item.active .aboutpage-timeline-tag {
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  background: linear-gradient(135deg, var(--aboutpage-primary) 0%, #059669 100%);
+  color: white;
+  opacity: 1;
+}
+
+/* Text alignment - NGƯỢC LẠI */
+/* Index lẻ: Ảnh trái, Text phải - Căn TRÁI */
+.aboutpage-timeline-item:nth-child(odd) .aboutpage-timeline-right .aboutpage-timeline-content {
+  text-align: left;
+}
+
+.aboutpage-timeline-item:nth-child(odd) .aboutpage-timeline-right .aboutpage-timeline-tags {
+  justify-content: flex-start;
+}
+
+/* Index chẵn: Text trái, Ảnh phải - Căn PHẢI */
+.aboutpage-timeline-item:nth-child(even) .aboutpage-timeline-left .aboutpage-timeline-content {
+  text-align: right;
+}
+
+.aboutpage-timeline-item:nth-child(even) .aboutpage-timeline-left .aboutpage-timeline-tags {
+  justify-content: flex-end;
+}
+
+/* Navigation Buttons */
+.aboutpage-timeline-nav {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 50px;
+  background: white;
+  border: 2px solid var(--aboutpage-primary);
+  border-radius: 50%;
+  color: var(--aboutpage-primary);
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.aboutpage-timeline-nav:hover:not(:disabled) {
+  background: var(--aboutpage-primary);
+  color: white;
+  transform: translateX(-50%) scale(1.1);
+}
+
+.aboutpage-timeline-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.aboutpage-nav-up {
+  top: -25px;
+}
+
+.aboutpage-nav-down {
+  bottom: -25px;
+}
+
+/* Dots Indicator */
 .aboutpage-timeline-dots {
   display: flex;
   justify-content: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
 }
 
 .aboutpage-timeline-dot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  background: transparent;
+  border: none;
   cursor: pointer;
-  transition: var(--aboutpage-transition);
+  transition: all 0.3s ease;
+  padding: 0;
 }
 
 .aboutpage-timeline-dot span {
+  display: inline-block;
+  padding: 0.4rem 0.8rem;
   background: #e5e7eb;
   color: #6b7280;
-  padding: 0.5rem 1rem;
-  border-radius: 2rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
   font-weight: 600;
-  transition: var(--aboutpage-transition);
+  transition: all 0.3s ease;
 }
 
-.aboutpage-timeline-dot.active span {
+.aboutpage-timeline-dot.active span,
+.aboutpage-timeline-dot:hover span {
   background: var(--aboutpage-primary);
   color: white;
+  transform: scale(1.1);
 }
 
-.aboutpage-timeline-dot:hover span {
-  background: var(--aboutpage-primary-light);
-  color: white;
-}
-
+/* Stats Summary */
 .aboutpage-timeline-summary {
-  background: var(--aboutpage-bg-gray-50);
-  border-radius: var(--aboutpage-radius-xl);
-  padding: 2rem;
-  max-width: 800px;
-  margin: 0 auto;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(102, 126, 234, 0.05) 100%);
+  border-radius: 25px;
+  padding: 3rem 2rem;
+  max-width: 1200px;
+  margin: 4rem auto 0;
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(16, 185, 129, 0.1);
 }
 
 .aboutpage-summary-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 2rem;
   text-align: center;
 }
 
 .aboutpage-summary-stat {
   padding: 1.5rem;
-  border-right: 2px solid #e5e7eb;
+  position: relative;
+  transition: transform 0.3s ease;
 }
 
-.aboutpage-summary-stat:last-child {
-  border-right: none;
+.aboutpage-summary-stat:hover {
+  transform: translateY(-5px);
+}
+
+.aboutpage-summary-stat::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 60%;
+  background: linear-gradient(180deg, transparent 0%, rgba(16, 185, 129, 0.3) 50%, transparent 100%);
+}
+
+.aboutpage-summary-stat:last-child::after {
+  display: none;
 }
 
 .aboutpage-summary-stat h4 {
-  font-size: 2.5rem;
+  font-size: 3rem;
   font-weight: 800;
-  color: var(--aboutpage-primary);
+  background: linear-gradient(135deg, var(--aboutpage-primary) 0%, #667eea 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin-bottom: 0.5rem;
 }
 
 .aboutpage-summary-stat p {
   font-size: 1rem;
   color: var(--aboutpage-text-gray);
-  font-weight: 500;
+  font-weight: 600;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 1024px) {
+  .aboutpage-timeline-wrapper {
+    max-width: 1100px;
+  }
+
+  .aboutpage-timeline-container {
+    height: 550px;
+  }
+
+  .aboutpage-timeline-item {
+    grid-template-columns: 1fr 100px 1fr;
+    gap: 2rem;
+    height: 320px;
+    padding: 0 2rem;
+  }
+
+  .aboutpage-timeline-image-wrapper {
+    width: 280px;
+    height: 190px;
+  }
+
+  .aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper {
+    width: 380px;
+    height: 260px;
+  }
+
+  .aboutpage-timeline-item:nth-child(odd).active .aboutpage-timeline-left .aboutpage-timeline-image-wrapper {
+    transform: translateX(30px);
+  }
+
+  .aboutpage-timeline-item:nth-child(even).active .aboutpage-timeline-right .aboutpage-timeline-image-wrapper {
+    transform: translateX(-30px);
+  }
+
+  .aboutpage-timeline-item:nth-child(odd).active .aboutpage-timeline-right .aboutpage-timeline-content {
+    transform: translateX(-20px);
+  }
+
+  .aboutpage-timeline-item:nth-child(even).active .aboutpage-timeline-left .aboutpage-timeline-content {
+    transform: translateX(20px);
+  }
+
+  .aboutpage-timeline-content {
+    max-width: 340px;
+    padding: 0.8rem 1.2rem;
+  }
+
+  .aboutpage-timeline-item.active .aboutpage-timeline-content {
+    max-width: 400px;
+    padding: 1.2rem 1.5rem;
+  }
+
+  .aboutpage-timeline-title {
+    font-size: 1.2rem;
+  }
+
+  .aboutpage-timeline-item.active .aboutpage-timeline-title {
+    font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .aboutpage-timeline-wrapper {
+    padding: 0 1rem;
+  }
+
+  .aboutpage-timeline-container {
+    height: 520px;
+  }
+
+  /* Mobile: Single column layout - Năm → Ảnh → Text */
+  .aboutpage-timeline-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    height: auto;
+    min-height: 450px;
+    padding: 2rem 1rem;
+    text-align: center;
+    align-items: center;
+  }
+
+  /* Thứ tự: Year → Image → Content */
+  .aboutpage-timeline-center {
+    order: 1;
+    margin-bottom: 0;
+  }
+
+  .aboutpage-timeline-left,
+  .aboutpage-timeline-right {
+    order: 2;
+    margin-bottom: 0;
+  }
+
+  /* Kiểm tra xem có phải là ảnh hay content */
+  .aboutpage-timeline-left:has(.aboutpage-timeline-image-wrapper),
+  .aboutpage-timeline-right:has(.aboutpage-timeline-image-wrapper) {
+    order: 2;
+  }
+
+  .aboutpage-timeline-left:has(.aboutpage-timeline-content),
+  .aboutpage-timeline-right:has(.aboutpage-timeline-content) {
+    order: 3;
+  }
+
+  /* Mobile: Căn giữa tất cả */
+  .aboutpage-timeline-left,
+  .aboutpage-timeline-right {
+    justify-content: center;
+  }
+
+  .aboutpage-timeline-item:nth-child(even) .aboutpage-timeline-left .aboutpage-timeline-content,
+  .aboutpage-timeline-item:nth-child(odd) .aboutpage-timeline-right .aboutpage-timeline-content {
+    text-align: center;
+  }
+
+  .aboutpage-timeline-item:nth-child(even) .aboutpage-timeline-left .aboutpage-timeline-tags,
+  .aboutpage-timeline-item:nth-child(odd) .aboutpage-timeline-right .aboutpage-timeline-tags {
+    justify-content: center;
+  }
+
+  /* Bỏ transform trên mobile */
+  .aboutpage-timeline-item.active .aboutpage-timeline-left .aboutpage-timeline-image-wrapper,
+  .aboutpage-timeline-item.active .aboutpage-timeline-right .aboutpage-timeline-image-wrapper,
+  .aboutpage-timeline-item.active .aboutpage-timeline-left .aboutpage-timeline-content,
+  .aboutpage-timeline-item.active .aboutpage-timeline-right .aboutpage-timeline-content {
+    transform: none;
+  }
+
+  /* Image full width on mobile */
+  .aboutpage-timeline-image-wrapper {
+    width: 100%;
+    max-width: 380px;
+    height: 220px;
+    margin: 0 auto;
+  }
+
+  .aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper {
+    width: 100%;
+    max-width: 450px;
+    height: 280px;
+  }
+
+  /* Content full width */
+  .aboutpage-timeline-content {
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .aboutpage-timeline-item.active .aboutpage-timeline-content {
+    max-width: 100%;
+  }
+
+  .aboutpage-timeline-year {
+    width: 90px;
+    height: 90px;
+    font-size: 1.4rem;
+  }
+
+  /* Navigation arrows smaller */
+  .aboutpage-timeline-nav {
+    width: 45px;
+    height: 45px;
+    font-size: 1.3rem;
+  }
+
+  .aboutpage-nav-up {
+    top: -22px;
+  }
+
+  .aboutpage-nav-down {
+    bottom: -22px;
+  }
+
+  /* Dots smaller */
+  .aboutpage-timeline-dots {
+    gap: 0.4rem;
+  }
+
+  .aboutpage-timeline-dot span {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  /* Stats 2 columns */
+  .aboutpage-summary-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .aboutpage-summary-stat::after {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .aboutpage-timeline-section {
+    padding: 3rem 0;
+  }
+
+  .aboutpage-timeline-container {
+    height: 480px;
+  }
+
+  .aboutpage-timeline-item {
+    min-height: 420px;
+    padding: 1.5rem 0.75rem;
+    gap: 1.2rem;
+  }
+
+  .aboutpage-timeline-year {
+    width: 80px;
+    height: 80px;
+    font-size: 1.3rem;
+  }
+
+  .aboutpage-timeline-image-wrapper {
+    height: 200px;
+    max-width: 100%;
+  }
+
+  .aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper {
+    height: 250px;
+  }
+
+  .aboutpage-timeline-title {
+    font-size: 1.15rem;
+  }
+
+  .aboutpage-timeline-item.active .aboutpage-timeline-title {
+    font-size: 1.5rem;
+  }
+
+  .aboutpage-timeline-desc {
+    font-size: 0.9rem;
+  }
+
+  .aboutpage-timeline-item.active .aboutpage-timeline-desc {
+    font-size: 1.05rem;
+  }
+
+  .aboutpage-timeline-nav {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+
+  /* Stats 1 column */
+  .aboutpage-summary-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .aboutpage-summary-stat h4 {
+    font-size: 2.5rem;
+  }
 }
 
 /* Values Section */
@@ -407,7 +975,7 @@
   text-align: center;
   box-shadow: var(--aboutpage-shadow-md);
   transition: var(--aboutpage-transition);
-  opacity: 0;
+  opacity: 1;
   transform: translateY(20px);
 }
 
@@ -450,7 +1018,7 @@
   overflow: hidden;
   box-shadow: var(--aboutpage-shadow-md);
   transition: var(--aboutpage-transition);
-  opacity: 0;
+  opacity: 1;
   transform: scale(0.95);
 }
 
@@ -493,7 +1061,7 @@
   line-height: 1.7;
 }
 
-/* Achievements Section */
+/* ==================== ACHIEVEMENTS SECTION ==================== */
 .aboutpage-achievements-section {
   background: var(--aboutpage-bg-gray-50);
   padding: 5rem 0;
@@ -508,12 +1076,11 @@
 .aboutpage-achievement-card {
   background: white;
   border-radius: var(--aboutpage-radius-xl);
-  padding: 2rem;
-  text-align: center;
+  overflow: hidden;
   box-shadow: var(--aboutpage-shadow-md);
   transition: var(--aboutpage-transition);
-  opacity: 0;
-  transform: translateY(20px);
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .aboutpage-achievement-card:hover {
@@ -521,16 +1088,40 @@
   box-shadow: var(--aboutpage-shadow-xl);
 }
 
+.aboutpage-achievement-image {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  position: relative;
+}
+
+.aboutpage-achievement-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.aboutpage-achievement-card:hover .aboutpage-achievement-image img {
+  transform: scale(1.1);
+}
+
+.aboutpage-achievement-content {
+  padding: 2rem;
+  text-align: center;
+}
+
 .aboutpage-achievement-icon {
   font-size: 3rem;
   color: var(--aboutpage-primary);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .aboutpage-achievement-title {
   font-size: 1.125rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
+  color: var(--aboutpage-text-dark);
 }
 
 .aboutpage-achievement-year {
@@ -539,7 +1130,7 @@
   font-weight: 600;
 }
 
-/* Facilities Section */
+/* ==================== FACILITIES SECTION ==================== */
 .aboutpage-facilities-section {
   padding: 5rem 0;
 }
@@ -553,17 +1144,39 @@
 .aboutpage-facility-card {
   background: white;
   border-radius: var(--aboutpage-radius-xl);
-  padding: 2rem;
-  text-align: center;
+  overflow: hidden;
   box-shadow: var(--aboutpage-shadow-md);
   transition: var(--aboutpage-transition);
-  opacity: 0;
-  transform: translateY(20px);
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .aboutpage-facility-card:hover {
   transform: translateY(-5px);
   box-shadow: var(--aboutpage-shadow-xl);
+}
+
+.aboutpage-facility-image {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  position: relative;
+}
+
+.aboutpage-facility-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.aboutpage-facility-card:hover .aboutpage-facility-image img {
+  transform: scale(1.1);
+}
+
+.aboutpage-facility-content {
+  padding: 2rem;
+  text-align: center;
 }
 
 .aboutpage-facility-icon {
@@ -576,11 +1189,58 @@
   font-size: 1.25rem;
   font-weight: 700;
   margin-bottom: 1rem;
+  color: var(--aboutpage-text-dark);
 }
 
 .aboutpage-facility-desc {
   font-size: 1rem;
   color: var(--aboutpage-text-gray);
+  line-height: 1.6;
+}
+
+/* Section Footer - Nút xem tất cả */
+.aboutpage-section-footer {
+  margin-top: 3rem;
+  text-align: center;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 1024px) {
+  .aboutpage-achievements-grid,
+  .aboutpage-facilities-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .aboutpage-achievements-grid,
+  .aboutpage-facilities-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .aboutpage-achievement-image,
+  .aboutpage-facility-image {
+    height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .aboutpage-achievements-grid,
+  .aboutpage-facilities-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .aboutpage-achievement-image,
+  .aboutpage-facility-image {
+    height: 200px;
+  }
+
+  .aboutpage-achievement-content,
+  .aboutpage-facility-content {
+    padding: 1.5rem;
+  }
 }
 
 /* Doctors Section */
@@ -601,7 +1261,7 @@
   overflow: hidden;
   box-shadow: var(--aboutpage-shadow-md);
   transition: var(--aboutpage-transition);
-  opacity: 0;
+  opacity: 1;
   transform: scale(0.95);
 }
 

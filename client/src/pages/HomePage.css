@@ -161,7 +161,7 @@ body {
   height: 100%;
   background-size: cover;
   background-position: center;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 1s ease;
 }
 
@@ -312,7 +312,7 @@ body {
   text-align: center;
   box-shadow: var(--homepage-shadow-md);
   transition: var(--homepage-transition);
-  opacity: 0;
+  opacity: 1;
   transform: translateY(20px);
 }
 
@@ -366,7 +366,7 @@ body {
 
 .homepage-stat-card {
   text-align: center;
-  opacity: 0;
+  opacity: 1;
   transform: scale(0.95);
 }
 
@@ -497,7 +497,7 @@ body {
   text-align: center;
   box-shadow: var(--homepage-shadow-md);
   transition: var(--homepage-transition);
-  opacity: 0;
+  opacity: 1;
   transform: translateY(20px);
 }
 
@@ -561,7 +561,7 @@ body {
   overflow: hidden;
   box-shadow: var(--homepage-shadow-md);
   transition: var(--homepage-transition);
-  opacity: 0;
+  opacity: 1;
   transform: scale(0.95);
 }
 
@@ -679,7 +679,7 @@ body {
   box-shadow: var(--homepage-shadow-md);
   position: relative;
   transition: var(--homepage-transition);
-  opacity: 0;
+  opacity: 1;
   transform: translateY(20px);
 }
 
@@ -908,12 +908,12 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 1; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
+  from { opacity: 1; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
 

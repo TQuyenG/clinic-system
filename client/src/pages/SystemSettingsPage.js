@@ -265,93 +265,118 @@ const SystemSettingsPage = () => {
     }));
   };
 
-  // ==================== IMAGE UPLOAD ==================== (giữ nguyên)
-  const handleArrayImageUpload = async (setter, arrayKey, index, field, file) => {
-    if (!file) return;
-    const token = localStorage.getItem('token');
-    if (!token) {
-      addToast('Vui lòng đăng nhập lại để upload ảnh.', 'error');
-      return;
-    }
-    
-    const formData = new FormData();
-    formData.append('image', file);
+  // ==================== IMAGE UPLOAD ==================== 
+// Hàm upload ảnh cho mảng (dùng cho bannerSlides, testimonials, milestones, etc.)
+const handleArrayImageUpload = async (setter, arrayKey, index, field, file) => {
+  if (!file) return;
+  
+  // Lấy token để xác thực
+  const token = localStorage.getItem('token');
+  if (!token) {
+    addToast('Vui lòng đăng nhập lại để upload ảnh.', 'error');
+    return;
+  }
+  
+  // Tạo FormData để gửi file
+  const formData = new FormData();
+  formData.append('image', file); // ⚠️ Key phải là 'image', khớp với upload.single('image') trong uploadRoutes.js
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/upload/image`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`
-        }
-      });
-      
-      const imageUrl = response.data.url;
-      handleArrayChange(setter, arrayKey, index, field, imageUrl);
-      addToast('Upload ảnh thành công!', 'success');
-    } catch (err) {
-      addToast('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message), 'error');
-    }
-  };
-
-  const handleSingleImageUpload = async (setter, path, file) => {
-    if (!file) return;
-    const token = localStorage.getItem('token');
-    if (!token) {
-      addToast('Vui lòng đăng nhập lại để upload ảnh.', 'error');
-      return;
-    }
-
-    const keys = path.split('.');
-    let oldImageUrl = null;
-    if (keys.length === 2) {
-      const parentKey = keys[0];
-      const childKey = keys[1];
-      if (setter === setHomeData) {
-        oldImageUrl = homeData[parentKey]?.[childKey];
-      } else if (setter === setAboutData) {
-        oldImageUrl = aboutData[parentKey]?.[childKey];
-      } else if (setter === setFacilitiesData) {
-        oldImageUrl = facilitiesData[parentKey]?.[childKey];
-      } else if (setter === setEquipmentData) {
-        oldImageUrl = equipmentData[parentKey]?.[childKey];
+  try {
+    // ✅ SỬA: Đổi từ '/uploads/images' thành '/upload/image' (số ít)
+    const response = await axios.post(`${API_BASE_URL}/upload/image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${token}`
       }
-    }
-
-    const formData = new FormData();
-    formData.append('image', file);
+    });
     
-    if (oldImageUrl && oldImageUrl.startsWith('/uploads/')) {
-      formData.append('oldImage', oldImageUrl);
-    }
+    // Lấy URL ảnh từ response
+    const imageUrl = response.data.url; // Trả về dạng: /uploads/images/article-123456789.jpg
+    
+    // Cập nhật state với URL ảnh mới
+    handleArrayChange(setter, arrayKey, index, field, imageUrl);
+    addToast('Upload ảnh thành công!', 'success');
+  } catch (err) {
+    console.error('Upload error:', err); // Debug
+    addToast('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message), 'error');
+  }
+};
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/upload/image`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`
-        }
-      });
-      
-      const imageUrl = response.data.url;
-      
-      setter(prev => {
-        const newData = { ...prev };
-        let current = newData;
-        
-        for (let i = 0; i < keys.length - 1; i++) {
-          current[keys[i]] = { ...current[keys[i]] };
-          current = current[keys[i]];
-        }
-        
-        current[keys[keys.length - 1]] = imageUrl;
-        return newData;
-      });
-      
-      addToast('Upload ảnh thành công!', 'success');
-    } catch (err) {
-      addToast('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message), 'error');
+// Hàm upload ảnh đơn (dùng cho aboutSection.image, banner.image, etc.)
+const handleSingleImageUpload = async (setter, path, file) => {
+  if (!file) return;
+  
+  // Lấy token để xác thực
+  const token = localStorage.getItem('token');
+  if (!token) {
+    addToast('Vui lòng đăng nhập lại để upload ảnh.', 'error');
+    return;
+  }
+
+  // Lấy URL ảnh cũ để xóa (nếu có)
+  // path có dạng: 'aboutSection.image' hoặc 'banner.image'
+  const keys = path.split('.'); // Tách thành ['aboutSection', 'image']
+  let oldImageUrl = null;
+  
+  if (keys.length === 2) {
+    const parentKey = keys[0]; // 'aboutSection'
+    const childKey = keys[1];  // 'image'
+    
+    // Lấy URL ảnh cũ từ state tương ứng
+    if (setter === setHomeData) {
+      oldImageUrl = homeData[parentKey]?.[childKey];
+    } else if (setter === setAboutData) {
+      oldImageUrl = aboutData[parentKey]?.[childKey];
+    } else if (setter === setFacilitiesData) {
+      oldImageUrl = facilitiesData[parentKey]?.[childKey];
+    } else if (setter === setEquipmentData) {
+      oldImageUrl = equipmentData[parentKey]?.[childKey];
     }
-  };
+  }
+
+  // Tạo FormData
+  const formData = new FormData();
+  formData.append('image', file); // ⚠️ Key phải là 'image'
+  
+  // Gửi kèm URL ảnh cũ để server xóa (tùy chọn)
+  if (oldImageUrl && oldImageUrl.startsWith('/uploads/')) {
+    formData.append('oldImage', oldImageUrl);
+  }
+
+  try {
+    // ✅ Endpoint đúng: /upload/image (đã đúng từ đầu)
+    const response = await axios.post(`${API_BASE_URL}/upload/image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    // Lấy URL ảnh từ response
+    const imageUrl = response.data.url;
+    
+    // Cập nhật state theo path (nested object)
+    setter(prev => {
+      const newData = { ...prev };
+      let current = newData;
+      
+      // Duyệt qua các key để đến object cuối cùng
+      for (let i = 0; i < keys.length - 1; i++) {
+        current[keys[i]] = { ...current[keys[i]] };
+        current = current[keys[i]];
+      }
+      
+      // Set giá trị cho key cuối cùng
+      current[keys[keys.length - 1]] = imageUrl;
+      return newData;
+    });
+    
+    addToast('Upload ảnh thành công!', 'success');
+  } catch (err) {
+    console.error('Upload error:', err); // Debug
+    addToast('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message), 'error');
+  }
+};
 
   const handleImageOptionChange = (key, option) => {
     setImageOptions(prev => ({ ...prev, [key]: option }));
@@ -1616,7 +1641,9 @@ const SystemSettingsPage = () => {
                   addArrayItem(setAboutData, 'achievements', { 
                     icon: 'FaTrophy', 
                     title: '', 
-                    year: '' 
+                    year: '',
+                    image: '',
+                    alt: ''
                   }); 
                 }}
                   className="sys-settings-btn sys-settings-btn-primary">
@@ -1628,33 +1655,68 @@ const SystemSettingsPage = () => {
             {openSections.about.achievements && (
               <div className="sys-settings-section-content">
                 <div className="sys-settings-grid">
-                  {(aboutData.achievements || []).map((achievement, index) => (
-                    <div key={index} className="sys-settings-card">
-                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
-                        Thành tựu {index + 1}
-                      </h4>
+                  {(aboutData.achievements || []).map((achievement, index) => {
+                    const key = `about-achievements-${index}`;
+                    const option = imageOptions[key] || 'upload';
+                    return (
+                      <div key={index} className="sys-settings-card">
+                        <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                          Thành tựu {index + 1}
+                        </h4>
 
-                      <label className="sys-settings-label">Icon</label>
-                      <CustomIconPicker value={achievement.icon || ''} 
-                        onChange={(icon) => handleArrayChange(setAboutData, 'achievements', index, 'icon', icon)} />
-                      
-                      <label className="sys-settings-label">Tiêu đề</label>
-                      <input type="text" value={achievement.title || ''} placeholder="Top 10 Phòng khám xuất sắc"
-                        onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'title', e.target.value)}
-                        className="sys-settings-input" />
-                      
-                      <label className="sys-settings-label">Năm</label>
-                      <input type="text" value={achievement.year || ''} placeholder="2023"
-                        onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'year', e.target.value)}
-                        className="sys-settings-input" />
-                      
-                      <button type="button" onClick={() => removeArrayItem(setAboutData, 'achievements', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" 
-                        style={{ marginTop: '16px', width: '100%' }}>
-                        <FaTrash /> Xóa
-                      </button>
-                    </div>
-                  ))}
+                        <label className="sys-settings-label">Hình ảnh giải thưởng</label>
+                        <div className="sys-settings-image-options">
+                          <label>
+                            <input type="radio" checked={option === 'upload'} 
+                              onChange={() => handleImageOptionChange(key, 'upload')} />
+                            Upload
+                          </label>
+                          <label>
+                            <input type="radio" checked={option === 'url'} 
+                              onChange={() => handleImageOptionChange(key, 'url')} />
+                            URL
+                          </label>
+                        </div>
+                        {option === 'upload' ? (
+                          <input type="file" accept="image/*"
+                            onChange={(e) => handleArrayImageUpload(setAboutData, 'achievements', index, 'image', e.target.files[0])}
+                            className="sys-settings-file-input" />
+                        ) : (
+                          <input type="text" value={achievement.image || ''} placeholder="https://example.com/award.jpg"
+                            onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'image', e.target.value)}
+                            className="sys-settings-input" />
+                        )}
+                        {achievement.image && (
+                          <img src={achievement.image} alt={achievement.alt || achievement.title} className="sys-settings-preview-img" />
+                        )}
+
+                        <label className="sys-settings-label">Alt Text</label>
+                        <input type="text" value={achievement.alt || ''} placeholder="Mô tả ảnh giải thưởng"
+                          onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'alt', e.target.value)}
+                          className="sys-settings-input" />
+
+                        <label className="sys-settings-label">Icon</label>
+                        <CustomIconPicker value={achievement.icon || ''} 
+                          onChange={(icon) => handleArrayChange(setAboutData, 'achievements', index, 'icon', icon)} />
+                        
+                        <label className="sys-settings-label">Tiêu đề</label>
+                        <input type="text" value={achievement.title || ''} placeholder="Top 10 Phòng khám xuất sắc"
+                          onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'title', e.target.value)}
+                          className="sys-settings-input" />
+                        
+                        <label className="sys-settings-label">Năm</label>
+                        <input type="text" value={achievement.year || ''} placeholder="2023"
+                          onChange={(e) => handleArrayChange(setAboutData, 'achievements', index, 'year', e.target.value)}
+                          className="sys-settings-input" />
+                        
+                        <button type="button" onClick={() => removeArrayItem(setAboutData, 'achievements', index)}
+                          className="sys-settings-btn sys-settings-btn-danger" 
+                          style={{ marginTop: '16px', width: '100%' }}>
+                          <FaTrash /> Xóa
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1680,7 +1742,9 @@ const SystemSettingsPage = () => {
                   addArrayItem(setAboutData, 'facilities', { 
                     icon: 'FaBuilding', 
                     title: '', 
-                    description: '' 
+                    description: '',
+                    image: '',
+                    alt: ''
                   }); 
                 }}
                   className="sys-settings-btn sys-settings-btn-primary">
@@ -1692,33 +1756,68 @@ const SystemSettingsPage = () => {
             {openSections.about.facilities && (
               <div className="sys-settings-section-content">
                 <div className="sys-settings-grid">
-                  {(aboutData.facilities || []).map((facility, index) => (
-                    <div key={index} className="sys-settings-card">
-                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
-                        Cơ sở {index + 1}
-                      </h4>
+                  {(aboutData.facilities || []).map((facility, index) => {
+                    const key = `about-facilities-${index}`;
+                    const option = imageOptions[key] || 'upload';
+                    return (
+                      <div key={index} className="sys-settings-card">
+                        <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                          Cơ sở {index + 1}
+                        </h4>
 
-                      <label className="sys-settings-label">Icon</label>
-                      <CustomIconPicker value={facility.icon || ''} 
-                        onChange={(icon) => handleArrayChange(setAboutData, 'facilities', index, 'icon', icon)} />
-                      
-                      <label className="sys-settings-label">Tiêu đề</label>
-                      <input type="text" value={facility.title || ''} placeholder="Phòng khám hiện đại"
-                        onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'title', e.target.value)}
-                        className="sys-settings-input" />
-                      
-                      <label className="sys-settings-label">Mô tả</label>
-                      <textarea value={facility.description || ''} placeholder="Trang bị đầy đủ..."
-                        onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'description', e.target.value)}
-                        className="sys-settings-textarea" />
-                      
-                      <button type="button" onClick={() => removeArrayItem(setAboutData, 'facilities', index)}
-                        className="sys-settings-btn sys-settings-btn-danger" 
-                        style={{ marginTop: '16px', width: '100%' }}>
-                        <FaTrash /> Xóa
-                      </button>
-                    </div>
-                  ))}
+                        <label className="sys-settings-label">Hình ảnh thiết bị</label>
+                        <div className="sys-settings-image-options">
+                          <label>
+                            <input type="radio" checked={option === 'upload'} 
+                              onChange={() => handleImageOptionChange(key, 'upload')} />
+                            Upload
+                          </label>
+                          <label>
+                            <input type="radio" checked={option === 'url'} 
+                              onChange={() => handleImageOptionChange(key, 'url')} />
+                            URL
+                          </label>
+                        </div>
+                        {option === 'upload' ? (
+                          <input type="file" accept="image/*"
+                            onChange={(e) => handleArrayImageUpload(setAboutData, 'facilities', index, 'image', e.target.files[0])}
+                            className="sys-settings-file-input" />
+                        ) : (
+                          <input type="text" value={facility.image || ''} placeholder="https://example.com/equipment.jpg"
+                            onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'image', e.target.value)}
+                            className="sys-settings-input" />
+                        )}
+                        {facility.image && (
+                          <img src={facility.image} alt={facility.alt || facility.title} className="sys-settings-preview-img" />
+                        )}
+
+                        <label className="sys-settings-label">Alt Text</label>
+                        <input type="text" value={facility.alt || ''} placeholder="Mô tả ảnh thiết bị"
+                          onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'alt', e.target.value)}
+                          className="sys-settings-input" />
+
+                        <label className="sys-settings-label">Icon</label>
+                        <CustomIconPicker value={facility.icon || ''} 
+                          onChange={(icon) => handleArrayChange(setAboutData, 'facilities', index, 'icon', icon)} />
+                        
+                        <label className="sys-settings-label">Tiêu đề</label>
+                        <input type="text" value={facility.title || ''} placeholder="Phòng khám hiện đại"
+                          onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'title', e.target.value)}
+                          className="sys-settings-input" />
+                        
+                        <label className="sys-settings-label">Mô tả</label>
+                        <textarea value={facility.description || ''} placeholder="Trang bị đầy đủ..."
+                          onChange={(e) => handleArrayChange(setAboutData, 'facilities', index, 'description', e.target.value)}
+                          className="sys-settings-textarea" />
+                        
+                        <button type="button" onClick={() => removeArrayItem(setAboutData, 'facilities', index)}
+                          className="sys-settings-btn sys-settings-btn-danger" 
+                          style={{ marginTop: '16px', width: '100%' }}>
+                          <FaTrash /> Xóa
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

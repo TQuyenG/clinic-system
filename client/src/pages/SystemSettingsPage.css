@@ -32,8 +32,8 @@
 /* ==================== TOAST NOTIFICATIONS ==================== */
 .sys-settings-toast-container {
   position: fixed;
-  top: 20px;
-  left: 20px; /* Giữ toast bên trái */
+  bottom: 20px;
+  right: 20px;
   z-index: 10000;
   display: flex;
   flex-direction: column;
@@ -49,7 +49,7 @@
   padding: 16px 20px;
   border-radius: 10px;
   box-shadow: 0 8px 24px var(--shadow-medium);
-  animation: slideInRight 0.3s ease, fadeOut 0.3s ease 3.7s;
+  animation: slideInBottom 0.3s ease, fadeOut 0.3s ease 3.7s;
   font-size: 0.95rem;
   font-weight: 500;
   min-width: 320px;
@@ -400,7 +400,6 @@
 
 /* ==================== TAB PANEL ==================== */
 .sys-settings-tab-panel {
-  padding: 24px 0;
   animation: fadeIn 0.4s ease;
   position: relative;
   z-index: 1;

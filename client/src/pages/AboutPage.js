@@ -1,10 +1,10 @@
 /* 
- * Tệp: AboutPage.js - PHIÊN BẢN MỚI
- * Mô tả: Trang "Về chúng tôi" với 10 sections theo yêu cầu mới
+ * File: AboutPage.js - PHIÊN BẢN HOÀN CHỈNH
+ * Mô tả: Trang "Về chúng tôi" với 10 sections
  * API: /api/settings/about, /api/specialties, /api/users/doctors
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import * as FaIcons from 'react-icons/fa';
@@ -13,7 +13,6 @@ import './AboutPage.css';
 const AboutPage = () => {
   const [specialties, setSpecialties] = useState([]);
   const [doctors, setDoctors] = useState([]);
-  const [currentMilestone, setCurrentMilestone] = useState(0);
   const [aboutData, setAboutData] = useState({
     banner: {},
     mission: {},
@@ -27,9 +26,20 @@ const AboutPage = () => {
   });
   const [isVisible, setIsVisible] = useState({});
   const [error, setError] = useState(null);
+  
+  // Timeline state
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAutoPlay, setIsAutoPlay] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startY, setStartY] = useState(0);
+  const [scrollTop, setScrollTop] = useState(0);
+  
+  const timelineRef = useRef(null);
+  const autoPlayRef = useRef(null);
 
   const iconMap = { ...FaIcons };
 
+  // Fetch data
   useEffect(() => {
     const fetchAboutData = async () => {
       try {
@@ -89,16 +99,100 @@ const AboutPage = () => {
     return () => sections.forEach(section => observer.unobserve(section));
   }, []);
 
+  // Auto-play timeline
+  useEffect(() => {
+    if (!aboutData.milestones || aboutData.milestones.length === 0) return;
+    if (!isAutoPlay || isDragging) return;
+
+    autoPlayRef.current = setInterval(() => {
+      setCurrentIndex(prev => (prev + 1) % aboutData.milestones.length);
+    }, 3000); // 3 giây mỗi milestone
+
+    return () => {
+      if (autoPlayRef.current) {
+        clearInterval(autoPlayRef.current);
+      }
+    };
+  }, [aboutData.milestones, isAutoPlay, isDragging]);
+
+  // Scroll to milestone
+  useEffect(() => {
+    if (timelineRef.current && aboutData.milestones.length > 0) {
+      const itemHeight = 350; // Chiều cao mỗi milestone item
+      const targetScroll = currentIndex * itemHeight;
+      
+      timelineRef.current.scrollTo({
+        top: targetScroll,
+        behavior: 'smooth'
+      });
+    }
+  }, [currentIndex, aboutData.milestones]);
+
+  // Mouse drag handlers
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    setIsAutoPlay(false);
+    setStartY(e.pageY - timelineRef.current.offsetTop);
+    setScrollTop(timelineRef.current.scrollTop);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const y = e.pageY - timelineRef.current.offsetTop;
+    const walk = (y - startY) * 2;
+    timelineRef.current.scrollTop = scrollTop - walk;
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    // Resume auto-play sau 3s
+    setTimeout(() => {
+      setIsAutoPlay(true);
+    }, 3000);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  // Touch handlers (mobile)
+  const handleTouchStart = (e) => {
+    setIsDragging(true);
+    setIsAutoPlay(false);
+    setStartY(e.touches[0].pageY - timelineRef.current.offsetTop);
+    setScrollTop(timelineRef.current.scrollTop);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging) return;
+    const y = e.touches[0].pageY - timelineRef.current.offsetTop;
+    const walk = (y - startY) * 2;
+    timelineRef.current.scrollTop = scrollTop - walk;
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    setTimeout(() => {
+      setIsAutoPlay(true);
+    }, 3000);
+  };
+
+  // Manual navigation
+  const goToMilestone = (index) => {
+    setCurrentIndex(index);
+    setIsAutoPlay(false);
+    setTimeout(() => {
+      setIsAutoPlay(true);
+    }, 5000);
+  };
+
   const nextMilestone = () => {
-    setCurrentMilestone((prev) => (prev + 1) % aboutData.milestones.length);
+    setCurrentIndex(prev => (prev + 1) % aboutData.milestones.length);
   };
 
   const prevMilestone = () => {
-    setCurrentMilestone((prev) => (prev - 1 + aboutData.milestones.length) % aboutData.milestones.length);
-  };
-
-  const goToMilestone = (index) => {
-    setCurrentMilestone(index);
+    setCurrentIndex(prev => (prev - 1 + aboutData.milestones.length) % aboutData.milestones.length);
   };
 
   if (error) {
@@ -172,56 +266,134 @@ const AboutPage = () => {
         </div>
       </section>
 
-      {/* 3. Lịch sử phát triển */}
+      {/* 3. Lịch sử phát triển - Timeline Carousel */}
       {aboutData.milestones && aboutData.milestones.length > 0 && (
         <section className="aboutpage-section-container aboutpage-timeline-section aboutpage-animate-section" id="timeline">
           <div className="aboutpage-section-content">
             <h2 className="aboutpage-section-title">Lịch sử phát triển</h2>
-            <div className="aboutpage-timeline-slider">
-              <button className="aboutpage-timeline-nav aboutpage-prev" onClick={prevMilestone}>
-                <FaIcons.FaChevronLeft />
+            
+            <div className="aboutpage-timeline-wrapper">
+              {/* Navigation button - Up */}
+              <button 
+                className="aboutpage-timeline-nav aboutpage-nav-up" 
+                onClick={prevMilestone}
+                disabled={aboutData.milestones.length <= 1}
+              >
+                <FaIcons.FaChevronUp />
               </button>
-              
-              <div className="aboutpage-timeline-track">
-                <div 
-                  className="aboutpage-timeline-items"
-                  style={{ transform: `translateX(-${currentMilestone * 100}%)` }}
-                >
-                  {aboutData.milestones.map((milestone, index) => (
-                    <div key={index} className="aboutpage-timeline-slide">
-                      <div className="aboutpage-timeline-card">
-                        <div className="aboutpage-timeline-image">
-                          <img src={milestone.image} alt={milestone.alt || milestone.title} />
-                          <div className="aboutpage-timeline-year-badge">{milestone.year}</div>
+
+              {/* Timeline container với scroll */}
+              <div 
+                className="aboutpage-timeline-container"
+                ref={timelineRef}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+              >
+                {/* Center line dọc */}
+                <div className="aboutpage-timeline-line"></div>
+                
+                {/* Timeline track chứa các items */}
+                <div className="aboutpage-timeline-track">
+                  {aboutData.milestones.map((milestone, index) => {
+                    const isActive = index === currentIndex;
+                    const isPrev = index === currentIndex - 1;
+                    const isNext = index === currentIndex + 1;
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className={`aboutpage-timeline-item ${isActive ? 'active' : ''} ${isPrev || isNext ? 'adjacent' : ''}`}
+                        onClick={() => goToMilestone(index)}
+                      >
+                        {/* Cột trái: Image (nếu lẻ) hoặc Content (nếu chẵn) */}
+                        <div className="aboutpage-timeline-left">
+                          {index % 2 === 0 ? (
+                            // Chẵn: Content bên trái
+                            <div className="aboutpage-timeline-content">
+                              <h3 className="aboutpage-timeline-title">{milestone.title}</h3>
+                              <p className="aboutpage-timeline-desc">{milestone.description}</p>
+                              <div className="aboutpage-timeline-tags">
+                                <span className="aboutpage-timeline-tag">Milestone</span>
+                                <span className="aboutpage-timeline-tag">{milestone.year}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            // Lẻ: Image bên trái
+                            <div className="aboutpage-timeline-image-wrapper">
+                              <div className="aboutpage-timeline-icon">
+                                <FaIcons.FaTrophy />
+                              </div>
+                              <img src={milestone.image} alt={milestone.alt || milestone.title} />
+                            </div>
+                          )}
                         </div>
-                        <div className="aboutpage-timeline-content">
-                          <h3 className="aboutpage-timeline-title">{milestone.title}</h3>
-                          <p className="aboutpage-timeline-desc">{milestone.description}</p>
+
+                        {/* Cột giữa: Year badge */}
+                        <div className="aboutpage-timeline-center">
+                          <div className="aboutpage-timeline-year">
+                            {milestone.year}
+                          </div>
+                        </div>
+
+                        {/* Cột phải: Content (nếu lẻ) hoặc Image (nếu chẵn) */}
+                        <div className="aboutpage-timeline-right">
+                          {index % 2 === 0 ? (
+                            // Chẵn: Image bên phải
+                            <div className="aboutpage-timeline-image-wrapper">
+                              <div className="aboutpage-timeline-icon">
+                                <FaIcons.FaTrophy />
+                              </div>
+                              <img src={milestone.image} alt={milestone.alt || milestone.title} />
+                            </div>
+                          ) : (
+                            // Lẻ: Content bên phải
+                            <div className="aboutpage-timeline-content">
+                              <h3 className="aboutpage-timeline-title">{milestone.title}</h3>
+                              <p className="aboutpage-timeline-desc">{milestone.description}</p>
+                              <div className="aboutpage-timeline-tags">
+                                <span className="aboutpage-timeline-tag">Milestone</span>
+                                <span className="aboutpage-timeline-tag">{milestone.year}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
-              
-              <button className="aboutpage-timeline-nav aboutpage-next" onClick={nextMilestone}>
-                <FaIcons.FaChevronRight />
+
+              {/* Navigation button - Down */}
+              <button 
+                className="aboutpage-timeline-nav aboutpage-nav-down" 
+                onClick={nextMilestone}
+                disabled={aboutData.milestones.length <= 1}
+              >
+                <FaIcons.FaChevronDown />
               </button>
+
+              {/* Dots indicator - Hiển thị năm */}
+              <div className="aboutpage-timeline-dots">
+                {aboutData.milestones.map((milestone, index) => (
+                  <button
+                    key={index}
+                    className={`aboutpage-timeline-dot ${index === currentIndex ? 'active' : ''}`}
+                    onClick={() => goToMilestone(index)}
+                    aria-label={`Go to milestone ${index + 1}`}
+                  >
+                    <span>{milestone.year}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="aboutpage-timeline-dots">
-              {aboutData.milestones.map((_, index) => (
-                <button
-                  key={index}
-                  className={`aboutpage-timeline-dot ${index === currentMilestone ? 'active' : ''}`}
-                  onClick={() => goToMilestone(index)}
-                >
-                  <span>{aboutData.milestones[index].year}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* 4. Thống kê - Hiển thị ở đây thay vì hardcode */}
+            {/* 4. Thống kê - Hiển thị ở cuối timeline */}
             {aboutData.stats && aboutData.stats.length > 0 && (
               <div className="aboutpage-timeline-summary">
                 <div className="aboutpage-summary-stats">
@@ -290,12 +462,26 @@ const AboutPage = () => {
                 const Icon = iconMap[achievement.icon] || iconMap.FaTrophy;
                 return (
                   <div key={index} className="aboutpage-achievement-card">
-                    <div className="aboutpage-achievement-icon"><Icon /></div>
-                    <h3 className="aboutpage-achievement-title">{achievement.title}</h3>
-                    <span className="aboutpage-achievement-year">{achievement.year}</span>
+                    {achievement.image && (
+                      <div className="aboutpage-achievement-image">
+                        <img src={achievement.image} alt={achievement.alt || achievement.title} />
+                      </div>
+                    )}
+                    <div className="aboutpage-achievement-content">
+                      <div className="aboutpage-achievement-icon"><Icon /></div>
+                      <h3 className="aboutpage-achievement-title">{achievement.title}</h3>
+                      <span className="aboutpage-achievement-year">{achievement.year}</span>
+                    </div>
                   </div>
                 );
               })}
+            </div>
+            
+            <div className="aboutpage-section-footer">
+              <Link to="/trang-thiet-bi" className="aboutpage-btn-outline">
+                Xem tất cả trang thiết bị
+                <FaIcons.FaArrowRight />
+              </Link>
             </div>
           </div>
         </section>
@@ -311,12 +497,26 @@ const AboutPage = () => {
                 const Icon = iconMap[facility.icon] || iconMap.FaBuilding;
                 return (
                   <div key={index} className="aboutpage-facility-card">
-                    <div className="aboutpage-facility-icon"><Icon /></div>
-                    <h3 className="aboutpage-facility-title">{facility.title}</h3>
-                    <p className="aboutpage-facility-desc">{facility.description}</p>
+                    {facility.image && (
+                      <div className="aboutpage-facility-image">
+                        <img src={facility.image} alt={facility.alt || facility.title} />
+                      </div>
+                    )}
+                    <div className="aboutpage-facility-content">
+                      <div className="aboutpage-facility-icon"><Icon /></div>
+                      <h3 className="aboutpage-facility-title">{facility.title}</h3>
+                      <p className="aboutpage-facility-desc">{facility.description}</p>
+                    </div>
                   </div>
                 );
               })}
+            </div>
+            
+            <div className="aboutpage-section-footer">
+              <Link to="/trang-thiet-bi" className="aboutpage-btn-outline">
+                Xem tất cả trang thiết bị
+                <FaIcons.FaArrowRight />
+              </Link>
             </div>
           </div>
         </section>
@@ -336,9 +536,9 @@ const AboutPage = () => {
                       alt={doctor.full_name} 
                       className="aboutpage-doctor-image"
                       onError={(e) => {
-                          e.target.onerror = null; // Ngăn loop vô hạn
-                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f0f0f0" width="400" height="300"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="18" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3EDoctor%3C/text%3E%3C/svg%3E';
-                        }}
+                        e.target.onerror = null;
+                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f0f0f0" width="400" height="300"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="18" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3EDoctor%3C/text%3E%3C/svg%3E';
+                      }}
                     />
                     <div className="aboutpage-doctor-info">
                       <h3 className="aboutpage-doctor-name">{doctor.full_name}</h3>
@@ -367,7 +567,7 @@ const AboutPage = () => {
         </div>
       </section>
 
-      {/* 10. CTA - Hardcode theo yêu cầu */}
+      {/* 10. CTA */}
       <section className="aboutpage-section-container aboutpage-cta-section">
         <div className="aboutpage-cta-content">
           <h2 className="aboutpage-cta-title">Sẵn sàng chăm sóc sức khỏe của bạn?</h2>

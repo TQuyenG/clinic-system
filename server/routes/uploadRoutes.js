@@ -1,4 +1,4 @@
-// server/routes/uploadRoutes.js - CẬP NHẬT
+// server/routes/uploadRoutes.js
 const express = require('express');
 const router = express.Router();
 const upload = require('../config/upload');
@@ -6,7 +6,7 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const path = require('path');
 const fs = require('fs');
 
-// Upload single image - XÓA ẢNH CŨ TRƯỚC KHI UPLOAD MỚI
+// Route upload ảnh - POST /api/upload/image
 router.post('/image', authenticateToken, upload.single('image'), (req, res) => {
   try {
     if (!req.file) {
@@ -29,13 +29,16 @@ router.post('/image', authenticateToken, upload.single('image'), (req, res) => {
       }
     }
 
-    // URL của ảnh đã upload
-    const imageUrl = `/uploads/images/${req.file.filename}`;
+    // ✅ QUAN TRỌNG: Trả về URL đầy đủ với protocol và host
+    // Thay vì: `/uploads/images/${req.file.filename}`
+    // Dùng: `http://localhost:3001/uploads/images/${req.file.filename}`
+    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/images/${req.file.filename}`;
     
-    // Response format
+    console.log('Upload thành công:', imageUrl); // Debug
+    
     res.json({
       success: true,
-      url: imageUrl,
+      url: imageUrl, // ✅ URL đầy đủ: http://localhost:3001/uploads/images/article-123456.jpg
       file: {
         name: req.file.originalname,
         size: req.file.size,

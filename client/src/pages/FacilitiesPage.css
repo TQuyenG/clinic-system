@@ -140,7 +140,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
+  opacity: 1;
   transition: var(--facilitiespage-transition);
   font-weight: 600;
 }
@@ -272,7 +272,7 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
+  from { opacity: 1; }
   to { opacity: 1; }
 }
 
