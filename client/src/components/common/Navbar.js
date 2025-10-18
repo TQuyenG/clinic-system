@@ -23,11 +23,10 @@ import {
   FaUserPlus, 
   FaBookmark,
   FaStethoscope,
-  FaComments // Biểu tượng cho Diễn đàn sức khỏe
+  FaComments
 } from 'react-icons/fa';
 import NotificationDropdown from './NotificationDropdown';
 import './Navbar.css';
-import logo from '../../assets/images/logo.png';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -43,6 +42,13 @@ const Navbar = () => {
   });
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [activeMobileColumn, setActiveMobileColumn] = useState(null);
+  
+  // ✅ Thêm state cho navbar data
+  const [navbarData, setNavbarData] = useState({
+    logo_image: '',
+    logo_text: 'Clinic System',
+    search_placeholder: 'Tìm kiếm...'
+  });
   
   const navigate = useNavigate();
   const searchRef = useRef(null);
@@ -63,6 +69,7 @@ const Navbar = () => {
 
     fetchSpecialties();
     fetchCategories();
+    fetchNavbarData(); // ✅ Thêm fetch navbar data
 
     // Xử lý sự kiện click ngoài khu vực tìm kiếm
     const handleClickOutside = (e) => {
@@ -75,8 +82,19 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // ✅ Thêm hàm fetch navbar data
+  const fetchNavbarData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/settings/header-nav-footer`);
+      if (response.data && response.data.navbar) {
+        setNavbarData(response.data.navbar);
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy dữ liệu navbar:', error);
+    }
+  };
+
   const fetchSpecialties = async () => {
-    // Lấy danh sách chuyên khoa
     try {
       const response = await axios.get(`${API_BASE_URL}/api/specialties`);
       if (response.data.success) {
@@ -88,7 +106,6 @@ const Navbar = () => {
   };
 
   const fetchCategories = async () => {
-    // Lấy danh sách danh mục bài viết
     try {
       const response = await axios.get(`${API_BASE_URL}/api/articles/categories`);
       if (response.data.success) {
@@ -105,7 +122,6 @@ const Navbar = () => {
   };
 
   const handleSearch = async (query) => {
-    // Xử lý tìm kiếm
     setSearchQuery(query);
     
     if (query.trim().length < 2) {
@@ -126,7 +142,6 @@ const Navbar = () => {
   };
 
   const handleSearchSubmit = (e) => {
-    // Xử lý khi gửi form tìm kiếm
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
@@ -136,7 +151,6 @@ const Navbar = () => {
   };
 
   const handleLogout = () => {
-    // Xử lý đăng xuất
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
@@ -144,17 +158,14 @@ const Navbar = () => {
   };
 
   const toggleDropdown = (dropdown) => {
-    // Bật/tắt dropdown
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
   };
 
   const toggleMobileColumn = (column) => {
-    // Bật/tắt cột trên giao diện mobile
     setActiveMobileColumn(activeMobileColumn === column ? null : column);
   };
 
   const closeAllDropdowns = () => {
-    // Đóng tất cả dropdown
     setActiveDropdown(null);
     setActiveMobileColumn(null);
     setIsMenuOpen(false);
@@ -163,9 +174,14 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="nav-container">
-        {/* LOGO */}
+        {/* LOGO - ✅ Cập nhật để sử dụng data từ API */}
         <Link to="/" className="logo" onClick={closeAllDropdowns}>
-          <img src={logo} alt="Clinic System" />
+          {navbarData.logo_image ? (
+            <img src={navbarData.logo_image} alt={navbarData.logo_text} />
+          ) : (
+            <img src={require('../../assets/images/logo.png')} alt="Clinic System" />
+          )}
+          <span>{navbarData.logo_text}</span>
         </Link>
 
         {/* Nút Menu trên Mobile */}
@@ -179,13 +195,13 @@ const Navbar = () => {
 
         {/* PHẦN GIỮA */}
         <div className={`nav-center ${isMenuOpen ? 'active' : ''}`}>
-          {/* Thanh Tìm kiếm */}
+          {/* Thanh Tìm kiếm - ✅ Cập nhật placeholder từ API */}
           <div className="search-container" ref={searchRef}>
             <form className="search-bar" onSubmit={handleSearchSubmit}>
               <FaSearch className="search-icon" />
               <input 
                 type="text" 
-                placeholder="Tìm kiếm..." 
+                placeholder={navbarData.search_placeholder}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
               />
@@ -329,7 +345,7 @@ const Navbar = () => {
               </button>
               <div className={`dropdown-menu mega-menu ${activeDropdown === 'articles' ? 'show' : ''}`}>
                 <div className="mega-menu-grid">
-                  {/* Diễn đàn sức khỏe - Liên kết trực tiếp */}
+                  {/* Diễn đàn sức khỏe */}
                   <div className="mega-menu-column">
                     <Link 
                       to="/dien-dan-suc-khoe"

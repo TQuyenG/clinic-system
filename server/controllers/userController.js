@@ -1098,3 +1098,70 @@ exports.resetPasswordByAdmin = async (req, res) => {
     });
   }
 };
+
+// Toggle xác thực người dùng (Admin only)
+exports.toggleUserVerification = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { is_verified } = req.body;
+
+    console.log('\n========== TOGGLE VERIFICATION ==========');
+    console.log('User ID:', userId);
+    console.log('New is_verified:', is_verified);
+    console.log('Admin:', req.user?.email);
+
+    // Kiểm tra quyền admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền thực hiện thao tác này'
+      });
+    }
+
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Người dùng không tồn tại'
+      });
+    }
+
+    console.log('Before update:');
+    console.log('  is_verified:', user.is_verified);
+    console.log('  is_active:', user.is_active);
+
+    // Cập nhật trạng thái xác thực
+    user.is_verified = is_verified;
+    
+    // Nếu xác thực thì cũng kích hoạt tài khoản
+    if (is_verified && !user.is_active) {
+      user.is_active = true;
+    }
+    
+    await user.save();
+
+    console.log('After update:');
+    console.log('  is_verified:', user.is_verified);
+    console.log('  is_active:', user.is_active);
+    console.log('=========================================\n');
+
+    res.status(200).json({
+      success: true,
+      message: `Tài khoản đã được ${is_verified ? 'xác thực' : 'hủy xác thực'}`,
+      user: {
+        id: user.id,
+        email: user.email,
+        is_verified: user.is_verified,
+        is_active: user.is_active
+      }
+    });
+
+  } catch (error) {
+    console.error('ERROR trong toggleUserVerification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi thay đổi trạng thái xác thực',
+      error: error.message
+    });
+  }
+};

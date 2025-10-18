@@ -25,7 +25,8 @@ import {
   FaFileExcel,
   FaFileCsv,
   FaChevronDown,
-  FaChevronUp
+  FaChevronUp,
+  FaUserCheck
 } from 'react-icons/fa';
 import './UsersPage.css';
 
@@ -193,6 +194,23 @@ const UsersPage = () => {
     }
   };
 
+  const handleToggleVerification = async (userId, currentStatus) => {
+    if (!window.confirm(`Bạn có chắc muốn ${currentStatus ? 'hủy xác thực' : 'xác thực'} tài khoản này?`)) {
+      return;
+    }
+    try {
+      await axios.put(
+        `http://localhost:3001/api/users/${userId}/toggle-verification`,
+        { is_verified: !currentStatus },
+        axiosConfig
+      );
+      alert('Cập nhật xác thực thành công');
+      fetchUsers();
+    } catch (error) {
+      alert('Lỗi: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
   const handleBulkAction = async (action) => {
     if (selectedUsers.length === 0) {
       alert('Vui lòng chọn ít nhất một người dùng');
@@ -250,7 +268,6 @@ const UsersPage = () => {
       return;
     }
     try {
-      // Gửi yêu cầu đặt lại mật khẩu cho từng user
       await Promise.all(selectedUsers.map(async (id) => {
         await axios.put(
           `http://localhost:3001/api/users/${id}/reset-password-admin`,
@@ -359,7 +376,6 @@ const UsersPage = () => {
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
 
-  // Export to Excel
   const exportToExcel = () => {
     const data = users.map(user => ({
       'ID': user.id,
@@ -384,7 +400,6 @@ const UsersPage = () => {
     XLSX.writeFile(workbook, fileName);
   };
 
-  // Export to CSV
   const exportToCSV = () => {
     const headers = ['ID', 'Email', 'Họ tên', 'SĐT', 'Địa chỉ', 'Giới tính', 'Ngày sinh', 'Vai trò', 'Trạng thái', 'Xác thực', 'Ngày tạo', 'Đăng nhập'];
     
@@ -403,7 +418,7 @@ const UsersPage = () => {
       formatDate(user.last_login)
     ]);
 
-    let csvContent = '\uFEFF'; // UTF-8 BOM
+    let csvContent = '\uFEFF';
     csvContent += headers.join(',') + '\n';
     rows.forEach(row => {
       csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
@@ -428,16 +443,21 @@ const UsersPage = () => {
           <span className="users-count">{pagination.total} người dùng</span>
         </div>
         <div className="users-header-right">
+          <button onClick={exportToExcel} className="users-btn users-btn-excel">
+            <FaFileExcel /> <span className="users-btn-text">Excel</span>
+          </button>
+          <button onClick={exportToCSV} className="users-btn users-btn-csv">
+            <FaFileCsv /> <span className="users-btn-text">CSV</span>
+          </button>
           <button onClick={openCreateModal} className="users-btn users-btn-success">
-            <FaUserPlus /> Thêm người dùng
+            <FaUserPlus /> <span className="users-btn-text">Thêm người dùng</span>
           </button>
           <button onClick={() => navigate('/dashboard')} className="users-btn users-btn-secondary">
-            <FaChevronLeft /> Quay lại
+            <FaChevronLeft /> <span className="users-btn-text">Quay lại</span>
           </button>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="users-filters">
         <div className="users-search-box">
           <FaSearch className="users-search-icon" />
@@ -511,16 +531,16 @@ const UsersPage = () => {
             </span>
             <div className="users-bulk-btns">
               <button onClick={() => handleBulkAction('unlock')} className="users-btn users-btn-sm users-btn-info">
-                <FaUnlock /> Mở khóa
+                <FaUnlock /> <span className="users-btn-text">Mở khóa</span>
               </button>
               <button onClick={() => handleBulkAction('lock')} className="users-btn users-btn-sm users-btn-warning">
-                <FaLock /> Khóa
+                <FaLock /> <span className="users-btn-text">Khóa</span>
               </button>
               <button onClick={() => handleBulkAction('resetPassword')} className="users-btn users-btn-sm users-btn-primary">
-                <FaKey /> Đặt lại MK
+                <FaKey /> <span className="users-btn-text">Đặt lại MK</span>
               </button>
               <button onClick={() => handleBulkAction('delete')} className="users-btn users-btn-sm users-btn-danger">
-                <FaTrash /> Xóa
+                <FaTrash /> <span className="users-btn-text">Xóa</span>
               </button>
               <button onClick={() => setSelectedUsers([])} className="users-btn users-btn-sm users-btn-secondary">
                 Bỏ chọn
@@ -528,18 +548,8 @@ const UsersPage = () => {
             </div>
           </div>
         )}
-
-        <div className="users-export-actions">
-          <button onClick={exportToExcel} className="users-btn users-btn-export users-btn-excel">
-            <FaFileExcel /> Xuất Excel
-          </button>
-          <button onClick={exportToCSV} className="users-btn users-btn-export users-btn-csv">
-            <FaFileCsv /> Xuất CSV
-          </button>
-        </div>
       </div>
 
-      {/* Table */}
       {loading ? (
         <div className="users-loading">
           <div className="users-spinner"></div>
@@ -635,6 +645,13 @@ const UsersPage = () => {
                             <FaEdit />
                           </button>
                           <button 
+                            onClick={() => handleToggleVerification(user.id, user.is_verified)} 
+                            className="users-btn-icon"
+                            title={user.is_verified ? 'Hủy xác thực' : 'Xác thực'}
+                          >
+                            <FaUserCheck style={{ color: user.is_verified ? '#10b981' : '#9ca3af' }} />
+                          </button>
+                          <button 
                             onClick={() => handleToggleStatus(user.id, user.is_active)} 
                             className="users-btn-icon"
                             title={user.is_active ? 'Khóa' : 'Mở khóa'}
@@ -653,7 +670,6 @@ const UsersPage = () => {
             </div>
           </div>
 
-          {/* Pagination */}
           <div className="users-pagination">
             <div className="users-pagination-info">
               Hiển thị {users.length} / {pagination.total} người dùng
@@ -710,7 +726,6 @@ const UsersPage = () => {
         </>
       )}
 
-      {/* Modal */}
       {showModal && (
         <div className="users-modal-overlay" onClick={() => setShowModal(false)}>
           <div className="users-modal-content" onClick={(e) => e.stopPropagation()}>

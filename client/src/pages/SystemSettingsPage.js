@@ -14,14 +14,16 @@
  * - Không còn header dính trên cùng; tất cả nội dung nằm trong body bình thường.
  */
 
+/* 
+ * File: SystemSettingsPage.js - CẬP NHẬT VỚI CÁC TAB MỚI
+ * Mô tả: Quản lý nội dung hệ thống với 9 tabs
+ * Tabs: Home, About, Facilities, Equipment, Header/Nav/Footer, Contact, Privacy, Terms
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import axios from 'axios';
-import { 
-  FaSave, FaTrash, FaPlus, FaSpinner, FaChevronDown, FaChevronUp, FaTimes,
-  FaDownload, FaFileExcel, FaFileWord, FaFileCsv, FaCheckCircle, FaExclamationCircle,
-  FaHome, FaInfoCircle, FaBuilding, FaTools, FaCog
-} from 'react-icons/fa';
+import { FaSave, FaTrash, FaPlus, FaSpinner, FaChevronDown, FaChevronUp, FaTimes, FaDownload, FaFileExcel, FaFileCsv, FaCheckCircle, FaExclamationCircle, FaHome, FaInfoCircle, FaBuilding, FaTools, FaCog, FaBars, FaEnvelope, FaShieldAlt, FaFileContract, FaPhone, FaClock, FaMapMarkerAlt, FaFacebook, FaTwitter, FaInstagram, FaYoutube, FaLink, FaDatabase, FaUserCheck, FaUserShield, FaLock, FaComments } from 'react-icons/fa';
 import * as FaIcons from 'react-icons/fa';
 import * as MdIcons from 'react-icons/md';
 import * as FiIcons from 'react-icons/fi';
@@ -31,7 +33,7 @@ import './SystemSettingsPage.css';
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
-// ==================== DANH SÁCH ICON ====================
+// Danh sách icon
 const iconList = [
   ...Object.keys(FaIcons).filter(icon => icon.startsWith('Fa')).map(icon => ({ name: icon, library: 'fa' })),
   ...Object.keys(MdIcons).filter(icon => icon.startsWith('Md')).map(icon => ({ name: icon, library: 'md' })),
@@ -40,7 +42,7 @@ const iconList = [
 
 const iconMap = { ...FaIcons, ...MdIcons, ...FiIcons };
 
-// ==================== COMPONENT TOAST NOTIFICATION ====================
+// Toast Notification Component
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -60,7 +62,7 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
-// ==================== COMPONENT ICON PICKER ====================
+// Custom Icon Picker Component
 const CustomIconPicker = ({ value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -94,11 +96,7 @@ const CustomIconPicker = ({ value, onChange }) => {
 
   return (
     <div className="sys-settings-icon-picker" ref={pickerRef}>
-      <button
-        type="button"
-        className="sys-settings-btn sys-settings-btn-secondary-sm"
-        onClick={() => setIsOpen(!isOpen)}
-      >
+      <button type="button" className="sys-settings-btn sys-settings-btn-secondary-sm" onClick={() => setIsOpen(!isOpen)}>
         {value && iconMap[value] ? (
           <>
             {React.createElement(iconMap[value], { size: 16 })} {value}
@@ -110,31 +108,14 @@ const CustomIconPicker = ({ value, onChange }) => {
       {isOpen && (
         <div className="sys-settings-icon-picker-modal" onClick={(e) => e.stopPropagation()}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <input
-              type="text"
-              placeholder="Tìm icon..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="sys-settings-input"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              type="button"
-              className="sys-settings-btn sys-settings-btn-danger-sm"
-              onClick={() => setIsOpen(false)}
-              style={{ marginLeft: '8px' }}
-            >
+            <input type="text" placeholder="Tìm icon..." value={search} onChange={(e) => setSearch(e.target.value)} className="sys-settings-input" onClick={(e) => e.stopPropagation()} />
+            <button type="button" className="sys-settings-btn sys-settings-btn-danger-sm" onClick={() => setIsOpen(false)} style={{ marginLeft: '8px' }}>
               <FaTimes />
             </button>
           </div>
           <div className="sys-settings-icon-picker-grid">
             {filteredIcons.slice(0, 50).map((icon, index) => (
-              <div
-                key={index}
-                className="sys-settings-icon-picker-item"
-                onClick={() => handleSelectIcon(icon.name)}
-                title={icon.name}
-              >
+              <div key={index} className="sys-settings-icon-picker-item" onClick={() => handleSelectIcon(icon.name)} title={icon.name}>
                 {React.createElement(iconMap[icon.name], { size: 18 })}
               </div>
             ))}
@@ -145,9 +126,9 @@ const CustomIconPicker = ({ value, onChange }) => {
   );
 };
 
-// ==================== MAIN COMPONENT ====================
+// Main Component
 const SystemSettingsPage = () => {
-  // Default data structures (giữ nguyên như cũ)
+  // Default data structures
   const defaultHomeData = {
     bannerSlides: [],
     features: [],
@@ -179,22 +160,117 @@ const SystemSettingsPage = () => {
     stats: [], categories: [], equipment: [], quality: []
   };
 
-  // State (giữ nguyên như cũ)
+  const defaultHeaderNavFooterData = {
+    header: {
+      phone: '1900 1234',
+      email: 'contact@clinicsystem.vn',
+      working_hours: 'T2-T7: 7:00-20:00 | CN: 8:00-17:00',
+      welcome_text: 'Chào mừng bạn đến với Clinic System'
+    },
+    navbar: {
+      logo_image: '',
+      logo_text: 'Clinic System',
+      search_placeholder: 'Tìm kiếm...'
+    },
+    footer: {
+      about_title: 'Clinic System',
+      about_description: 'Hệ thống y tế hàng đầu, mang đến dịch vụ chăm sóc sức khỏe chất lượng cao với đội ngũ bác sĩ giàu kinh nghiệm và trang thiết bị hiện đại.',
+      address: '123 Đường Sức Khỏe, Q.1, TP.HCM',
+      hotline: '1900 1234',
+      email: 'contact@clinicsystem.vn',
+      working_hours: 'T2 - T7: 7:00 - 20:00\nChủ nhật: 8:00 - 17:00',
+      social_facebook: 'https://facebook.com',
+      social_twitter: 'https://twitter.com',
+      social_instagram: 'https://instagram.com',
+      social_youtube: 'https://youtube.com',
+      copyright_text: 'Clinic System. Tất cả quyền được bảo lưu.',
+      privacy_link: '/privacy',
+      terms_link: '/terms'
+    }
+  };
+
+  const defaultContactData = {
+    hero: {
+      title: 'Liên hệ với chúng tôi',
+      subtitle: 'Chúng tôi luôn sẵn sàng lắng nghe và hỗ trợ bạn'
+    },
+    info_cards: [
+      { icon: 'FaPhone', title: 'Điện thoại', details: ['Hotline: (028) 3822 1234', 'Cấp cứu: (028) 3822 9999'], color: '#4CAF50' },
+      { icon: 'FaEnvelope', title: 'Email', details: ['info@clinic.vn', 'support@clinic.vn'], color: '#2196F3' },
+      { icon: 'FaMapMarkerAlt', title: 'Địa chỉ', details: ['123 Nguyễn Huệ', 'Quận 1, TP.HCM'], color: '#FF5722' },
+      { icon: 'FaClock', title: 'Giờ làm việc', details: ['Thứ 2 - Thứ 7: 7:00 - 20:00', 'Chủ nhật: 8:00 - 17:00'], color: '#9C27B0' }
+    ],
+    departments: [
+      { name: 'Khoa Nội', phone: '(028) 3822 1235' },
+      { name: 'Khoa Ngoại', phone: '(028) 3822 1236' }
+    ],
+    faqs: [
+      { question: 'Làm thế nào để đặt lịch khám?', answer: 'Bạn có thể đặt lịch qua hotline, website, hoặc trực tiếp tại bệnh viện.' }
+    ],
+    map_embed: 'https://www.google.com/maps/embed?pb=...',
+    directions: ['🚇 Gần ga metro Bến Thành (300m)', '🚌 Các tuyến bus: 03, 14, 36, 93']
+  };
+
+  const defaultPrivacyData = {
+    hero: {
+      title: 'Chính sách bảo mật',
+      subtitle: 'Chúng tôi cam kết bảo vệ quyền riêng tư và bảo mật thông tin cá nhân của bạn',
+      last_updated: '06/10/2025'
+    },
+    sections: [
+      {
+        icon: 'FaDatabase',
+        title: 'Thông tin chúng tôi thu thập',
+        items: [
+          { subtitle: 'Thông tin cá nhân', content: 'Họ và tên, ngày tháng năm sinh, giới tính, số CMND/CCCD...' }
+        ]
+      }
+    ],
+    contact_email: 'privacy@clinic.vn',
+    contact_phone: '(028) 3822 1234',
+    contact_address: '123 Nguyễn Huệ, Quận 1, TP.HCM'
+  };
+
+  const defaultTermsData = {
+    hero: {
+      title: 'Điều khoản dịch vụ',
+      subtitle: 'Vui lòng đọc kỹ các điều khoản trước khi sử dụng dịch vụ của chúng tôi',
+      effective_date: '01/01/2025'
+    },
+    intro: {
+      title: 'Chào mừng đến với Phòng khám Đa khoa',
+      content: 'Các điều khoản dịch vụ này điều chỉnh việc bạn sử dụng website và dịch vụ y tế của chúng tôi.'
+    },
+    sections: [],
+    contact_email: 'legal@clinic.vn',
+    contact_phone: '(028) 3822 1234'
+  };
+
+  // State
   const [homeData, setHomeData] = useState(defaultHomeData);
   const [aboutData, setAboutData] = useState(defaultAboutData);
   const [facilitiesData, setFacilitiesData] = useState(defaultFacilitiesData);
   const [equipmentData, setEquipmentData] = useState(defaultEquipmentData);
+  const [headerNavFooterData, setHeaderNavFooterData] = useState(defaultHeaderNavFooterData);
+  const [contactData, setContactData] = useState(defaultContactData);
+  const [privacyData, setPrivacyData] = useState(defaultPrivacyData);
+  const [termsData, setTermsData] = useState(defaultTermsData);
+  
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [openSections, setOpenSections] = useState({
     home: { bannerSlides: true, features: true, aboutSection: true, testimonials: true, bookingSection: true },
     about: { banner: true, mission: true, milestones: true, stats: true, values: true, leadership: true, achievements: true, facilities: true },
     facilities: { banner: true, amenities: true, facilities: true, gallery: true, stats: true },
-    equipment: { banner: true, stats: true, categories: true, equipment: true, quality: true }
+    equipment: { banner: true, stats: true, categories: true, equipment: true, quality: true },
+    headerNavFooter: { header: true, navbar: true, footer: true },
+    contact: { hero: true, info_cards: true, departments: true, faqs: true, map: true },
+    privacy: { hero: true, sections: true, contact: true },
+    terms: { hero: true, intro: true, sections: true, contact: true }
   });
   const [imageOptions, setImageOptions] = useState({});
 
-  // ==================== TOAST MANAGEMENT ==================== (giữ nguyên)
+  // Toast Management
   const addToast = (message, type = 'success') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -204,7 +280,7 @@ const SystemSettingsPage = () => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   };
 
-  // ==================== TOGGLE SECTION ==================== (giữ nguyên)
+  // Toggle Section
   const toggleSection = (tab, section) => {
     setOpenSections(prev => ({
       ...prev,
@@ -212,7 +288,7 @@ const SystemSettingsPage = () => {
     }));
   };
 
-  // ==================== FETCH DATA ==================== (giữ nguyên)
+  // Fetch Data
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -221,17 +297,26 @@ const SystemSettingsPage = () => {
         if (!token) throw new Error('Vui lòng đăng nhập lại.');
         
         const headers = { Authorization: `Bearer ${token}` };
-        const [homeRes, aboutRes, facilitiesRes, equipmentRes] = await Promise.all([
+        const [homeRes, aboutRes, facilitiesRes, equipmentRes, headerNavFooterRes, contactRes, privacyRes, termsRes] = await Promise.all([
           axios.get(`${API_BASE_URL}/settings/home`, { headers }),
           axios.get(`${API_BASE_URL}/settings/about`, { headers }),
           axios.get(`${API_BASE_URL}/settings/facilities`, { headers }),
-          axios.get(`${API_BASE_URL}/settings/equipment`, { headers })
+          axios.get(`${API_BASE_URL}/settings/equipment`, { headers }),
+          axios.get(`${API_BASE_URL}/settings/header-nav-footer`, { headers }),
+          axios.get(`${API_BASE_URL}/settings/contact`, { headers }),
+          axios.get(`${API_BASE_URL}/settings/privacy`, { headers }),
+          axios.get(`${API_BASE_URL}/settings/terms`, { headers })
         ]);
 
         setHomeData({ ...defaultHomeData, ...(homeRes.data || {}) });
         setAboutData({ ...defaultAboutData, ...(aboutRes.data || {}) });
         setFacilitiesData({ ...defaultFacilitiesData, ...(facilitiesRes.data || {}) });
         setEquipmentData({ ...defaultEquipmentData, ...(equipmentRes.data || {}) });
+        setHeaderNavFooterData({ ...defaultHeaderNavFooterData, ...(headerNavFooterRes.data || {}) });
+        setContactData({ ...defaultContactData, ...(contactRes.data || {}) });
+        setPrivacyData({ ...defaultPrivacyData, ...(privacyRes.data || {}) });
+        setTermsData({ ...defaultTermsData, ...(termsRes.data || {}) });
+        
         addToast('Tải dữ liệu thành công!', 'success');
       } catch (err) {
         addToast('Lỗi khi tải dữ liệu: ' + err.message, 'error');
@@ -242,7 +327,7 @@ const SystemSettingsPage = () => {
     fetchData();
   }, []);
 
-  // ==================== ARRAY HANDLERS ==================== (giữ nguyên)
+  // Array Handlers
   const handleArrayChange = (setter, arrayKey, index, field, value) => {
     setter(prev => {
       const newArray = [...(prev[arrayKey] || [])];
@@ -265,124 +350,84 @@ const SystemSettingsPage = () => {
     }));
   };
 
-  // ==================== IMAGE UPLOAD ==================== 
-// Hàm upload ảnh cho mảng (dùng cho bannerSlides, testimonials, milestones, etc.)
-const handleArrayImageUpload = async (setter, arrayKey, index, field, file) => {
-  if (!file) return;
-  
-  // Lấy token để xác thực
-  const token = localStorage.getItem('token');
-  if (!token) {
-    addToast('Vui lòng đăng nhập lại để upload ảnh.', 'error');
-    return;
-  }
-  
-  // Tạo FormData để gửi file
-  const formData = new FormData();
-  formData.append('image', file); // ⚠️ Key phải là 'image', khớp với upload.single('image') trong uploadRoutes.js
-
-  try {
-    // ✅ SỬA: Đổi từ '/uploads/images' thành '/upload/image' (số ít)
-    const response = await axios.post(`${API_BASE_URL}/upload/image`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        Authorization: `Bearer ${token}`
-      }
-    });
+  // Image Upload
+  const handleArrayImageUpload = async (setter, arrayKey, index, field, file) => {
+    if (!file) return;
     
-    // Lấy URL ảnh từ response
-    const imageUrl = response.data.url; // Trả về dạng: /uploads/images/article-123456789.jpg
-    
-    // Cập nhật state với URL ảnh mới
-    handleArrayChange(setter, arrayKey, index, field, imageUrl);
-    addToast('Upload ảnh thành công!', 'success');
-  } catch (err) {
-    console.error('Upload error:', err); // Debug
-    addToast('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message), 'error');
-  }
-};
-
-// Hàm upload ảnh đơn (dùng cho aboutSection.image, banner.image, etc.)
-const handleSingleImageUpload = async (setter, path, file) => {
-  if (!file) return;
-  
-  // Lấy token để xác thực
-  const token = localStorage.getItem('token');
-  if (!token) {
-    addToast('Vui lòng đăng nhập lại để upload ảnh.', 'error');
-    return;
-  }
-
-  // Lấy URL ảnh cũ để xóa (nếu có)
-  // path có dạng: 'aboutSection.image' hoặc 'banner.image'
-  const keys = path.split('.'); // Tách thành ['aboutSection', 'image']
-  let oldImageUrl = null;
-  
-  if (keys.length === 2) {
-    const parentKey = keys[0]; // 'aboutSection'
-    const childKey = keys[1];  // 'image'
-    
-    // Lấy URL ảnh cũ từ state tương ứng
-    if (setter === setHomeData) {
-      oldImageUrl = homeData[parentKey]?.[childKey];
-    } else if (setter === setAboutData) {
-      oldImageUrl = aboutData[parentKey]?.[childKey];
-    } else if (setter === setFacilitiesData) {
-      oldImageUrl = facilitiesData[parentKey]?.[childKey];
-    } else if (setter === setEquipmentData) {
-      oldImageUrl = equipmentData[parentKey]?.[childKey];
+    const token = localStorage.getItem('token');
+    if (!token) {
+      addToast('Vui lòng đăng nhập lại để upload ảnh.', 'error');
+      return;
     }
-  }
+    
+    const formData = new FormData();
+    formData.append('image', file);
 
-  // Tạo FormData
-  const formData = new FormData();
-  formData.append('image', file); // ⚠️ Key phải là 'image'
-  
-  // Gửi kèm URL ảnh cũ để server xóa (tùy chọn)
-  if (oldImageUrl && oldImageUrl.startsWith('/uploads/')) {
-    formData.append('oldImage', oldImageUrl);
-  }
+    try {
+      const response = await axios.post(`${API_BASE_URL}/upload/image`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      const imageUrl = response.data.url;
+      handleArrayChange(setter, arrayKey, index, field, imageUrl);
+      addToast('Upload ảnh thành công!', 'success');
+    } catch (err) {
+      console.error('Upload error:', err);
+      addToast('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message), 'error');
+    }
+  };
 
-  try {
-    // ✅ Endpoint đúng: /upload/image (đã đúng từ đầu)
-    const response = await axios.post(`${API_BASE_URL}/upload/image`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        Authorization: `Bearer ${token}`
-      }
-    });
+  const handleSingleImageUpload = async (setter, path, file) => {
+    if (!file) return;
     
-    // Lấy URL ảnh từ response
-    const imageUrl = response.data.url;
-    
-    // Cập nhật state theo path (nested object)
-    setter(prev => {
-      const newData = { ...prev };
-      let current = newData;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      addToast('Vui lòng đăng nhập lại để upload ảnh.', 'error');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/upload/image`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`
+        }
+      });
       
-      // Duyệt qua các key để đến object cuối cùng
-      for (let i = 0; i < keys.length - 1; i++) {
-        current[keys[i]] = { ...current[keys[i]] };
-        current = current[keys[i]];
-      }
+      const imageUrl = response.data.url;
+      const keys = path.split('.');
       
-      // Set giá trị cho key cuối cùng
-      current[keys[keys.length - 1]] = imageUrl;
-      return newData;
-    });
-    
-    addToast('Upload ảnh thành công!', 'success');
-  } catch (err) {
-    console.error('Upload error:', err); // Debug
-    addToast('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message), 'error');
-  }
-};
+      setter(prev => {
+        const newData = { ...prev };
+        let current = newData;
+        
+        for (let i = 0; i < keys.length - 1; i++) {
+          current[keys[i]] = { ...current[keys[i]] };
+          current = current[keys[i]];
+        }
+        
+        current[keys[keys.length - 1]] = imageUrl;
+        return newData;
+      });
+      
+      addToast('Upload ảnh thành công!', 'success');
+    } catch (err) {
+      console.error('Upload error:', err);
+      addToast('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message), 'error');
+    }
+  };
 
   const handleImageOptionChange = (key, option) => {
     setImageOptions(prev => ({ ...prev, [key]: option }));
   };
 
-  // ==================== SAVE DATA ==================== (giữ nguyên)
+  // Save Data
   const saveData = async (endpoint, data, successMessage) => {
     setLoading(true);
 
@@ -402,7 +447,7 @@ const handleSingleImageUpload = async (setter, path, file) => {
     }
   };
 
-  // ==================== EXPORT FUNCTIONS ==================== (giữ nguyên)
+  // Export Functions
   const exportToJSON = (data, filename) => {
     const dataStr = JSON.stringify(data, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -483,6 +528,10 @@ const handleSingleImageUpload = async (setter, path, file) => {
       about: aboutData,
       facilities: facilitiesData,
       equipment: equipmentData,
+      headerNavFooter: headerNavFooterData,
+      contact: contactData,
+      privacy: privacyData,
+      terms: termsData,
       exportedAt: new Date().toISOString()
     };
 
@@ -503,7 +552,7 @@ const handleSingleImageUpload = async (setter, path, file) => {
     }
   };
 
-  // ==================== LOADING STATE ==================== (giữ nguyên)
+  // Loading State
   if (loading && !homeData.bannerSlides) {
     return (
       <div className="sys-settings-loading">
@@ -512,28 +561,22 @@ const handleSingleImageUpload = async (setter, path, file) => {
     );
   }
 
-  // ==================== RENDER ====================
-  // Cấu trúc mới: Tabs wrap toàn bộ, sidebar chỉ chứa TabList, Actions, Header; TabPanels ở main-content.
+  // Render
   return (
     <div className="sys-settings-container">
-      {/* TOAST CONTAINER - fixed ở top right */}
+      {/* Toast Container */}
       <div className="sys-settings-toast-container">
         {toasts.map(toast => (
-          <Toast
-            key={toast.id}
-            message={toast.message}
-            type={toast.type}
-            onClose={() => removeToast(toast.id)}
-          />
+          <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />
         ))}
       </div>
 
-      {/* MAIN CONTENT - chứa Tabs và TabPanels */}
+      {/* Main Content */}
       <div className="sys-settings-main-content">
         <Tabs>
-          {/* SIDEBAR - fixed bên phải, thu gọn/mở rộng khi hover */}
+          {/* Sidebar */}
           <div className="sys-settings-sidebar">
-            {/* SIDEBAR HEADER */}
+            {/* Sidebar Header */}
             <div className="sys-settings-sidebar-header">
               <div className="sys-settings-sidebar-icon">
                 <FaCog />
@@ -541,15 +584,18 @@ const handleSingleImageUpload = async (setter, path, file) => {
               <h2 className="sys-settings-sidebar-title">Cài đặt Hệ thống</h2>
             </div>
 
-            {/* SIDEBAR ACTIONS */}
+            {/* Sidebar Actions */}
             <div className="sys-settings-sidebar-actions">
-              <button
-                onClick={async () => {
+              <button onClick={async () => {
                   await Promise.all([
-                    saveData('home', homeData, 'Lưu trang Home thành công!'),
-                    saveData('about', aboutData, 'Lưu trang About thành công!'),
-                    saveData('facilities', facilitiesData, 'Lưu trang Facilities thành công!'),
-                    saveData('equipment', equipmentData, 'Lưu trang Equipment thành công!')
+                    saveData('home', homeData, 'Lưu Home thành công!'),
+                    saveData('about', aboutData, 'Lưu About thành công!'),
+                    saveData('facilities', facilitiesData, 'Lưu Facilities thành công!'),
+                    saveData('equipment', equipmentData, 'Lưu Equipment thành công!'),
+                    saveData('header-nav-footer', headerNavFooterData, 'Lưu Header/Nav/Footer thành công!'),
+                    saveData('contact', contactData, 'Lưu Contact thành công!'),
+                    saveData('privacy', privacyData, 'Lưu Privacy thành công!'),
+                    saveData('terms', termsData, 'Lưu Terms thành công!')
                   ]);
                 }}
                 className="sys-settings-sidebar-btn sys-settings-sidebar-btn-primary"
@@ -578,9 +624,13 @@ const handleSingleImageUpload = async (setter, path, file) => {
               </div>
             </div>
 
-            {/* SIDEBAR TABS - chỉ TabList */}
+            {/* Sidebar Tabs */}
             <div className="sys-settings-sidebar-tabs">
               <TabList className="sys-settings-tab-list">
+                <Tab className="sys-settings-tab">
+                  <span className="sys-settings-tab-icon"><FaBars /></span>
+                  <span className="sys-settings-tab-text">Header/Nav/Footer</span>
+                </Tab>
                 <Tab className="sys-settings-tab">
                   <span className="sys-settings-tab-icon"><FaHome /></span>
                   <span className="sys-settings-tab-text">Home</span>
@@ -597,9 +647,333 @@ const handleSingleImageUpload = async (setter, path, file) => {
                   <span className="sys-settings-tab-icon"><FaTools /></span>
                   <span className="sys-settings-tab-text">Equipment</span>
                 </Tab>
+                <Tab className="sys-settings-tab">
+                  <span className="sys-settings-tab-icon"><FaEnvelope /></span>
+                  <span className="sys-settings-tab-text">Contact</span>
+                </Tab>
+                <Tab className="sys-settings-tab">
+                  <span className="sys-settings-tab-icon"><FaShieldAlt /></span>
+                  <span className="sys-settings-tab-text">Privacy</span>
+                </Tab>
+                <Tab className="sys-settings-tab">
+                  <span className="sys-settings-tab-icon"><FaFileContract /></span>
+                  <span className="sys-settings-tab-text">Terms</span>
+                </Tab>
               </TabList>
             </div>
           </div>
+
+          {/* ==================== TAB HEADER/NAV/FOOTER ==================== */}
+        <TabPanel className="sys-settings-tab-panel">
+          
+          {/* SECTION 1: HEADER */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('headerNavFooter', 'header')}>
+              <h3 className="sys-settings-section-title">1. Header</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('header-nav-footer', headerNavFooterData, 'Lưu Header thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.headerNavFooter.header ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.headerNavFooter.header && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Thông tin Header
+                    </h4>
+
+                    <label className="sys-settings-label">Số điện thoại Hotline</label>
+                    <input type="text" value={headerNavFooterData.header?.phone || ''} placeholder="1900 1234"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        header: { ...prev.header, phone: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Email liên hệ</label>
+                    <input type="email" value={headerNavFooterData.header?.email || ''} placeholder="contact@clinicsystem.vn"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        header: { ...prev.header, email: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Giờ làm việc</label>
+                    <input type="text" value={headerNavFooterData.header?.working_hours || ''} placeholder="T2-T7: 7:00-20:00 | CN: 8:00-17:00"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        header: { ...prev.header, working_hours: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Text chào mừng (chạy)</label>
+                    <input type="text" value={headerNavFooterData.header?.welcome_text || ''} placeholder="Chào mừng bạn đến với Clinic System"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        header: { ...prev.header, welcome_text: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 2: NAVBAR */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('headerNavFooter', 'navbar')}>
+              <h3 className="sys-settings-section-title">2. Navbar</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('header-nav-footer', headerNavFooterData, 'Lưu Navbar thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.headerNavFooter.navbar ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.headerNavFooter.navbar && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Cấu hình Navbar
+                    </h4>
+
+                    <label className="sys-settings-label">Logo (ảnh)</label>
+                    <div className="sys-settings-image-options">
+                      <label>
+                        <input type="radio" checked={(imageOptions['navbar-logo'] || 'upload') === 'upload'} 
+                          onChange={() => handleImageOptionChange('navbar-logo', 'upload')} />
+                        Upload
+                      </label>
+                      <label>
+                        <input type="radio" checked={(imageOptions['navbar-logo'] || 'upload') === 'url'} 
+                          onChange={() => handleImageOptionChange('navbar-logo', 'url')} />
+                        URL
+                      </label>
+                    </div>
+                    {(imageOptions['navbar-logo'] || 'upload') === 'upload' ? (
+                      <input type="file" accept="image/*"
+                        onChange={(e) => handleSingleImageUpload(setHeaderNavFooterData, 'navbar.logo_image', e.target.files[0])}
+                        className="sys-settings-file-input" />
+                    ) : (
+                      <input type="text" value={headerNavFooterData.navbar?.logo_image || ''} placeholder="https://example.com/logo.png"
+                        onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                          ...prev, 
+                          navbar: { ...prev.navbar, logo_image: e.target.value }
+                        }))}
+                        className="sys-settings-input" />
+                    )}
+                    {headerNavFooterData.navbar?.logo_image && (
+                      <img src={headerNavFooterData.navbar.logo_image} alt="Logo" className="sys-settings-preview-img" />
+                    )}
+                    
+                    <label className="sys-settings-label">Text Logo (hiển thị bên cạnh logo)</label>
+                    <input type="text" value={headerNavFooterData.navbar?.logo_text || ''} placeholder="Clinic System"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        navbar: { ...prev.navbar, logo_text: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Placeholder thanh tìm kiếm</label>
+                    <input type="text" value={headerNavFooterData.navbar?.search_placeholder || ''} placeholder="Tìm kiếm..."
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        navbar: { ...prev.navbar, search_placeholder: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 3: FOOTER */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('headerNavFooter', 'footer')}>
+              <h3 className="sys-settings-section-title">3. Footer</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('header-nav-footer', headerNavFooterData, 'Lưu Footer thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.headerNavFooter.footer ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.headerNavFooter.footer && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  {/* Card 1: Thông tin chung */}
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#10b981', fontWeight: 'bold' }}>
+                      Về chúng tôi (Footer)
+                    </h4>
+
+                    <label className="sys-settings-label">Tiêu đề</label>
+                    <input type="text" value={headerNavFooterData.footer?.about_title || ''} placeholder="Clinic System"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, about_title: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Mô tả</label>
+                    <textarea value={headerNavFooterData.footer?.about_description || ''} 
+                      placeholder="Hệ thống y tế hàng đầu..."
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, about_description: e.target.value }
+                      }))}
+                      className="sys-settings-textarea" 
+                      style={{ minHeight: '100px' }} />
+                  </div>
+
+                  {/* Card 2: Thông tin liên hệ */}
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#10b981', fontWeight: 'bold' }}>
+                      Thông tin liên hệ
+                    </h4>
+
+                    <label className="sys-settings-label">Địa chỉ</label>
+                    <input type="text" value={headerNavFooterData.footer?.address || ''} placeholder="123 Đường Sức Khỏe, Q.1, TP.HCM"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, address: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Hotline</label>
+                    <input type="text" value={headerNavFooterData.footer?.hotline || ''} placeholder="1900 1234"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, hotline: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Email</label>
+                    <input type="email" value={headerNavFooterData.footer?.email || ''} placeholder="contact@clinicsystem.vn"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, email: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Giờ làm việc (có thể xuống dòng với \n)</label>
+                    <textarea value={headerNavFooterData.footer?.working_hours || ''} 
+                      placeholder="T2 - T7: 7:00 - 20:00&#10;Chủ nhật: 8:00 - 17:00"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, working_hours: e.target.value }
+                      }))}
+                      className="sys-settings-textarea" />
+                  </div>
+
+                  {/* Card 3: Mạng xã hội */}
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#10b981', fontWeight: 'bold' }}>
+                      Mạng xã hội
+                    </h4>
+
+                    <label className="sys-settings-label">
+                      <FaFacebook style={{ marginRight: '5px' }} /> Facebook URL
+                    </label>
+                    <input type="url" value={headerNavFooterData.footer?.social_facebook || ''} placeholder="https://facebook.com/..."
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, social_facebook: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">
+                      <FaTwitter style={{ marginRight: '5px' }} /> Twitter URL
+                    </label>
+                    <input type="url" value={headerNavFooterData.footer?.social_twitter || ''} placeholder="https://twitter.com/..."
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, social_twitter: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">
+                      <FaInstagram style={{ marginRight: '5px' }} /> Instagram URL
+                    </label>
+                    <input type="url" value={headerNavFooterData.footer?.social_instagram || ''} placeholder="https://instagram.com/..."
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, social_instagram: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">
+                      <FaYoutube style={{ marginRight: '5px' }} /> Youtube URL
+                    </label>
+                    <input type="url" value={headerNavFooterData.footer?.social_youtube || ''} placeholder="https://youtube.com/..."
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, social_youtube: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                  </div>
+
+                  {/* Card 4: Copyright & Links */}
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#10b981', fontWeight: 'bold' }}>
+                      Copyright & Liên kết
+                    </h4>
+
+                    <label className="sys-settings-label">Text Copyright</label>
+                    <input type="text" value={headerNavFooterData.footer?.copyright_text || ''} placeholder="Clinic System. Tất cả quyền được bảo lưu."
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, copyright_text: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Link Chính sách bảo mật</label>
+                    <input type="text" value={headerNavFooterData.footer?.privacy_link || ''} placeholder="/privacy"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, privacy_link: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Link Điều khoản sử dụng</label>
+                    <input type="text" value={headerNavFooterData.footer?.terms_link || ''} placeholder="/terms"
+                      onChange={(e) => setHeaderNavFooterData(prev => ({ 
+                        ...prev, 
+                        footer: { ...prev.footer, terms_link: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+        </TabPanel>
 
         {/* ==================== TAB HOME - ĐẦY ĐỦ ==================== */}
         <TabPanel className="sys-settings-tab-panel">
@@ -2624,7 +2998,713 @@ const handleSingleImageUpload = async (setter, path, file) => {
           </section>
 
         </TabPanel>
-      </Tabs>
+
+        {/* ==================== TAB CONTACT ==================== */}
+        <TabPanel className="sys-settings-tab-panel">
+          
+          {/* SECTION 1: HERO */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('contact', 'hero')}>
+              <h3 className="sys-settings-section-title">1. Hero Section</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('contact', contactData, 'Lưu Hero thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.contact.hero ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.contact.hero && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Hero Contact
+                    </h4>
+
+                    <label className="sys-settings-label">Tiêu đề</label>
+                    <input type="text" value={contactData.hero?.title || ''} placeholder="Liên hệ với chúng tôi"
+                      onChange={(e) => setContactData(prev => ({ 
+                        ...prev, 
+                        hero: { ...prev.hero, title: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Phụ đề</label>
+                    <input type="text" value={contactData.hero?.subtitle || ''} placeholder="Chúng tôi luôn sẵn sàng lắng nghe..."
+                      onChange={(e) => setContactData(prev => ({ 
+                        ...prev, 
+                        hero: { ...prev.hero, subtitle: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 2: INFO CARDS */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('contact', 'info_cards')}>
+              <h3 className="sys-settings-section-title">2. Thẻ thông tin liên hệ</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('contact', contactData, 'Lưu Thẻ thông tin thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setContactData, 'info_cards', { 
+                    icon: 'FaPhone', 
+                    title: '', 
+                    details: [],
+                    color: '#4CAF50'
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
+                  <FaPlus /> Thêm
+                </button>
+                {openSections.contact.info_cards ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.contact.info_cards && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  {(contactData.info_cards || []).map((card, index) => (
+                    <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Thẻ {index + 1}
+                      </h4>
+
+                      <label className="sys-settings-label">Icon</label>
+                      <CustomIconPicker value={card.icon || ''} 
+                        onChange={(icon) => handleArrayChange(setContactData, 'info_cards', index, 'icon', icon)} />
+                      
+                      <label className="sys-settings-label">Tiêu đề</label>
+                      <input type="text" value={card.title || ''} placeholder="Điện thoại"
+                        onChange={(e) => handleArrayChange(setContactData, 'info_cards', index, 'title', e.target.value)}
+                        className="sys-settings-input" />
+                      
+                      <label className="sys-settings-label">Chi tiết (mỗi dòng 1 item)</label>
+                      <textarea 
+                        value={(card.details || []).join('\n')} 
+                        placeholder="Hotline: (028) 3822 1234&#10;Cấp cứu: (028) 3822 9999"
+                        onChange={(e) => handleArrayChange(setContactData, 'info_cards', index, 'details', e.target.value.split('\n').filter(d => d.trim()))}
+                        className="sys-settings-textarea" 
+                      />
+                      
+                      <label className="sys-settings-label">Màu sắc icon</label>
+                      <input type="color" value={card.color || '#4CAF50'}
+                        onChange={(e) => handleArrayChange(setContactData, 'info_cards', index, 'color', e.target.value)}
+                        style={{ width: '100%', height: '40px', border: '2px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer' }} />
+                      
+                      <button type="button" onClick={() => removeArrayItem(setContactData, 'info_cards', index)}
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
+                        <FaTrash /> Xóa
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 3: DEPARTMENTS */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('contact', 'departments')}>
+              <h3 className="sys-settings-section-title">3. Liên hệ các khoa</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('contact', contactData, 'Lưu Các khoa thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setContactData, 'departments', { 
+                    name: '', 
+                    phone: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
+                  <FaPlus /> Thêm
+                </button>
+                {openSections.contact.departments ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.contact.departments && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  {(contactData.departments || []).map((dept, index) => (
+                    <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Khoa {index + 1}
+                      </h4>
+
+                      <label className="sys-settings-label">Tên khoa</label>
+                      <input type="text" value={dept.name || ''} placeholder="Khoa Nội"
+                        onChange={(e) => handleArrayChange(setContactData, 'departments', index, 'name', e.target.value)}
+                        className="sys-settings-input" />
+                      
+                      <label className="sys-settings-label">Số điện thoại</label>
+                      <input type="text" value={dept.phone || ''} placeholder="(028) 3822 1235"
+                        onChange={(e) => handleArrayChange(setContactData, 'departments', index, 'phone', e.target.value)}
+                        className="sys-settings-input" />
+                      
+                      <button type="button" onClick={() => removeArrayItem(setContactData, 'departments', index)}
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
+                        <FaTrash /> Xóa
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 4: FAQs */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('contact', 'faqs')}>
+              <h3 className="sys-settings-section-title">4. Câu hỏi thường gặp</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('contact', contactData, 'Lưu FAQs thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setContactData, 'faqs', { 
+                    question: '', 
+                    answer: '' 
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
+                  <FaPlus /> Thêm
+                </button>
+                {openSections.contact.faqs ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.contact.faqs && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  {(contactData.faqs || []).map((faq, index) => (
+                    <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        FAQ {index + 1}
+                      </h4>
+
+                      <label className="sys-settings-label">Câu hỏi</label>
+                      <input type="text" value={faq.question || ''} placeholder="Làm thế nào để đặt lịch khám?"
+                        onChange={(e) => handleArrayChange(setContactData, 'faqs', index, 'question', e.target.value)}
+                        className="sys-settings-input" />
+                      
+                      <label className="sys-settings-label">Câu trả lời</label>
+                      <textarea value={faq.answer || ''} placeholder="Bạn có thể đặt lịch qua..."
+                        onChange={(e) => handleArrayChange(setContactData, 'faqs', index, 'answer', e.target.value)}
+                        className="sys-settings-textarea" />
+                      
+                      <button type="button" onClick={() => removeArrayItem(setContactData, 'faqs', index)}
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
+                        <FaTrash /> Xóa
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 5: MAP */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('contact', 'map')}>
+              <h3 className="sys-settings-section-title">5. Bản đồ & Hướng dẫn</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('contact', contactData, 'Lưu Bản đồ thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.contact.map ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.contact.map && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Google Map Embed
+                    </h4>
+
+                    <label className="sys-settings-label">URL Google Map Embed</label>
+                    <textarea value={contactData.map_embed || ''} 
+                      placeholder="https://www.google.com/maps/embed?pb=..."
+                      onChange={(e) => setContactData(prev => ({ ...prev, map_embed: e.target.value }))}
+                      className="sys-settings-textarea" 
+                      style={{ minHeight: '100px' }} />
+                    
+                    <label className="sys-settings-label">Hướng dẫn đi lại (mỗi dòng 1 item)</label>
+                    <textarea 
+                      value={(contactData.directions || []).join('\n')} 
+                      placeholder="🚇 Gần ga metro Bến Thành (300m)&#10;🚌 Các tuyến bus: 03, 14, 36, 93"
+                      onChange={(e) => setContactData(prev => ({ 
+                        ...prev, 
+                        directions: e.target.value.split('\n').filter(d => d.trim())
+                      }))}
+                      className="sys-settings-textarea"
+                      style={{ minHeight: '100px' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+        </TabPanel>
+
+        {/* ==================== TAB PRIVACY ==================== */}
+        <TabPanel className="sys-settings-tab-panel">
+          
+          {/* SECTION 1: HERO */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('privacy', 'hero')}>
+              <h3 className="sys-settings-section-title">1. Hero Section</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('privacy', privacyData, 'Lưu Hero thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.privacy.hero ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.privacy.hero && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Hero Privacy
+                    </h4>
+
+                    <label className="sys-settings-label">Tiêu đề</label>
+                    <input type="text" value={privacyData.hero?.title || ''} placeholder="Chính sách bảo mật"
+                      onChange={(e) => setPrivacyData(prev => ({ 
+                        ...prev, 
+                        hero: { ...prev.hero, title: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Phụ đề</label>
+                    <textarea value={privacyData.hero?.subtitle || ''} placeholder="Chúng tôi cam kết bảo vệ..."
+                      onChange={(e) => setPrivacyData(prev => ({ 
+                        ...prev, 
+                        hero: { ...prev.hero, subtitle: e.target.value }
+                      }))}
+                      className="sys-settings-textarea" />
+                    
+                    <label className="sys-settings-label">Cập nhật lần cuối</label>
+                    <input type="text" value={privacyData.hero?.last_updated || ''} placeholder="06/10/2025"
+                      onChange={(e) => setPrivacyData(prev => ({ 
+                        ...prev, 
+                        hero: { ...prev.hero, last_updated: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 2: SECTIONS */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('privacy', 'sections')}>
+              <h3 className="sys-settings-section-title">2. Các phần nội dung</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('privacy', privacyData, 'Lưu Nội dung thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setPrivacyData, 'sections', { 
+                    icon: 'FaDatabase', 
+                    title: '', 
+                    items: []
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
+                  <FaPlus /> Thêm
+                </button>
+                {openSections.privacy.sections ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.privacy.sections && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  {(privacyData.sections || []).map((section, index) => (
+                    <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Section {index + 1}
+                      </h4>
+
+                      <label className="sys-settings-label">Icon</label>
+                      <CustomIconPicker value={section.icon || ''} 
+                        onChange={(icon) => handleArrayChange(setPrivacyData, 'sections', index, 'icon', icon)} />
+                      
+                      <label className="sys-settings-label">Tiêu đề</label>
+                      <input type="text" value={section.title || ''} placeholder="Thông tin chúng tôi thu thập"
+                        onChange={(e) => handleArrayChange(setPrivacyData, 'sections', index, 'title', e.target.value)}
+                        className="sys-settings-input" />
+                      
+                      <label className="sys-settings-label">Các mục (format: Subtitle|Content, mỗi dòng 1 mục)</label>
+                      <textarea 
+                        value={(section.items || []).map(item => `${item.subtitle}|${item.content}`).join('\n')}
+                        onChange={(e) => {
+                          const lines = e.target.value.split('\n').filter(line => line.trim());
+                          const items = lines.map(line => {
+                            const [subtitle, content] = line.split('|');
+                            return { 
+                              subtitle: subtitle?.trim() || '', 
+                              content: content?.trim() || '' 
+                            };
+                          });
+                          handleArrayChange(setPrivacyData, 'sections', index, 'items', items);
+                        }}
+                        placeholder="Thông tin cá nhân|Họ và tên, ngày sinh..."
+                        className="sys-settings-textarea"
+                        style={{ minHeight: '150px' }}
+                      />
+                      
+                      <button type="button" onClick={() => removeArrayItem(setPrivacyData, 'sections', index)}
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
+                        <FaTrash /> Xóa
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 3: CONTACT */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('privacy', 'contact')}>
+              <h3 className="sys-settings-section-title">3. Thông tin liên hệ</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('privacy', privacyData, 'Lưu Liên hệ thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.privacy.contact ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.privacy.contact && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Liên hệ Privacy
+                    </h4>
+
+                    <label className="sys-settings-label">Email liên hệ</label>
+                    <input type="email" value={privacyData.contact_email || ''} placeholder="privacy@clinic.vn"
+                      onChange={(e) => setPrivacyData(prev => ({ ...prev, contact_email: e.target.value }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Số điện thoại</label>
+                    <input type="text" value={privacyData.contact_phone || ''} placeholder="(028) 3822 1234"
+                      onChange={(e) => setPrivacyData(prev => ({ ...prev, contact_phone: e.target.value }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Địa chỉ</label>
+                    <input type="text" value={privacyData.contact_address || ''} placeholder="123 Nguyễn Huệ, Quận 1, TP.HCM"
+                      onChange={(e) => setPrivacyData(prev => ({ ...prev, contact_address: e.target.value }))}
+                      className="sys-settings-input" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+        </TabPanel>
+
+        {/* ==================== TAB TERMS ==================== */}
+        <TabPanel className="sys-settings-tab-panel">
+          
+          {/* SECTION 1: HERO */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('terms', 'hero')}>
+              <h3 className="sys-settings-section-title">1. Hero Section</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('terms', termsData, 'Lưu Hero thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.terms.hero ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.terms.hero && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Hero Terms
+                    </h4>
+
+                    <label className="sys-settings-label">Tiêu đề</label>
+                    <input type="text" value={termsData.hero?.title || ''} placeholder="Điều khoản dịch vụ"
+                      onChange={(e) => setTermsData(prev => ({ 
+                        ...prev, 
+                        hero: { ...prev.hero, title: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Phụ đề</label>
+                    <textarea value={termsData.hero?.subtitle || ''} placeholder="Vui lòng đọc kỹ các điều khoản..."
+                      onChange={(e) => setTermsData(prev => ({ 
+                        ...prev, 
+                        hero: { ...prev.hero, subtitle: e.target.value }
+                      }))}
+                      className="sys-settings-textarea" />
+                    
+                    <label className="sys-settings-label">Có hiệu lực từ</label>
+                    <input type="text" value={termsData.hero?.effective_date || ''} placeholder="01/01/2025"
+                      onChange={(e) => setTermsData(prev => ({ 
+                        ...prev, 
+                        hero: { ...prev.hero, effective_date: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 2: INTRO */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('terms', 'intro')}>
+              <h3 className="sys-settings-section-title">2. Giới thiệu</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('terms', termsData, 'Lưu Giới thiệu thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.terms.intro ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.terms.intro && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Intro Terms
+                    </h4>
+
+                    <label className="sys-settings-label">Tiêu đề</label>
+                    <input type="text" value={termsData.intro?.title || ''} placeholder="Chào mừng đến với Phòng khám Đa khoa"
+                      onChange={(e) => setTermsData(prev => ({ 
+                        ...prev, 
+                        intro: { ...prev.intro, title: e.target.value }
+                      }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Nội dung</label>
+                    <textarea value={termsData.intro?.content || ''} 
+                      placeholder="Các điều khoản dịch vụ này điều chỉnh..."
+                      onChange={(e) => setTermsData(prev => ({ 
+                        ...prev, 
+                        intro: { ...prev.intro, content: e.target.value }
+                      }))}
+                      className="sys-settings-textarea"
+                      style={{ minHeight: '100px' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 3: SECTIONS */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('terms', 'sections')}>
+              <h3 className="sys-settings-section-title">3. Các phần nội dung</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('terms', termsData, 'Lưu Nội dung thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                <button type="button" onClick={(e) => { 
+                  e.stopPropagation(); 
+                  addArrayItem(setTermsData, 'sections', { 
+                    icon: 'FaUserCheck', 
+                    title: '', 
+                    items: []
+                  }); 
+                }}
+                  className="sys-settings-btn sys-settings-btn-primary">
+                  <FaPlus /> Thêm
+                </button>
+                {openSections.terms.sections ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.terms.sections && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  {(termsData.sections || []).map((section, index) => (
+                    <div key={index} className="sys-settings-card">
+                      <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                        Section {index + 1}
+                      </h4>
+
+                      <label className="sys-settings-label">Icon</label>
+                      <CustomIconPicker value={section.icon || ''} 
+                        onChange={(icon) => handleArrayChange(setTermsData, 'sections', index, 'icon', icon)} />
+                      
+                      <label className="sys-settings-label">Tiêu đề</label>
+                      <input type="text" value={section.title || ''} placeholder="Chấp nhận điều khoản"
+                        onChange={(e) => handleArrayChange(setTermsData, 'sections', index, 'title', e.target.value)}
+                        className="sys-settings-input" />
+                      
+                      <label className="sys-settings-label">Các mục (format: Subtitle|Content, mỗi dòng 1 mục)</label>
+                      <textarea 
+                        value={(section.items || []).map(item => `${item.subtitle}|${item.content}`).join('\n')}
+                        onChange={(e) => {
+                          const lines = e.target.value.split('\n').filter(line => line.trim());
+                          const items = lines.map(line => {
+                            const [subtitle, content] = line.split('|');
+                            return { 
+                              subtitle: subtitle?.trim() || '', 
+                              content: content?.trim() || '' 
+                            };
+                          });
+                          handleArrayChange(setTermsData, 'sections', index, 'items', items);
+                        }}
+                        placeholder="Đồng ý sử dụng|Bằng việc sử dụng dịch vụ..."
+                        className="sys-settings-textarea"
+                        style={{ minHeight: '150px' }}
+                      />
+                      
+                      <button type="button" onClick={() => removeArrayItem(setTermsData, 'sections', index)}
+                        className="sys-settings-btn sys-settings-btn-danger" 
+                        style={{ marginTop: '16px', width: '100%' }}>
+                        <FaTrash /> Xóa
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 4: CONTACT */}
+          <section className="sys-settings-section">
+            <div className="sys-settings-section-header" onClick={() => toggleSection('terms', 'contact')}>
+              <h3 className="sys-settings-section-title">4. Thông tin liên hệ</h3>
+              <div className="sys-settings-section-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveData('terms', termsData, 'Lưu Liên hệ thành công!');
+                  }}
+                  className="sys-settings-section-save-inline"
+                  type="button"
+                >
+                  <FaSave /> Lưu
+                </button>
+                {openSections.terms.contact ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {openSections.terms.contact && (
+              <div className="sys-settings-section-content">
+                <div className="sys-settings-grid">
+                  <div className="sys-settings-card">
+                    <h4 style={{ marginBottom: '12px', color: '#667eea', fontWeight: 'bold' }}>
+                      Liên hệ Terms
+                    </h4>
+
+                    <label className="sys-settings-label">Email liên hệ</label>
+                    <input type="email" value={termsData.contact_email || ''} placeholder="legal@clinic.vn"
+                      onChange={(e) => setTermsData(prev => ({ ...prev, contact_email: e.target.value }))}
+                      className="sys-settings-input" />
+                    
+                    <label className="sys-settings-label">Số điện thoại</label>
+                    <input type="text" value={termsData.contact_phone || ''} placeholder="(028) 3822 1234"
+                      onChange={(e) => setTermsData(prev => ({ ...prev, contact_phone: e.target.value }))}
+                      className="sys-settings-input" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+        </TabPanel>
+
+        </Tabs>
       </div>
     </div>
   );

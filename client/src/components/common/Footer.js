@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   FaFacebook, 
@@ -11,33 +11,77 @@ import {
   FaClock,
   FaHeart
 } from 'react-icons/fa';
+import axios from 'axios';
 import './Footer.css';
+
+const API_BASE_URL = 'http://localhost:3001/api';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  
+  // ✅ Thêm state cho footer data
+  const [footerData, setFooterData] = useState({
+    about_title: 'Clinic System',
+    about_description: 'Hệ thống y tế hàng đầu, mang đến dịch vụ chăm sóc sức khỏe chất lượng cao.',
+    address: '123 Đường Sức Khỏe, Q.1, TP.HCM',
+    hotline: '1900 1234',
+    email: 'contact@clinicsystem.vn',
+    working_hours: 'T2 - T7: 7:00 - 20:00\nChủ nhật: 8:00 - 17:00',
+    social_facebook: '',
+    social_twitter: '',
+    social_instagram: '',
+    social_youtube: '',
+    copyright_text: 'Clinic System. Tất cả quyền được bảo lưu.',
+    privacy_link: '/privacy',
+    terms_link: '/terms'
+  });
+
+  // ✅ Fetch footer data từ API
+  useEffect(() => {
+    const fetchFooterData = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/settings/header-nav-footer`);
+        if (response.data && response.data.footer) {
+          setFooterData(response.data.footer);
+        }
+      } catch (error) {
+        console.error('Error fetching footer data:', error);
+      }
+    };
+
+    fetchFooterData();
+  }, []);
 
   return (
     <footer className="footer">
       <div className="footer-container">
         {/* Về chúng tôi */}
         <div className="footer-section">
-          <h3>Clinic System</h3>
+          <h3>{footerData.about_title}</h3>
           <p className="footer-description">
-            Hệ thống y tế hàng đầu, mang đến dịch vụ chăm sóc sức khỏe chất lượng cao với đội ngũ bác sĩ giàu kinh nghiệm và trang thiết bị hiện đại.
+            {footerData.about_description}
           </p>
           <div className="social-links">
-            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-              <FaFacebook />
-            </a>
-            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
-              <FaTwitter />
-            </a>
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-              <FaInstagram />
-            </a>
-            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-              <FaYoutube />
-            </a>
+            {footerData.social_facebook && (
+              <a href={footerData.social_facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                <FaFacebook />
+              </a>
+            )}
+            {footerData.social_twitter && (
+              <a href={footerData.social_twitter} target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+                <FaTwitter />
+              </a>
+            )}
+            {footerData.social_instagram && (
+              <a href={footerData.social_instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                <FaInstagram />
+              </a>
+            )}
+            {footerData.social_youtube && (
+              <a href={footerData.social_youtube} target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+                <FaYoutube />
+              </a>
+            )}
           </div>
         </div>
 
@@ -60,19 +104,19 @@ const Footer = () => {
           <ul className="contact-info">
             <li>
               <FaMapMarkerAlt className="contact-icon" />
-              <span>123 Đường Sức Khỏe, Q.1, TP.HCM</span>
+              <span>{footerData.address}</span>
             </li>
             <li>
               <FaPhone className="contact-icon" />
-              <span>Hotline: 1900 1234</span>
+              <span>Hotline: {footerData.hotline}</span>
             </li>
             <li>
               <FaEnvelope className="contact-icon" />
-              <span>contact@clinicsystem.vn</span>
+              <span>{footerData.email}</span>
             </li>
             <li>
               <FaClock className="contact-icon" />
-              <span>T2 - T7: 7:00 - 20:00<br />Chủ nhật: 8:00 - 17:00</span>
+              <span style={{ whiteSpace: 'pre-line' }}>{footerData.working_hours}</span>
             </li>
           </ul>
         </div>
@@ -95,11 +139,11 @@ const Footer = () => {
       <div className="footer-bottom">
         <div className="footer-container">
           <p>
-            © {currentYear} Clinic System. Tất cả quyền được bảo lưu. 
+            © {currentYear} {footerData.copyright_text}
             <span className="divider">|</span>
-            <Link to="/privacy">Chính sách bảo mật</Link>
+            <Link to={footerData.privacy_link}>Chính sách bảo mật</Link>
             <span className="divider">|</span>
-            <Link to="/terms">Điều khoản sử dụng</Link>
+            <Link to={footerData.terms_link}>Điều khoản sử dụng</Link>
           </p>
           <p className="made-with-love">
             Được phát triển với <FaHeart className="heart-icon" /> tại Việt Nam
