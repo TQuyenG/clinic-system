@@ -1,5 +1,4 @@
 // client/src/components/common/Header.js
-// client/src/components/common/Header.js
 import React, { useState, useEffect } from 'react';
 import { FaPhone, FaEnvelope, FaClock } from 'react-icons/fa';
 import axios from 'axios';
@@ -34,24 +33,24 @@ const Header = () => {
   }, []);
 
   return (
-    <header className="header">
-      <div className="header-container">
-        <div className="header-info">
-          <div className="header-item">
-            <FaPhone className="header-icon" />
-            <span>{headerData.phone}</span>
+    <header className="header-component">
+      <div className="header-component__container">
+        <div className="header-component__info">
+          <div className="header-component__item">
+            <FaPhone className="header-component__icon" />
+            <span className="header-component__text">{headerData.phone}</span>
           </div>
-          <div className="header-item">
-            <FaEnvelope className="header-icon" />
-            <span>{headerData.email}</span>
+          <div className="header-component__item">
+            <FaEnvelope className="header-component__icon" />
+            <span className="header-component__text">{headerData.email}</span>
           </div>
-          <div className="header-item">
-            <FaClock className="header-icon" />
-            <span>{headerData.working_hours}</span>
+          <div className="header-component__item">
+            <FaClock className="header-component__icon" />
+            <span className="header-component__text">{headerData.working_hours}</span>
           </div>
         </div>
-        <div className="header-welcome">
-          <span className="welcome-text">{headerData.welcome_text}</span>
+        <div className="header-component__welcome">
+          <span className="header-component__welcome-text">{headerData.welcome_text}</span>
         </div>
       </div>
     </header>

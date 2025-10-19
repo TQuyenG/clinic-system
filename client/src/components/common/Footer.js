@@ -1,3 +1,4 @@
+// client/src/components/common/Footer.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -19,7 +20,6 @@ const API_BASE_URL = 'http://localhost:3001/api';
 const Footer = () => {
   const currentYear = new Date().getFullYear();
   
-  // ✅ Thêm state cho footer data
   const [footerData, setFooterData] = useState({
     about_title: 'Clinic System',
     about_description: 'Hệ thống y tế hàng đầu, mang đến dịch vụ chăm sóc sức khỏe chất lượng cao.',
@@ -32,11 +32,10 @@ const Footer = () => {
     social_instagram: '',
     social_youtube: '',
     copyright_text: 'Clinic System. Tất cả quyền được bảo lưu.',
-    privacy_link: '/privacy',
-    terms_link: '/terms'
+    privacy_link: '/privacy-policy',
+    terms_link: '/terms-of-service'
   });
 
-  // ✅ Fetch footer data từ API
   useEffect(() => {
     const fetchFooterData = async () => {
       try {
@@ -53,32 +52,56 @@ const Footer = () => {
   }, []);
 
   return (
-    <footer className="footer">
-      <div className="footer-container">
+    <footer className="footer-component">
+      <div className="footer-component__container">
         {/* Về chúng tôi */}
-        <div className="footer-section">
-          <h3>{footerData.about_title}</h3>
-          <p className="footer-description">
+        <div className="footer-component__section">
+          <h3 className="footer-component__title">{footerData.about_title}</h3>
+          <p className="footer-component__description">
             {footerData.about_description}
           </p>
-          <div className="social-links">
+          <div className="footer-component__social-links">
             {footerData.social_facebook && (
-              <a href={footerData.social_facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+              <a 
+                href={footerData.social_facebook} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                aria-label="Facebook"
+                className="footer-component__social-link"
+              >
                 <FaFacebook />
               </a>
             )}
             {footerData.social_twitter && (
-              <a href={footerData.social_twitter} target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+              <a 
+                href={footerData.social_twitter} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                aria-label="Twitter"
+                className="footer-component__social-link"
+              >
                 <FaTwitter />
               </a>
             )}
             {footerData.social_instagram && (
-              <a href={footerData.social_instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+              <a 
+                href={footerData.social_instagram} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                aria-label="Instagram"
+                className="footer-component__social-link"
+              >
                 <FaInstagram />
               </a>
             )}
             {footerData.social_youtube && (
-              <a href={footerData.social_youtube} target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+              <a 
+                href={footerData.social_youtube} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                aria-label="YouTube"
+                className="footer-component__social-link"
+              >
                 <FaYoutube />
               </a>
             )}
@@ -86,67 +109,95 @@ const Footer = () => {
         </div>
 
         {/* Liên kết nhanh */}
-        <div className="footer-section">
-          <h3>Liên kết nhanh</h3>
-          <ul className="footer-links">
-            <li><Link to="/about">Giới thiệu</Link></li>
-            <li><Link to="/services">Dịch vụ</Link></li>
-            <li><Link to="/doctors">Đội ngũ bác sĩ</Link></li>
-            <li><Link to="/articles">Cẩm nang y tế</Link></li>
-            <li><Link to="/book-appointment">Đặt lịch khám</Link></li>
-            <li><Link to="/contact">Liên hệ</Link></li>
+        <div className="footer-component__section">
+          <h3 className="footer-component__title">Liên kết nhanh</h3>
+          <ul className="footer-component__links">
+            <li className="footer-component__links-item">
+              <Link to="/about" className="footer-component__link">Giới thiệu</Link>
+            </li>
+            <li className="footer-component__links-item">
+              <Link to="/services" className="footer-component__link">Dịch vụ</Link>
+            </li>
+            <li className="footer-component__links-item">
+              <Link to="/doctors" className="footer-component__link">Đội ngũ bác sĩ</Link>
+            </li>
+            <li className="footer-component__links-item">
+              <Link to="/articles" className="footer-component__link">Cẩm nang y tế</Link>
+            </li>
+            <li className="footer-component__links-item">
+              <Link to="/book-appointment" className="footer-component__link">Đặt lịch khám</Link>
+            </li>
+            <li className="footer-component__links-item">
+              <Link to="/contact" className="footer-component__link">Liên hệ</Link>
+            </li>
           </ul>
         </div>
 
         {/* Thông tin liên hệ */}
-        <div className="footer-section">
-          <h3>Thông tin liên hệ</h3>
-          <ul className="contact-info">
-            <li>
-              <FaMapMarkerAlt className="contact-icon" />
+        <div className="footer-component__section">
+          <h3 className="footer-component__title">Thông tin liên hệ</h3>
+          <ul className="footer-component__contact-info">
+            <li className="footer-component__contact-item">
+              <FaMapMarkerAlt className="footer-component__contact-icon" />
               <span>{footerData.address}</span>
             </li>
-            <li>
-              <FaPhone className="contact-icon" />
+            <li className="footer-component__contact-item">
+              <FaPhone className="footer-component__contact-icon" />
               <span>Hotline: {footerData.hotline}</span>
             </li>
-            <li>
-              <FaEnvelope className="contact-icon" />
+            <li className="footer-component__contact-item">
+              <FaEnvelope className="footer-component__contact-icon" />
               <span>{footerData.email}</span>
             </li>
-            <li>
-              <FaClock className="contact-icon" />
+            <li className="footer-component__contact-item">
+              <FaClock className="footer-component__contact-icon" />
               <span style={{ whiteSpace: 'pre-line' }}>{footerData.working_hours}</span>
             </li>
           </ul>
         </div>
 
         {/* Dịch vụ */}
-        <div className="footer-section">
-          <h3>Dịch vụ nổi bật</h3>
-          <ul className="footer-links">
-            <li><Link to="/specialties/noi-khoa">Nội khoa</Link></li>
-            <li><Link to="/specialties/nhi-khoa">Nhi khoa</Link></li>
-            <li><Link to="/specialties/san-phu-khoa">Sản phụ khoa</Link></li>
-            <li><Link to="/specialties/rang-ham-mat">Răng hàm mặt</Link></li>
-            <li><Link to="/specialties/tai-mui-hong">Tai mũi họng</Link></li>
-            <li><Link to="/emergency">Cấp cứu 24/7</Link></li>
+        <div className="footer-component__section">
+          <h3 className="footer-component__title">Dịch vụ nổi bật</h3>
+          <ul className="footer-component__links">
+            <li className="footer-component__links-item">
+              <Link to="/specialties/noi-khoa" className="footer-component__link">Nội khoa</Link>
+            </li>
+            <li className="footer-component__links-item">
+              <Link to="/specialties/nhi-khoa" className="footer-component__link">Nhi khoa</Link>
+            </li>
+            <li className="footer-component__links-item">
+              <Link to="/specialties/san-phu-khoa" className="footer-component__link">Sản phụ khoa</Link>
+            </li>
+            <li className="footer-component__links-item">
+              <Link to="/specialties/rang-ham-mat" className="footer-component__link">Răng hàm mặt</Link>
+            </li>
+            <li className="footer-component__links-item">
+              <Link to="/specialties/tai-mui-hong" className="footer-component__link">Tai mũi họng</Link>
+            </li>
+            <li className="footer-component__links-item">
+              <Link to="/emergency" className="footer-component__link">Cấp cứu 24/7</Link>
+            </li>
           </ul>
         </div>
       </div>
 
       {/* Copyright */}
-      <div className="footer-bottom">
-        <div className="footer-container">
-          <p>
-            © {currentYear} {footerData.copyright_text}
-            <span className="divider">|</span>
-            <Link to={footerData.privacy_link}>Chính sách bảo mật</Link>
-            <span className="divider">|</span>
-            <Link to={footerData.terms_link}>Điều khoản sử dụng</Link>
+      <div className="footer-component__bottom">
+        <div className="footer-component__bottom-container">
+          <p className="footer-component__copyright">
+            <span>© {currentYear} {footerData.copyright_text}</span>
+            <span className="footer-component__divider">|</span>
+            <Link to={footerData.privacy_link} className="footer-component__copyright-link">
+              Chính sách bảo mật
+            </Link>
+            <span className="footer-component__divider">|</span>
+            <Link to={footerData.terms_link} className="footer-component__copyright-link">
+              Điều khoản sử dụng
+            </Link>
           </p>
-          <p className="made-with-love">
-            Được phát triển với <FaHeart className="heart-icon" /> tại Việt Nam
+          <p className="footer-component__made-with-love">
+            Được phát triển với <FaHeart className="footer-component__heart-icon" /> tại Việt Nam
           </p>
         </div>
       </div>

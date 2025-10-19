@@ -1,77 +1,112 @@
-// client/src/pages/ResetPasswordPage.js
-// Trang nhập OTP và đặt lại mật khẩu mới
-
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+// client/src/pages/ResetPasswordPage.js - VIẾT LẠI
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import './ResetPasswordPage.css';
 
 const ResetPasswordPage = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const emailFromState = location.state?.email || '';
-
-  const [formData, setFormData] = useState({
-    email: emailFromState,
-    otp: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-
-  const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [status, setStatus] = useState('verifying'); // verifying, verified, error
+  const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [loading, setLoading] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const navigate = useNavigate();
 
-  // Hàm xử lý thay đổi input
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+  // Xác thực token khi component mount
+  useEffect(() => {
+    verifyToken();
+  }, []);
+
+  // Countdown khi reset thành công
+  useEffect(() => {
+    if (resetSuccess && countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (resetSuccess && countdown === 0) {
+      navigate('/login');
+    }
+  }, [resetSuccess, countdown, navigate]);
+
+  const verifyToken = async () => {
+    const token = searchParams.get('token');
+
+    if (!token) {
+      setStatus('error');
+      setMessage({ 
+        type: 'error', 
+        text: 'Link không hợp lệ. Vui lòng kiểm tra lại email của bạn.' 
+      });
+      return;
+    }
+
+    try {
+      const response = await axios.get(
+        `http://localhost:3001/api/users/verify-reset-token?token=${token}`
+      );
+
+      if (response.data.success) {
+        setStatus('verified');
+        setEmail(response.data.email);
+      }
+    } catch (error) {
+      console.error('Lỗi xác thực token:', error);
+      setStatus('error');
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Token không hợp lệ hoặc đã hết hạn' 
+      });
+    }
   };
 
-  // Hàm xử lý submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage({ type: '', text: '' });
 
-    // Validate
-    if (!formData.email || !formData.otp || !formData.newPassword) {
-      setMessage({ type: 'error', text: 'Vui lòng điền đầy đủ thông tin' });
+    // Validation
+    if (!newPassword || !confirmPassword) {
+      setMessage({ type: 'error', text: 'Vui lòng nhập đầy đủ thông tin' });
       return;
     }
 
-    if (formData.newPassword !== formData.confirmPassword) {
-      setMessage({ type: 'error', text: 'Mật khẩu xác nhận không khớp' });
-      return;
-    }
-
-    if (formData.newPassword.length < 6) {
+    if (newPassword.length < 6) {
       setMessage({ type: 'error', text: 'Mật khẩu phải có ít nhất 6 ký tự' });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setMessage({ type: 'error', text: 'Mật khẩu xác nhận không khớp' });
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:3001/api/users/reset-password', {
-        email: formData.email,
-        otp: formData.otp,
-        newPassword: formData.newPassword
-      });
+      const token = searchParams.get('token');
+      const response = await axios.post(
+        'http://localhost:3001/api/users/reset-password-with-token',
+        { token, newPassword }
+      );
 
-      setMessage({ 
-        type: 'success', 
-        text: response.data.message || 'Đặt lại mật khẩu thành công!' 
-      });
-
-      // Chuyển về trang đăng nhập sau 2 giây
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
-
+      if (response.data.success) {
+        setResetSuccess(true);
+        setMessage({ 
+          type: 'success', 
+          text: response.data.message 
+        });
+      }
     } catch (error) {
+      console.error('Lỗi đặt lại mật khẩu:', error);
       setMessage({ 
         type: 'error', 
-        text: error.response?.data?.message || 'Đặt lại mật khẩu thất bại. Vui lòng thử lại.' 
+        text: error.response?.data?.message || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.' 
       });
     } finally {
       setLoading(false);
@@ -79,185 +114,157 @@ const ResetPasswordPage = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.formWrapper}>
-        <h2 style={styles.title}>Đặt lại mật khẩu</h2>
-        <p style={styles.description}>
-          Nhập mã OTP đã được gửi đến email và mật khẩu mới
-        </p>
-        
-        {message.text && (
-          <div style={{
-            ...styles.message,
-            backgroundColor: message.type === 'success' ? '#d4edda' : '#f8d7da',
-            color: message.type === 'success' ? '#155724' : '#721c24',
-            border: `1px solid ${message.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`
-          }}>
-            {message.text}
-          </div>
+    <div className="reset-password-container">
+      <div className="reset-password-box">
+        {status === 'verifying' && (
+          <>
+            <div className="spinner"></div>
+            <h2>Đang xác thực...</h2>
+            <p className="subtitle">Vui lòng đợi trong giây lát</p>
+          </>
         )}
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              style={styles.input}
-              placeholder="Nhập email"
-            />
-          </div>
+        {status === 'error' && (
+          <>
+            <div className="icon-wrapper error-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </div>
+            <h2>Link không hợp lệ</h2>
+            {message.text && (
+              <div className={`message ${message.type}`}>{message.text}</div>
+            )}
+            <div className="error-actions">
+              <button onClick={() => navigate('/dat-lai-mat-khau')} className="btn-primary">
+                Yêu cầu link mới
+              </button>
+              <button onClick={() => navigate('/login')} className="btn-secondary">
+                Về trang đăng nhập
+              </button>
+            </div>
+          </>
+        )}
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Mã OTP</label>
-            <input
-              type="text"
-              name="otp"
-              value={formData.otp}
-              onChange={handleChange}
-              required
-              maxLength="6"
-              style={styles.input}
-              placeholder="Nhập mã OTP 6 số"
-            />
-            <small style={styles.hint}>Mã OTP có hiệu lực trong 10 phút</small>
-          </div>
+        {status === 'verified' && !resetSuccess && (
+          <>
+            <div className="icon-wrapper success-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <path d="M9 12l2 2 4-4"/>
+              </svg>
+            </div>
+            <h2>Đặt lại mật khẩu</h2>
+            <p className="subtitle">Tài khoản: <strong>{email}</strong></p>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Mật khẩu mới</label>
-            <input
-              type="password"
-              name="newPassword"
-              value={formData.newPassword}
-              onChange={handleChange}
-              required
-              minLength="6"
-              style={styles.input}
-              placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
-            />
-          </div>
+            {message.text && (
+              <div className={`message ${message.type}`}>{message.text}</div>
+            )}
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Xác nhận mật khẩu</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              style={styles.input}
-              placeholder="Nhập lại mật khẩu mới"
-            />
-          </div>
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label>Mật khẩu mới</label>
+                <div className="password-input-wrapper">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Ít nhất 6 ký tự"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
 
-          <button 
-            type="submit" 
-            disabled={loading}
-            style={{
-              ...styles.button,
-              opacity: loading ? 0.6 : 1,
-              cursor: loading ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
-          </button>
-        </form>
+              <div className="form-group">
+                <label>Xác nhận mật khẩu mới</label>
+                <div className="password-input-wrapper">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Nhập lại mật khẩu mới"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
 
-        <div style={styles.footer}>
-          <p>
-            <a href="/forgot-password" style={styles.link}>Gửi lại mã OTP</a>
-          </p>
-          <p>
-            <a href="/login" style={styles.link}>Quay lại đăng nhập</a>
-          </p>
-        </div>
+              <button type="submit" className="btn-submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <span className="spinner-small"></span>
+                    Đang xử lý...
+                  </>
+                ) : 'Đặt lại mật khẩu'}
+              </button>
+            </form>
+          </>
+        )}
+
+        {resetSuccess && (
+          <>
+            <div className="icon-wrapper complete-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <h2>Thành công!</h2>
+            <div className="message success">{message.text}</div>
+            
+            <div className="countdown-box">
+              <p className="countdown-text">
+                Tự động chuyển hướng sau <span className="countdown-number">{countdown}</span> giây...
+              </p>
+              <div className="progress-bar">
+                <div 
+                  className="progress-fill" 
+                  style={{ width: `${(5 - countdown) * 20}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <button onClick={() => navigate('/login')} className="btn-submit">
+              Đăng nhập ngay
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
-};
-
-// Styles
-const styles = {
-  container: {
-    minHeight: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: '20px'
-  },
-  formWrapper: {
-    backgroundColor: 'white',
-    padding: '40px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-    maxWidth: '450px',
-    width: '100%'
-  },
-  title: {
-    textAlign: 'center',
-    marginBottom: '10px',
-    color: '#333'
-  },
-  description: {
-    textAlign: 'center',
-    marginBottom: '30px',
-    color: '#666',
-    fontSize: '14px'
-  },
-  message: {
-    padding: '12px',
-    borderRadius: '4px',
-    marginBottom: '20px',
-    textAlign: 'center'
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px'
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  label: {
-    marginBottom: '5px',
-    fontWeight: '500',
-    color: '#555'
-  },
-  input: {
-    padding: '10px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px'
-  },
-  hint: {
-    marginTop: '5px',
-    fontSize: '12px',
-    color: '#999'
-  },
-  button: {
-    padding: '12px',
-    backgroundColor: '#2196F3',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '16px',
-    fontWeight: '500',
-    marginTop: '10px'
-  },
-  footer: {
-    marginTop: '20px',
-    textAlign: 'center'
-  },
-  link: {
-    color: '#2196F3',
-    textDecoration: 'none',
-    fontWeight: '500'
-  }
 };
 
 export default ResetPasswordPage;

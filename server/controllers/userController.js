@@ -6,8 +6,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Op, Sequelize } = require('sequelize');
 const { models, sequelize } = require('../config/db');
-const { sendVerificationEmail, sendOTPEmail, sendPasswordResetEmail } = require('../utils/emailSender');
-
+const { sendVerificationEmail, sendOTPEmail, sendPasswordResetEmail, sendPasswordResetRequestEmail } = require('../utils/emailSender');
 // Lưu trữ tạm thời số lần đăng nhập sai
 const loginAttempts = new Map();
 const LOCK_TIME = 15 * 60 * 1000;
@@ -283,84 +282,205 @@ exports.login = async (req, res) => {
   }
 };
 
-// ============================================
+// // ============================================
 // PASSWORD RESET - Quên mật khẩu, đặt lại mật khẩu
 // ============================================
 
-// Gửi OTP qua email
-exports.forgotPassword = async (req, res) => {
+// Gửi email xác thực reset password
+exports.requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
+    
     if (!email) {
-      return res.status(400).json({ success: false, message: 'Email là bắt buộc' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email là bắt buộc' 
+      });
     }
+
+    console.log('[requestPasswordReset] Email nhận được:', email);
+
     const user = await models.User.findOne({ where: { email } });
+    
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Email không tồn tại trong hệ thống' });
+      // Không tiết lộ email có tồn tại hay không vì lý do bảo mật
+      console.log('[requestPasswordReset] Email không tồn tại:', email);
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được email hướng dẫn đặt lại mật khẩu.' 
+      });
     }
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.reset_token = await bcrypt.hash(otp, 10);
-    user.reset_expires = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Tạo reset token
+    const reset_token = crypto.randomBytes(32).toString('hex');
+    const reset_expires = new Date(Date.now() + 60 * 60 * 1000); // 1 giờ
+
+    console.log('[requestPasswordReset] Token tạo ra:', reset_token);
+    console.log('[requestPasswordReset] Expires:', reset_expires);
+
+    // Lưu token vào database
+    user.reset_token = reset_token;
+    user.reset_expires = reset_expires;
     await user.save();
-    await sendOTPEmail(email, user.full_name || email, otp);
-    res.status(200).json({ success: true, message: 'Mã OTP đã được gửi đến email của bạn. Mã có hiệu lực trong 10 phút.' });
+
+    console.log('[requestPasswordReset] Đã lưu token vào DB');
+
+    // Gửi email xác thực reset password
+    try {
+      const resetLink = `${process.env.CLIENT_URL}/xac-thuc-dat-lai-mat-khau?token=${reset_token}`;
+      
+      console.log('[requestPasswordReset] Reset link:', resetLink);
+      
+      // Gọi hàm gửi email - SỬA TÊN HÀM CHO ĐÚNG
+      await sendPasswordResetRequestEmail(email, user.full_name || email, resetLink);
+      
+      console.log('[requestPasswordReset] Email đã gửi thành công đến:', email);
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Chúng tôi đã gửi email xác thực đến địa chỉ của bạn. Vui lòng kiểm tra hộp thư.'
+      });
+      
+    } catch (emailError) {
+      console.error('[requestPasswordReset] Lỗi gửi email:', emailError);
+      return res.status(500).json({
+        success: false,
+        message: 'Không thể gửi email. Vui lòng thử lại sau.',
+        error: emailError.message
+      });
+    }
+    
   } catch (error) {
-    console.error('ERROR trong forgotPassword:', error);
-    res.status(500).json({ success: false, message: 'Lỗi khi gửi OTP', error: error.message });
+    console.error('[requestPasswordReset] ERROR:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi khi xử lý yêu cầu đặt lại mật khẩu', 
+      error: error.message 
+    });
   }
 };
 
-// Xác thực OTP
-exports.verifyOTP = async (req, res) => {
+// Xác thực token reset password
+exports.verifyResetToken = async (req, res) => {
   try {
-    const { email, otp } = req.body;
-    if (!email || !otp) {
-      return res.status(400).json({ success: false, message: 'Email và OTP là bắt buộc' });
+    const { token } = req.query;
+
+    console.log('[verifyResetToken] Token nhận được:', token);
+
+    if (!token) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Token không hợp lệ' 
+      });
     }
-    const user = await models.User.findOne({ where: { email } });
-    if (!user || !user.reset_token || !user.reset_expires) {
-      return res.status(400).json({ success: false, message: 'OTP không hợp lệ hoặc đã hết hạn' });
+
+    const user = await models.User.findOne({ 
+      where: { reset_token: token } 
+    });
+
+    if (!user) {
+      console.log('[verifyResetToken] Token không tồn tại');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Token không tồn tại hoặc đã được sử dụng' 
+      });
     }
-    if (new Date() > user.reset_expires) {
-      return res.status(400).json({ success: false, message: 'OTP đã hết hạn. Vui lòng yêu cầu mã mới.' });
+
+    if (user.reset_expires && new Date() > user.reset_expires) {
+      console.log('[verifyResetToken] Token đã hết hạn');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Token đã hết hạn. Vui lòng yêu cầu đặt lại mật khẩu mới.' 
+      });
     }
-    const isOTPValid = await bcrypt.compare(otp, user.reset_token);
-    if (!isOTPValid) {
-      return res.status(400).json({ success: false, message: 'OTP không đúng' });
-    }
-    res.status(200).json({ success: true, message: 'Xác thực OTP thành công. Bạn có thể đặt lại mật khẩu.' });
+
+    console.log('[verifyResetToken] Token hợp lệ cho user:', user.email);
+
+    res.status(200).json({
+      success: true,
+      message: 'Token hợp lệ. Bạn có thể đặt lại mật khẩu.',
+      email: user.email
+    });
+
   } catch (error) {
-    console.error('ERROR trong verifyOTP:', error);
-    res.status(500).json({ success: false, message: 'Lỗi khi xác thực OTP', error: error.message });
+    console.error('[verifyResetToken] ERROR:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi khi xác thực token', 
+      error: error.message 
+    });
   }
 };
 
-// Đặt lại mật khẩu
-exports.resetPassword = async (req, res) => {
+// Đặt lại mật khẩu mới (sau khi xác thực token)
+exports.resetPasswordWithToken = async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
-    if (!email || !otp || !newPassword) {
-      return res.status(400).json({ success: false, message: 'Email, OTP và mật khẩu mới là bắt buộc' });
+    const { token, newPassword } = req.body;
+
+    console.log('[resetPasswordWithToken] Token:', token);
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Token và mật khẩu mới là bắt buộc' 
+      });
     }
-    const user = await models.User.findOne({ where: { email } });
-    if (!user || !user.reset_token || !user.reset_expires) {
-      return res.status(400).json({ success: false, message: 'OTP không hợp lệ hoặc đã hết hạn' });
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Mật khẩu phải có ít nhất 6 ký tự' 
+      });
     }
-    if (new Date() > user.reset_expires) {
-      return res.status(400).json({ success: false, message: 'OTP đã hết hạn' });
+
+    const user = await models.User.findOne({ 
+      where: { reset_token: token } 
+    });
+
+    if (!user) {
+      console.log('[resetPasswordWithToken] Token không hợp lệ');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Token không hợp lệ hoặc đã được sử dụng' 
+      });
     }
-    const isOTPValid = await bcrypt.compare(otp, user.reset_token);
-    if (!isOTPValid) {
-      return res.status(400).json({ success: false, message: 'OTP không đúng' });
+
+    if (user.reset_expires && new Date() > user.reset_expires) {
+      console.log('[resetPasswordWithToken] Token đã hết hạn');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Token đã hết hạn' 
+      });
     }
+
+    // Cập nhật mật khẩu mới
     user.password_hash = await bcrypt.hash(newPassword, 10);
     user.reset_token = null;
     user.reset_expires = null;
     await user.save();
-    res.status(200).json({ success: true, message: 'Đặt lại mật khẩu thành công' });
+
+    console.log('[resetPasswordWithToken] Đã đổi mật khẩu cho user:', user.email);
+
+    // Gửi email thông báo
+    try {
+      await sendPasswordResetEmail(user.email, user.full_name || user.email);
+      console.log('[resetPasswordWithToken] Đã gửi email thông báo');
+    } catch (emailError) {
+      console.error('[resetPasswordWithToken] Lỗi gửi email thông báo:', emailError);
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Đặt lại mật khẩu thành công. Bạn có thể đăng nhập với mật khẩu mới.' 
+    });
+
   } catch (error) {
-    console.error('ERROR trong resetPassword:', error);
-    res.status(500).json({ success: false, message: 'Lỗi khi đặt lại mật khẩu', error: error.message });
+    console.error('[resetPasswordWithToken] ERROR:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi khi đặt lại mật khẩu', 
+      error: error.message 
+    });
   }
 };
 

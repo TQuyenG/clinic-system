@@ -31,6 +31,8 @@ import DoctorProfilePage from './pages/DoctorProfilePage';
 import HealthForumPage from './pages/HealthForumPage';
 import ArticleReviewPage from './pages/ArticleReviewPage';
 import SystemSettingsPage from './pages/SystemSettingsPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import './App.css';
 
 // Protected Route Component
@@ -70,6 +72,11 @@ function App() {
           <Route path="/dang-ky" element={<RegisterPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/xac-thuc-email" element={<VerifyEmailPage />} />
+          <Route path="/dat-lai-mat-khau" element={<ForgotPasswordPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/quen-mat-khau" element={<ForgotPasswordPage />} />
+          <Route path="/xac-thuc-dat-lai-mat-khau" element={<ResetPasswordPage />} />
+          <Route path="/reset-password-verify" element={<ResetPasswordPage />} />
           
           {/* ========== PUBLIC PAGES ========== */}
           <Route path="/" element={<HomePage />} />

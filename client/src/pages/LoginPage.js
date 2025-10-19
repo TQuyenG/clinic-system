@@ -107,7 +107,7 @@ const LoginPage = () => {
         </form>
 
         <div className="auth-links">
-          <Link to="/forgot-password" className="link-primary">Quên mật khẩu?</Link>
+          <Link to="/dat-lai-mat-khau" className="link-primary">Quên mật khẩu?</Link>
           <div className="divider">
             <span>hoặc</span>
           </div>

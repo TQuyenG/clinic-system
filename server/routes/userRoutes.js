@@ -13,10 +13,16 @@ router.post('/register', userController.register);
 router.get('/verify-email', userController.verifyEmail);
 router.post('/login', userController.login);
 
-// Quên mật khẩu, đặt lại mật khẩu qua OTP
-router.post('/forgot-password', userController.forgotPassword);
-router.post('/verify-otp', userController.verifyOTP);
-router.post('/reset-password', userController.resetPassword);
+// // Quên mật khẩu, đặt lại mật khẩu qua OTP
+// router.post('/forgot-password', userController.forgotPassword);
+// router.post('/verify-otp', userController.verifyOTP);
+// router.post('/reset-password', userController.resetPassword);
+
+// **MỚI: Routes cho reset password**
+router.post('/request-password-reset', userController.requestPasswordReset);
+router.get('/verify-reset-token', userController.verifyResetToken);
+router.post('/reset-password-with-token', userController.resetPasswordWithToken);
+
 
 // Routes công khai cho bác sĩ
 // LƯU Ý: Phải đặt TRƯỚC các routes động /:userId

@@ -731,6 +731,40 @@ const ProfilePage = () => {
             <div className="profile-card-header profile-card-header-password">
               <h2><FaKey /> Đổi mật khẩu</h2>
             </div>
+
+            {/* THÊM BUTTON NÀY */}
+            <div style={{ 
+              marginBottom: '1rem', 
+              padding: '0.875rem', 
+              background: '#e4ffe0ff', 
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span style={{ fontSize: '0.9rem', color: '#666' }}>
+                Quên mật khẩu hiện tại?
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate('/dat-lai-mat-khau')}
+                style={{
+                  background: 'linear-gradient(135deg, #8fe186ff, #7dde81ff)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+              >
+                Đặt lại mật khẩu
+              </button>
+            </div>
+
             <form onSubmit={handleChangePassword} className="profile-form">
               <div className="profile-form-group">
                 <label className="profile-form-label">

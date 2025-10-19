@@ -110,12 +110,117 @@ const sendVerificationEmail = async (toEmail, userName, verificationLink) => {
 };
 
 // Hàm gửi OTP qua email
-const sendOTPEmail = async (toEmail, userName, otp) => {
+// const sendOTPEmail = async (toEmail, userName, otp) => {
+//   try {
+//     const mailOptions = {
+//       from: `"Clinic System" <${process.env.GMAIL_USER}>`,
+//       to: toEmail,
+//       subject: 'Mã OTP đặt lại mật khẩu - Clinic System',
+//       html: `
+//         <!DOCTYPE html>
+//         <html>
+//         <head>
+//           <style>
+//             body { 
+//               font-family: Arial, sans-serif; 
+//               line-height: 1.6; 
+//               color: #333; 
+//               margin: 0;
+//               padding: 0;
+//             }
+//             .container { 
+//               max-width: 600px; 
+//               margin: 0 auto; 
+//               padding: 20px; 
+//             }
+//             .header { 
+//               background-color: #2196F3; 
+//               color: white; 
+//               padding: 20px; 
+//               text-align: center; 
+//               border-radius: 5px 5px 0 0;
+//             }
+//             .content { 
+//               background-color: #f9f9f9; 
+//               padding: 30px; 
+//               border: 1px solid #ddd;
+//             }
+//             .otp-box { 
+//               background-color: #fff; 
+//               border: 2px dashed #2196F3; 
+//               padding: 20px; 
+//               text-align: center; 
+//               margin: 20px 0;
+//               border-radius: 5px;
+//             }
+//             .otp-code { 
+//               font-size: 36px; 
+//               font-weight: bold; 
+//               color: #2196F3; 
+//               letter-spacing: 8px;
+//               font-family: 'Courier New', monospace;
+//             }
+//             .footer { 
+//               text-align: center; 
+//               padding: 20px; 
+//               font-size: 12px; 
+//               color: #666; 
+//             }
+//             .warning { 
+//               color: #ff5722; 
+//               font-weight: bold; 
+//             }
+//             ul {
+//               text-align: left;
+//               display: inline-block;
+//             }
+//           </style>
+//         </head>
+//         <body>
+//           <div class="container">
+//             <div class="header">
+//               <h1>Đặt lại mật khẩu</h1>
+//             </div>
+//             <div class="content">
+//               <p>Xin chào <strong>${userName}</strong>,</p>
+//               <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình tại Clinic System.</p>
+//               <p>Mã OTP của bạn là:</p>
+//               <div class="otp-box">
+//                 <div class="otp-code">${otp}</div>
+//               </div>
+//               <p><strong>Lưu ý quan trọng:</strong></p>
+//               <ul>
+//                 <li>Mã OTP này có hiệu lực trong <span class="warning">10 phút</span></li>
+//                 <li>Không chia sẻ mã này với bất kỳ ai</li>
+//                 <li>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này</li>
+//               </ul>
+//             </div>
+//             <div class="footer">
+//               <p>Trân trọng,<br>Đội ngũ Clinic System</p>
+//               <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+//             </div>
+//           </div>
+//         </body>
+//         </html>
+//       `
+//     };
+
+//     const info = await transporter.sendMail(mailOptions);
+//     console.log('SUCCESS: Email OTP đã được gửi:', info.messageId);
+//     return true;
+//   } catch (error) {
+//     console.error('ERROR khi gửi email OTP:', error.message);
+//     throw error;
+//   }
+// };
+
+// Hàm gửi email yêu cầu đặt lại mật khẩu (có link xác thực)
+const sendPasswordResetRequestEmail = async (toEmail, userName, resetLink) => {
   try {
     const mailOptions = {
       from: `"Clinic System" <${process.env.GMAIL_USER}>`,
       to: toEmail,
-      subject: 'Mã OTP đặt lại mật khẩu - Clinic System',
+      subject: 'Yêu cầu đặt lại mật khẩu - Clinic System',
       html: `
         <!DOCTYPE html>
         <html>
@@ -134,7 +239,7 @@ const sendOTPEmail = async (toEmail, userName, otp) => {
               padding: 20px; 
             }
             .header { 
-              background-color: #2196F3; 
+              background-color: #FF9800; 
               color: white; 
               padding: 20px; 
               text-align: center; 
@@ -145,20 +250,15 @@ const sendOTPEmail = async (toEmail, userName, otp) => {
               padding: 30px; 
               border: 1px solid #ddd;
             }
-            .otp-box { 
-              background-color: #fff; 
-              border: 2px dashed #2196F3; 
-              padding: 20px; 
-              text-align: center; 
+            .button { 
+              display: inline-block; 
+              padding: 12px 30px; 
+              background-color: #FF9800; 
+              color: white; 
+              text-decoration: none; 
+              border-radius: 5px; 
               margin: 20px 0;
-              border-radius: 5px;
-            }
-            .otp-code { 
-              font-size: 36px; 
-              font-weight: bold; 
-              color: #2196F3; 
-              letter-spacing: 8px;
-              font-family: 'Courier New', monospace;
+              font-weight: bold;
             }
             .footer { 
               text-align: center; 
@@ -166,13 +266,16 @@ const sendOTPEmail = async (toEmail, userName, otp) => {
               font-size: 12px; 
               color: #666; 
             }
+            .link-text {
+              word-break: break-all;
+              color: #0066cc;
+              padding: 10px;
+              background-color: #f0f0f0;
+              border-radius: 3px;
+            }
             .warning { 
               color: #ff5722; 
               font-weight: bold; 
-            }
-            ul {
-              text-align: left;
-              display: inline-block;
             }
           </style>
         </head>
@@ -183,16 +286,18 @@ const sendOTPEmail = async (toEmail, userName, otp) => {
             </div>
             <div class="content">
               <p>Xin chào <strong>${userName}</strong>,</p>
-              <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình tại Clinic System.</p>
-              <p>Mã OTP của bạn là:</p>
-              <div class="otp-box">
-                <div class="otp-code">${otp}</div>
+              <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn tại Clinic System.</p>
+              <p>Để xác nhận và tiếp tục đặt lại mật khẩu, vui lòng nhấp vào nút bên dưới:</p>
+              <div style="text-align: center;">
+                <a href="${resetLink}" class="button">Xác thực và đặt lại mật khẩu</a>
               </div>
+              <p>Hoặc bạn có thể copy link sau vào trình duyệt:</p>
+              <div class="link-text">${resetLink}</div>
               <p><strong>Lưu ý quan trọng:</strong></p>
               <ul>
-                <li>Mã OTP này có hiệu lực trong <span class="warning">10 phút</span></li>
-                <li>Không chia sẻ mã này với bất kỳ ai</li>
+                <li>Link này sẽ hết hiệu lực sau <span class="warning">1 giờ</span></li>
                 <li>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này</li>
+                <li>Không chia sẻ link này với bất kỳ ai</li>
               </ul>
             </div>
             <div class="footer">
@@ -206,17 +311,29 @@ const sendOTPEmail = async (toEmail, userName, otp) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('SUCCESS: Email OTP đã được gửi:', info.messageId);
+    console.log('SUCCESS: Email yêu cầu đặt lại mật khẩu đã được gửi:', info.messageId);
     return true;
   } catch (error) {
-    console.error('ERROR khi gửi email OTP:', error.message);
+    console.error('ERROR khi gửi email reset password:', error.message);
     throw error;
   }
 };
 
-// Hàm gửi email thông báo đặt lại mật khẩu thành công
+// Hàm gửi email thông báo đặt lại mật khẩu thành công (CẬP NHẬT)
 const sendPasswordResetEmail = async (toEmail, userName) => {
   try {
+    // Lấy thời gian hiện tại
+    const now = new Date();
+    const dateTime = now.toLocaleString('vi-VN', { 
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+
     const mailOptions = {
       from: `"Clinic System" <${process.env.GMAIL_USER}>`,
       to: toEmail,
@@ -260,22 +377,50 @@ const sendPasswordResetEmail = async (toEmail, userName) => {
               color: #ff5722; 
               font-weight: bold; 
             }
+            .info-box {
+              background-color: #e8f5e9;
+              border-left: 4px solid #4CAF50;
+              padding: 15px;
+              margin: 15px 0;
+            }
+            .info-box p {
+              margin: 5px 0;
+            }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1>Mật khẩu đã được đặt lại</h1>
+              <h1>✓ Mật khẩu đã được đặt lại</h1>
             </div>
             <div class="content">
               <p>Xin chào <strong>${userName}</strong>,</p>
               <p>Mật khẩu của bạn đã được đặt lại thành công.</p>
+              
+              <div class="info-box">
+                <p><strong>Thông tin chi tiết:</strong></p>
+                <p>• <strong>Tài khoản:</strong> ${toEmail}</p>
+                <p>• <strong>Thời gian thực hiện:</strong> ${dateTime}</p>
+                <p>• <strong>Địa chỉ IP:</strong> (Từ hệ thống)</p>
+              </div>
+
               <p>Bạn có thể đăng nhập với mật khẩu mới ngay bây giờ.</p>
-              <p class="warning">Nếu bạn không thực hiện thay đổi này, vui lòng liên hệ với chúng tôi ngay lập tức.</p>
+              
+              <p class="warning">⚠️ Nếu bạn không thực hiện thay đổi này, vui lòng liên hệ với chúng tôi ngay lập tức để bảo mật tài khoản.</p>
+              
+              <p style="margin-top: 20px;">
+                <strong>Lưu ý bảo mật:</strong>
+              </p>
+              <ul>
+                <li>Không chia sẻ mật khẩu với bất kỳ ai</li>
+                <li>Sử dụng mật khẩu mạnh và duy nhất cho tài khoản này</li>
+                <li>Đổi mật khẩu định kỳ để tăng cường bảo mật</li>
+              </ul>
             </div>
             <div class="footer">
               <p>Trân trọng,<br>Đội ngũ Clinic System</p>
               <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+              <p>Nếu cần hỗ trợ, vui lòng liên hệ: support@clinicsystem.com</p>
             </div>
           </div>
         </body>
@@ -374,10 +519,12 @@ const sendWelcomeEmail = async (toEmail, userName) => {
   }
 };
 
-// Export tất cả các hàm
+
+
 module.exports = {
   sendVerificationEmail,
-  sendOTPEmail,
+  // sendOTPEmail,
   sendPasswordResetEmail,
-  sendWelcomeEmail
+  sendWelcomeEmail,
+  sendPasswordResetRequestEmail
 };
