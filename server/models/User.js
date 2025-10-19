@@ -68,80 +68,86 @@ module.exports = (sequelize) => {
 
   // Hook để tự động tạo bản ghi trong bảng vai trò tương ứng
   // QUAN TRỌNG: Hook này CHỈ tạo bản ghi role, KHÔNG được sửa user
-  User.addHook('afterCreate', async (user, options) => {
-    try {
-      console.log(`[Hook afterCreate] Bắt đầu cho user: ${user.email} (role: ${user.role})`);
-      
-      // Log trạng thái user trước khi hook làm gì
-      console.log(`[Hook afterCreate] Trạng thái user:`);
-      console.log(`  - is_verified: ${user.is_verified}`);
-      console.log(`  - is_active: ${user.is_active}`);
-      console.log(`  - verification_token: ${user.verification_token ? 'CÓ' : 'KHÔNG'}`);
-
-      const { Patient, Staff, Doctor, Admin, Specialty } = sequelize.models;
-      if (!Patient || !Staff || !Doctor || !Admin) {
-        throw new Error('Không tìm thấy các model cần thiết (Patient, Staff, Doctor, Admin)');
-      }
-
-      const createOptions = { transaction: options.transaction };
-
-      switch (user.role) {
-        case 'patient':
-          await Patient.create({ user_id: user.id }, createOptions);
-          console.log(`[Hook afterCreate] Đã tạo bản ghi Patient cho user ${user.email}`);
-          break;
-
-        case 'staff':
-          await Staff.create({ 
-            user_id: user.id, 
-            department: null
-          }, createOptions);
-          console.log(`[Hook afterCreate] Đã tạo bản ghi Staff cho user ${user.email}`);
-          break;
-
-        case 'doctor':
-          const specialty = await Specialty.findOne({ 
-            where: { slug: 'cardiology' },
-            transaction: options.transaction
-          });
-          await Doctor.create({
-            user_id: user.id,
-            specialty_id: specialty ? specialty.id : null,
-            experience_years: null,
-            certifications_json: null,
-            bio: null
-          }, createOptions);
-          console.log(`[Hook afterCreate] Đã tạo bản ghi Doctor cho user ${user.email}`);
-          break;
-
-        case 'admin':
-          await Admin.create({ 
-            user_id: user.id, 
-            permissions_json: null 
-          }, createOptions);
-          console.log(`[Hook afterCreate] Đã tạo bản ghi Admin cho user ${user.email}`);
-          break;
-
-        default:
-          console.warn(`[Hook afterCreate] Vai trò không hợp lệ: ${user.role}`);
-      }
-
-      // QUAN TRỌNG: KHÔNG được thay đổi user ở đây
-      // Không được: user.is_active = true;
-      // Không được: user.verification_token = null;
-      // Hook chỉ tạo record role, KHÔNG sửa user!
-
-      console.log(`[Hook afterCreate] Hoàn tất cho user: ${user.email} - KHÔNG thay đổi gì trên user`);
-      
-    } catch (error) {
-      console.error('[Hook afterCreate] ERROR:', {
-        email: user.email,
-        role: user.role,
-        error: error.message
-      });
-      throw error;
+User.addHook('afterCreate', async (user, options) => {
+  try {
+    console.log(`[Hook afterCreate] Bắt đầu cho user: ${user.email} (role: ${user.role})`);
+    
+    // LƯU TOKEN TRƯỚC KHI HOOK CHẠY
+    const tokenBeforeHook = user.verification_token;
+    console.log(`[Hook afterCreate] Token TRƯỚC khi tạo role: ${tokenBeforeHook}`);
+    
+    const { Patient, Staff, Doctor, Admin, Specialty } = sequelize.models;
+    if (!Patient || !Staff || !Doctor || !Admin) {
+      throw new Error('Không tìm thấy các model cần thiết (Patient, Staff, Doctor, Admin)');
     }
-  });
+
+    const createOptions = { transaction: options.transaction };
+
+    // TẠO ROLE RECORD
+    switch (user.role) {
+      case 'patient':
+        await Patient.create({ user_id: user.id }, createOptions);
+        console.log(`[Hook afterCreate] Đã tạo bản ghi Patient cho user ${user.email}`);
+        break;
+
+      case 'staff':
+        await Staff.create({ 
+          user_id: user.id, 
+          department: null
+        }, createOptions);
+        console.log(`[Hook afterCreate] Đã tạo bản ghi Staff cho user ${user.email}`);
+        break;
+
+      case 'doctor':
+        const specialty = await Specialty.findOne({ 
+          where: { slug: 'cardiology' },
+          transaction: options.transaction
+        });
+        await Doctor.create({
+          user_id: user.id,
+          specialty_id: specialty ? specialty.id : null,
+          experience_years: null,
+          certifications_json: null,
+          bio: null
+        }, createOptions);
+        console.log(`[Hook afterCreate] Đã tạo bản ghi Doctor cho user ${user.email}`);
+        break;
+
+      case 'admin':
+        await Admin.create({ 
+          user_id: user.id, 
+          permissions_json: null 
+        }, createOptions);
+        console.log(`[Hook afterCreate] Đã tạo bản ghi Admin cho user ${user.email}`);
+        break;
+
+      default:
+        console.warn(`[Hook afterCreate] Vai trò không hợp lệ: ${user.role}`);
+    }
+
+    // KIỂM TRA TOKEN SAU KHI TẠO ROLE
+    const tokenAfterHook = user.verification_token;
+    console.log(`[Hook afterCreate] Token SAU khi tạo role: ${tokenAfterHook}`);
+    
+    if (tokenBeforeHook !== tokenAfterHook) {
+      console.error('CẢNH BÁO: Token đã bị thay đổi trong hook!');
+      console.error('Token trước:', tokenBeforeHook);
+      console.error('Token sau:', tokenAfterHook);
+    } else {
+      console.log('[Hook afterCreate] Token KHÔNG thay đổi - OK');
+    }
+
+    console.log(`[Hook afterCreate] Hoàn tất cho user: ${user.email}`);
+    
+  } catch (error) {
+    console.error('[Hook afterCreate] ERROR:', {
+      email: user.email,
+      role: user.role,
+      error: error.message
+    });
+    throw error;
+  }
+});
 
   console.log('SUCCESS: Model User đã được định nghĩa.');
 

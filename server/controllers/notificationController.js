@@ -218,3 +218,80 @@ exports.sendSystemNotification = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// Thêm function này vào cuối file notificationController.js
+
+exports.requestManualVerification = async (req, res) => {
+  try {
+    const { verification_token } = req.body;
+
+    if (!verification_token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Thiếu thông tin verification_token'
+      });
+    }
+
+    const { models } = require('../config/db');
+
+    const user = await models.User.findOne({
+      where: { verification_token }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy tài khoản với token này'
+      });
+    }
+
+    if (user.is_verified && user.is_active) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tài khoản đã được xác thực trước đó'
+      });
+    }
+
+    const admins = await models.User.findAll({
+      where: { 
+        role: 'admin',
+        is_active: true 
+      },
+      attributes: ['id']
+    });
+
+    if (admins.length === 0) {
+      return res.status(500).json({
+        success: false,
+        message: 'Không tìm thấy admin trong hệ thống'
+      });
+    }
+
+    const notifications = admins.map(admin => ({
+      user_id: admin.id,
+      type: 'system',
+      message: `Yêu cầu xác thực thủ công: Tài khoản ${user.email} (${user.full_name || 'Chưa cập nhật'}) không thể xác thực tự động. Vui lòng kiểm tra và xác thực.`,
+      link: `/quan-ly-nguoi-dung?user_id=${user.id}`,
+      is_read: false,
+      created_at: new Date(),
+      updated_at: new Date()
+    }));
+
+    await models.Notification.bulkCreate(notifications);
+
+    console.log(`Đã gửi ${notifications.length} thông báo cho admin về user ${user.email}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Đã gửi yêu cầu xác thực đến admin. Bạn sẽ nhận được email thông báo khi tài khoản được kích hoạt.'
+    });
+
+  } catch (error) {
+    console.error('ERROR trong requestManualVerification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi gửi yêu cầu xác thực',
+      error: error.message
+    });
+  }
+};

@@ -13,8 +13,10 @@ const loginAttempts = new Map();
 const LOCK_TIME = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 6;
 
-// Hàm đăng ký người dùng mới
+// Hàm đăng ký người dùng mới (mới)
 exports.register = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
   try {
     const { email, password, full_name, phone, address, gender, dob } = req.body;
 
@@ -57,6 +59,7 @@ exports.register = async (req, res) => {
     console.log('Token được tạo:', verification_token);
     console.log('Token expires:', verification_expires);
 
+    // TẠO USER TRONG TRANSACTION
     const newUser = await models.User.create({
       email,
       password_hash,
@@ -70,35 +73,43 @@ exports.register = async (req, res) => {
       verification_token,
       verification_expires,
       is_active: false
-    });
+    }, { transaction });
 
-    console.log('\n--- USER SAU KHI TẠO (trước khi reload) ---');
+    console.log('\n--- USER SAU KHI TẠO ---');
     console.log('User ID:', newUser.id);
     console.log('is_verified:', newUser.is_verified);
     console.log('is_active:', newUser.is_active);
     console.log('verification_token:', newUser.verification_token);
-    console.log('verification_expires:', newUser.verification_expires);
 
+    // COMMIT TRANSACTION NGAY LẬP TỨC
+    await transaction.commit();
+    console.log('Transaction committed - User đã được lưu vào DB');
+
+    // KIỂM TRA LẠI TOKEN TRONG DB
     const userFromDB = await models.User.findByPk(newUser.id);
-    
-    console.log('\n--- USER TỪ DB (sau hook afterCreate) ---');
-    console.log('is_verified:', userFromDB.is_verified);
-    console.log('is_active:', userFromDB.is_active);
-    console.log('verification_token:', userFromDB.verification_token);
-    console.log('verification_expires:', userFromDB.verification_expires);
-    
-    if (userFromDB.is_active === true) {
-      console.log('⚠️ CẢNH BÁO: is_active đã bị đổi thành TRUE sau hook!');
-    }
-    
-    if (!userFromDB.verification_token) {
-      console.log('⚠️ CẢNH BÁO: verification_token đã bị XÓA sau hook!');
-    }
-    
-    console.log('========== KẾT THÚC TẠO USER ==========\n');
+    console.log('\n--- KIỂM TRA TOKEN SAU KHI COMMIT ---');
+    console.log('Token trong DB:', userFromDB.verification_token);
+    console.log('Token khớp?', userFromDB.verification_token === verification_token);
 
+    if (userFromDB.verification_token !== verification_token) {
+      console.error('LỖI NGHIÊM TRỌNG: Token bị thay đổi sau khi commit!');
+      console.error('Token gốc:', verification_token);
+      console.error('Token hiện tại:', userFromDB.verification_token);
+      
+      // GHI ĐÈ LẠI TOKEN ĐÚNG
+      await models.User.update(
+        { verification_token },
+        { where: { id: newUser.id } }
+      );
+      console.log('Đã ghi đè token về giá trị đúng');
+    }
+
+    // GỬI EMAIL VỚI TOKEN ĐÚNG
     try {
       const verificationLink = `${process.env.CLIENT_URL}/verify-email?token=${verification_token}`;
+      console.log('\n--- GỬI EMAIL ---');
+      console.log('Link xác thực:', verificationLink);
+      
       await sendVerificationEmail(email, full_name || email, verificationLink);
       console.log('SUCCESS: Email xác thực đã gửi đến:', email);
     } catch (emailError) {
@@ -111,6 +122,8 @@ exports.register = async (req, res) => {
       });
     }
 
+    console.log('========== KẾT THÚC TẠO USER ==========\n');
+
     res.status(201).json({
       success: true,
       message: 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.',
@@ -118,6 +131,7 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
+    await transaction.rollback();
     console.error('ERROR trong register:', error);
     
     if (error.name === 'SequelizeValidationError') {
@@ -153,67 +167,49 @@ exports.verifyEmail = async (req, res) => {
     console.log('Token nhận từ URL:', token);
 
     if (!token) {
+      console.log('ERROR: Không có token');
       return res.status(400).json({ 
         success: false, 
         message: 'Token xác thực không hợp lệ' 
       });
     }
 
-    const allUsers = await models.User.findAll({
-      attributes: ['id', 'email', 'verification_token', 'is_verified', 'is_active'],
-      limit: 10
-    });
-    
-    console.log('\n--- Danh sách user trong DB ---');
-    allUsers.forEach(u => {
-      console.log(`ID: ${u.id}, Email: ${u.email}`);
-      console.log(`  Token: ${u.verification_token ? u.verification_token.substring(0, 20) + '...' : 'NULL'}`);
-      console.log(`  is_verified: ${u.is_verified}, is_active: ${u.is_active}`);
-    });
-
     const user = await models.User.findOne({ 
       where: { verification_token: token } 
     });
 
-    console.log('\n--- Kết quả tìm kiếm ---');
-    console.log('User tìm được:', user ? user.email : 'KHÔNG TÌM THẤY');
+    console.log('Kết quả tìm kiếm user:', user ? `Found: ${user.email}` : 'NOT FOUND');
 
     if (!user) {
-      const anyUserWithToken = await models.User.findOne({
-        where: { 
-          verification_token: { [Op.ne]: null }
-        }
-      });
-      
-      if (anyUserWithToken) {
-        console.log('\n--- So sánh token ---');
-        console.log('Token từ URL:', token);
-        console.log('Token trong DB:', anyUserWithToken.verification_token);
-        console.log('Độ dài token URL:', token.length);
-        console.log('Độ dài token DB:', anyUserWithToken.verification_token.length);
-        console.log('Token khớp?', anyUserWithToken.verification_token === token);
-      } else {
-        console.log('⚠️ KHÔNG CÓ USER NÀO CÓ TOKEN trong DB!');
-      }
-
+      console.log('ERROR: Không tìm thấy user với token này');
       return res.status(400).json({ 
         success: false, 
         message: 'Token xác thực không tồn tại hoặc đã được sử dụng' 
       });
     }
 
+    // Kiểm tra đã xác thực chưa
+    if (user.is_verified && user.is_active) {
+      console.log('WARNING: User đã được xác thực trước đó');
+      return res.status(200).json({
+        success: true,
+        message: 'Tài khoản đã được xác thực trước đó. Bạn có thể đăng nhập ngay.'
+      });
+    }
+
     if (user.verification_expires && new Date() > user.verification_expires) {
-      console.log('Token đã hết hạn:', user.verification_expires);
+      console.log('ERROR: Token đã hết hạn:', user.verification_expires);
       return res.status(400).json({ 
         success: false, 
         message: 'Token xác thực đã hết hạn. Vui lòng đăng ký lại hoặc yêu cầu gửi lại email xác thực.' 
       });
     }
 
-    console.log('\n--- Kích hoạt user ---');
-    console.log('Trước khi update:');
-    console.log('  is_verified:', user.is_verified);
-    console.log('  is_active:', user.is_active);
+    console.log('Kích hoạt user...');
+    console.log('Trước khi update:', {
+      is_verified: user.is_verified,
+      is_active: user.is_active
+    });
 
     user.is_verified = true;
     user.is_active = true;
@@ -221,11 +217,13 @@ exports.verifyEmail = async (req, res) => {
     user.verification_expires = null;
     await user.save();
 
-    console.log('Sau khi update:');
-    console.log('  is_verified:', user.is_verified);
-    console.log('  is_active:', user.is_active);
+    console.log('Sau khi update:', {
+      is_verified: user.is_verified,
+      is_active: user.is_active
+    });
     console.log('========== KẾT THÚC XÁC THỰC EMAIL ==========\n');
 
+    // QUAN TRỌNG: Phải return status 200 và success: true
     res.status(200).json({
       success: true,
       message: 'Xác thực email thành công. Tài khoản đã được kích hoạt.'
@@ -241,7 +239,7 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
-// Hàm đăng nhập
+// Hàm đăng nhập (mới)
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -312,6 +310,7 @@ exports.login = async (req, res) => {
     user.last_login = new Date();
     await user.save();
 
+    // QUAN TRỌNG: TĂNG THỜI HẠN TOKEN LÊN 7 NGÀY
     const token = jwt.sign(
       { 
         id: user.id, 
@@ -319,7 +318,7 @@ exports.login = async (req, res) => {
         role: user.role 
       },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '7d' } // THAY ĐỔI TỪ '24h' THÀNH '7d'
     );
 
     res.status(200).json({
