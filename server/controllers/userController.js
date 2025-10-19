@@ -13,7 +13,11 @@ const loginAttempts = new Map();
 const LOCK_TIME = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 6;
 
-// Hàm đăng ký người dùng mới (mới)
+// ============================================
+// AUTHENTICATION - Đăng ký, đăng nhập, xác thực
+// ============================================
+
+// Hàm đăng ký người dùng mới
 exports.register = async (req, res) => {
   const transaction = await sequelize.transaction();
   
@@ -54,12 +58,7 @@ exports.register = async (req, res) => {
     const verification_token = crypto.randomBytes(32).toString('hex');
     const verification_expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    console.log('\n========== BẮT ĐẦU TẠO USER ==========');
-    console.log('Email:', email);
-    console.log('Token được tạo:', verification_token);
-    console.log('Token expires:', verification_expires);
-
-    // TẠO USER TRONG TRANSACTION
+    // Tạo user trong transaction
     const newUser = await models.User.create({
       email,
       password_hash,
@@ -75,45 +74,15 @@ exports.register = async (req, res) => {
       is_active: false
     }, { transaction });
 
-    console.log('\n--- USER SAU KHI TẠO ---');
-    console.log('User ID:', newUser.id);
-    console.log('is_verified:', newUser.is_verified);
-    console.log('is_active:', newUser.is_active);
-    console.log('verification_token:', newUser.verification_token);
-
-    // COMMIT TRANSACTION NGAY LẬP TỨC
     await transaction.commit();
-    console.log('Transaction committed - User đã được lưu vào DB');
 
-    // KIỂM TRA LẠI TOKEN TRONG DB
-    const userFromDB = await models.User.findByPk(newUser.id);
-    console.log('\n--- KIỂM TRA TOKEN SAU KHI COMMIT ---');
-    console.log('Token trong DB:', userFromDB.verification_token);
-    console.log('Token khớp?', userFromDB.verification_token === verification_token);
-
-    if (userFromDB.verification_token !== verification_token) {
-      console.error('LỖI NGHIÊM TRỌNG: Token bị thay đổi sau khi commit!');
-      console.error('Token gốc:', verification_token);
-      console.error('Token hiện tại:', userFromDB.verification_token);
-      
-      // GHI ĐÈ LẠI TOKEN ĐÚNG
-      await models.User.update(
-        { verification_token },
-        { where: { id: newUser.id } }
-      );
-      console.log('Đã ghi đè token về giá trị đúng');
-    }
-
-    // GỬI EMAIL VỚI TOKEN ĐÚNG
+    // Gửi email xác thực
     try {
       const verificationLink = `${process.env.CLIENT_URL}/verify-email?token=${verification_token}`;
-      console.log('\n--- GỬI EMAIL ---');
-      console.log('Link xác thực:', verificationLink);
-      
       await sendVerificationEmail(email, full_name || email, verificationLink);
-      console.log('SUCCESS: Email xác thực đã gửi đến:', email);
+      console.log('Email xác thực đã gửi đến:', email);
     } catch (emailError) {
-      console.error('ERROR: Không thể gửi email xác thực:', emailError.message);
+      console.error('Không thể gửi email xác thực:', emailError.message);
       return res.status(201).json({
         success: true,
         message: 'Đăng ký thành công nhưng không thể gửi email xác thực. Vui lòng liên hệ admin để kích hoạt tài khoản.',
@@ -121,8 +90,6 @@ exports.register = async (req, res) => {
         emailError: true
       });
     }
-
-    console.log('========== KẾT THÚC TẠO USER ==========\n');
 
     res.status(201).json({
       success: true,
@@ -163,11 +130,7 @@ exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
 
-    console.log('\n========== BẮT ĐẦU XÁC THỰC EMAIL ==========');
-    console.log('Token nhận từ URL:', token);
-
     if (!token) {
-      console.log('ERROR: Không có token');
       return res.status(400).json({ 
         success: false, 
         message: 'Token xác thực không hợp lệ' 
@@ -178,10 +141,7 @@ exports.verifyEmail = async (req, res) => {
       where: { verification_token: token } 
     });
 
-    console.log('Kết quả tìm kiếm user:', user ? `Found: ${user.email}` : 'NOT FOUND');
-
     if (!user) {
-      console.log('ERROR: Không tìm thấy user với token này');
       return res.status(400).json({ 
         success: false, 
         message: 'Token xác thực không tồn tại hoặc đã được sử dụng' 
@@ -190,7 +150,6 @@ exports.verifyEmail = async (req, res) => {
 
     // Kiểm tra đã xác thực chưa
     if (user.is_verified && user.is_active) {
-      console.log('WARNING: User đã được xác thực trước đó');
       return res.status(200).json({
         success: true,
         message: 'Tài khoản đã được xác thực trước đó. Bạn có thể đăng nhập ngay.'
@@ -198,32 +157,19 @@ exports.verifyEmail = async (req, res) => {
     }
 
     if (user.verification_expires && new Date() > user.verification_expires) {
-      console.log('ERROR: Token đã hết hạn:', user.verification_expires);
       return res.status(400).json({ 
         success: false, 
         message: 'Token xác thực đã hết hạn. Vui lòng đăng ký lại hoặc yêu cầu gửi lại email xác thực.' 
       });
     }
 
-    console.log('Kích hoạt user...');
-    console.log('Trước khi update:', {
-      is_verified: user.is_verified,
-      is_active: user.is_active
-    });
-
+    // Kích hoạt user
     user.is_verified = true;
     user.is_active = true;
     user.verification_token = null;
     user.verification_expires = null;
     await user.save();
 
-    console.log('Sau khi update:', {
-      is_verified: user.is_verified,
-      is_active: user.is_active
-    });
-    console.log('========== KẾT THÚC XÁC THỰC EMAIL ==========\n');
-
-    // QUAN TRỌNG: Phải return status 200 và success: true
     res.status(200).json({
       success: true,
       message: 'Xác thực email thành công. Tài khoản đã được kích hoạt.'
@@ -239,7 +185,7 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
-// Hàm đăng nhập (mới)
+// Hàm đăng nhập
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -268,11 +214,6 @@ exports.login = async (req, res) => {
         message: 'Email hoặc mật khẩu không đúng' 
       });
     }
-
-    console.log('\n--- DEBUG ĐĂNG NHẬP ---');
-    console.log('Email:', user.email);
-    console.log('is_verified:', user.is_verified);
-    console.log('is_active:', user.is_active);
 
     if (!user.is_verified || !user.is_active) {
       return res.status(403).json({ 
@@ -310,7 +251,6 @@ exports.login = async (req, res) => {
     user.last_login = new Date();
     await user.save();
 
-    // QUAN TRỌNG: TĂNG THỜI HẠN TOKEN LÊN 7 NGÀY
     const token = jwt.sign(
       { 
         id: user.id, 
@@ -318,7 +258,7 @@ exports.login = async (req, res) => {
         role: user.role 
       },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' } // THAY ĐỔI TỪ '24h' THÀNH '7d'
+      { expiresIn: '7d' }
     );
 
     res.status(200).json({
@@ -343,6 +283,11 @@ exports.login = async (req, res) => {
   }
 };
 
+// ============================================
+// PASSWORD RESET - Quên mật khẩu, đặt lại mật khẩu
+// ============================================
+
+// Gửi OTP qua email
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -365,6 +310,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
+// Xác thực OTP
 exports.verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -389,6 +335,7 @@ exports.verifyOTP = async (req, res) => {
   }
 };
 
+// Đặt lại mật khẩu
 exports.resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
@@ -417,6 +364,11 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
+// ============================================
+// USER PROFILE - Quản lý thông tin cá nhân
+// ============================================
+
+// Lấy thông tin profile của chính mình
 exports.getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -433,28 +385,110 @@ exports.getProfile = async (req, res) => {
   }
 };
 
+// Lấy thông tin role của chính mình (bao gồm cả code và specialty cho doctor)
+exports.getMyRoleInfo = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const user = await models.User.findByPk(userId, {
+      attributes: { exclude: ['password_hash', 'reset_token', 'verification_token'] }
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
+    }
+
+    let roleData = null;
+    if (user.role === 'patient') {
+      roleData = await models.Patient.findOne({ where: { user_id: userId } });
+    } else if (user.role === 'staff') {
+      roleData = await models.Staff.findOne({ where: { user_id: userId } });
+    } else if (user.role === 'doctor') {
+      roleData = await models.Doctor.findOne({ 
+        where: { user_id: userId },
+        include: [{ model: models.Specialty, required: false }]
+      });
+    } else if (user.role === 'admin') {
+      roleData = await models.Admin.findOne({ where: { user_id: userId } });
+    }
+
+    const userData = user.toJSON();
+    userData.roleData = roleData;
+
+    res.status(200).json({ success: true, user: userData });
+  } catch (error) {
+    console.error('ERROR trong getMyRoleInfo:', error);
+    res.status(500).json({ success: false, message: 'Lỗi khi lấy thông tin role', error: error.message });
+  }
+};
+
+// Cập nhật thông tin profile của chính mình (bao gồm cả thông tin doctor)
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { full_name, phone, address, gender, dob, avatar_url } = req.body;
+    const { 
+      full_name, 
+      phone, 
+      address, 
+      gender, 
+      dob, 
+      avatar_url,
+      // Các trường dành cho doctor
+      specialty_id,
+      experience_years,
+      bio
+    } = req.body;
+
     const user = await models.User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
     }
+
+    // Cập nhật thông tin cơ bản
     if (full_name !== undefined) user.full_name = full_name;
     if (phone !== undefined) user.phone = phone;
     if (address !== undefined) user.address = address;
     if (gender !== undefined) user.gender = gender;
     if (dob !== undefined) user.dob = dob;
     if (avatar_url !== undefined) user.avatar_url = avatar_url;
+
     await user.save();
-    res.status(200).json({ success: true, message: 'Cập nhật thông tin thành công', user: { id: user.id, email: user.email, full_name: user.full_name, phone: user.phone, address: user.address, gender: user.gender, dob: user.dob, avatar_url: user.avatar_url } });
+
+    // Nếu là bác sĩ - Cho phép cập nhật thông tin chuyên môn
+    if (user.role === 'doctor') {
+      const doctor = await models.Doctor.findOne({ where: { user_id: userId } });
+      
+      if (doctor) {
+        if (specialty_id !== undefined) doctor.specialty_id = specialty_id;
+        if (experience_years !== undefined) doctor.experience_years = experience_years;
+        if (bio !== undefined) doctor.bio = bio;
+        
+        await doctor.save();
+        console.log(`Đã cập nhật thông tin bác sĩ cho user ${userId}`);
+      }
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Cập nhật thông tin thành công', 
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        full_name: user.full_name, 
+        phone: user.phone, 
+        address: user.address, 
+        gender: user.gender, 
+        dob: user.dob, 
+        avatar_url: user.avatar_url 
+      } 
+    });
   } catch (error) {
     console.error('ERROR trong updateProfile:', error);
     res.status(500).json({ success: false, message: 'Lỗi khi cập nhật thông tin', error: error.message });
   }
 };
 
+// Đổi mật khẩu
 exports.changePassword = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -479,6 +513,11 @@ exports.changePassword = async (req, res) => {
   }
 };
 
+// ============================================
+// USER MANAGEMENT - Quản lý người dùng (Admin only)
+// ============================================
+
+// Lấy tất cả người dùng
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await models.User.findAll({
@@ -491,23 +530,7 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-exports.toggleUserStatus = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { is_active } = req.body;
-    const user = await models.User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
-    }
-    user.is_active = is_active;
-    await user.save();
-    res.status(200).json({ success: true, message: `Tài khoản đã được ${is_active ? 'mở khóa' : 'khóa'}`, user: { id: user.id, email: user.email, is_active: user.is_active } });
-  } catch (error) {
-    console.error('ERROR trong toggleUserStatus:', error);
-    res.status(500).json({ success: false, message: 'Lỗi khi thay đổi trạng thái tài khoản', error: error.message });
-  }
-};
-
+// Lấy thông tin người dùng theo ID (Admin only)
 exports.getUserById = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -544,6 +567,7 @@ exports.getUserById = async (req, res) => {
   }
 };
 
+// Cập nhật thông tin người dùng (Admin only)
 exports.updateUser = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -578,7 +602,6 @@ exports.updateUser = async (req, res) => {
       if (role === 'patient') await models.Patient.create({ user_id: userId });
       if (role === 'staff') await models.Staff.create({ user_id: userId, department: null });
       if (role === 'doctor') {
-        // THÊM: Cho phép chọn specialty_id khi tạo doctor
         await models.Doctor.create({ 
           user_id: userId, 
           specialty_id: specialty_id || null 
@@ -587,7 +610,7 @@ exports.updateUser = async (req, res) => {
       if (role === 'admin') await models.Admin.create({ user_id: userId, permissions_json: null });
     }
 
-    // CẬP NHẬT: Nếu user đã là doctor, cho phép cập nhật specialty_id
+    // Nếu user đã là doctor, cho phép cập nhật specialty_id
     if (user.role === 'doctor' && specialty_id !== undefined) {
       const doctor = await models.Doctor.findOne({ where: { user_id: userId } });
       if (doctor) {
@@ -619,6 +642,7 @@ exports.updateUser = async (req, res) => {
   }
 };
 
+// Xóa người dùng (Admin only)
 exports.deleteUser = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -642,6 +666,7 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+// Tìm kiếm người dùng
 exports.searchUsers = async (req, res) => {
   try {
     const { keyword, role, is_active, is_verified, page = 1, limit = 10 } = req.query;
@@ -683,8 +708,7 @@ exports.searchUsers = async (req, res) => {
   }
 };
 
-// ... (tiếp theo từ getUserStats)
-
+// Lấy thống kê người dùng
 exports.getUserStats = async (req, res) => {
   try {
     const totalUsers = await models.User.count();
@@ -694,7 +718,7 @@ exports.getUserStats = async (req, res) => {
     const usersByRole = await models.User.findAll({
       attributes: [
         'role',
-        [models.sequelize.fn('COUNT', models.sequelize.col('id')), 'count']
+        [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
       ],
       group: ['role']
     });
@@ -718,15 +742,136 @@ exports.getUserStats = async (req, res) => {
   }
 };
 
+// Toggle trạng thái hoạt động của user
+exports.toggleUserStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { is_active } = req.body;
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
+    }
+    user.is_active = is_active;
+    await user.save();
+    res.status(200).json({ success: true, message: `Tài khoản đã được ${is_active ? 'mở khóa' : 'khóa'}`, user: { id: user.id, email: user.email, is_active: user.is_active } });
+  } catch (error) {
+    console.error('ERROR trong toggleUserStatus:', error);
+    res.status(500).json({ success: false, message: 'Lỗi khi thay đổi trạng thái tài khoản', error: error.message });
+  }
+};
+
+// Toggle xác thực người dùng (Admin only)
+exports.toggleUserVerification = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { is_verified } = req.body;
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền thực hiện thao tác này'
+      });
+    }
+
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Người dùng không tồn tại'
+      });
+    }
+
+    // Cập nhật trạng thái xác thực
+    user.is_verified = is_verified;
+    
+    // Nếu xác thực thì cũng kích hoạt tài khoản
+    if (is_verified && !user.is_active) {
+      user.is_active = true;
+    }
+    
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Tài khoản đã được ${is_verified ? 'xác thực' : 'hủy xác thực'}`,
+      user: {
+        id: user.id,
+        email: user.email,
+        is_verified: user.is_verified,
+        is_active: user.is_active
+      }
+    });
+
+  } catch (error) {
+    console.error('ERROR trong toggleUserVerification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi thay đổi trạng thái xác thực',
+      error: error.message
+    });
+  }
+};
+
+// Đặt lại mật khẩu bởi Admin (không cần OTP)
+exports.resetPasswordByAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { new_password } = req.body;
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền thực hiện thao tác này'
+      });
+    }
+
+    if (!new_password || new_password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mật khẩu phải có ít nhất 6 ký tự'
+      });
+    }
+
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Người dùng không tồn tại'
+      });
+    }
+
+    user.password_hash = await bcrypt.hash(new_password, 10);
+    user.reset_token = null;
+    user.reset_expires = null;
+    
+    await user.save();
+
+    console.log(`[Admin Reset Password] Admin ${req.user.email} đã đặt lại mật khẩu cho user ${user.email}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Đặt lại mật khẩu thành công'
+    });
+
+  } catch (error) {
+    console.error('ERROR trong resetPasswordByAdmin:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi đặt lại mật khẩu',
+      error: error.message
+    });
+  }
+};
+
+// ============================================
+// DOCTOR PUBLIC API - Lấy danh sách bác sĩ công khai
+// ============================================
+
 // Lấy danh sách bác sĩ (public - cho homepage)
 exports.getDoctors = async (req, res) => {
   try {
     const { limit = 10, random = false, specialty_id, min_experience } = req.query;
     
-    console.log('\n========== GET DOCTORS ==========');
-    console.log('Query params:', { limit, random, specialty_id, min_experience });
-    
-    // Build where conditions
     const userWhere = {
       role: 'doctor',
       is_active: true,
@@ -749,8 +894,6 @@ exports.getDoctors = async (req, res) => {
       orderClause = [['created_at', 'DESC']];
     }
 
-    console.log('Where conditions:', { userWhere, doctorWhere });
-
     // Lấy danh sách users với role doctor
     const users = await models.User.findAll({
       where: userWhere,
@@ -758,8 +901,6 @@ exports.getDoctors = async (req, res) => {
       limit: parseInt(limit),
       order: orderClause
     });
-
-    console.log('Found users:', users.length);
 
     if (users.length === 0) {
       return res.status(200).json({
@@ -783,13 +924,11 @@ exports.getDoctors = async (req, res) => {
       }]
     });
 
-    console.log('Found doctor details:', doctors.length);
-
     // Format response
     const formattedDoctors = users
       .map(user => {
         const doctor = doctors.find(d => d.user_id === user.id);
-        if (!doctor) return null; // Skip nếu không có doctor detail
+        if (!doctor) return null;
         
         return {
           id: user.id,
@@ -806,10 +945,7 @@ exports.getDoctors = async (req, res) => {
           bio: doctor.bio
         };
       })
-      .filter(d => d !== null); // Loại bỏ null values
-
-    console.log('Formatted doctors:', formattedDoctors.length);
-    console.log('=====================================\n');
+      .filter(d => d !== null);
 
     res.status(200).json({
       success: true,
@@ -819,7 +955,6 @@ exports.getDoctors = async (req, res) => {
 
   } catch (error) {
     console.error('ERROR trong getDoctors:', error);
-    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Lỗi khi lấy danh sách bác sĩ',
@@ -828,101 +963,7 @@ exports.getDoctors = async (req, res) => {
   }
 };
 
-// Lấy chi tiết 1 bác sĩ
-exports.getDoctorById = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const user = await models.User.findOne({
-      where: { 
-        id: userId,
-        role: 'doctor'
-      },
-      attributes: ['id', 'email', 'full_name', 'phone', 'avatar_url', 'gender', 'dob']
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy bác sĩ'
-      });
-    }
-
-    const doctorDetail = await models.Doctor.findOne({
-      where: { user_id: userId },
-      include: [{
-        model: models.Specialty,
-        attributes: ['id', 'name', 'slug', 'description']
-      }]
-    });
-
-    const formattedDoctor = {
-      id: user.id,
-      code: doctorDetail?.code || `BS${String(user.id).padStart(3, '0')}`,
-      full_name: user.full_name,
-      email: user.email,
-      phone: user.phone,
-      avatar_url: user.avatar_url || 'https://via.placeholder.com/400?text=Doctor',
-      gender: user.gender,
-      dob: user.dob,
-      specialty: doctorDetail?.Specialty,
-      experience_years: doctorDetail?.experience_years || 0,
-      bio: doctorDetail?.bio,
-      certifications: doctorDetail?.certifications_json
-    };
-
-    res.status(200).json({
-      success: true,
-      doctor: formattedDoctor
-    });
-
-  } catch (error) {
-    console.error('ERROR trong getDoctorById:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi khi lấy thông tin bác sĩ',
-      error: error.message
-    });
-  }
-};
-
-// Hàm lấy thống kê người dùng (sửa lỗi Sequelize.fn)
-exports.getUserStats = async (req, res) => {
-  try {
-    // Đảm bảo sử dụng Sequelize.fn đúng cách
-    const stats = await models.User.findAll({
-      attributes: [
-        'role',
-        [Sequelize.fn('COUNT', Sequelize.col('id')), 'count'] // Đếm số người dùng theo role
-      ],
-      group: ['role']
-    });
-
-    // Format kết quả
-    const formattedStats = stats.map(stat => ({
-      role: stat.role,
-      count: stat.get('count')
-    }));
-
-    res.status(200).json({
-      success: true,
-      stats: formattedStats
-    });
-  } catch (error) {
-    console.error('ERROR trong getUserStats:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi khi lấy thống kê người dùng',
-      error: error.message
-    });
-  }
-};
-
-// ============================================
-// PUBLIC API - Lấy danh sách bác sĩ công khai
-// ============================================
-
-// GET /api/users/doctors/public
+// Lấy danh sách bác sĩ với phân trang
 exports.getAllDoctorsPublic = async (req, res) => {
   try {
     const { 
@@ -935,7 +976,6 @@ exports.getAllDoctorsPublic = async (req, res) => {
 
     const offset = (page - 1) * limit;
 
-    // Build where condition cho User
     const userWhere = {
       role: 'doctor',
       is_active: true,
@@ -949,7 +989,6 @@ exports.getAllDoctorsPublic = async (req, res) => {
       ];
     }
 
-    // Build where condition cho Doctor
     const doctorWhere = {};
     if (specialty_id) {
       doctorWhere.specialty_id = specialty_id;
@@ -1015,7 +1054,7 @@ exports.getAllDoctorsPublic = async (req, res) => {
   }
 };
 
-// GET /api/users/doctors/:code
+// Lấy chi tiết bác sĩ theo code
 exports.getDoctorByCode = async (req, res) => {
   try {
     const { code } = req.params;
@@ -1073,124 +1112,59 @@ exports.getDoctorByCode = async (req, res) => {
   }
 };
 
-// Đặt lại mật khẩu bởi Admin (không cần OTP)
-exports.resetPasswordByAdmin = async (req, res) => {
+// Lấy chi tiết bác sĩ theo ID
+exports.getDoctorById = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { new_password } = req.body;
 
-    // Kiểm tra quyền admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Bạn không có quyền thực hiện thao tác này'
-      });
-    }
+    const user = await models.User.findOne({
+      where: { 
+        id: userId,
+        role: 'doctor'
+      },
+      attributes: ['id', 'email', 'full_name', 'phone', 'avatar_url', 'gender', 'dob']
+    });
 
-    if (!new_password || new_password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'Mật khẩu phải có ít nhất 6 ký tự'
-      });
-    }
-
-    const user = await models.User.findByPk(userId);
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'Người dùng không tồn tại'
+        message: 'Không tìm thấy bác sĩ'
       });
     }
 
-    // Hash mật khẩu mới
-    const bcrypt = require('bcrypt');
-    user.password_hash = await bcrypt.hash(new_password, 10);
-    
-    // Xóa các token reset cũ nếu có
-    user.reset_token = null;
-    user.reset_expires = null;
-    
-    await user.save();
+    const doctorDetail = await models.Doctor.findOne({
+      where: { user_id: userId },
+      include: [{
+        model: models.Specialty,
+        attributes: ['id', 'name', 'slug', 'description']
+      }]
+    });
 
-    console.log(`[Admin Reset Password] Admin ${req.user.email} đã đặt lại mật khẩu cho user ${user.email}`);
+    const formattedDoctor = {
+      id: user.id,
+      code: doctorDetail?.code || `BS${String(user.id).padStart(3, '0')}`,
+      full_name: user.full_name,
+      email: user.email,
+      phone: user.phone,
+      avatar_url: user.avatar_url || 'https://via.placeholder.com/400?text=Doctor',
+      gender: user.gender,
+      dob: user.dob,
+      specialty: doctorDetail?.Specialty,
+      experience_years: doctorDetail?.experience_years || 0,
+      bio: doctorDetail?.bio,
+      certifications: doctorDetail?.certifications_json
+    };
 
     res.status(200).json({
       success: true,
-      message: 'Đặt lại mật khẩu thành công'
+      doctor: formattedDoctor
     });
 
   } catch (error) {
-    console.error('ERROR trong resetPasswordByAdmin:', error);
+    console.error('ERROR trong getDoctorById:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi đặt lại mật khẩu',
-      error: error.message
-    });
-  }
-};
-
-// Toggle xác thực người dùng (Admin only)
-exports.toggleUserVerification = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { is_verified } = req.body;
-
-    console.log('\n========== TOGGLE VERIFICATION ==========');
-    console.log('User ID:', userId);
-    console.log('New is_verified:', is_verified);
-    console.log('Admin:', req.user?.email);
-
-    // Kiểm tra quyền admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Bạn không có quyền thực hiện thao tác này'
-      });
-    }
-
-    const user = await models.User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Người dùng không tồn tại'
-      });
-    }
-
-    console.log('Before update:');
-    console.log('  is_verified:', user.is_verified);
-    console.log('  is_active:', user.is_active);
-
-    // Cập nhật trạng thái xác thực
-    user.is_verified = is_verified;
-    
-    // Nếu xác thực thì cũng kích hoạt tài khoản
-    if (is_verified && !user.is_active) {
-      user.is_active = true;
-    }
-    
-    await user.save();
-
-    console.log('After update:');
-    console.log('  is_verified:', user.is_verified);
-    console.log('  is_active:', user.is_active);
-    console.log('=========================================\n');
-
-    res.status(200).json({
-      success: true,
-      message: `Tài khoản đã được ${is_verified ? 'xác thực' : 'hủy xác thực'}`,
-      user: {
-        id: user.id,
-        email: user.email,
-        is_verified: user.is_verified,
-        is_active: user.is_active
-      }
-    });
-
-  } catch (error) {
-    console.error('ERROR trong toggleUserVerification:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi khi thay đổi trạng thái xác thực',
+      message: 'Lỗi khi lấy thông tin bác sĩ',
       error: error.message
     });
   }

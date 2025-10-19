@@ -21,7 +21,6 @@ import {
   FaFileAlt,
   FaIdCard,
   FaBuilding,
-  FaUserMd,
   FaShieldAlt,
   FaCamera,
   FaTrash
@@ -29,9 +28,12 @@ import {
 import './ProfilePage.css';
 
 const ProfilePage = () => {
+  // State quản lý dữ liệu
   const [user, setUser] = useState(null);
   const [roleInfo, setRoleInfo] = useState(null);
   const [specialties, setSpecialties] = useState([]);
+  
+  // State cho form cơ bản
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
@@ -39,21 +41,30 @@ const ProfilePage = () => {
     gender: '',
     dob: ''
   });
+  
+  // State cho form bác sĩ
   const [doctorFormData, setDoctorFormData] = useState({
     specialty_id: '',
     experience_years: '',
     bio: ''
   });
+  
+  // State cho đổi mật khẩu
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
+  
+  // State cho avatar
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  
+  // State khác
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ type: '', text: '' });
+  
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
@@ -62,11 +73,17 @@ const ProfilePage = () => {
     headers: { Authorization: `Bearer ${token}` }
   };
 
+  // UseEffect chạy khi component mount
   useEffect(() => {
+    if (!token) {
+      navigate('/login');
+      return;
+    }
     fetchProfile();
     fetchSpecialties();
   }, []);
 
+  // Lấy danh sách chuyên khoa
   const fetchSpecialties = async () => {
     try {
       const res = await axios.get('http://localhost:3001/api/specialties');
@@ -78,12 +95,14 @@ const ProfilePage = () => {
     }
   };
 
+  // Lấy thông tin profile
   const fetchProfile = async () => {
     try {
-      const res = await axios.get('http://localhost:3001/api/users/profile', axiosConfig);
-      console.log('Profile response:', res.data);
+      // Bước 1: Lấy thông tin user cơ bản
+      const profileRes = await axios.get('http://localhost:3001/api/users/profile', axiosConfig);
+      const userData = profileRes.data.user || profileRes.data;
       
-      const userData = res.data.user || res.data;
+      console.log('User data:', userData);
       setUser(userData);
       
       // Set avatar preview nếu có
@@ -91,6 +110,7 @@ const ProfilePage = () => {
         setAvatarPreview(userData.avatar_url);
       }
       
+      // Set form data cơ bản
       setFormData({
         full_name: userData.full_name || '',
         phone: userData.phone || '',
@@ -99,12 +119,12 @@ const ProfilePage = () => {
         dob: userData.dob ? userData.dob.split('T')[0] : ''
       });
 
-      // Lấy thông tin role (doctor, patient, staff, admin)
-      await fetchRoleInfo(userData.id);
+      // Bước 2: Lấy thông tin role (bao gồm code và specialty)
+      await fetchRoleInfo();
 
       setLoading(false);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching profile:', error);
       if (error.response?.status === 401) {
         navigate('/login');
       }
@@ -112,9 +132,10 @@ const ProfilePage = () => {
     }
   };
 
-  const fetchRoleInfo = async (userId) => {
+  // Lấy thông tin role của user (code, specialty...)
+  const fetchRoleInfo = async () => {
     try {
-      const res = await axios.get(`http://localhost:3001/api/users/${userId}`, axiosConfig);
+      const res = await axios.get('http://localhost:3001/api/users/my-role-info', axiosConfig);
       console.log('Role info response:', res.data);
       
       if (res.data.success && res.data.user.roleData) {
@@ -132,17 +153,27 @@ const ProfilePage = () => {
       }
     } catch (error) {
       console.error('Error fetching role info:', error);
+      showMessage('error', 'Không thể lấy thông tin chi tiết. Vui lòng thử lại.');
     }
   };
 
+  // Hiển thị thông báo
+  const showMessage = (type, text) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+  };
+
+  // Handle change cho form cơ bản
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Handle change cho form bác sĩ
   const handleDoctorChange = (e) => {
     setDoctorFormData({ ...doctorFormData, [e.target.name]: e.target.value });
   };
 
+  // Handle change cho form đổi mật khẩu
   const handlePasswordChange = (e) => {
     setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
   };
@@ -155,19 +186,13 @@ const ProfilePage = () => {
     // Kiểm tra loại file
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      setMessage({ 
-        type: 'error', 
-        text: 'Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WEBP)' 
-      });
+      showMessage('error', 'Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WEBP)');
       return;
     }
 
     // Kiểm tra kích thước file (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      setMessage({ 
-        type: 'error', 
-        text: 'Kích thước file không được vượt quá 10MB' 
-      });
+      showMessage('error', 'Kích thước file không được vượt quá 10MB');
       return;
     }
 
@@ -184,12 +209,11 @@ const ProfilePage = () => {
   // Upload avatar
   const handleUploadAvatar = async () => {
     if (!avatarFile) {
-      setMessage({ type: 'error', text: 'Vui lòng chọn ảnh để tải lên' });
+      showMessage('error', 'Vui lòng chọn ảnh để tải lên');
       return;
     }
 
     setUploadingAvatar(true);
-    setMessage({ type: '', text: '' });
 
     try {
       const formData = new FormData();
@@ -212,8 +236,6 @@ const ProfilePage = () => {
         }
       );
 
-      console.log('Upload response:', uploadRes.data);
-
       if (uploadRes.data.success) {
         const avatarUrl = uploadRes.data.url;
 
@@ -225,18 +247,20 @@ const ProfilePage = () => {
         );
 
         if (updateRes.data.success) {
-          setMessage({ type: 'success', text: 'Cập nhật ảnh đại diện thành công!' });
+          showMessage('success', 'Cập nhật ảnh đại diện thành công!');
           setAvatarFile(null);
+          
+          // Cập nhật localStorage
+          const userFromStorage = JSON.parse(localStorage.getItem('user'));
+          userFromStorage.avatar_url = avatarUrl;
+          localStorage.setItem('user', JSON.stringify(userFromStorage));
+          
           fetchProfile(); // Refresh profile
-          setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         }
       }
     } catch (error) {
       console.error('Upload avatar error:', error);
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Tải ảnh lên thất bại' 
-      });
+      showMessage('error', error.response?.data?.message || 'Tải ảnh lên thất bại');
     } finally {
       setUploadingAvatar(false);
     }
@@ -254,24 +278,26 @@ const ProfilePage = () => {
       );
 
       if (res.data.success) {
-        setMessage({ type: 'success', text: 'Đã xóa ảnh đại diện' });
+        showMessage('success', 'Đã xóa ảnh đại diện');
         setAvatarPreview(null);
         setAvatarFile(null);
+        
+        // Cập nhật localStorage
+        const userFromStorage = JSON.parse(localStorage.getItem('user'));
+        userFromStorage.avatar_url = null;
+        localStorage.setItem('user', JSON.stringify(userFromStorage));
+        
         fetchProfile();
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       }
     } catch (error) {
       console.error('Remove avatar error:', error);
-      setMessage({ 
-        type: 'error', 
-        text: 'Xóa ảnh đại diện thất bại' 
-      });
+      showMessage('error', 'Xóa ảnh đại diện thất bại');
     }
   };
 
+  // Cập nhật thông tin cơ bản
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    setMessage({ type: '', text: '' });
 
     try {
       const updateData = {
@@ -282,8 +308,6 @@ const ProfilePage = () => {
         dob: formData.dob && formData.dob !== 'Invalid date' ? formData.dob : null
       };
 
-      console.log('Sending update data:', updateData);
-
       const res = await axios.put(
         'http://localhost:3001/api/users/profile',
         updateData,
@@ -291,22 +315,24 @@ const ProfilePage = () => {
       );
 
       if (res.data.success) {
-        setMessage({ type: 'success', text: 'Cập nhật thông tin thành công!' });
+        showMessage('success', 'Cập nhật thông tin thành công!');
+        
+        // Cập nhật localStorage
+        const userFromStorage = JSON.parse(localStorage.getItem('user'));
+        userFromStorage.full_name = updateData.full_name;
+        localStorage.setItem('user', JSON.stringify(userFromStorage));
+        
         fetchProfile();
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       }
     } catch (error) {
       console.error('Update profile error:', error);
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Cập nhật thất bại' 
-      });
+      showMessage('error', error.response?.data?.message || 'Cập nhật thất bại');
     }
   };
 
+  // Cập nhật thông tin bác sĩ
   const handleUpdateDoctorInfo = async (e) => {
     e.preventDefault();
-    setMessage({ type: '', text: '' });
 
     try {
       const updateData = {
@@ -315,45 +341,39 @@ const ProfilePage = () => {
         address: formData.address || null,
         gender: formData.gender || null,
         dob: formData.dob && formData.dob !== 'Invalid date' ? formData.dob : null,
-        role: 'doctor',
+        // Thông tin bác sĩ
         specialty_id: doctorFormData.specialty_id || null,
         experience_years: doctorFormData.experience_years ? parseInt(doctorFormData.experience_years) : null,
         bio: doctorFormData.bio || null
       };
 
-      console.log('Sending doctor update data:', updateData);
-
       const res = await axios.put(
-        `http://localhost:3001/api/users/${user.id}`,
+        'http://localhost:3001/api/users/profile',
         updateData,
         axiosConfig
       );
 
       if (res.data.success) {
-        setMessage({ type: 'success', text: 'Cập nhật thông tin bác sĩ thành công!' });
+        showMessage('success', 'Cập nhật thông tin bác sĩ thành công!');
         fetchProfile();
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       }
     } catch (error) {
       console.error('Update doctor info error:', error);
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Cập nhật thông tin bác sĩ thất bại' 
-      });
+      showMessage('error', error.response?.data?.message || 'Cập nhật thông tin bác sĩ thất bại');
     }
   };
 
+  // Đổi mật khẩu
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    setMessage({ type: '', text: '' });
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setMessage({ type: 'error', text: 'Mật khẩu mới không khớp' });
+      showMessage('error', 'Mật khẩu mới không khớp');
       return;
     }
 
     if (passwordData.newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'Mật khẩu phải có ít nhất 6 ký tự' });
+      showMessage('error', 'Mật khẩu phải có ít nhất 6 ký tự');
       return;
     }
 
@@ -368,19 +388,16 @@ const ProfilePage = () => {
       );
 
       if (res.data.success) {
-        setMessage({ type: 'success', text: 'Đổi mật khẩu thành công!' });
+        showMessage('success', 'Đổi mật khẩu thành công!');
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       }
     } catch (error) {
       console.error('Change password error:', error);
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Đổi mật khẩu thất bại' 
-      });
+      showMessage('error', error.response?.data?.message || 'Đổi mật khẩu thất bại');
     }
   };
 
+  // Hàm helper
   const getRoleLabel = (role) => {
     const roles = {
       admin: 'Quản trị viên',
@@ -400,6 +417,7 @@ const ProfilePage = () => {
     return genders[gender] || 'Chưa cập nhật';
   };
 
+  // Loading state
   if (loading) {
     return (
       <div className="profile-loading">
@@ -409,8 +427,10 @@ const ProfilePage = () => {
     );
   }
 
+  // Main render
   return (
     <div className="profile-container">
+      {/* Header */}
       <div className="profile-header">
         <div className="profile-header-content">
           <h1><FaUser className="profile-header-icon" /> Thông tin tài khoản</h1>
@@ -421,6 +441,7 @@ const ProfilePage = () => {
         </button>
       </div>
 
+      {/* Message */}
       {message.text && (
         <div className={`profile-message profile-message-${message.type}`}>
           {message.type === 'success' ? <FaCheckCircle /> : <FaTimesCircle />}
@@ -429,8 +450,9 @@ const ProfilePage = () => {
       )}
 
       <div className="profile-content">
+        {/* Sidebar */}
         <div className="profile-sidebar">
-          {/* Avatar và thông tin cơ bản */}
+          {/* Avatar Card */}
           <div className="profile-avatar-card">
             <div className="profile-avatar-wrapper">
               <div className="profile-avatar">
@@ -445,6 +467,7 @@ const ProfilePage = () => {
                   className="profile-avatar-btn profile-avatar-btn-upload"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingAvatar}
+                  title="Chọn ảnh"
                 >
                   <FaCamera />
                 </button>
@@ -453,6 +476,7 @@ const ProfilePage = () => {
                     className="profile-avatar-btn profile-avatar-btn-remove"
                     onClick={handleRemoveAvatar}
                     disabled={uploadingAvatar}
+                    title="Xóa ảnh"
                   >
                     <FaTrash />
                   </button>
@@ -548,8 +572,9 @@ const ProfilePage = () => {
           )}
         </div>
 
+        {/* Main Content */}
         <div className="profile-main">
-          {/* Form cập nhật thông tin */}
+          {/* Form cập nhật thông tin cơ bản */}
           <div className="profile-form-card">
             <div className="profile-card-header">
               <h2><FaEdit /> Cập nhật thông tin cá nhân</h2>

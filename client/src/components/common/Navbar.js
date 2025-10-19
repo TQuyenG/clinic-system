@@ -547,7 +547,7 @@ const Navbar = () => {
                   <Link to="/dashboard" onClick={closeAllDropdowns}>
                     <FaTachometerAlt /> Dashboard
                   </Link>
-                  <Link to="/profile" onClick={closeAllDropdowns}>
+                  <Link to="/ho-so-nguoi-dung" onClick={closeAllDropdowns}>
                     <FaUser /> Thông tin cá nhân
                   </Link>
                   <Link to="/appointments" onClick={closeAllDropdowns}>
