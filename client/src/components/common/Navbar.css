@@ -423,7 +423,7 @@
 }
 
 /* ============================================
-   USER BUTTON - Icon Avatar
+   USER BUTTON & AVATAR - UPDATED STYLES
    ============================================ */
 .user-dropdown {
   position: relative;
@@ -441,6 +441,7 @@
   background: white;
   cursor: pointer;
   transition: all 0.3s;
+  overflow: hidden; /* ✅ Đảm bảo ảnh không tràn ra ngoài */
 }
 
 .user-btn:hover {
@@ -449,29 +450,46 @@
   transform: translateY(-1px);
 }
 
-.user-avatar,
-.user-avatar-placeholder {
-  width: 40px;
-  height: 40px;
+/* ✅ Avatar Image - Tự động căn chỉnh */
+.user-avatar {
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
-  object-fit: cover;
+  object-fit: cover;        /* Tự động cắt và fit ảnh */
+  object-position: center;  /* Căn giữa */
+  display: block;
+}
+
+/* ✅ Avatar Placeholder - Hiển thị khi không có ảnh */
+.user-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.user-avatar-placeholder {
   background: linear-gradient(135deg, #66BB6A, #4CAF50);
   color: white;
   font-weight: 600;
   font-size: 16px;
+  text-transform: uppercase;
+}
+
+/* ✅ Fallback khi ảnh bị lỗi */
+.user-avatar + .user-avatar-placeholder {
+  display: none;
+}
+
+.user-avatar:not([src]),
+.user-avatar[src=""] {
+  display: none;
 }
 
 /* User Dropdown Menu */
 .dropdown-menu-right {
   left: auto;
   right: 0;
-  min-width: 200px;
+  min-width: 220px; /* ✅ Tăng width cho đẹp hơn */
 }
 
 .dropdown-user-info {
@@ -479,22 +497,29 @@
   flex-direction: column;
   padding: 12px 16px;
   border-bottom: 1px solid #E8F5E9;
-  gap: 2px;
+  gap: 4px;
 }
 
 .dropdown-user-info strong {
   color: #2E7D32;
   font-size: 14px;
+  font-weight: 600;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dropdown-user-info span {
   color: #81C784;
   font-size: 12px;
   text-transform: capitalize;
+  font-weight: 500;
 }
 
 .dropdown-logout {
   color: #E53935 !important;
+  width: 100%;
 }
 
 .dropdown-logout:hover {
@@ -504,22 +529,86 @@
 
 .dropdown-register {
   display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-    color: #424242;
-    text-decoration: none;
-    font-size: 14px;
-    transition: all 0.2s;
-    background: none;
-    border: none;
-    text-align: left;
-    cursor: pointer;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  color: #424242;
+  text-decoration: none;
+  font-size: 14px;
+  transition: all 0.2s;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
 }
 
 .dropdown-register:hover {
-    background: #F1F8F4;
+  background: #F1F8F4;
   color: #4CAF50;
+}
+
+/* ============================================
+   RESPONSIVE - MOBILE AVATAR
+   ============================================ */
+@media (max-width: 768px) {
+  .user-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .user-avatar-placeholder {
+    font-size: 14px;
+  }
+
+  .dropdown-menu-right {
+    min-width: 200px;
+  }
+
+  .dropdown-user-info strong {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .user-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .user-avatar-placeholder {
+    font-size: 13px;
+  }
+
+  .dropdown-menu-right {
+    min-width: 180px;
+  }
+}
+
+/* ============================================
+   ANIMATION KHI HOVER AVATAR
+   ============================================ */
+.user-btn:hover .user-avatar,
+.user-btn:hover .user-avatar-placeholder {
+  transform: scale(1.05);
+  transition: transform 0.3s ease;
+}
+
+/* ============================================
+   LOADING STATE (optional)
+   ============================================ */
+.user-avatar.loading {
+  opacity: 0.6;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* ============================================

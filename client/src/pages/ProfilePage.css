@@ -17,6 +17,7 @@
   --profile-gray-300: #dee2e6;
   --profile-gray-400: #ced4da;
   --profile-gray-600: #6c757d;
+  --profile-gray-700: #495057;
   --profile-gray-800: #343a40;
   --profile-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.08);
   --profile-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -183,10 +184,16 @@
   text-align: center;
 }
 
+.profile-avatar-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 1.5rem;
+}
+
 .profile-avatar {
   width: 120px;
   height: 120px;
-  margin: 0 auto 1.5rem;
+  margin: 0 auto;
   background: linear-gradient(135deg, var(--profile-primary), var(--profile-primary-dark));
   border-radius: 50%;
   display: flex;
@@ -194,6 +201,7 @@
   justify-content: center;
   box-shadow: var(--profile-shadow-lg);
   position: relative;
+  overflow: hidden;
 }
 
 .profile-avatar::before {
@@ -209,6 +217,83 @@
 .profile-avatar-icon {
   font-size: 3.5rem;
   color: white;
+}
+
+.profile-avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+}
+
+.profile-avatar-actions {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.profile-avatar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--profile-transition);
+  font-size: 0.9rem;
+}
+
+.profile-avatar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile-avatar-btn-upload {
+  background: var(--profile-primary);
+  color: white;
+}
+
+.profile-avatar-btn-upload:hover:not(:disabled) {
+  background: var(--profile-primary-dark);
+  transform: scale(1.1);
+}
+
+.profile-avatar-btn-remove {
+  background: var(--profile-error);
+  color: white;
+}
+
+.profile-avatar-btn-remove:hover:not(:disabled) {
+  background: #c0392b;
+  transform: scale(1.1);
+}
+
+.profile-btn-save-avatar {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--profile-success), #27ae60);
+  color: white;
+  border: none;
+  border-radius: var(--profile-radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--profile-transition);
+}
+
+.profile-btn-save-avatar:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--profile-shadow-md);
+}
+
+.profile-btn-save-avatar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .profile-user-name {
@@ -276,6 +361,40 @@
   background: linear-gradient(135deg, #95a5a6, #7f8c8d);
   color: white;
   box-shadow: 0 2px 8px rgba(149, 165, 166, 0.3);
+}
+
+/* Role Code - Hiển thị cho TẤT CẢ role */
+.profile-role-code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  color: white;
+  border-radius: var(--profile-radius-sm);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.profile-role-code svg {
+  font-size: 1.1rem;
+}
+
+.profile-role-code-doctor {
+  background: linear-gradient(135deg, var(--profile-success), #27ae60);
+}
+
+.profile-role-code-patient {
+  background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+}
+
+.profile-role-code-staff {
+  background: linear-gradient(135deg, var(--profile-primary), var(--profile-primary-dark));
+}
+
+.profile-role-code-admin {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
 }
 
 /* Status Card */
@@ -371,6 +490,10 @@
   background: linear-gradient(135deg, var(--profile-secondary), var(--profile-secondary-dark));
 }
 
+.profile-card-header-doctor {
+  background: linear-gradient(135deg, var(--profile-success), #27ae60);
+}
+
 .profile-card-header h2 {
   margin: 0;
   font-size: 1.3rem;
@@ -432,6 +555,29 @@
   color: var(--profile-gray-400);
 }
 
+/* Textarea */
+.profile-form-textarea {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 2px solid var(--profile-gray-300);
+  border-radius: var(--profile-radius-sm);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: var(--profile-transition);
+  resize: vertical;
+  min-height: 100px;
+}
+
+.profile-form-textarea:focus {
+  outline: none;
+  border-color: var(--profile-primary);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.profile-form-textarea::placeholder {
+  color: var(--profile-gray-400);
+}
+
 /* Submit Button */
 .profile-btn-submit {
   display: inline-flex;
@@ -463,23 +609,12 @@
   background: linear-gradient(135deg, var(--profile-secondary), var(--profile-secondary-dark));
 }
 
-/* Doctor Code */
-.profile-doctor-code {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding: 0.75rem;
+.profile-btn-doctor {
   background: linear-gradient(135deg, var(--profile-success), #27ae60);
-  color: white;
-  border-radius: var(--profile-radius-sm);
-  font-weight: 600;
-  font-size: 0.95rem;
 }
 
-.profile-doctor-code svg {
-  font-size: 1.1rem;
+.profile-btn-doctor:hover {
+  background: linear-gradient(135deg, #229954, #1e8449);
 }
 
 /* Specialty Card */
@@ -526,58 +661,6 @@
 
 .profile-experience svg {
   color: var(--profile-secondary);
-}
-
-/* Doctor Form Header */
-.profile-card-header-doctor {
-  background: linear-gradient(135deg, var(--profile-success), #27ae60);
-}
-
-/* Textarea */
-.profile-form-textarea {
-  width: 100%;
-  padding: 0.9rem 1rem;
-  border: 2px solid var(--profile-gray-300);
-  border-radius: var(--profile-radius-sm);
-  font-size: 0.95rem;
-  font-family: inherit;
-  transition: var(--profile-transition);
-  resize: vertical;
-  min-height: 100px;
-}
-
-.profile-form-textarea:focus {
-  outline: none;
-  border-color: var(--profile-primary);
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-}
-
-.profile-form-textarea::placeholder {
-  color: var(--profile-gray-400);
-}
-
-.profile-form-textarea-code {
-  font-family: 'Courier New', monospace;
-  font-size: 0.85rem;
-  background: var(--profile-gray-100);
-}
-
-/* Form Hint */
-.profile-form-hint {
-  display: block;
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--profile-gray-600);
-  font-style: italic;
-}
-
-/* Doctor Button */
-.profile-btn-doctor {
-  background: linear-gradient(135deg, var(--profile-success), #27ae60);
-}
-
-.profile-btn-doctor:hover {
-  background: linear-gradient(135deg, #229954, #1e8449);
 }
 
 /* Responsive */

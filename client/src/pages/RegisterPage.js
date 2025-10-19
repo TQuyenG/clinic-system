@@ -1,8 +1,9 @@
 // client/src/pages/RegisterPage.js
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import './RegisterPage.css';
+
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
     email: '',
@@ -17,6 +18,9 @@ const RegisterPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -29,6 +33,11 @@ const RegisterPage = () => {
     setSuccess('');
 
     // Validation
+    if (!agreedToTerms) {
+      setError('Vui lòng đồng ý với Điều khoản sử dụng và Chính sách bảo mật');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Mật khẩu xác nhận không khớp');
       return;
@@ -58,211 +67,186 @@ const RegisterPage = () => {
   return (
     <div className="auth-container">
       <div className="auth-box register-box">
-        <h2>Đăng ký tài khoản</h2>
+        <div className="auth-header">
+          <div className="logo-circle">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M11.5 2v8.5H3c0 4.7 3.8 8.5 8.5 8.5s8.5-3.8 8.5-8.5S16.2 2 11.5 2zm1 14.5c-3.6 0-6.5-2.9-6.5-6.5h6.5V3.5c3.6 0 6.5 2.9 6.5 6.5s-2.9 6.5-6.5 6.5z"/>
+            </svg>
+          </div>
+          <h2>Đăng ký tài khoản</h2>
+          <p className="subtitle">Tạo tài khoản mới để sử dụng dịch vụ</p>
+        </div>
         
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">{success}</div>}
         
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email: *</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              placeholder="your@email.com"
-            />
+          <div className="form-columns">
+            <div className="form-column">
+              <div className="form-group">
+                <label>Email <span className="required">*</span></label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  placeholder="your@email.com"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Mật khẩu <span className="required">*</span></label>
+                <div className="password-input-wrapper">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    placeholder="Ít nhất 6 ký tự"
+                  />
+                  <button
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Xác nhận mật khẩu <span className="required">*</span></label>
+                <div className="password-input-wrapper">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                    placeholder="Nhập lại mật khẩu"
+                  />
+                  <button
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Họ tên</label>
+                <input
+                  type="text"
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleChange}
+                  placeholder="Nguyễn Văn A"
+                />
+              </div>
+            </div>
+
+            <div className="form-column">
+              <div className="form-group">
+                <label>Số điện thoại</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="0901234567"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Địa chỉ</label>
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  placeholder="123 Đường ABC, Quận XYZ"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Giới tính</label>
+                <select name="gender" value={formData.gender} onChange={handleChange}>
+                  <option value="">Chọn giới tính</option>
+                  <option value="male">Nam</option>
+                  <option value="female">Nữ</option>
+                  <option value="other">Khác</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Ngày sinh</label>
+                <input
+                  type="date"
+                  name="dob"
+                  value={formData.dob}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>Mật khẩu: *</label>
+          <div className="terms-checkbox">
             <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              placeholder="Ít nhất 6 ký tự"
+              type="checkbox"
+              id="terms"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
             />
-          </div>
-
-          <div className="form-group">
-            <label>Xác nhận mật khẩu: *</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              placeholder="Nhập lại mật khẩu"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Họ tên:</label>
-            <input
-              type="text"
-              name="full_name"
-              value={formData.full_name}
-              onChange={handleChange}
-              placeholder="Nguyễn Văn A"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Số điện thoại:</label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="0901234567"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Địa chỉ:</label>
-            <input
-              type="text"
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-              placeholder="123 Đường ABC, Quận XYZ"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Giới tính:</label>
-            <select name="gender" value={formData.gender} onChange={handleChange}>
-              <option value="">Chọn giới tính</option>
-              <option value="male">Nam</option>
-              <option value="female">Nữ</option>
-              <option value="other">Khác</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Ngày sinh:</label>
-            <input
-              type="date"
-              name="dob"
-              value={formData.dob}
-              onChange={handleChange}
-            />
+            <label htmlFor="terms">
+              Tôi đồng ý với{' '}
+              <Link to="/terms-of-service" target="_blank" className="terms-link">
+                Điều khoản sử dụng
+              </Link>
+              {' '}và{' '}
+              <Link to="/privacy-policy" target="_blank" className="terms-link">
+                Chính sách bảo mật
+              </Link>
+            </label>
           </div>
 
           <button type="submit" className="btn-submit" disabled={loading}>
-            {loading ? 'Đang đăng ký...' : 'Đăng ký'}
+            {loading ? (
+              <>
+                <span className="spinner-small"></span>
+                Đang đăng ký...
+              </>
+            ) : 'Đăng ký'}
           </button>
         </form>
 
         <div className="auth-links">
-          <Link to="/login">Đã có tài khoản? Đăng nhập</Link>
+          <Link to="/login" className="link-secondary">Đã có tài khoản? Đăng nhập</Link>
         </div>
       </div>
-
-      <style jsx>{`
-        .auth-container {
-          min-height: 100vh;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .auth-box {
-          background: white;
-          padding: 2rem;
-          border-radius: 8px;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-          width: 90%;
-          max-width: 400px;
-        }
-        .auth-box h2 {
-          text-align: center;
-          margin-bottom: 1.5rem;
-          color: #333;
-        }
-        .error-message {
-          background: #f8d7da;
-          color: #721c24;
-          padding: 0.75rem;
-          border-radius: 4px;
-          margin-bottom: 1rem;
-          border: 1px solid #f5c6cb;
-        }
-        .form-group {
-          margin-bottom: 1rem;
-        }
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 600;
-          color: #555;
-        }
-        .form-group input {
-          width: 100%;
-          padding: 0.75rem;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 1rem;
-        }
-        .form-group input:focus {
-          outline: none;
-          border-color: #667eea;
-        }
-        .btn-submit {
-          width: 100%;
-          background: #667eea;
-          color: white;
-          border: none;
-          padding: 0.75rem;
-          border-radius: 4px;
-          font-size: 1rem;
-          cursor: pointer;
-          margin-top: 1rem;
-        }
-        .btn-submit:hover {
-          background: #5568d3;
-        }
-        .btn-submit:disabled {
-          background: #bdc3c7;
-          cursor: not-allowed;
-        }
-        .auth-links {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-          margin-top: 1.5rem;
-          text-align: center;
-        }
-        .auth-links a {
-          color: #667eea;
-          text-decoration: none;
-        }
-        .auth-links a:hover {
-          text-decoration: underline;
-        }
-        .register-box {
-          max-width: 500px;
-        }
-        .success-message {
-          background: #d4edda;
-          color: #155724;
-          padding: 0.75rem;
-          border-radius: 4px;
-          margin-bottom: 1rem;
-          border: 1px solid #c3e6cb;
-        }
-        .form-group select {
-          width: 100%;
-          padding: 0.75rem;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 1rem;
-        }
-      `}</style>
     </div>
   );
 };

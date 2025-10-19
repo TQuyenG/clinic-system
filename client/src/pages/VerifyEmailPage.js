@@ -1,7 +1,8 @@
-// client/src/pages/VerifyEmailPage.js - FIXED COMPLETELY
+// client/src/pages/VerifyEmailPage.js
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import './VerifyEmailPage.css';
 
 const VerifyEmailPage = () => {
   const [searchParams] = useSearchParams();
@@ -102,13 +103,17 @@ const VerifyEmailPage = () => {
           <>
             <div className="spinner"></div>
             <h2>Đang xác thực email...</h2>
-            <p>Vui lòng đợi trong giây lát</p>
+            <p className="verify-description">Vui lòng đợi trong giây lát</p>
           </>
         )}
 
         {status === 'success' && (
           <>
-            <div className="icon success">✓</div>
+            <div className="icon-wrapper success-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
             <h2>Xác thực thành công!</h2>
             <p className="success-message">{message}</p>
             <div className="countdown-box">
@@ -130,7 +135,12 @@ const VerifyEmailPage = () => {
 
         {status === 'error' && (
           <>
-            <div className="icon error">✕</div>
+            <div className="icon-wrapper error-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </div>
             <h2>Xác thực thất bại</h2>
             <p className="error-message">{message}</p>
             
@@ -150,140 +160,6 @@ const VerifyEmailPage = () => {
           </>
         )}
       </div>
-
-      <style jsx>{`
-        .verify-container {
-          min-height: 100vh;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          padding: 20px;
-        }
-        .verify-box {
-          background: white;
-          padding: 3rem;
-          border-radius: 12px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-          text-align: center;
-          max-width: 500px;
-          width: 100%;
-        }
-        .spinner {
-          border: 4px solid #f3f3f3;
-          border-top: 4px solid #667eea;
-          border-radius: 50%;
-          width: 50px;
-          height: 50px;
-          animation: spin 1s linear infinite;
-          margin: 0 auto 1rem;
-        }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        .icon {
-          width: 80px;
-          height: 80px;
-          border-radius: 50%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          font-size: 3rem;
-          margin: 0 auto 1.5rem;
-          font-weight: bold;
-        }
-        .icon.success {
-          background: #d4edda;
-          color: #155724;
-        }
-        .icon.error {
-          background: #f8d7da;
-          color: #721c24;
-        }
-        .verify-box h2 {
-          margin-bottom: 1rem;
-          color: #333;
-          font-size: 1.75rem;
-        }
-        .success-message {
-          color: #155724;
-          background: #d4edda;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1.5rem;
-          font-weight: 500;
-        }
-        .error-message {
-          color: #721c24;
-          background: #f8d7da;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1.5rem;
-          font-weight: 500;
-        }
-        .countdown-box {
-          background: #f8f9fa;
-          padding: 1.5rem;
-          border-radius: 8px;
-          margin-bottom: 1.5rem;
-        }
-        .countdown-text {
-          color: #495057;
-          font-size: 1rem;
-          margin-bottom: 1rem;
-        }
-        .countdown-number {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: #667eea;
-        }
-        .progress-bar {
-          width: 100%;
-          height: 8px;
-          background: #e9ecef;
-          border-radius: 4px;
-          overflow: hidden;
-        }
-        .progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-          transition: width 1s linear;
-        }
-        .error-actions {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          margin-top: 1.5rem;
-        }
-        .btn-login, .btn-register, .btn-help {
-          background: #667eea;
-          color: white;
-          border: none;
-          padding: 0.875rem 1.5rem;
-          border-radius: 8px;
-          cursor: pointer;
-          font-size: 1rem;
-          font-weight: 600;
-          transition: all 0.3s ease;
-        }
-        .btn-login:hover, .btn-register:hover, .btn-help:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-        .btn-register {
-          background: #95a5a6;
-        }
-        .btn-register:hover {
-          background: #7f8c8d;
-        }
-        .btn-help {
-          background: #3498db;
-        }
-        .btn-help:hover {
-          background: #2980b9;
-        }
-      `}</style>
     </div>
   );
 };

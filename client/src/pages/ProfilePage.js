@@ -1,5 +1,5 @@
 // client/src/pages/ProfilePage.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
@@ -18,12 +18,13 @@ import {
   FaKey,
   FaStethoscope,
   FaBriefcase,
-  FaCertificate,
   FaFileAlt,
   FaIdCard,
   FaBuilding,
   FaUserMd,
-  FaShieldAlt
+  FaShieldAlt,
+  FaCamera,
+  FaTrash
 } from 'react-icons/fa';
 import './ProfilePage.css';
 
@@ -48,9 +49,13 @@ const ProfilePage = () => {
     newPassword: '',
     confirmPassword: ''
   });
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ type: '', text: '' });
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
 
   const token = localStorage.getItem('token');
   const axiosConfig = {
@@ -80,6 +85,11 @@ const ProfilePage = () => {
       
       const userData = res.data.user || res.data;
       setUser(userData);
+      
+      // Set avatar preview nếu có
+      if (userData.avatar_url) {
+        setAvatarPreview(userData.avatar_url);
+      }
       
       setFormData({
         full_name: userData.full_name || '',
@@ -137,12 +147,133 @@ const ProfilePage = () => {
     setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
   };
 
+  // Xử lý chọn file avatar
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Kiểm tra loại file
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setMessage({ 
+        type: 'error', 
+        text: 'Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WEBP)' 
+      });
+      return;
+    }
+
+    // Kiểm tra kích thước file (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setMessage({ 
+        type: 'error', 
+        text: 'Kích thước file không được vượt quá 10MB' 
+      });
+      return;
+    }
+
+    setAvatarFile(file);
+
+    // Tạo preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Upload avatar
+  const handleUploadAvatar = async () => {
+    if (!avatarFile) {
+      setMessage({ type: 'error', text: 'Vui lòng chọn ảnh để tải lên' });
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const formData = new FormData();
+      formData.append('image', avatarFile);
+      
+      // Nếu có avatar cũ, gửi để xóa
+      if (user.avatar_url) {
+        formData.append('oldImage', user.avatar_url);
+      }
+
+      // Upload ảnh
+      const uploadRes = await axios.post(
+        'http://localhost:3001/api/upload/image',
+        formData,
+        {
+          headers: {
+            ...axiosConfig.headers,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      console.log('Upload response:', uploadRes.data);
+
+      if (uploadRes.data.success) {
+        const avatarUrl = uploadRes.data.url;
+
+        // Cập nhật avatar_url vào database
+        const updateRes = await axios.put(
+          'http://localhost:3001/api/users/profile',
+          { avatar_url: avatarUrl },
+          axiosConfig
+        );
+
+        if (updateRes.data.success) {
+          setMessage({ type: 'success', text: 'Cập nhật ảnh đại diện thành công!' });
+          setAvatarFile(null);
+          fetchProfile(); // Refresh profile
+          setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+        }
+      }
+    } catch (error) {
+      console.error('Upload avatar error:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Tải ảnh lên thất bại' 
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  // Xóa avatar
+  const handleRemoveAvatar = async () => {
+    if (!window.confirm('Bạn có chắc muốn xóa ảnh đại diện?')) return;
+
+    try {
+      const res = await axios.put(
+        'http://localhost:3001/api/users/profile',
+        { avatar_url: null },
+        axiosConfig
+      );
+
+      if (res.data.success) {
+        setMessage({ type: 'success', text: 'Đã xóa ảnh đại diện' });
+        setAvatarPreview(null);
+        setAvatarFile(null);
+        fetchProfile();
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+      }
+    } catch (error) {
+      console.error('Remove avatar error:', error);
+      setMessage({ 
+        type: 'error', 
+        text: 'Xóa ảnh đại diện thất bại' 
+      });
+    }
+  };
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setMessage({ type: '', text: '' });
 
     try {
-      // Validate và format dữ liệu
       const updateData = {
         full_name: formData.full_name || null,
         phone: formData.phone || null,
@@ -301,9 +432,51 @@ const ProfilePage = () => {
         <div className="profile-sidebar">
           {/* Avatar và thông tin cơ bản */}
           <div className="profile-avatar-card">
-            <div className="profile-avatar">
-              <FaUser className="profile-avatar-icon" />
+            <div className="profile-avatar-wrapper">
+              <div className="profile-avatar">
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="Avatar" className="profile-avatar-image" />
+                ) : (
+                  <FaUser className="profile-avatar-icon" />
+                )}
+              </div>
+              <div className="profile-avatar-actions">
+                <button 
+                  className="profile-avatar-btn profile-avatar-btn-upload"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                >
+                  <FaCamera />
+                </button>
+                {(avatarPreview || user?.avatar_url) && (
+                  <button 
+                    className="profile-avatar-btn profile-avatar-btn-remove"
+                    onClick={handleRemoveAvatar}
+                    disabled={uploadingAvatar}
+                  >
+                    <FaTrash />
+                  </button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                style={{ display: 'none' }}
+              />
             </div>
+
+            {avatarFile && (
+              <button 
+                className="profile-btn-save-avatar"
+                onClick={handleUploadAvatar}
+                disabled={uploadingAvatar}
+              >
+                {uploadingAvatar ? 'Đang tải lên...' : 'Lưu ảnh đại diện'}
+              </button>
+            )}
+
             <h2 className="profile-user-name">{user?.full_name || 'Chưa cập nhật'}</h2>
             <p className="profile-user-email">
               <FaEnvelope /> {user?.email}
@@ -316,7 +489,7 @@ const ProfilePage = () => {
             </div>
             
             {/* Hiển thị mã theo role */}
-            {roleInfo && (
+            {roleInfo && roleInfo.code && (
               <div className={`profile-role-code profile-role-code-${user?.role}`}>
                 {user?.role === 'doctor' && <><FaStethoscope /> Mã BS: {roleInfo.code}</>}
                 {user?.role === 'patient' && <><FaIdCard /> Mã BN: {roleInfo.code}</>}

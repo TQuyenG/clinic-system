@@ -34,6 +34,7 @@ const Navbar = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null); // ✅ State mới cho profile đầy đủ
   const [specialties, setSpecialties] = useState([]);
   const [categories, setCategories] = useState({
     tin_tuc: [],
@@ -43,7 +44,6 @@ const Navbar = () => {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [activeMobileColumn, setActiveMobileColumn] = useState(null);
   
-  // ✅ Thêm state cho navbar data
   const [navbarData, setNavbarData] = useState({
     logo_image: '',
     logo_text: 'Clinic System',
@@ -61,7 +61,10 @@ const Navbar = () => {
     const userStr = localStorage.getItem('user');
     if (token && userStr) {
       try {
-        setUser(JSON.parse(userStr));
+        const userData = JSON.parse(userStr);
+        setUser(userData);
+        // ✅ Fetch profile đầy đủ từ API để lấy avatar_url mới nhất
+        fetchUserProfile(token);
       } catch (error) {
         console.error('Lỗi khi phân tích dữ liệu người dùng:', error);
       }
@@ -69,7 +72,7 @@ const Navbar = () => {
 
     fetchSpecialties();
     fetchCategories();
-    fetchNavbarData(); // ✅ Thêm fetch navbar data
+    fetchNavbarData();
 
     // Xử lý sự kiện click ngoài khu vực tìm kiếm
     const handleClickOutside = (e) => {
@@ -82,7 +85,31 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ✅ Thêm hàm fetch navbar data
+  // ✅ Fetch user profile đầy đủ từ API
+  const fetchUserProfile = async (token) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/users/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success || response.data.user) {
+        const profileData = response.data.user || response.data;
+        setUserProfile(profileData);
+        
+        // ✅ Cập nhật localStorage với avatar_url mới nhất
+        const updatedUser = {
+          ...user,
+          avatar_url: profileData.avatar_url,
+          full_name: profileData.full_name
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy profile:', error);
+    }
+  };
+
   const fetchNavbarData = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/settings/header-nav-footer`);
@@ -154,6 +181,7 @@ const Navbar = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    setUserProfile(null);
     navigate('/login');
   };
 
@@ -171,10 +199,51 @@ const Navbar = () => {
     setIsMenuOpen(false);
   };
 
+  // ✅ Function render avatar
+  const renderUserAvatar = () => {
+    // Ưu tiên: userProfile > user > default
+    const currentUser = userProfile || user;
+    
+    if (!currentUser) {
+      return (
+        <div className="user-avatar-placeholder">
+          <FaUser />
+        </div>
+      );
+    }
+
+    // Nếu có avatar_url
+    if (currentUser.avatar_url) {
+      return (
+        <img 
+          src={currentUser.avatar_url} 
+          alt={currentUser.full_name || currentUser.email} 
+          className="user-avatar"
+          onError={(e) => {
+            // Fallback nếu ảnh lỗi
+            e.target.style.display = 'none';
+            e.target.nextSibling.style.display = 'flex';
+          }}
+        />
+      );
+    }
+
+    // Nếu không có avatar, hiển thị chữ cái đầu
+    const initial = currentUser.full_name?.charAt(0)?.toUpperCase() 
+                    || currentUser.email?.charAt(0)?.toUpperCase() 
+                    || 'U';
+    
+    return (
+      <div className="user-avatar-placeholder">
+        {initial}
+      </div>
+    );
+  };
+
   return (
     <nav className="navbar">
       <div className="nav-container">
-        {/* LOGO - ✅ Cập nhật để sử dụng data từ API */}
+        {/* LOGO */}
         <Link to="/" className="logo" onClick={closeAllDropdowns}>
           {navbarData.logo_image ? (
             <img src={navbarData.logo_image} alt={navbarData.logo_text} />
@@ -195,7 +264,7 @@ const Navbar = () => {
 
         {/* PHẦN GIỮA */}
         <div className={`nav-center ${isMenuOpen ? 'active' : ''}`}>
-          {/* Thanh Tìm kiếm - ✅ Cập nhật placeholder từ API */}
+          {/* Thanh Tìm kiếm */}
           <div className="search-container" ref={searchRef}>
             <form className="search-bar" onSubmit={handleSearchSubmit}>
               <FaSearch className="search-icon" />
@@ -464,19 +533,7 @@ const Navbar = () => {
               className="user-btn"
               onClick={() => toggleDropdown('user')}
             >
-              {user ? (
-                user.avatar_url ? (
-                  <img src={user.avatar_url} alt={user.full_name} className="user-avatar" />
-                ) : (
-                  <div className="user-avatar-placeholder">
-                    {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
-                  </div>
-                )
-              ) : (
-                <div className="user-avatar-placeholder">
-                  <FaUser />
-                </div>
-              )}
+              {renderUserAvatar()}
             </button>
 
             <div className={`dropdown-menu dropdown-menu-right ${activeDropdown === 'user' ? 'show' : ''}`}>
@@ -489,6 +546,9 @@ const Navbar = () => {
                   <div className="dropdown-divider"></div>
                   <Link to="/dashboard" onClick={closeAllDropdowns}>
                     <FaTachometerAlt /> Dashboard
+                  </Link>
+                  <Link to="/profile" onClick={closeAllDropdowns}>
+                    <FaUser /> Thông tin cá nhân
                   </Link>
                   <Link to="/appointments" onClick={closeAllDropdowns}>
                     <FaCalendarAlt /> Lịch hẹn
