@@ -2,6 +2,8 @@
  * Tệp: HomePage.js - PHIÊN BẢN MỚI
  * Mô tả: Trang chủ với 5 sections theo yêu cầu mới
  * API: /api/settings/home, /api/specialties, /api/users/doctors
+ * 
+ * ĐÃ SỬA: Banner slider tự động chuyển slide
  */
 
 import React, { useEffect, useState } from 'react';
@@ -34,6 +36,7 @@ const HomePage = () => {
 
   const iconMap = { ...FaIcons };
 
+  // Fetch data chỉ chạy 1 lần khi component mount
   useEffect(() => {
     const fetchHomeSettings = async () => {
       try {
@@ -66,25 +69,32 @@ const HomePage = () => {
     };
 
     const fetchDoctors = async () => {
-      try {
-        const response = await fetch('http://localhost:3001/api/users/doctors?limit=3&random=true');
-        const data = await response.json();
-        
-        if (data.success && data.doctors) {
-          setDoctors(data.doctors);
-        } else {
-          setDoctors([]);
-        }
-      } catch (error) {
-        console.error('Lỗi khi lấy dữ liệu bác sĩ:', error);
-        setDoctors([]);
-      }
-    };
+  try {
+    const token = localStorage.getItem('token');
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    
+    const response = await fetch('http://localhost:3001/api/users/doctors?limit=3&random=true', {
+      headers
+    });
+    
+    const data = await response.json();
+    
+    if (data.success && data.doctors) {
+      setDoctors(data.doctors);
+    } else {
+      setDoctors([]);
+    }
+  } catch (error) {
+    console.error('Lỗi khi lấy dữ liệu bác sĩ:', error);
+    setDoctors([]);
+  }
+};
 
     fetchHomeSettings();
     fetchSpecialties();
     fetchDoctors();
 
+    // IntersectionObserver cho animations
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach(entry => {
@@ -102,19 +112,31 @@ const HomePage = () => {
     return () => {
       sections.forEach(section => observer.unobserve(section));
     };
-  }, []); // SỬA LỖI: Chỉ chạy 1 lần khi component mount
+  }, []); // Chỉ chạy 1 lần khi mount
 
-  // Slider interval riêng, chỉ chạy khi có bannerSlides
+  // AUTO SLIDER - Interval riêng, chỉ chạy khi có bannerSlides
   useEffect(() => {
+    // Kiểm tra có slides và có nhiều hơn 1 slide
     if (!homeSettings.bannerSlides || homeSettings.bannerSlides.length <= 1) {
       return; // Không chạy interval nếu chỉ có 1 hoặc 0 slide
     }
 
-    const slideInterval = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % homeSettings.bannerSlides.length);
-    }, 5000);
+    console.log('🎬 Starting auto slider with', homeSettings.bannerSlides.length, 'slides');
 
-    return () => clearInterval(slideInterval);
+    // Tạo interval để tự động chuyển slide
+    const slideInterval = setInterval(() => {
+      setCurrentSlide(prev => {
+        const nextSlide = (prev + 1) % homeSettings.bannerSlides.length;
+        console.log('🔄 Auto switching from slide', prev, 'to', nextSlide);
+        return nextSlide;
+      });
+    }, 5000); // Chuyển slide mỗi 5 giây
+
+    // Cleanup interval khi component unmount hoặc bannerSlides thay đổi
+    return () => {
+      console.log('🛑 Stopping auto slider');
+      clearInterval(slideInterval);
+    };
   }, [homeSettings.bannerSlides]); // Chỉ phụ thuộc vào bannerSlides
 
   const handleInputChange = (e) => {
@@ -149,12 +171,26 @@ const HomePage = () => {
     }
   };
 
+  // Manual navigation - Reset interval khi user click
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % homeSettings.bannerSlides.length);
+    setCurrentSlide((prev) => {
+      const next = (prev + 1) % homeSettings.bannerSlides.length;
+      console.log('➡️ Manual next: slide', prev, 'to', next);
+      return next;
+    });
   };
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + homeSettings.bannerSlides.length) % homeSettings.bannerSlides.length);
+    setCurrentSlide((prev) => {
+      const previous = (prev - 1 + homeSettings.bannerSlides.length) % homeSettings.bannerSlides.length;
+      console.log('⬅️ Manual prev: slide', prev, 'to', previous);
+      return previous;
+    });
+  };
+
+  const goToSlide = (index) => {
+    console.log('🎯 Go to slide', index);
+    setCurrentSlide(index);
   };
 
   if (error) {
@@ -202,6 +238,7 @@ const HomePage = () => {
           </div>
         ))}
         
+        {/* Chỉ hiển thị controls khi có nhiều hơn 1 slide */}
         {homeSettings.bannerSlides && homeSettings.bannerSlides.length > 1 && (
           <>
             <button className="homepage-slider-btn homepage-prev" onClick={prevSlide} aria-label="Previous slide">
@@ -216,7 +253,7 @@ const HomePage = () => {
                 <button
                   key={index}
                   className={`homepage-dot ${index === currentSlide ? 'active' : ''}`}
-                  onClick={() => setCurrentSlide(index)}
+                  onClick={() => goToSlide(index)}
                   aria-label={`Go to slide ${index + 1}`}
                 ></button>
               ))}
@@ -346,7 +383,7 @@ const HomePage = () => {
                         alt={doctor.full_name} 
                         className="homepage-doctor-image" 
                         onError={(e) => {
-                          e.target.onerror = null; // Ngăn loop vô hạn
+                          e.target.onerror = null;
                           e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f0f0f0" width="400" height="300"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="18" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3EDoctor%3C/text%3E%3C/svg%3E';
                         }}
                       />

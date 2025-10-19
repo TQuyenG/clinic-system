@@ -722,74 +722,105 @@ exports.getUserStats = async (req, res) => {
 // Lấy danh sách bác sĩ (public - cho homepage)
 exports.getDoctors = async (req, res) => {
   try {
-    const { limit = 10, random = false } = req.query;
+    const { limit = 10, random = false, specialty_id, min_experience } = req.query;
     
-    const whereCondition = {
+    console.log('\n========== GET DOCTORS ==========');
+    console.log('Query params:', { limit, random, specialty_id, min_experience });
+    
+    // Build where conditions
+    const userWhere = {
       role: 'doctor',
       is_active: true,
       is_verified: true
     };
 
+    const doctorWhere = {};
+    if (specialty_id) {
+      doctorWhere.specialty_id = specialty_id;
+    }
+    if (min_experience) {
+      doctorWhere.experience_years = { [Op.gte]: parseInt(min_experience) };
+    }
+
+    // Order clause
     let orderClause;
-    
     if (random === 'true') {
-      // Dùng RAND() trực tiếp - không dùng sequelize.random()
       orderClause = Sequelize.literal('RAND()');
     } else {
       orderClause = [['created_at', 'DESC']];
     }
 
-    const doctors = await models.User.findAll({
-      where: whereCondition,
-      attributes: ['id', 'email', 'full_name', 'phone', 'avatar_url'],
+    console.log('Where conditions:', { userWhere, doctorWhere });
+
+    // Lấy danh sách users với role doctor
+    const users = await models.User.findAll({
+      where: userWhere,
+      attributes: ['id', 'email', 'full_name', 'phone', 'avatar_url', 'gender'],
       limit: parseInt(limit),
       order: orderClause
     });
 
-    if (doctors.length === 0) {
+    console.log('Found users:', users.length);
+
+    if (users.length === 0) {
       return res.status(200).json({
         success: true,
-        count: 0,
-        doctors: []
+        doctors: [],
+        total: 0
       });
     }
 
-    const doctorIds = doctors.map(d => d.id);
-    const doctorDetails = await models.Doctor.findAll({
-      where: { user_id: doctorIds },
+    // Lấy thông tin chi tiết doctor
+    const userIds = users.map(u => u.id);
+    const doctors = await models.Doctor.findAll({
+      where: { 
+        user_id: { [Op.in]: userIds },
+        ...doctorWhere
+      },
       include: [{
         model: models.Specialty,
-        attributes: ['id', 'name', 'slug'],
+        attributes: ['id', 'name', 'slug', 'description'],
         required: false
       }]
     });
 
-    const formattedDoctors = doctors.map(user => {
-      const doctorDetail = doctorDetails.find(d => d.user_id === user.id);
-      return {
-        id: user.id,
-        code: doctorDetail?.code || `BS${String(user.id).padStart(3, '0')}`,
-        full_name: user.full_name || 'Chưa cập nhật',
-        email: user.email,
-        phone: user.phone,
-        avatar_url: user.avatar_url || 'https://via.placeholder.com/400?text=Doctor',
-        specialty_id: doctorDetail?.specialty_id,
-        specialty_name: doctorDetail?.Specialty?.name || 'Chưa phân chuyên khoa',
-        specialty_slug: doctorDetail?.Specialty?.slug,
-        experience_years: doctorDetail?.experience_years || 0,
-        bio: doctorDetail?.bio,
-        certifications: doctorDetail?.certifications_json
-      };
-    });
+    console.log('Found doctor details:', doctors.length);
+
+    // Format response
+    const formattedDoctors = users
+      .map(user => {
+        const doctor = doctors.find(d => d.user_id === user.id);
+        if (!doctor) return null; // Skip nếu không có doctor detail
+        
+        return {
+          id: user.id,
+          code: doctor.code || `BS${String(user.id).padStart(5, '0')}`,
+          full_name: user.full_name || 'Chưa cập nhật',
+          email: user.email,
+          phone: user.phone,
+          gender: user.gender,
+          avatar_url: user.avatar_url || 'https://via.placeholder.com/400?text=Doctor',
+          specialty_id: doctor.specialty_id,
+          specialty_name: doctor.Specialty?.name || 'Chưa phân chuyên khoa',
+          specialty_slug: doctor.Specialty?.slug,
+          experience_years: doctor.experience_years || 0,
+          bio: doctor.bio
+        };
+      })
+      .filter(d => d !== null); // Loại bỏ null values
+
+    console.log('Formatted doctors:', formattedDoctors.length);
+    console.log('=====================================\n');
 
     res.status(200).json({
       success: true,
-      count: formattedDoctors.length,
-      doctors: formattedDoctors
+      doctors: formattedDoctors,
+      total: formattedDoctors.length
     });
 
   } catch (error) {
     console.error('ERROR trong getDoctors:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Lỗi khi lấy danh sách bác sĩ',

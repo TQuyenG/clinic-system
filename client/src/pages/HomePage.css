@@ -155,18 +155,23 @@ body {
   overflow: hidden;
 }
 
+/* AFTER - Chỉ slide active mới hiển thị */
 .homepage-banner-slide {
   position: absolute;
   width: 100%;
   height: 100%;
   background-size: cover;
   background-position: center;
-  opacity: 1;
-  transition: opacity 1s ease;
+  opacity: 0; /* Mặc định ẩn */
+  visibility: hidden; /* Thêm visibility */
+  transition: opacity 1s ease, visibility 1s ease;
+  z-index: 0;
 }
 
 .homepage-banner-slide.active {
   opacity: 1;
+  visibility: visible; /* Chỉ active mới visible */
+  z-index: 1;
 }
 
 .homepage-banner-overlay {
