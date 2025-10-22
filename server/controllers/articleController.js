@@ -559,116 +559,92 @@ exports.suggestTags = async (req, res) => {
  * Params: 
  * - saveAsDraft: true = lưu nháp, false = gửi phê duyệt
  */
+// Hàm createArticle đã sửa (đồng bộ logic lưu nháp)
 exports.createArticle = async (req, res) => {
-  const transaction = await sequelize.transaction();
+  const t = await sequelize.transaction();
   try {
-    const {
-      title, content, category_id, tags_json, source,
-      composition, uses, side_effects, manufacturer,
-      symptoms, treatments, description,
-      saveAsDraft // ← Tham số mới: true = draft, false = pending
-    } = req.body;
+    const { title, content, category_id, tags_json, source, composition, uses, side_effects, manufacturer, symptoms, treatments, description, isDraft = false } = req.body;
 
-    const category = await Category.findByPk(category_id, { transaction });
+    // Log để debug giá trị isDraft
+    console.log('DEBUG: createArticle - isDraft:', isDraft, 'Body:', req.body);
+
+    if (!title || !content || !category_id) {
+      await t.rollback();
+      return res.status(400).json({ success: false, message: 'Vui lòng điền đầy đủ thông tin bắt buộc' });
+    }
+
+    const category = await Category.findByPk(category_id, { transaction: t });
     if (!category) {
-      await transaction.rollback();
-      return res.status(400).json({ success: false, message: 'Danh mục không tồn tại' });
+      await t.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy danh mục' });
     }
 
     const slug = slugify(title, { lower: true, strict: true });
 
-    // Check slug trùng với category
-    const categoryConflict = await Category.findOne({
-      where: { slug, category_type: category.category_type },
-      transaction
-    });
-
-    if (categoryConflict) {
-      await transaction.rollback();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Slug này trùng với danh mục. Vui lòng chọn tiêu đề khác.' 
-      });
-    }
-
-    // Tạo entity nếu là medicine/disease
-    let entity = null;
-    let entityType = 'article';
-
-    if (category.category_type === 'thuoc') {
-      entity = await Medicine.create({
-        category_id,
-        name: title,
-        composition,
-        uses,
-        side_effects,
-        manufacturer,
-        description
-      }, { transaction });
-      entityType = 'medicine';
-    } else if (category.category_type === 'benh_ly') {
-      entity = await Disease.create({
-        category_id,
-        name: title,
-        symptoms,
-        treatments,
-        description
-      }, { transaction });
-      entityType = 'disease';
-    }
-
-    // Xác định status
-    let initialStatus;
-    if (req.user.role === 'admin') {
-      initialStatus = 'approved'; // Admin tự động duyệt
-    } else {
-      initialStatus = saveAsDraft ? 'draft' : 'pending'; // Staff: draft hoặc pending
-    }
-
-    const article = await Article.create({
+    const newArticle = await Article.create({
       title,
       slug,
       content,
       category_id,
       author_id: req.user.id,
-      entity_type: entityType,
-      entity_id: entity ? entity.id : null,
       tags_json: tags_json || [],
-      status: initialStatus,
-      source
-    }, { transaction });
+      source: source || null,
+      status: isDraft ? 'draft' : 'pending' // Set status dựa trên isDraft
+    }, { transaction: t });
 
-    // Lưu lịch sử
-    await createReviewHistory(
-      article.id,
-      req.user.id,
-      req.user.id,
-      req.user.role === 'admin' ? 'approve' : 'submit',
-      req.user.role === 'admin' ? 'Tự động duyệt bởi admin' : null,
-      null,
-      initialStatus,
-      { version: 1 },
-      transaction
-    );
-
-    await transaction.commit();
-
-    // Gửi thông báo nếu là pending (gửi phê duyệt)
-    if (initialStatus === 'pending') {
-      await notifyAllAdmins(
-        'article',
-        `${req.user.full_name} đã tạo bài viết mới "${title}" cần phê duyệt.`,
-        `/articles/review/${article.id}`
-      );
+    let entity;
+    if (category.category_type === 'thuoc') {
+      entity = await Medicine.create({
+        composition,
+        uses,
+        side_effects,
+        manufacturer,
+        description
+      }, { transaction: t });
+      await newArticle.update({ entity_type: 'medicine', entity_id: entity.id }, { transaction: t });
+    } else if (category.category_type === 'benh_ly') {
+      entity = await Disease.create({
+        symptoms,
+        treatments,
+        description
+      }, { transaction: t });
+      await newArticle.update({ entity_type: 'disease', entity_id: entity.id }, { transaction: t });
     }
 
-    res.json({ 
+    // Xử lý history - Chỉ tạo khi không phải draft
+    if (!isDraft) {
+      console.log('DEBUG: createArticle - Gửi phê duyệt, action: submit');
+      await createReviewHistory(
+        newArticle.id,
+        req.user.id,
+        req.user.id,
+        'submit',
+        null,
+        'draft',
+        'pending',
+        null,
+        t
+      );
+
+      await notifyAllAdmins(
+        'article',
+        `${req.user.full_name} đã gửi bài viết mới "${title}" chờ phê duyệt`,
+        `/articles/review/${newArticle.id}`
+      );
+    } else {
+      console.log('DEBUG: createArticle - Lưu nháp, không gửi thông báo');
+    }
+
+    await t.commit();
+
+    const articleData = await loadEntityData(newArticle);
+    res.status(201).json({ 
       success: true, 
-      message: saveAsDraft ? 'Đã lưu nháp' : 'Tạo bài viết thành công', 
-      article 
+      message: isDraft ? 'Đã tạo bản nháp bài viết' : 'Đã tạo và gửi phê duyệt bài viết', 
+      article: articleData 
     });
   } catch (error) {
-    await transaction.rollback();
+    await t.rollback();
     console.error('Error creating article:', error);
     res.status(500).json({ success: false, message: error.message });
   }
@@ -680,131 +656,147 @@ exports.createArticle = async (req, res) => {
  * Quyền: Admin (mọi lúc), Staff/Doctor (chỉ khi draft, request_edit, request_rewrite)
  */
 exports.updateArticle = async (req, res) => {
-  const transaction = await sequelize.transaction();
+  const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const {
-      title, content, category_id, tags_json, source,
-      composition, uses, side_effects, manufacturer,
-      symptoms, treatments, description,
-      saveAsDraft // ← true = lưu draft, false = gửi pending
-    } = req.body;
+    const { title, content, category_id, tags_json, source, composition, uses, side_effects, manufacturer, symptoms, treatments, description, isDraft = false } = req.body;
 
-    const article = await Article.findByPk(id, { transaction });
+    // Log để debug giá trị isDraft
+    console.log('DEBUG: updateArticle - isDraft:', isDraft, 'Body:', req.body);
+
+    const article = await Article.findByPk(id, {
+      include: [
+        { model: Category, as: 'category' },
+        { model: Medicine, as: 'medicine', required: false },
+        { model: Disease, as: 'disease', required: false }
+      ],
+      transaction: t
+    });
+
     if (!article) {
-      await transaction.rollback();
+      await t.rollback();
       return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
     }
 
-    // [SỬA] Lấy trạng thái gốc của bài viết một cách chính xác
-    const originalStatus = article.status;
-
-    // PHÂN QUYỀN
-    if (req.user.role !== 'admin' && article.author_id !== req.user.id) {
-      await transaction.rollback();
-      return res.status(403).json({ success: false, message: 'Bạn không có quyền sửa bài viết này' });
+    // PHÂN QUYỀN: Chỉ tác giả hoặc admin mới update được
+    if (article.author_id !== req.user.id && req.user.role !== 'admin') {
+      await t.rollback();
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền chỉnh sửa bài viết này' });
     }
 
-    // [SỬA] Đảm bảo nhân viên có thể sửa bài ở các trạng thái yêu cầu chỉnh sửa
-    if (req.user.role !== 'admin' && !['draft', 'request_edit', 'request_rewrite'].includes(originalStatus)) {
-      await transaction.rollback();
-      return res.status(403).json({
-        success: false,
-        message: 'Bạn chỉ có thể sửa bài viết ở trạng thái nháp hoặc được phép chỉnh sửa'
-      });
+    // Không cho update nếu đã duyệt mà chưa request edit
+    if (article.status === 'approved' && !['request_edit', 'request_rewrite'].includes(article.status)) {
+      await t.rollback();
+      return res.status(403).json({ success: false, message: 'Bài viết đã duyệt, vui lòng yêu cầu chỉnh sửa trước' });
     }
 
-    const category = await Category.findByPk(category_id || article.category_id, { transaction });
-    if (!category) {
-      await transaction.rollback();
-      return res.status(400).json({ success: false, message: 'Danh mục không tồn tại' });
+    // Không cho update nếu đã từ chối hoặc ẩn (trừ admin)
+    if (['rejected', 'hidden'].includes(article.status) && req.user.role !== 'admin') {
+      await t.rollback();
+      return res.status(403).json({ success: false, message: 'Bài viết đã bị từ chối hoặc ẩn, không thể chỉnh sửa' });
     }
 
-    const newSlug = title ? slugify(title, { lower: true, strict: true }) : article.slug;
+    const previousStatus = article.status;
 
-    // Xác định status mới
-    let newStatus = originalStatus;
-    if (req.user.role !== 'admin') {
-      newStatus = saveAsDraft ? 'draft' : 'pending';
-    }
+    // Cập nhật fields chung
+    const updatedArticle = await article.update({
+      title,
+      slug: slugify(title, { lower: true, strict: true }),
+      content,
+      category_id,
+      tags_json: tags_json || [],
+      source: source || null
+    }, { transaction: t });
 
-    // Cập nhật các trường chính của bài viết
-    await article.update({
-      title: title || article.title,
-      slug: newSlug,
-      content: content || article.content,
-      category_id: category_id || article.category_id,
-      tags_json: tags_json || article.tags_json,
-      source: source || article.source,
-      status: newStatus
-    }, { transaction });
+    // Xử lý entity_type dựa trên category_type
+    const category = await Category.findByPk(category_id, { transaction: t });
+    const categoryType = category ? category.category_type : null;
 
-    // Cập nhật entity (medicine/disease) nếu có
-    if (article.entity_type === 'medicine' && article.entity_id) {
-      const medicine = await Medicine.findByPk(article.entity_id, { transaction });
-      if (medicine) {
-        await medicine.update({
-          name: title || medicine.name,
-          composition: composition || medicine.composition,
-          uses: uses || medicine.uses,
-          side_effects: side_effects || medicine.side_effects,
-          manufacturer: manufacturer || medicine.manufacturer,
-          description: description || medicine.description
-        }, { transaction });
+    if (categoryType === 'thuoc') {
+      let medicine = article.medicine;
+      if (!medicine && article.entity_id) {
+        medicine = await Medicine.findByPk(article.entity_id, { transaction: t });
       }
-    } else if (article.entity_type === 'disease' && article.entity_id) {
-      const disease = await Disease.findByPk(article.entity_id, { transaction });
-      if (disease) {
-        await disease.update({
-          name: title || disease.name,
-          symptoms: symptoms || disease.symptoms,
-          treatments: treatments || disease.treatments,
-          description: description || disease.description
-        }, { transaction });
+      if (!medicine) {
+        medicine = await Medicine.create({}, { transaction: t });
+        await updatedArticle.update({ entity_type: 'medicine', entity_id: medicine.id }, { transaction: t });
       }
+      await medicine.update({
+        composition,
+        uses,
+        side_effects,
+        manufacturer,
+        description
+      }, { transaction: t });
+    } else if (categoryType === 'benh_ly') {
+      let disease = article.disease;
+      if (!disease && article.entity_id) {
+        disease = await Disease.findByPk(article.entity_id, { transaction: t });
+      }
+      if (!disease) {
+        disease = await Disease.create({}, { transaction: t });
+        await updatedArticle.update({ entity_type: 'disease', entity_id: disease.id }, { transaction: t });
+      }
+      await disease.update({
+        symptoms,
+        treatments,
+        description
+      }, { transaction: t });
+    } else {
+      await updatedArticle.update({ entity_type: 'article', entity_id: null }, { transaction: t });
     }
 
-    // [BỔ SUNG] Logic ghi lịch sử cho hành động "gửi lại" (resubmit)
-    // Điều kiện: Trạng thái mới là 'pending' VÀ trạng thái cũ là một trong các trạng thái cần sửa.
-    if (newStatus === 'pending' && ['request_edit', 'request_rewrite'].includes(originalStatus)) {
-      const historyCount = await ArticleReviewHistory.count({
-        where: { article_id: id },
-        transaction
-      });
+    // Xử lý status và history - SỬA Ở ĐÂY
+    let action = null;
+    if (isDraft) {
+      // Log để debug trạng thái khi lưu nháp
+      console.log('DEBUG: updateArticle - Lưu nháp, previousStatus:', previousStatus);
+      
+      if (previousStatus === 'request_rewrite') {
+        // Giữ nguyên status = 'request_rewrite', không tạo history, không gửi thông báo
+        console.log('DEBUG: Giữ nguyên request_rewrite, không gửi thông báo');
+      } else {
+        // Các trạng thái khác: Set về 'draft', không tạo history, không gửi thông báo
+        updatedArticle.status = 'draft';
+        console.log('DEBUG: Set status = draft, không gửi thông báo');
+      }
+    } else {
+      // Gửi phê duyệt: Set 'pending', tạo history, gửi thông báo
+      updatedArticle.status = 'pending';
+      action = previousStatus === 'draft' ? 'submit' : 'resubmit';
+      console.log('DEBUG: Gửi phê duyệt, action:', action);
 
       await createReviewHistory(
-        article.id,
-        req.user.id,      // Người thực hiện là user đang đăng nhập (tác giả)
-        article.author_id,
-        'resubmit',       // Hành động là "gửi lại"
-        'Tác giả gửi lại bài viết sau khi chỉnh sửa.', // Lý do mặc định
-        originalStatus,
-        newStatus,
-        { version: historyCount + 1 },
-        transaction
+        updatedArticle.id,
+        req.user.id, // reviewer là chính mình (tác giả) vì đang submit/resubmit
+        updatedArticle.author_id,
+        action,
+        null,
+        previousStatus,
+        'pending',
+        null,
+        t
       );
-    }
 
-    await transaction.commit();
-
-    // Gửi thông báo nếu bài viết được chuyển sang trạng thái chờ duyệt
-    if (newStatus === 'pending' && originalStatus !== 'pending') {
+      // Gửi thông báo cho tất cả admin
       await notifyAllAdmins(
         'article',
-        `${req.user.full_name} đã cập nhật và gửi phê duyệt bài viết "${article.title}".`,
-        `/phe-duyet-bai-viet/${article.id}` // [SỬA] Dùng slug thay vì ID cho link thân thiện hơn
+        `${req.user.full_name} đã ${action === 'submit' ? 'gửi' : 'gửi lại'} bài viết "${title}" chờ phê duyệt`,
+        `/articles/review/${id}`
       );
     }
 
-    res.json({
-      success: true,
-      message: saveAsDraft ? 'Đã lưu nháp' : 'Cập nhật bài viết thành công và đã gửi đi phê duyệt',
-      article
+    await updatedArticle.save({ transaction: t });
+    await t.commit();
+
+    const updatedData = await loadEntityData(updatedArticle);
+    res.json({ 
+      success: true, 
+      message: isDraft ? 'Đã lưu nháp bài viết' : 'Đã cập nhật và gửi phê duyệt bài viết', 
+      article: updatedData 
     });
   } catch (error) {
-    if (transaction.finished !== 'committed') {
-        await transaction.rollback();
-    }
+    await t.rollback();
     console.error('Error updating article:', error);
     res.status(500).json({ success: false, message: error.message });
   }

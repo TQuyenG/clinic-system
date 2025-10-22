@@ -134,6 +134,33 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
 }
 
+.card-image {
+  width: 100%;
+  height: 200px; /* Fixed height to prevent overflow */
+  position: relative;
+  overflow: hidden; /* Hide overflowing image */
+}
+
+.card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Scale image to fit frame without distortion */
+  object-position: center; /* Center the image */
+}
+
+.no-image-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: red;
+  font-weight: bold;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.5rem;
+  border-radius: 4px;
+  text-align: center;
+}
+
 .card-header {
   display: flex;
   align-items: center;
@@ -163,21 +190,14 @@
   font-weight: 700;
   color: #1a202c;
   margin: 0.5rem 0;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .card-excerpt {
   padding: 0 1.25rem;
   color: #6b7280;
-  font-size: 0.95rem;
-  line-height: 1.6;
-  flex: 1;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  flex-grow: 1;
 }
 
 .card-footer {

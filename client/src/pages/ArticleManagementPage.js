@@ -1,4 +1,4 @@
-// client/src/pages/ArticleManagementPage.js - HOÀN CHỈNH
+// client/src/pages/ArticleManagementPage.js - OPTIMIZED VERSION
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -11,7 +11,8 @@ import {
   FaFilter, FaSortAmountDown, FaSortAmountUp, FaCheck, FaBan, FaRedo,
   FaNewspaper, FaPills, FaDisease, FaFileAlt, FaCopy, FaHistory,
   FaPaperPlane, FaSave, FaExternalLinkAlt, FaSpinner, FaClock,
-  FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaUser
+  FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaUser,
+  FaInfoCircle
 } from 'react-icons/fa';
 import { HideArticlePopup } from '../components/article/ArticleReportComponents';
 import './ArticleManagementPage.css';
@@ -30,6 +31,9 @@ const ArticleManagementPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [showHidePopup, setShowHidePopup] = useState(false);
   const [articleToHide, setArticleToHide] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   const [filters, setFilters] = useState({
     search: '',
@@ -63,6 +67,55 @@ const ArticleManagementPage = () => {
   const [suggestedTags, setSuggestedTags] = useState([]);
   const [selectedCategoryType, setSelectedCategoryType] = useState('');
 
+  // Toast notification system
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  // Confirm dialog
+  const showConfirm = (title, message, onConfirm, confirmText = 'Xác nhận', type = 'warning', onCancelWithoutSave = null, cancelWithoutSaveText = 'Không lưu') => {
+  setConfirmAction({
+    title,
+    message,
+    onConfirm,
+    confirmText,
+    type,
+    onCancelWithoutSave,
+    cancelWithoutSaveText
+  });
+  setShowConfirmDialog(true);
+};
+
+  const closeConfirm = () => {
+    setShowConfirmDialog(false);
+    setConfirmAction(null);
+  };
+
+  const handleConfirm = () => {
+    if (confirmAction?.onConfirm) {
+      confirmAction.onConfirm();
+    }
+    closeConfirm();
+  };
+
+  // Track unsaved changes
+  useEffect(() => {
+    if (showModal) {
+      const hasData = formData.title || formData.content || formData.category_id;
+      setHasUnsavedChanges(hasData);
+    }
+  }, [formData, showModal]);
+
   // Custom Upload Adapter cho CKEditor
   class MyUploadAdapter {
     constructor(loader) {
@@ -71,10 +124,10 @@ const ArticleManagementPage = () => {
 
     upload() {
       return this.loader.file.then(file => new Promise((resolve, reject) => {
-        const formData = new FormData();
-        formData.append('upload', file);
+        const formDataUpload = new FormData();
+        formDataUpload.append('upload', file);
 
-        axios.post(`${API_BASE_URL}/api/upload/image`, formData, {
+        axios.post(`${API_BASE_URL}/api/upload/image`, formDataUpload, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'multipart/form-data'
@@ -107,75 +160,15 @@ const ArticleManagementPage = () => {
     toolbar: {
       items: [
         'heading', '|',
-        'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
-        'bold', 'italic', 'underline', 'strikethrough', 'code', 'subscript', 'superscript', '|',
-        'alignment', '|',
-        'bulletedList', 'numberedList', 'todoList', '|',
-        'outdent', 'indent', '|',
-        'link', 'imageUpload', 'insertTable', 'mediaEmbed', 'blockQuote', 'codeBlock', 'horizontalLine', '|',
-        'highlight', 'removeFormat', '|',
-        'undo', 'redo', '|',
-        'sourceEditing'
+        'bold', 'italic', 'underline', '|',
+        'link', 'imageUpload', 'insertTable', '|',
+        'bulletedList', 'numberedList', '|',
+        'undo', 'redo'
       ],
       shouldNotGroupWhenFull: true
     },
-    fontSize: {
-      options: [9, 11, 13, 'default', 17, 19, 21, 24, 28, 32, 36],
-      supportAllValues: true
-    },
-    fontFamily: {
-      options: [
-        'default',
-        'Arial, Helvetica, sans-serif',
-        'Courier New, Courier, monospace',
-        'Georgia, serif',
-        'Lucida Sans Unicode, Lucida Grande, sans-serif',
-        'Tahoma, Geneva, sans-serif',
-        'Times New Roman, Times, serif',
-        'Trebuchet MS, Helvetica, sans-serif',
-        'Verdana, Geneva, sans-serif'
-      ],
-      supportAllValues: true
-    },
-    heading: {
-      options: [
-        { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
-        { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
-        { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
-        { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
-        { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' },
-        { model: 'heading5', view: 'h5', title: 'Heading 5', class: 'ck-heading_heading5' },
-        { model: 'heading6', view: 'h6', title: 'Heading 6', class: 'ck-heading_heading6' }
-      ]
-    },
     image: {
-      toolbar: [
-        'imageTextAlternative', 'toggleImageCaption', '|',
-        'imageStyle:inline', 'imageStyle:block', 'imageStyle:side', '|',
-        'linkImage'
-      ],
-      styles: ['full', 'side', 'alignLeft', 'alignCenter', 'alignRight']
-    },
-    table: {
-      contentToolbar: [
-        'tableColumn', 'tableRow', 'mergeTableCells',
-        'tableCellProperties', 'tableProperties'
-      ]
-    },
-    link: {
-      decorators: {
-        openInNewTab: {
-          mode: 'manual',
-          label: 'Open in a new tab',
-          attributes: {
-            target: '_blank',
-            rel: 'noopener noreferrer'
-          }
-        }
-      }
-    },
-    mediaEmbed: {
-      previewsInData: true
+      toolbar: ['imageTextAlternative', 'toggleImageCaption', 'imageStyle:inline', 'imageStyle:block']
     }
   };
 
@@ -197,6 +190,7 @@ const ArticleManagementPage = () => {
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
+      showToast('Lỗi tải danh mục', 'error');
     }
   };
 
@@ -231,6 +225,7 @@ const ArticleManagementPage = () => {
       }
     } catch (error) {
       console.error('Error fetching articles:', error);
+      showToast('Lỗi tải danh sách bài viết', 'error');
     } finally {
       setLoading(false);
     }
@@ -310,11 +305,63 @@ const ArticleManagementPage = () => {
       });
       setSelectedCategoryType('');
     }
+    setHasUnsavedChanges(false);
   };
 
   const closeModal = () => {
+  if (hasUnsavedChanges) {
+    showConfirm(
+      'Xác nhận đóng',
+      'Bạn có thay đổi chưa lưu. Bạn có muốn lưu nháp trước khi đóng?',
+      async () => {
+        await handleSubmit(null, true);
+      },
+      'Lưu nháp',
+      'warning',
+      () => {
+        setShowModal(false);
+        setFormData({
+          title: '',
+          content: '',
+          category_id: '',
+          tags_json: [],
+          source: '',
+          composition: '',
+          uses: '',
+          side_effects: '',
+          manufacturer: '',
+          symptoms: '',
+          treatments: '',
+          description: ''
+        });
+        setSelectedCategoryType('');
+        setTagInput('');
+        setHasUnsavedChanges(false);
+      }
+    );
+  } else {
     setShowModal(false);
-    setSelectedArticle(null);
+    setFormData({
+      title: '',
+      content: '',
+      category_id: '',
+      tags_json: [],
+      source: '',
+      composition: '',
+      uses: '',
+      side_effects: '',
+      manufacturer: '',
+      symptoms: '',
+      treatments: '',
+      description: ''
+    });
+    setSelectedCategoryType('');
+    setTagInput('');
+    setHasUnsavedChanges(false);
+  }
+};
+
+  const resetForm = () => {
     setFormData({
       title: '',
       content: '',
@@ -331,6 +378,7 @@ const ArticleManagementPage = () => {
     });
     setTagInput('');
     setSuggestedTags([]);
+    setHasUnsavedChanges(false);
   };
 
   const handleFormChange = (e) => {
@@ -385,110 +433,154 @@ const ArticleManagementPage = () => {
     return () => clearTimeout(timeout);
   }, [tagInput, fetchSuggestedTags]);
 
-  const handleSubmit = async (e, saveAsDraft = false) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem('token');
-      const data = { 
-        ...formData, 
-        saveAsDraft
-      };
+  const handleSubmit = async (e, isDraft = false) => {
+  if (e && typeof e.preventDefault === 'function') {
+  e.preventDefault();
+}
+  console.log('DEBUG: handleSubmit - isDraft:', isDraft, 'formData:', formData); // Debug giá trị isDraft và formData
 
-      let response;
-      if (modalType === 'create') {
-        response = await axios.post(`${API_BASE_URL}/api/articles`, data, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      } else if (modalType === 'edit') {
-        response = await axios.put(
-          `${API_BASE_URL}/api/articles/${selectedArticle.id}`,
-          data,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
+  if (!formData.title || !formData.content || !formData.category_id) {
+    showToast('Vui lòng điền đầy đủ tiêu đề, nội dung và danh mục', 'error');
+    return;
+  }
 
-      if (response.data.success) {
-        alert(saveAsDraft ? 'Đã lưu nháp' : response.data.message);
-        closeModal();
-        fetchArticles();
-      }
-    } catch (error) {
-      console.error('Error submitting article:', error);
-      alert('Lỗi: ' + (error.response?.data?.message || error.message));
-    }
+  const token = localStorage.getItem('token');
+  const payload = {
+    ...formData,
+    tags_json: formData.tags_json,
+    isDraft // Đảm bảo gửi isDraft
   };
 
+  try {
+    let response;
+    if (modalType === 'create') {
+      response = await axios.post(`${API_BASE_URL}/api/articles`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } else if (modalType === 'edit' && selectedArticle) {
+      response = await axios.put(`${API_BASE_URL}/api/articles/${selectedArticle.id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    }
+
+    if (response.data.success) {
+      showToast(isDraft ? 'Lưu nháp thành công' : 'Gửi phê duyệt thành công', 'success');
+      setShowModal(false);
+      setFormData({
+        title: '',
+        content: '',
+        category_id: '',
+        tags_json: [],
+        source: '',
+        composition: '',
+        uses: '',
+        side_effects: '',
+        manufacturer: '',
+        symptoms: '',
+        treatments: '',
+        description: ''
+      });
+      setSelectedCategoryType('');
+      setTagInput('');
+      setHasUnsavedChanges(false);
+      fetchArticles();
+    }
+  } catch (error) {
+    console.error('Error submitting article:', error);
+    showToast(error.response?.data?.message || 'Lỗi khi gửi bài viết', 'error');
+  }
+};
+
   const handleDeleteArticle = async (article) => {
-    // Kiểm tra quyền xóa
     if (user.role !== 'admin' && article.status !== 'draft') {
-      alert('Bạn chỉ có thể xóa bài viết ở trạng thái nháp');
+      showToast('Bạn chỉ có thể xóa bài viết ở trạng thái nháp', 'error');
       return;
     }
 
     if (user.role !== 'admin' && article.author_id !== user.id) {
-      alert('Bạn không có quyền xóa bài viết này');
+      showToast('Bạn không có quyền xóa bài viết này', 'error');
       return;
     }
 
-    if (!window.confirm('Bạn chắc chắn muốn xóa bài viết này?')) return;
+    showConfirm(
+      'Xác nhận xóa',
+      `Bạn có chắc chắn muốn xóa bài viết "${article.title}" không? Hành động này không thể hoàn tác.`,
+      async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await axios.delete(`${API_BASE_URL}/api/articles/${article.id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
 
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.delete(`${API_BASE_URL}/api/articles/${article.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (response.data.success) {
-        alert('Đã xóa bài viết');
-        fetchArticles();
-      }
-    } catch (error) {
-      console.error('Error deleting article:', error);
-      alert('Lỗi: ' + (error.response?.data?.message || error.message));
-    }
+          if (response.data.success) {
+            showToast('Đã xóa bài viết thành công', 'success');
+            fetchArticles();
+          }
+        } catch (error) {
+          console.error('Error deleting article:', error);
+          showToast('Lỗi: ' + (error.response?.data?.message || error.message), 'error');
+        }
+      },
+      'Xóa',
+      'danger'
+    );
   };
 
-  const handleDuplicateArticle = async (id) => {
-    if (!window.confirm('Bạn chắc chắn muốn nhân bản bài viết này?')) return;
+  const handleDuplicateArticle = async (article) => {
+    showConfirm(
+      'Xác nhận nhân bản',
+      `Bạn có muốn tạo bản sao của bài viết "${article.title}" không?`,
+      async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await axios.post(
+            `${API_BASE_URL}/api/articles/${article.id}/duplicate`,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
 
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_BASE_URL}/api/articles/${id}/duplicate`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (response.data.success) {
-        alert('Đã nhân bản bài viết');
-        fetchArticles();
-      }
-    } catch (error) {
-      console.error('Error duplicating article:', error);
-      alert('Lỗi: ' + (error.response?.data?.message || error.message));
-    }
+          if (response.data.success) {
+            showToast('Đã nhân bản bài viết thành công', 'success');
+            fetchArticles();
+          }
+        } catch (error) {
+          console.error('Error duplicating article:', error);
+          showToast('Lỗi: ' + (error.response?.data?.message || error.message), 'error');
+        }
+      },
+      'Nhân bản',
+      'info'
+    );
   };
 
   const handleRequestEdit = async (article) => {
     const reason = prompt('Nhập lý do yêu cầu chỉnh sửa (max 500 ký tự):');
     if (!reason) return;
 
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_BASE_URL}/api/articles/${article.id}/request-edit`,
-        { reason: reason.substring(0, 500) },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    showConfirm(
+      'Gửi yêu cầu chỉnh sửa',
+      'Bạn có chắc chắn muốn gửi yêu cầu chỉnh sửa đến admin không?',
+      async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await axios.post(
+            `${API_BASE_URL}/api/articles/${article.id}/request-edit`,
+            { reason: reason.substring(0, 500) },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
 
-      if (response.data.success) {
-        alert('Đã gửi yêu cầu chỉnh sửa đến admin');
-        fetchArticles();
-      }
-    } catch (error) {
-      console.error('Error requesting edit:', error);
-      alert('Lỗi: ' + (error.response?.data?.message || error.message));
-    }
+          if (response.data.success) {
+            showToast('Đã gửi yêu cầu chỉnh sửa thành công', 'success');
+            fetchArticles();
+          }
+        } catch (error) {
+          console.error('Error requesting edit:', error);
+          showToast('Lỗi: ' + (error.response?.data?.message || error.message), 'error');
+        }
+      },
+      'Gửi yêu cầu',
+      'warning'
+    );
   };
 
   const handleFileUpload = async (e) => {
@@ -497,7 +589,7 @@ const ArticleManagementPage = () => {
 
     const MAX_FILE_SIZE = 10 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
-      alert(`File quá lớn! Vui lòng chọn file nhỏ hơn ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+      showToast(`File quá lớn! Vui lòng chọn file nhỏ hơn ${MAX_FILE_SIZE / 1024 / 1024}MB`, 'error');
       e.target.value = '';
       return;
     }
@@ -507,22 +599,21 @@ const ArticleManagementPage = () => {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.convertToHtml({ arrayBuffer });
         setFormData(prev => ({ ...prev, content: result.value }));
-        alert('Đã import nội dung từ Word');
+        showToast('Đã import nội dung từ Word', 'success');
       } else if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const html = XLSX.utils.sheet_to_html(worksheet);
         setFormData(prev => ({ ...prev, content: html }));
-        alert('Đã import bảng từ Excel');
+        showToast('Đã import bảng từ Excel', 'success');
       }
     } catch (error) {
       console.error('Error uploading file:', error);
-      alert('Lỗi khi xử lý file. Vui lòng thử lại.');
+      showToast('Lỗi khi xử lý file. Vui lòng thử lại.', 'error');
     }
   };
 
-  // Hàm lấy URL bài viết theo status
   const getArticleLink = (article) => {
     const typeMap = {
       'tin_tuc': 'tin-tuc',
@@ -532,22 +623,18 @@ const ArticleManagementPage = () => {
 
     const categoryType = typeMap[article.category?.category_type] || 'tin-tuc';
 
-    // Draft: Mở popup chỉnh sửa
     if (article.status === 'draft') {
-      return null; // Sẽ dùng onClick để mở modal
+      return null;
     }
 
-    // Pending, request_edit, hidden: Đến trang review
     if (['pending', 'request_edit', 'hidden', 'request_rewrite'].includes(article.status)) {
       return `/phe-duyet-bai-viet/${article.id}`;
     }
 
-    // Approved: Đến trang chi tiết public
     if (article.status === 'approved') {
       return `/${categoryType}/${article.slug}`;
     }
 
-    // Rejected: Đến trang review
     if (article.status === 'rejected') {
       return `/phe-duyet-bai-viet/${article.id}`;
     }
@@ -610,21 +697,20 @@ const ArticleManagementPage = () => {
     });
   };
 
-  // Render actions theo status & role
   const renderActions = (article) => {
     const isAuthor = article.author_id === user.id;
     const isAdmin = user.role === 'admin';
 
     return (
       <div className="article-mgmt-actions-cell">
-        {/* NÚT XEM CHI TIẾT */}
-        {['pending', 'request_edit', 'hidden', 'rejected', 'request_rewrite'].includes(article.status) && (
+        {/* NÚT XEM CHI TIẾT - Hiện với mọi bài viết trừ draft */}
+        {article.status !== 'draft' && (
           <button
             className="article-mgmt-btn-action view"
             onClick={() => navigate(`/phe-duyet-bai-viet/${article.id}`)}
             title="Xem chi tiết"
           >
-            <FaEye />
+            <FaInfoCircle />
           </button>
         )}
 
@@ -639,18 +725,7 @@ const ArticleManagementPage = () => {
           </button>
         )}
 
-        {/* NÚT PHÊ DUYỆT (Admin + Pending) */}
-        {isAdmin && article.status === 'pending' && (
-          <button
-            className="article-mgmt-btn-action review"
-            onClick={() => navigate(`/phe-duyet-bai-viet/${article.id}`)}
-            title="Phê duyệt"
-          >
-            <FaCheck />
-          </button>
-        )}
-
-        {/* NÚT YÊU CẦU CHỈNH SỬA (Tác giả + Approved) */}
+        {/* NÚT YÊU CẦU CHỈNH SỬA */}
         {isAuthor && !isAdmin && article.status === 'approved' && (
           <button
             className="article-mgmt-btn-action request"
@@ -661,7 +736,7 @@ const ArticleManagementPage = () => {
           </button>
         )}
 
-        {/* NÚT ẨN/HIỆN (Admin) */}
+        {/* NÚT ẨN/HIỆN */}
         {isAdmin && article.status === 'approved' && (
           <button
             className="article-mgmt-btn-action visibility"
@@ -669,9 +744,9 @@ const ArticleManagementPage = () => {
               setArticleToHide(article);
               setShowHidePopup(true);
             }}
-            title={article.status === 'hidden' ? 'Đã ẩn' : 'Ẩn bài viết'}
+            title="Ẩn bài viết"
           >
-            {article.status === 'hidden' ? <FaEye /> : <FaEyeSlash />}
+            <FaEyeSlash />
           </button>
         )}
 
@@ -689,7 +764,7 @@ const ArticleManagementPage = () => {
         {/* NÚT NHÂN BẢN */}
         <button
           className="article-mgmt-btn-action duplicate"
-          onClick={() => handleDuplicateArticle(article.id)}
+          onClick={() => handleDuplicateArticle(article)}
           title="Nhân bản"
         >
           <FaCopy />
@@ -837,7 +912,6 @@ const ArticleManagementPage = () => {
                   <th>Trạng thái</th>
                   <th>Tác giả</th>
                   
-                  {/* Cột đặc biệt cho Medicine */}
                   {activeTab === 'medicine' && (
                     <>
                       <th>Thành phần</th>
@@ -846,7 +920,6 @@ const ArticleManagementPage = () => {
                     </>
                   )}
                   
-                  {/* Cột đặc biệt cho Disease */}
                   {activeTab === 'disease' && (
                     <>
                       <th>Triệu chứng</th>
@@ -895,7 +968,6 @@ const ArticleManagementPage = () => {
                         </div>
                       </td>
                       
-                      {/* Data cho Medicine */}
                       {activeTab === 'medicine' && (
                         <>
                           <td className="article-mgmt-cell-truncate">
@@ -910,7 +982,6 @@ const ArticleManagementPage = () => {
                         </>
                       )}
                       
-                      {/* Data cho Disease */}
                       {activeTab === 'disease' && (
                         <>
                           <td className="article-mgmt-cell-truncate">
@@ -981,133 +1052,116 @@ const ArticleManagementPage = () => {
 
               <div className="article-mgmt-modal-body">
                 <form onSubmit={handleSubmit} className="article-mgmt-form">
-                  {/* Tiêu đề */}
-                  <div className="article-mgmt-form-group">
-                    <label className="article-mgmt-form-label">
-                      <FaNewspaper /> Tiêu đề *
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleFormChange}
-                      className="article-mgmt-form-input"
-                      required
-                    />
+                  <div className="article-mgmt-form-row">
+                    <div className="article-mgmt-form-group">
+                      <label className="article-mgmt-form-label">
+                        <FaNewspaper /> Tiêu đề *
+                      </label>
+                      <input
+                        type="text"
+                        name="title"
+                        value={formData.title}
+                        onChange={handleFormChange}
+                        className="article-mgmt-form-input"
+                        required
+                      />
+                    </div>
+
+                    <div className="article-mgmt-form-group">
+                      <label className="article-mgmt-form-label">Danh mục *</label>
+                      <select
+                        name="category_id"
+                        value={formData.category_id}
+                        onChange={(e) => handleCategoryChange(e.target.value)}
+                        className="article-mgmt-form-select"
+                        required
+                      >
+                        <option value="">Chọn danh mục</option>
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Danh mục */}
-                  <div className="article-mgmt-form-group">
-                    <label className="article-mgmt-form-label">Danh mục *</label>
-                    <select
-                      name="category_id"
-                      value={formData.category_id}
-                      onChange={(e) => handleCategoryChange(e.target.value)}
-                      className="article-mgmt-form-select"
-                      required
-                    >
-                      <option value="">Chọn danh mục</option>
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Các trường cho Medicine */}
                   {selectedCategoryType === 'thuoc' && (
                     <div className="article-mgmt-medical-fields">
                       <h4>Thông tin thuốc</h4>
-                      <div className="article-mgmt-form-group">
-                        <label className="article-mgmt-form-label">Thành phần</label>
-                        <textarea
-                          name="composition"
-                          value={formData.composition}
-                          onChange={handleFormChange}
-                          className="article-mgmt-form-textarea"
-                          rows="3"
-                        />
+                      <div className="article-mgmt-form-row">
+                        <div className="article-mgmt-form-group">
+                          <label className="article-mgmt-form-label">Thành phần</label>
+                          <textarea
+                            name="composition"
+                            value={formData.composition}
+                            onChange={handleFormChange}
+                            className="article-mgmt-form-textarea"
+                            rows="2"
+                          />
+                        </div>
+                        <div className="article-mgmt-form-group">
+                          <label className="article-mgmt-form-label">Nhà sản xuất</label>
+                          <input
+                            type="text"
+                            name="manufacturer"
+                            value={formData.manufacturer}
+                            onChange={handleFormChange}
+                            className="article-mgmt-form-input"
+                          />
+                        </div>
                       </div>
-                      <div className="article-mgmt-form-group">
-                        <label className="article-mgmt-form-label">Công dụng</label>
-                        <textarea
-                          name="uses"
-                          value={formData.uses}
-                          onChange={handleFormChange}
-                          className="article-mgmt-form-textarea"
-                          rows="3"
-                        />
-                      </div>
-                      <div className="article-mgmt-form-group">
-                        <label className="article-mgmt-form-label">Tác dụng phụ</label>
-                        <textarea
-                          name="side_effects"
-                          value={formData.side_effects}
-                          onChange={handleFormChange}
-                          className="article-mgmt-form-textarea"
-                          rows="3"
-                        />
-                      </div>
-                      <div className="article-mgmt-form-group">
-                        <label className="article-mgmt-form-label">Nhà sản xuất</label>
-                        <input
-                          type="text"
-                          name="manufacturer"
-                          value={formData.manufacturer}
-                          onChange={handleFormChange}
-                          className="article-mgmt-form-input"
-                        />
-                      </div>
-                      <div className="article-mgmt-form-group">
-                        <label className="article-mgmt-form-label">Mô tả</label>
-                        <textarea
-                          name="description"
-                          value={formData.description}
-                          onChange={handleFormChange}
-                          className="article-mgmt-form-textarea"
-                          rows="3"
-                        />
+                      <div className="article-mgmt-form-row">
+                        <div className="article-mgmt-form-group">
+                          <label className="article-mgmt-form-label">Công dụng</label>
+                          <textarea
+                            name="uses"
+                            value={formData.uses}
+                            onChange={handleFormChange}
+                            className="article-mgmt-form-textarea"
+                            rows="2"
+                          />
+                        </div>
+                        <div className="article-mgmt-form-group">
+                          <label className="article-mgmt-form-label">Tác dụng phụ</label>
+                          <textarea
+                            name="side_effects"
+                            value={formData.side_effects}
+                            onChange={handleFormChange}
+                            className="article-mgmt-form-textarea"
+                            rows="2"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Các trường cho Disease */}
                   {selectedCategoryType === 'benh_ly' && (
                     <div className="article-mgmt-medical-fields">
                       <h4>Thông tin bệnh lý</h4>
-                      <div className="article-mgmt-form-group">
-                        <label className="article-mgmt-form-label">Triệu chứng</label>
-                        <textarea
-                          name="symptoms"
-                          value={formData.symptoms}
-                          onChange={handleFormChange}
-                          className="article-mgmt-form-textarea"
-                          rows="3"
-                        />
-                      </div>
-                      <div className="article-mgmt-form-group">
-                        <label className="article-mgmt-form-label">Điều trị</label>
-                        <textarea
-                          name="treatments"
-                          value={formData.treatments}
-                          onChange={handleFormChange}
-                          className="article-mgmt-form-textarea"
-                          rows="3"
-                        />
-                      </div>
-                      <div className="article-mgmt-form-group">
-                        <label className="article-mgmt-form-label">Mô tả</label>
-                        <textarea
-                          name="description"
-                          value={formData.description}
-                          onChange={handleFormChange}
-                          className="article-mgmt-form-textarea"
-                          rows="3"
-                        />
+                      <div className="article-mgmt-form-row">
+                        <div className="article-mgmt-form-group">
+                          <label className="article-mgmt-form-label">Triệu chứng</label>
+                          <textarea
+                            name="symptoms"
+                            value={formData.symptoms}
+                            onChange={handleFormChange}
+                            className="article-mgmt-form-textarea"
+                            rows="2"
+                          />
+                        </div>
+                        <div className="article-mgmt-form-group">
+                          <label className="article-mgmt-form-label">Điều trị</label>
+                          <textarea
+                            name="treatments"
+                            value={formData.treatments}
+                            onChange={handleFormChange}
+                            className="article-mgmt-form-textarea"
+                            rows="2"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Nội dung */}
                   <div className="article-mgmt-form-group">
                     <label className="article-mgmt-form-label">
                       <FaFileAlt /> Nội dung *
@@ -1120,82 +1174,77 @@ const ArticleManagementPage = () => {
                     />
                   </div>
 
-                  {/* Tags */}
-                  <div className="article-mgmt-form-group">
-                    <label className="article-mgmt-form-label">Tags</label>
-                    <div className="article-mgmt-tags-container">
-                      {formData.tags_json.map((tag, index) => (
-                        <span key={index} className="article-mgmt-tag-item">
-                          {tag}
-                          <button
-                            type="button"
-                            onClick={() => removeTag(index)}
-                            className="article-mgmt-tag-remove"
-                          >
-                            <FaTimes />
-                          </button>
-                        </span>
-                      ))}
+                  <div className="article-mgmt-form-row">
+                    <div className="article-mgmt-form-group">
+                      <label className="article-mgmt-form-label">Tags</label>
+                      <div className="article-mgmt-tags-container">
+                        {formData.tags_json.map((tag, index) => (
+                          <span key={index} className="article-mgmt-tag-item">
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => removeTag(index)}
+                              className="article-mgmt-tag-remove"
+                            >
+                              <FaTimes />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="article-mgmt-tag-input-wrapper">
+                        <input
+                          type="text"
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addTag(tagInput);
+                            }
+                          }}
+                          className="article-mgmt-form-input"
+                          placeholder="Nhập tag và nhấn Enter"
+                        />
+                        {suggestedTags.length > 0 && (
+                          <div className="article-mgmt-tags-suggest">
+                            {suggestedTags.map((tag, index) => (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={() => addTag(tag)}
+                                className="article-mgmt-tag-suggest-item"
+                              >
+                                {tag}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="article-mgmt-tag-input-wrapper">
+
+                    <div className="article-mgmt-form-group">
+                      <label className="article-mgmt-form-label">Nguồn</label>
                       <input
                         type="text"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addTag(tagInput);
-                          }
-                        }}
+                        name="source"
+                        value={formData.source}
+                        onChange={handleFormChange}
                         className="article-mgmt-form-input"
-                        placeholder="Nhập tag và nhấn Enter"
+                        placeholder="https://..."
                       />
-                      {suggestedTags.length > 0 && (
-                        <div className="article-mgmt-tags-suggest">
-                          {suggestedTags.map((tag, index) => (
-                            <button
-                              key={index}
-                              type="button"
-                              onClick={() => addTag(tag)}
-                              className="article-mgmt-tag-suggest-item"
-                            >
-                              {tag}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <label className="article-mgmt-form-label" style={{marginTop: '1rem'}}>Import từ file</label>
+                      <input
+                        type="file"
+                        accept=".docx,.xlsx"
+                        onChange={handleFileUpload}
+                        className="article-mgmt-form-file"
+                      />
+                      <small className="article-mgmt-form-hint">
+                        Hỗ trợ: .docx, .xlsx (Max 10MB)
+                      </small>
                     </div>
                   </div>
 
-                  {/* Nguồn */}
-                  <div className="article-mgmt-form-group">
-                    <label className="article-mgmt-form-label">Nguồn</label>
-                    <input
-                      type="text"
-                      name="source"
-                      value={formData.source}
-                      onChange={handleFormChange}
-                      className="article-mgmt-form-input"
-                      placeholder="https://..."
-                    />
-                  </div>
-
-                  {/* Import File */}
-                  <div className="article-mgmt-form-group">
-                    <label className="article-mgmt-form-label">Import từ file</label>
-                    <input
-                      type="file"
-                      accept=".docx,.xlsx"
-                      onChange={handleFileUpload}
-                      className="article-mgmt-form-file"
-                    />
-                    <small className="article-mgmt-form-hint">
-                      Hỗ trợ: .docx, .xlsx (Max 10MB)
-                    </small>
-                  </div>
-
-                  {/* Form Actions */}
                   <div className="article-mgmt-form-actions">
                     <button
                       type="submit"
@@ -1225,6 +1274,67 @@ const ArticleManagementPage = () => {
           </div>
         )}
 
+        {/* Confirm Dialog */}
+        {showConfirmDialog && confirmAction && (
+          <div className="article-mgmt-confirm-overlay" onClick={closeConfirm}>
+            <div className={`article-mgmt-confirm-dialog ${confirmAction.type}`} onClick={(e) => e.stopPropagation()}>
+              <div className="article-mgmt-confirm-icon">
+                {confirmAction.type === 'danger' && <FaExclamationTriangle />}
+                {confirmAction.type === 'warning' && <FaExclamationTriangle />}
+                {confirmAction.type === 'info' && <FaInfoCircle />}
+              </div>
+              <h3 className="article-mgmt-confirm-title">{confirmAction.title}</h3>
+              <p className="article-mgmt-confirm-message">{confirmAction.message}</p>
+              <div className="article-mgmt-confirm-actions">
+              <button
+                className={`article-mgmt-btn article-mgmt-btn-${confirmAction.type === 'danger' ? 'danger' : confirmAction.type === 'warning' ? 'warning' : 'primary'}`}
+                onClick={handleConfirm}
+              >
+                {confirmAction.confirmText}
+              </button>
+              {confirmAction.onCancelWithoutSave && (
+                <button
+                  className="article-mgmt-btn article-mgmt-btn-danger"
+                  onClick={() => {
+                    confirmAction.onCancelWithoutSave();
+                    closeConfirm();
+                  }}
+                >
+                  {confirmAction.cancelWithoutSaveText}
+                </button>
+              )}
+              <button
+                className="article-mgmt-btn article-mgmt-btn-cancel"
+                onClick={closeConfirm}
+              >
+                Quay lại
+              </button>
+            </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toast Notifications */}
+        <div className="article-mgmt-toast-container">
+          {toasts.map(toast => (
+            <div key={toast.id} className={`article-mgmt-toast ${toast.type}`}>
+              <div className="article-mgmt-toast-icon">
+                {toast.type === 'success' && <FaCheckCircle />}
+                {toast.type === 'error' && <FaTimesCircle />}
+                {toast.type === 'warning' && <FaExclamationTriangle />}
+                {toast.type === 'info' && <FaInfoCircle />}
+              </div>
+              <span className="article-mgmt-toast-message">{toast.message}</span>
+              <button
+                className="article-mgmt-toast-close"
+                onClick={() => removeToast(toast.id)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+          ))}
+        </div>
+
         {/* Popup ẩn bài viết */}
         {showHidePopup && articleToHide && (
           <HideArticlePopup
@@ -1237,6 +1347,7 @@ const ArticleManagementPage = () => {
             onSuccess={() => {
               setShowHidePopup(false);
               setArticleToHide(null);
+              showToast('Đã ẩn bài viết thành công', 'success');
               fetchArticles();
             }}
           />

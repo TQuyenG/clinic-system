@@ -1,3 +1,4 @@
+// client/src/pages/ArticlesListPage.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -91,6 +92,14 @@ const ArticlesListPage = ({ type }) => {
   const truncateContent = (html, maxLength = 150) => {
     const text = html.replace(/<[^>]*>/g, '');
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  };
+
+  // Hàm lấy src img đầu tiên từ content HTML
+  const getFirstImage = (html) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const img = doc.querySelector('img');
+    return img ? img.src : null;
   };
 
   const getBreadcrumbItems = () => {
@@ -197,6 +206,17 @@ const ArticlesListPage = ({ type }) => {
                 className="article-card"
                 onClick={() => navigate(getCategoryTypeUrl(article))}
               >
+                <div className="card-image">
+                  <img 
+                    src={getFirstImage(article.content) || '/placeholder.jpg'} // Placeholder nếu không có img
+                    alt={article.title} 
+                  />
+                  {!getFirstImage(article.content) && (
+                    <div className="no-image-overlay">
+                      Chưa có ảnh đại diện
+                    </div>
+                  )}
+                </div>
                 <div className="card-header">
                   <span className="category-name">{article.category?.name}</span>
                 </div>

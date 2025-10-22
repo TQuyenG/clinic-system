@@ -1,5 +1,5 @@
 // ============================================
-// SpecialtyManagementPage.js - Improved Design
+// SpecialtyManagementPage.js - Redesigned
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -12,9 +12,12 @@ import {
   FaStethoscope,
   FaHospital,
   FaUserMd,
-  FaTable,
   FaCalendarAlt,
-  FaInfoCircle
+  FaInfoCircle,
+  FaSearch,
+  FaSortUp,
+  FaSortDown,
+  FaSort
 } from 'react-icons/fa';
 import './SpecialtyManagementPage.css';
 
@@ -24,6 +27,8 @@ const SpecialtyManagementPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [currentSpecialty, setCurrentSpecialty] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -51,6 +56,7 @@ const SpecialtyManagementPage = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -149,134 +155,216 @@ const SpecialtyManagementPage = () => {
     }
   };
 
+  // Sorting function
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Get sorted and filtered data
+  const getSortedAndFilteredData = () => {
+    let filtered = specialties.filter(spec => 
+      spec.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (spec.slug && spec.slug.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+
+        if (sortConfig.key === 'doctorCount') {
+          aVal = aVal || 0;
+          bVal = bVal || 0;
+        }
+
+        if (sortConfig.key === 'created_at') {
+          aVal = new Date(aVal);
+          bVal = new Date(bVal);
+        }
+
+        if (aVal < bVal) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aVal > bVal) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filtered;
+  };
+
+  const filteredSpecialties = getSortedAndFilteredData();
+
   // Calculate statistics
   const totalSpecialties = specialties.length;
   const totalDoctors = specialties.reduce((sum, spec) => sum + (spec.doctorCount || 0), 0);
   const avgDoctorsPerSpecialty = totalSpecialties > 0 ? Math.round(totalDoctors / totalSpecialties) : 0;
 
+  // Sort icon component
+  const SortIcon = ({ columnKey }) => {
+    if (sortConfig.key !== columnKey) {
+      return <FaSort className="spec-sort-icon" />;
+    }
+    return sortConfig.direction === 'asc' ? 
+      <FaSortUp className="spec-sort-icon active" /> : 
+      <FaSortDown className="spec-sort-icon active" />;
+  };
+
   if (loading) {
     return (
-      <div className="specialty-mgmt-page">
-        <div className="specialty-mgmt-loading">
-          <div className="specialty-mgmt-spinner"></div>
-          <p className="specialty-mgmt-loading-text">Đang tải dữ liệu...</p>
+      <div className="spec-page">
+        <div className="spec-loading">
+          <div className="spec-spinner"></div>
+          <p className="spec-loading-text">Đang tải dữ liệu...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="specialty-mgmt-page">
-      <div className="specialty-mgmt-container">
+    <div className="spec-page">
+      <div className="spec-container">
         {/* Header */}
-        <div className="specialty-mgmt-header">
-          <div className="specialty-mgmt-header-content">
-            <div className="specialty-mgmt-title-section">
-              <h1 className="specialty-mgmt-title">
-                <FaStethoscope className="specialty-mgmt-title-icon" />
+        <div className="spec-header">
+          <div className="spec-header-content">
+            <div className="spec-title-section">
+              <h1 className="spec-title">
+                <FaStethoscope className="spec-title-icon" />
                 Quản lý Chuyên khoa
               </h1>
-              <p className="specialty-mgmt-subtitle">
+              <p className="spec-subtitle">
                 Quản lý danh sách chuyên khoa y tế và phân bổ bác sĩ
               </p>
             </div>
-            <button className="specialty-mgmt-btn specialty-mgmt-btn-primary" onClick={openCreateModal}>
+            <button className="spec-btn spec-btn-primary" onClick={openCreateModal}>
               <FaPlus /> Thêm chuyên khoa
             </button>
           </div>
         </div>
 
-        {/* Info Cards */}
-        <div className="specialty-mgmt-info-cards">
-          <div className="specialty-mgmt-info-card">
-            <div className="specialty-mgmt-info-icon">
+        {/* Stats Cards */}
+        <div className="spec-stats">
+          <div className="spec-stat-card">
+            <div className="spec-stat-icon spec-stat-primary">
               <FaHospital />
             </div>
-            <div className="specialty-mgmt-info-content">
-              <p className="specialty-mgmt-info-label">Tổng chuyên khoa</p>
-              <p className="specialty-mgmt-info-value">{totalSpecialties}</p>
+            <div className="spec-stat-content">
+              <p className="spec-stat-label">Tổng chuyên khoa</p>
+              <p className="spec-stat-value">{totalSpecialties}</p>
             </div>
           </div>
 
-          <div className="specialty-mgmt-info-card">
-            <div className="specialty-mgmt-info-icon">
+          <div className="spec-stat-card">
+            <div className="spec-stat-icon spec-stat-success">
               <FaUserMd />
             </div>
-            <div className="specialty-mgmt-info-content">
-              <p className="specialty-mgmt-info-label">Tổng bác sĩ</p>
-              <p className="specialty-mgmt-info-value">{totalDoctors}</p>
+            <div className="spec-stat-content">
+              <p className="spec-stat-label">Tổng bác sĩ</p>
+              <p className="spec-stat-value">{totalDoctors}</p>
             </div>
           </div>
 
-          <div className="specialty-mgmt-info-card">
-            <div className="specialty-mgmt-info-icon">
+          <div className="spec-stat-card">
+            <div className="spec-stat-icon spec-stat-info">
               <FaStethoscope />
             </div>
-            <div className="specialty-mgmt-info-content">
-              <p className="specialty-mgmt-info-label">Trung bình BS/Khoa</p>
-              <p className="specialty-mgmt-info-value">{avgDoctorsPerSpecialty}</p>
+            <div className="spec-stat-content">
+              <p className="spec-stat-label">Trung bình BS/Khoa</p>
+              <p className="spec-stat-value">{avgDoctorsPerSpecialty}</p>
             </div>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="specialty-mgmt-table-wrapper">
-          <div className="specialty-mgmt-table-header">
-            <h3 className="specialty-mgmt-table-title">
-              <FaTable /> Danh sách chuyên khoa
-            </h3>
-          </div>
+        {/* Search Bar */}
+        <div className="spec-search-bar">
+          <FaSearch className="spec-search-icon" />
+          <input
+            type="text"
+            placeholder="Tìm kiếm chuyên khoa..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="spec-search-input"
+          />
+          {searchTerm && (
+            <button 
+              className="spec-search-clear"
+              onClick={() => setSearchTerm('')}
+            >
+              <FaTimes />
+            </button>
+          )}
+        </div>
 
-          <div className="specialty-mgmt-table-container">
-            <table className="specialty-mgmt-table">
+        {/* Table */}
+        <div className="spec-table-wrapper">
+          <div className="spec-table-container">
+            <table className="spec-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Tên chuyên khoa</th>
+                  <th onClick={() => handleSort('id')} style={{ cursor: 'pointer' }}>
+                    ID <SortIcon columnKey="id" />
+                  </th>
+                  <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+                    Tên chuyên khoa <SortIcon columnKey="name" />
+                  </th>
                   <th>Slug</th>
                   <th>Mô tả</th>
-                  <th>Số bác sĩ</th>
-                  <th>Ngày tạo</th>
+                  <th onClick={() => handleSort('doctorCount')} style={{ cursor: 'pointer' }}>
+                    Số bác sĩ <SortIcon columnKey="doctorCount" />
+                  </th>
+                  <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
+                    Ngày tạo <SortIcon columnKey="created_at" />
+                  </th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {specialties.length === 0 ? (
+                {filteredSpecialties.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="specialty-mgmt-table-empty">
-                      <FaInfoCircle className="specialty-mgmt-table-empty-icon" />
-                      Chưa có chuyên khoa nào
+                    <td colSpan="7" className="spec-table-empty">
+                      <FaInfoCircle className="spec-empty-icon" />
+                      {searchTerm ? 'Không tìm thấy kết quả' : 'Chưa có chuyên khoa nào'}
                     </td>
                   </tr>
                 ) : (
-                  specialties.map(specialty => (
+                  filteredSpecialties.map(specialty => (
                     <tr key={specialty.id}>
-                      <td>{specialty.id}</td>
-                      <td className="specialty-mgmt-table-name">{specialty.name}</td>
-                      <td><code>{specialty.slug}</code></td>
-                      <td>{specialty.description || <span style={{ color: 'var(--spec-text-lighter)', fontStyle: 'italic' }}>Chưa có mô tả</span>}</td>
+                      <td className="spec-table-id">{specialty.id}</td>
+                      <td className="spec-table-name">{specialty.name}</td>
+                      <td><code className="spec-code">{specialty.slug}</code></td>
+                      <td className="spec-table-desc">
+                        {specialty.description || <span className="spec-text-muted">Chưa có mô tả</span>}
+                      </td>
                       <td>
-                        <span className="specialty-mgmt-table-badge">
+                        <span className="spec-badge">
                           {specialty.doctorCount || 0}
                         </span>
                       </td>
-                      <td className="specialty-mgmt-table-date">
-                        <FaCalendarAlt style={{ marginRight: '0.5rem', fontSize: '0.875rem' }} />
+                      <td className="spec-table-date">
+                        <FaCalendarAlt className="spec-date-icon" />
                         {new Date(specialty.created_at).toLocaleDateString('vi-VN')}
                       </td>
                       <td>
-                        <div className="specialty-mgmt-table-actions">
+                        <div className="spec-table-actions">
                           <button
-                            className="specialty-mgmt-btn specialty-mgmt-btn-sm specialty-mgmt-btn-edit"
+                            className="spec-btn-icon spec-btn-edit"
                             onClick={() => openEditModal(specialty)}
+                            title="Sửa"
                           >
-                            <FaEdit /> Sửa
+                            <FaEdit />
                           </button>
                           <button
-                            className="specialty-mgmt-btn specialty-mgmt-btn-sm specialty-mgmt-btn-delete"
+                            className="spec-btn-icon spec-btn-delete"
                             onClick={() => handleDelete(specialty.id, specialty.name)}
+                            title="Xóa"
                           >
-                            <FaTrash /> Xóa
+                            <FaTrash />
                           </button>
                         </div>
                       </td>
@@ -290,26 +378,26 @@ const SpecialtyManagementPage = () => {
 
         {/* Modal */}
         {showModal && (
-          <div className="specialty-mgmt-modal-overlay" onClick={closeModal}>
-            <div className="specialty-mgmt-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="specialty-mgmt-modal-header">
-                <h2 className="specialty-mgmt-modal-title">
+          <div className="spec-modal-overlay" onClick={closeModal}>
+            <div className="spec-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="spec-modal-header">
+                <h2 className="spec-modal-title">
                   {editMode ? (
                     <><FaEdit /> Chỉnh sửa chuyên khoa</>
                   ) : (
                     <><FaPlus /> Thêm chuyên khoa mới</>
                   )}
                 </h2>
-                <button className="specialty-mgmt-modal-close" onClick={closeModal}>
+                <button className="spec-modal-close" onClick={closeModal}>
                   <FaTimes />
                 </button>
               </div>
 
               <form onSubmit={handleSubmit}>
-                <div className="specialty-mgmt-modal-body">
-                  <div className="specialty-mgmt-form-group">
-                    <label htmlFor="spec-name" className="specialty-mgmt-form-label">
-                      Tên chuyên khoa <span className="specialty-mgmt-form-required">*</span>
+                <div className="spec-modal-body">
+                  <div className="spec-form-group">
+                    <label htmlFor="spec-name" className="spec-form-label">
+                      Tên chuyên khoa <span className="spec-required">*</span>
                     </label>
                     <input
                       id="spec-name"
@@ -319,13 +407,16 @@ const SpecialtyManagementPage = () => {
                       onChange={handleInputChange}
                       placeholder="VD: Tim mạch, Nội khoa, Ngoại khoa..."
                       required
-                      className="specialty-mgmt-form-control"
+                      className="spec-form-control"
                     />
+                    <small className="spec-form-hint">
+                      Hãy viết hoa chữ cái đầu mỗi từ
+                    </small>
                   </div>
 
-                  <div className="specialty-mgmt-form-group">
-                    <label htmlFor="spec-slug" className="specialty-mgmt-form-label">
-                      Slug <small style={{ color: 'var(--spec-text-light)' }}>(URL thân thiện)</small>
+                  <div className="spec-form-group">
+                    <label htmlFor="spec-slug" className="spec-form-label">
+                      Slug <small className="spec-text-muted">(URL thân thiện)</small>
                     </label>
                     <input
                       id="spec-slug"
@@ -334,36 +425,36 @@ const SpecialtyManagementPage = () => {
                       value={formData.slug}
                       onChange={handleInputChange}
                       placeholder="tim-mach"
-                      className="specialty-mgmt-form-control"
+                      className="spec-form-control"
                     />
-                    <small className="specialty-mgmt-form-hint">
+                    <small className="spec-form-hint">
                       Tự động tạo từ tên nếu để trống
                     </small>
                   </div>
 
-                  <div className="specialty-mgmt-form-group">
-                    <label htmlFor="spec-desc" className="specialty-mgmt-form-label">Mô tả</label>
+                  <div className="spec-form-group">
+                    <label htmlFor="spec-desc" className="spec-form-label">Mô tả</label>
                     <textarea
                       id="spec-desc"
                       name="description"
                       value={formData.description}
                       onChange={handleInputChange}
-                      rows="4"
+                      rows="3"
                       placeholder="Mô tả về chuyên khoa, chuyên môn điều trị..."
-                      className="specialty-mgmt-form-control specialty-mgmt-form-textarea"
+                      className="spec-form-control spec-form-textarea"
                     />
                   </div>
                 </div>
 
-                <div className="specialty-mgmt-modal-footer">
+                <div className="spec-modal-footer">
                   <button 
                     type="button" 
-                    className="specialty-mgmt-btn specialty-mgmt-btn-secondary" 
+                    className="spec-btn spec-btn-secondary" 
                     onClick={closeModal}
                   >
                     Hủy
                   </button>
-                  <button type="submit" className="specialty-mgmt-btn specialty-mgmt-btn-primary">
+                  <button type="submit" className="spec-btn spec-btn-primary">
                     {editMode ? 'Cập nhật' : 'Tạo mới'}
                   </button>
                 </div>

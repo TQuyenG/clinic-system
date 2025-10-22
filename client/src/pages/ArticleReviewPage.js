@@ -1,104 +1,126 @@
-// client/src/pages/ArticleReviewPage.js - SỬA LỖI FETCH
+// client/src/pages/ArticleReviewPage.js
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import ArticleCommentSection from '../components/article/ArticleCommentSection';
-import { HideArticlePopup } from '../components/article/ArticleReportComponents';
 import { 
   FaArrowLeft, FaUser, FaCalendar, FaTag, FaLink, FaNewspaper,
   FaCheck, FaBan, FaRedo, FaHistory, FaClock, FaCheckCircle,
   FaTimesCircle, FaExclamationTriangle, FaPaperPlane, FaCommentDots,
-  FaInfoCircle, FaSpinner, FaEyeSlash, FaEye, FaFileAlt
+  FaInfoCircle, FaSpinner, FaEyeSlash, FaEye, FaFileAlt, FaTrash,
+  FaTimes
 } from 'react-icons/fa';
 import './ArticleReviewPage.css';
 
 const ArticleReviewPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const API_BASE_URL = 'http://localhost:3001';
+
+  // States
   const [user, setUser] = useState(null);
   const [article, setArticle] = useState(null);
   const [reviewHistory, setReviewHistory] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Form states
   const [submitting, setSubmitting] = useState(false);
   const [reviewAction, setReviewAction] = useState('approve');
   const [reviewReason, setReviewReason] = useState('');
+  const [commentText, setCommentText] = useState('');
+  
+  // Popup states
   const [showHidePopup, setShowHidePopup] = useState(false);
-
-  const API_BASE_URL = 'http://localhost:3001';
+  const [hideReason, setHideReason] = useState('');
+  const [hidingArticle, setHidingArticle] = useState(false);
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user') || 'null');
     setUser(userData);
     
     if (userData) {
-      fetchArticleData();
+      fetchAllData();
     } else {
       setError('Vui lòng đăng nhập');
       setLoading(false);
     }
   }, [id]);
 
-  const fetchArticleData = async () => {
+  const fetchAllData = async () => {
     try {
       setLoading(true);
       setError(null);
       const token = localStorage.getItem('token');
 
-      if (!token) {
-        setError('Vui lòng đăng nhập');
-        setLoading(false);
-        return;
-      }
-
-      console.log('Fetching article:', id);
-
-      // Fetch article details
-      const articleResponse = await axios.get(
+      // Fetch article
+      const articleRes = await axios.get(
         `${API_BASE_URL}/api/articles/${id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      console.log('Article response:', articleResponse.data);
-
-      if (articleResponse.data.success) {
-        setArticle(articleResponse.data.article);
-      } else {
-        throw new Error('Không thể tải bài viết');
+      if (articleRes.data.success) {
+        setArticle(articleRes.data.article);
       }
 
       // Fetch review history
       try {
-        const historyResponse = await axios.get(
+        const historyRes = await axios.get(
           `${API_BASE_URL}/api/articles/${id}/review-history`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-
-        console.log('History response:', historyResponse.data);
-
-        if (historyResponse.data.success) {
-          setReviewHistory(historyResponse.data.history || []);
+        if (historyRes.data.success) {
+          setReviewHistory(historyRes.data.history || []);
         }
-      } catch (historyError) {
-        console.warn('⚠️ Không thể tải lịch sử:', historyError);
-        setReviewHistory([]);
+      } catch (err) {
+        console.warn('Cannot load review history:', err);
+      }
+
+      // Fetch comments
+      try {
+        const commentsRes = await axios.get(
+          `${API_BASE_URL}/api/articles/${id}/comments`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (commentsRes.data.success) {
+          setComments(commentsRes.data.comments || []);
+        }
+      } catch (err) {
+        console.warn('Cannot load comments:', err);
+      }
+
+      // Fetch reports (admin only)
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      if (userData.role === 'admin') {
+        try {
+          const reportsRes = await axios.get(
+            `${API_BASE_URL}/api/articles/${id}/reports`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (reportsRes.data.success) {
+            setReports(reportsRes.data.reports || []);
+          }
+        } catch (err) {
+          console.warn('Cannot load reports:', err);
+        }
       }
 
     } catch (error) {
-      console.error('❌ Error fetching article data:', error);
-      
+      console.error('Error fetching data:', error);
       if (error.response?.status === 404) {
         setError('Không tìm thấy bài viết');
       } else if (error.response?.status === 403) {
         setError('Bạn không có quyền xem bài viết này');
       } else {
-        setError(error.response?.data?.message || error.message || 'Lỗi khi tải dữ liệu');
+        setError(error.response?.data?.message || 'Lỗi tải dữ liệu');
       }
     } finally {
       setLoading(false);
     }
   };
 
+  // Review submission
   const handleSubmitReview = async () => {
     if (reviewAction !== 'approve' && !reviewReason.trim()) {
       alert('Vui lòng nhập lý do');
@@ -111,10 +133,7 @@ const ArticleReviewPage = () => {
 
       const response = await axios.post(
         `${API_BASE_URL}/api/articles/${id}/review`,
-        { 
-          action: reviewAction, 
-          reason: reviewReason.trim() 
-        },
+        { action: reviewAction, reason: reviewReason.trim() },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -130,6 +149,7 @@ const ArticleReviewPage = () => {
     }
   };
 
+  // Edit request response
   const handleRespondEditRequest = async (allow) => {
     const reason = allow 
       ? prompt('Nhập lý do cho phép chỉnh sửa (tùy chọn):')
@@ -147,7 +167,7 @@ const ArticleReviewPage = () => {
 
       if (response.data.success) {
         alert(allow ? 'Đã cho phép chỉnh sửa' : 'Đã từ chối yêu cầu');
-        fetchArticleData();
+        fetchAllData();
       }
     } catch (error) {
       console.error('Error responding to edit request:', error);
@@ -155,6 +175,86 @@ const ArticleReviewPage = () => {
     }
   };
 
+  // Comment submission
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim()) {
+      alert('Vui lòng nhập nội dung comment');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API_BASE_URL}/api/articles/${id}/comments`,
+        { comment_text: commentText.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        setCommentText('');
+        fetchAllData();
+      }
+    } catch (error) {
+      console.error('Error submitting comment:', error);
+      alert('Lỗi: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Delete comment
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm('Bạn chắc chắn muốn xóa comment này?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(
+        `${API_BASE_URL}/api/articles/${id}/comments/${commentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        fetchAllData();
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      alert('Lỗi: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  // Hide article
+  const handleHideArticle = async (e) => {
+    e.preventDefault();
+    if (!hideReason.trim()) {
+      alert('Vui lòng nhập lý do ẩn bài viết');
+      return;
+    }
+
+    try {
+      setHidingArticle(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API_BASE_URL}/api/articles/${id}/hide`,
+        { reason: hideReason.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        alert('Đã ẩn bài viết thành công');
+        setShowHidePopup(false);
+        fetchAllData();
+      }
+    } catch (error) {
+      console.error('Error hiding article:', error);
+      alert('Lỗi: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setHidingArticle(false);
+    }
+  };
+
+  // Unhide article
   const handleUnhideArticle = async () => {
     if (!window.confirm('Bạn chắc chắn muốn hiện lại bài viết này?')) return;
 
@@ -168,7 +268,7 @@ const ArticleReviewPage = () => {
 
       if (response.data.success) {
         alert('Đã hiện lại bài viết');
-        fetchArticleData();
+        fetchAllData();
       }
     } catch (error) {
       console.error('Error unhiding article:', error);
@@ -176,6 +276,7 @@ const ArticleReviewPage = () => {
     }
   };
 
+  // Helper functions
   const getStatusBadge = (status) => {
     const badges = {
       draft: { icon: FaNewspaper, label: 'Nháp', class: 'draft' },
@@ -224,6 +325,14 @@ const ArticleReviewPage = () => {
   const formatTime = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (hours < 1) return 'Vừa xong';
+    if (hours < 24) return `${hours} giờ trước`;
+    if (days < 7) return `${days} ngày trước`;
     return date.toLocaleString('vi-VN', {
       day: '2-digit',
       month: '2-digit',
@@ -233,6 +342,33 @@ const ArticleReviewPage = () => {
     });
   };
 
+  const getRoleBadge = (role) => {
+    const badges = {
+      admin: { label: 'Admin', class: 'role-admin' },
+      staff: { label: 'Nhân viên', class: 'role-staff' },
+      doctor: { label: 'Bác sĩ', class: 'role-doctor' }
+    };
+    return badges[role] || { label: role, class: 'role-default' };
+  };
+
+  const quickHideReasons = [
+    'Bài viết có nội dung sai sự thật',
+    'Thiếu nguồn tham khảo đáng tin cậy',
+    'Ngôn từ không phù hợp',
+    'Vi phạm quy định cộng đồng',
+    'Nhiều báo cáo từ người dùng'
+  ];
+
+  const StatusBadge = ({ status }) => {
+    const { icon: Icon, label, class: className } = getStatusBadge(status);
+    return (
+      <span className={`status-badge ${className}`}>
+        <Icon /> {label}
+      </span>
+    );
+  };
+
+  // Loading state
   if (loading) {
     return (
       <div className="review-page-loading">
@@ -242,6 +378,7 @@ const ArticleReviewPage = () => {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="review-page-error">
@@ -254,27 +391,18 @@ const ArticleReviewPage = () => {
     );
   }
 
+  // Not found
   if (!article) {
     return (
       <div className="review-page-error">
         <FaTimesCircle />
         <h2>Không tìm thấy bài viết</h2>
-        <p>ID: {id}</p>
         <button onClick={() => navigate('/quan-ly-bai-viet')} className="btn-back">
           <FaArrowLeft /> Quay lại
         </button>
       </div>
     );
   }
-
-  const StatusBadge = ({ status }) => {
-    const { icon: Icon, label, class: className } = getStatusBadge(status);
-    return (
-      <span className={`status-badge ${className}`}>
-        <Icon /> {label}
-      </span>
-    );
-  };
 
   const isAdmin = user?.role === 'admin';
   const isAuthor = article.author_id === user?.id;
@@ -294,9 +422,10 @@ const ArticleReviewPage = () => {
 
       {/* Main Content - 2 Columns */}
       <div className="review-container">
-        {/* Left Column - Article Preview */}
+        {/* LEFT: Article Preview */}
         <div className="review-left">
           <div className="article-preview">
+            {/* Article Header */}
             <div className="preview-header">
               <h2 className="article-title">{article.title}</h2>
               
@@ -339,6 +468,7 @@ const ArticleReviewPage = () => {
               )}
             </div>
 
+            {/* Article Content */}
             <div className="preview-content">
               <div 
                 className="content-html"
@@ -401,10 +531,10 @@ const ArticleReviewPage = () => {
           </div>
         </div>
 
-        {/* Right Column - Review History + Form + Comments */}
+        {/* RIGHT: Timeline + Forms + Comments */}
         <div className="review-right">
           {/* Review History Timeline */}
-          <div className="review-history-section">
+          <div className="review-section">
             <div className="section-header">
               <FaHistory />
               <h3>Lịch Sử Phê Duyệt ({reviewHistory.length})</h3>
@@ -463,9 +593,9 @@ const ArticleReviewPage = () => {
             </div>
           </div>
 
-          {/* Review Form - Chỉ admin và khi pending */}
+          {/* Review Form - Admin only & Pending */}
           {isAdmin && article.status === 'pending' && (
-            <div className="review-form-section">
+            <div className="review-section">
               <div className="section-header">
                 <FaCheck />
                 <h3>Phê Duyệt Bài Viết</h3>
@@ -487,7 +617,7 @@ const ArticleReviewPage = () => {
 
                 {reviewAction !== 'approve' && (
                   <div className="form-group">
-                    <label>Lý do {reviewAction !== 'approve' && '*'}</label>
+                    <label>Lý do *</label>
                     <textarea
                       value={reviewReason}
                       onChange={(e) => setReviewReason(e.target.value)}
@@ -502,30 +632,28 @@ const ArticleReviewPage = () => {
                   </div>
                 )}
 
-                <div className="form-actions">
-                  <button
-                    onClick={handleSubmitReview}
-                    disabled={submitting}
-                    className="btn-submit"
-                  >
-                    {submitting ? (
-                      <>
-                        <FaSpinner className="spinner-icon" /> Đang xử lý...
-                      </>
-                    ) : (
-                      <>
-                        <FaPaperPlane /> Xác nhận
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={submitting}
+                  className="btn-submit"
+                >
+                  {submitting ? (
+                    <>
+                      <FaSpinner className="spinner-icon" /> Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <FaPaperPlane /> Xác nhận
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}
 
-          {/* Form xử lý yêu cầu chỉnh sửa - Admin */}
+          {/* Edit Request Form - Admin only */}
           {isAdmin && article.status === 'request_edit' && (
-            <div className="review-form-section">
+            <div className="review-section">
               <div className="section-header">
                 <FaCommentDots />
                 <h3>Xử Lý Yêu Cầu Chỉnh Sửa</h3>
@@ -539,12 +667,12 @@ const ArticleReviewPage = () => {
                   </div>
                 )}
 
-                <div className="form-actions">
+                <div className="form-actions-row">
                   <button
                     onClick={() => handleRespondEditRequest(true)}
                     className="btn-submit btn-allow"
                   >
-                    <FaCheck /> Cho phép chỉnh sửa
+                    <FaCheck /> Cho phép
                   </button>
                   <button
                     onClick={() => handleRespondEditRequest(false)}
@@ -557,9 +685,9 @@ const ArticleReviewPage = () => {
             </div>
           )}
 
-          {/* Nút ẩn/hiện bài viết - Admin */}
+          {/* Hide/Unhide Article - Admin only */}
           {isAdmin && (
-            <div className="review-form-section">
+            <div className="review-section">
               <div className="section-header">
                 <FaEyeSlash />
                 <h3>Quản Lý Hiển Thị</h3>
@@ -585,6 +713,139 @@ const ArticleReviewPage = () => {
             </div>
           )}
 
+          {/* Reports List - Admin only */}
+          {isAdmin && reports.length > 0 && (
+            <div className="review-section">
+              <div className="section-header">
+                <FaExclamationTriangle />
+                <h3>Báo Cáo Vi Phạm ({reports.length})</h3>
+              </div>
+
+              <div className="reports-list">
+                {reports.map((report) => (
+                  <div key={report.id} className="report-item">
+                    <div className="report-user">
+                      <div className="report-avatar">
+                        {report.user?.avatar_url ? (
+                          <img src={report.user.avatar_url} alt={report.user.full_name} />
+                        ) : (
+                          <FaUser />
+                        )}
+                      </div>
+                      <div className="report-user-info">
+                        <span className="report-user-name">
+                          {report.user?.full_name || 'Ẩn danh'}
+                        </span>
+                        <span className="report-time">
+                          <FaClock /> {formatTime(report.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="report-content">
+                      <p className="report-reason">{report.reason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Comment Section */}
+          <div className="review-section">
+            <div className="section-header">
+              <FaCommentDots />
+              <h3>Trao Đổi ({comments.length})</h3>
+            </div>
+
+            {/* Comment Form */}
+            <form onSubmit={handleSubmitComment} className="comment-form">
+              <div className="comment-form-body">
+                <div className="comment-avatar">
+                  {user?.avatar_url ? (
+                    <img src={user.avatar_url} alt={user.full_name} />
+                  ) : (
+                    <FaUser />
+                  )}
+                </div>
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Nhập nội dung trao đổi..."
+                  className="comment-textarea"
+                  rows={3}
+                  disabled={submitting}
+                />
+              </div>
+              <div className="comment-form-footer">
+                <span className="char-count">{commentText.length} ký tự</span>
+                <button
+                  type="submit"
+                  className="btn-submit btn-sm"
+                  disabled={submitting || !commentText.trim()}
+                >
+                  {submitting ? (
+                    <>
+                      <FaSpinner className="spinner-icon" /> Đang gửi...
+                    </>
+                  ) : (
+                    <>
+                      <FaPaperPlane /> Gửi
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Comments List */}
+            <div className="comments-list">
+              {comments.length === 0 ? (
+                <div className="comments-empty">
+                  <p>Chưa có comment nào. Hãy là người đầu tiên trao đổi!</p>
+                </div>
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment.id} className="comment-item">
+                    <div className="comment-avatar">
+                      {comment.user?.avatar_url ? (
+                        <img src={comment.user.avatar_url} alt={comment.user.full_name} />
+                      ) : (
+                        <FaUser />
+                      )}
+                    </div>
+                    <div className="comment-content">
+                      <div className="comment-header">
+                        <div className="comment-user-info">
+                          <span className="comment-user-name">
+                            {comment.user?.full_name || 'Ẩn danh'}
+                          </span>{comment.user?.role && (
+                            <span className={`comment-role-badge ${getRoleBadge(comment.user.role).class}`}>
+                              {getRoleBadge(comment.user.role).label}
+                            </span>
+                          )}
+                        </div>
+                        <span className="comment-time">{formatTime(comment.created_at)}</span>
+                      </div>
+                      <div className="comment-body">
+                        <p>{comment.comment_text}</p>
+                      </div>
+                      {(user?.role === 'admin' || comment.user_id === user?.id) && (
+                        <div className="comment-actions">
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="btn-delete-comment"
+                            title="Xóa comment"
+                          >
+                            <FaTrash /> Xóa
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* Info Box */}
           {article.status !== 'pending' && article.status !== 'request_edit' && (
             <div className="review-info-box">
@@ -594,23 +855,99 @@ const ArticleReviewPage = () => {
               </p>
             </div>
           )}
-
-          {/* Comment Section - Trao đổi giữa Admin & Tác giả */}
-          <ArticleCommentSection articleId={id} />
         </div>
       </div>
 
-      {/* Popup ẩn bài viết */}
+      {/* Hide Article Popup */}
       {showHidePopup && (
-        <HideArticlePopup
-          articleId={article.id}
-          articleTitle={article.title}
-          onClose={() => setShowHidePopup(false)}
-          onSuccess={() => {
-            setShowHidePopup(false);
-            fetchArticleData();
-          }}
-        />
+        <div className="popup-overlay" onClick={() => setShowHidePopup(false)}>
+          <div className="popup" onClick={(e) => e.stopPropagation()}>
+            <div className="popup-header">
+              <div className="popup-header-content">
+                <FaEyeSlash className="popup-icon" />
+                <h3>Ẩn bài viết</h3>
+              </div>
+              <button onClick={() => setShowHidePopup(false)} className="btn-close-popup">
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleHideArticle} className="popup-body">
+              <div className="popup-warning">
+                <FaExclamationTriangle />
+                <div>
+                  <p className="warning-title">Lưu ý quan trọng</p>
+                  <p className="warning-text">
+                    Bài viết sẽ bị ẩn khỏi danh sách công khai. Chỉ admin và tác giả có thể xem.
+                  </p>
+                </div>
+              </div>
+
+              <div className="popup-info">
+                <label className="popup-label">Bài viết:</label>
+                <p className="article-title-display">{article.title}</p>
+              </div>
+
+              <div className="popup-quick-reasons">
+                <label className="popup-label">Lý do nhanh:</label>
+                <div className="quick-reason-buttons">
+                  {quickHideReasons.map((r, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => setHideReason(r)}
+                      className={`btn-quick-reason ${hideReason === r ? 'active' : ''}`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="popup-form-group">
+                <label className="popup-label">
+                  Lý do chi tiết <span className="required">*</span>
+                </label>
+                <textarea
+                  value={hideReason}
+                  onChange={(e) => setHideReason(e.target.value)}
+                  placeholder="Nhập lý do ẩn bài viết (tối đa 500 ký tự)..."
+                  maxLength={500}
+                  rows={5}
+                  className="popup-textarea"
+                  required
+                />
+                <small className="char-count">{hideReason.length}/500 ký tự</small>
+              </div>
+
+              <div className="popup-footer">
+                <button
+                  type="button"
+                  onClick={() => setShowHidePopup(false)}
+                  className="btn-cancel"
+                  disabled={hidingArticle}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit btn-hide-confirm"
+                  disabled={hidingArticle || !hideReason.trim()}
+                >
+                  {hidingArticle ? (
+                    <>
+                      <FaSpinner className="spinner-icon" /> Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <FaEyeSlash /> Xác nhận ẩn
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

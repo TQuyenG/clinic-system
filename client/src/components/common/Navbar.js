@@ -10,7 +10,6 @@ import {
   FaChevronDown,
   FaTachometerAlt,
   FaCalendarAlt,
-  FaHospital,
   FaUserMd,
   FaNewspaper,
   FaPills,
@@ -28,13 +27,54 @@ import {
 import NotificationDropdown from './NotificationDropdown';
 import './Navbar.css';
 
+// Component riêng để hiển thị avatar người dùng
+const UserAvatar = ({ user, userProfile }) => {
+  const [isImageError, setIsImageError] = useState(false);
+
+  const currentUser = userProfile || user;
+
+  if (!currentUser) {
+    return (
+      <div className="navbar-user-avatar-placeholder">
+        <FaUser />
+      </div>
+    );
+  }
+
+  if (currentUser.avatar_url && !isImageError) {
+    return (
+      <>
+        <img 
+          src={currentUser.avatar_url} 
+          alt={currentUser.full_name || currentUser.email} 
+          className="navbar-user-avatar"
+          onError={() => setIsImageError(true)}
+        />
+        <div className="navbar-user-avatar-placeholder" style={{ display: 'none' }}>
+          {currentUser.full_name?.charAt(0)?.toUpperCase() || 
+           currentUser.email?.charAt(0)?.toUpperCase() || 'U'}
+        </div>
+      </>
+    );
+  }
+
+  const initial = currentUser.full_name?.charAt(0)?.toUpperCase() || 
+                 currentUser.email?.charAt(0)?.toUpperCase() || 'U';
+  
+  return (
+    <div className="navbar-user-avatar-placeholder">
+      {initial}
+    </div>
+  );
+};
+
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [user, setUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null); // ✅ State mới cho profile đầy đủ
+  const [userProfile, setUserProfile] = useState(null);
   const [specialties, setSpecialties] = useState([]);
   const [categories, setCategories] = useState({
     tin_tuc: [],
@@ -56,14 +96,12 @@ const Navbar = () => {
   const API_BASE_URL = 'http://localhost:3001';
 
   useEffect(() => {
-    // Tải dữ liệu người dùng
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     if (token && userStr) {
       try {
         const userData = JSON.parse(userStr);
         setUser(userData);
-        // ✅ Fetch profile đầy đủ từ API để lấy avatar_url mới nhất
         fetchUserProfile(token);
       } catch (error) {
         console.error('Lỗi khi phân tích dữ liệu người dùng:', error);
@@ -74,7 +112,6 @@ const Navbar = () => {
     fetchCategories();
     fetchNavbarData();
 
-    // Xử lý sự kiện click ngoài khu vực tìm kiếm
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setShowSearchResults(false);
@@ -85,7 +122,6 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ✅ Fetch user profile đầy đủ từ API
   const fetchUserProfile = async (token) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/users/profile`, {
@@ -96,7 +132,6 @@ const Navbar = () => {
         const profileData = response.data.user || response.data;
         setUserProfile(profileData);
         
-        // ✅ Cập nhật localStorage với avatar_url mới nhất
         const updatedUser = {
           ...user,
           avatar_url: profileData.avatar_url,
@@ -199,52 +234,10 @@ const Navbar = () => {
     setIsMenuOpen(false);
   };
 
-  // ✅ Function render avatar
-  const renderUserAvatar = () => {
-    // Ưu tiên: userProfile > user > default
-    const currentUser = userProfile || user;
-    
-    if (!currentUser) {
-      return (
-        <div className="user-avatar-placeholder">
-          <FaUser />
-        </div>
-      );
-    }
-
-    // Nếu có avatar_url
-    if (currentUser.avatar_url) {
-      return (
-        <img 
-          src={currentUser.avatar_url} 
-          alt={currentUser.full_name || currentUser.email} 
-          className="user-avatar"
-          onError={(e) => {
-            // Fallback nếu ảnh lỗi
-            e.target.style.display = 'none';
-            e.target.nextSibling.style.display = 'flex';
-          }}
-        />
-      );
-    }
-
-    // Nếu không có avatar, hiển thị chữ cái đầu
-    const initial = currentUser.full_name?.charAt(0)?.toUpperCase() 
-                    || currentUser.email?.charAt(0)?.toUpperCase() 
-                    || 'U';
-    
-    return (
-      <div className="user-avatar-placeholder">
-        {initial}
-      </div>
-    );
-  };
-
   return (
-    <nav className="navbar">
-      <div className="nav-container">
-        {/* LOGO */}
-        <Link to="/" className="logo" onClick={closeAllDropdowns}>
+    <nav className="navbar-main">
+      <div className="navbar-container">
+        <Link to="/" className="navbar-logo" onClick={closeAllDropdowns}>
           {navbarData.logo_image ? (
             <img src={navbarData.logo_image} alt={navbarData.logo_text} />
           ) : (
@@ -253,21 +246,18 @@ const Navbar = () => {
           <span>{navbarData.logo_text}</span>
         </Link>
 
-        {/* Nút Menu trên Mobile */}
         <button 
-          className="mobile-menu-btn" 
+          className="navbar-mobile-menu-btn" 
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           aria-label="Bật/tắt menu"
         >
           {isMenuOpen ? <FaTimes /> : <FaBars />}
         </button>
 
-        {/* PHẦN GIỮA */}
-        <div className={`nav-center ${isMenuOpen ? 'active' : ''}`}>
-          {/* Thanh Tìm kiếm */}
-          <div className="search-container" ref={searchRef}>
-            <form className="search-bar" onSubmit={handleSearchSubmit}>
-              <FaSearch className="search-icon" />
+        <div className={`navbar-center ${isMenuOpen ? 'active' : ''}`}>
+          <div className="navbar-search-container" ref={searchRef}>
+            <form className="navbar-search-bar" onSubmit={handleSearchSubmit}>
+              <FaSearch className="navbar-search-icon" />
               <input 
                 type="text" 
                 placeholder={navbarData.search_placeholder}
@@ -277,37 +267,35 @@ const Navbar = () => {
             </form>
 
             {showSearchResults && searchResults.length > 0 && (
-              <div className="search-results">
+              <div className="navbar-search-results">
                 {searchResults.map((result, index) => (
                   <Link
                     key={index}
                     to={result.url}
-                    className="search-result-item"
+                    className="navbar-search-result-item"
                     onClick={() => {
                       setShowSearchResults(false);
                       setSearchQuery('');
                       closeAllDropdowns();
                     }}
                   >
-                    <span className="result-title">{result.title}</span>
+                    <span className="navbar-result-title">{result.title}</span>
                   </Link>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Menu Điều hướng */}
-          <div className="nav-menu">
-            {/* Giới thiệu */}
-            <div className="nav-item dropdown">
+          <div className="navbar-nav-menu">
+            <div className="navbar-nav-item navbar-dropdown">
               <button 
-                className="nav-link dropdown-toggle"
+                className="navbar-nav-link navbar-dropdown-toggle"
                 onClick={() => toggleDropdown('intro')}
               >
                 Giới thiệu
-                <FaChevronDown className={`chevron ${activeDropdown === 'intro' ? 'rotate' : ''}`} />
+                <FaChevronDown className={`navbar-chevron ${activeDropdown === 'intro' ? 'rotate' : ''}`} />
               </button>
-              <div className={`dropdown-menu ${activeDropdown === 'intro' ? 'show' : ''}`}>
+              <div className={`navbar-dropdown-menu ${activeDropdown === 'intro' ? 'show' : ''}`}>
                 <Link to="/ve-chung-toi" onClick={closeAllDropdowns}>
                   <FaInfoCircle /> Về chúng tôi
                 </Link>
@@ -323,19 +311,17 @@ const Navbar = () => {
               </div>
             </div>
 
-            {/* Đội ngũ y tế - MEGA MENU */}
-            <div className="nav-item dropdown mega">
+            <div className="navbar-nav-item navbar-dropdown navbar-mega">
               <button 
-                className="nav-link dropdown-toggle"
+                className="navbar-nav-link navbar-dropdown-toggle"
                 onClick={() => toggleDropdown('team')}
               >
                 Đội ngũ y tế
-                <FaChevronDown className={`chevron ${activeDropdown === 'team' ? 'rotate' : ''}`} />
+                <FaChevronDown className={`navbar-chevron ${activeDropdown === 'team' ? 'rotate' : ''}`} />
               </button>
-              <div className={`dropdown-menu mega-menu ${activeDropdown === 'team' ? 'show' : ''}`}>
-                <div className="mega-menu-grid">
-                  {/* Cột Chuyên khoa */}
-                  <div className={`mega-menu-column ${activeMobileColumn === 'specialties' ? 'active' : ''}`}>
+              <div className={`navbar-dropdown-menu navbar-mega-menu ${activeDropdown === 'team' ? 'show' : ''}`}>
+                <div className="navbar-mega-menu-grid">
+                  <div className={`navbar-mega-menu-column ${activeMobileColumn === 'specialties' ? 'active' : ''}`}>
                     <Link 
                       to="/chuyen-khoa"
                       onClick={(e) => {
@@ -346,12 +332,12 @@ const Navbar = () => {
                           closeAllDropdowns();
                         }
                       }}
-                      className="column-header"
+                      className="navbar-column-header"
                     >
                       <FaStethoscope /> Chuyên khoa
                     </Link>
                     {specialties.length > 0 && (
-                      <div className="column-items">
+                      <div className="navbar-column-items">
                         {specialties.slice(0, 5).map(sp => (
                           <Link 
                             key={sp.id} 
@@ -361,15 +347,14 @@ const Navbar = () => {
                             {sp.name}
                           </Link>
                         ))}
-                        <Link to="/chuyen-khoa" onClick={closeAllDropdowns} className="view-all">
+                        <Link to="/chuyen-khoa" onClick={closeAllDropdowns} className="navbar-view-all">
                           Xem tất cả →
                         </Link>
                       </div>
                     )}
                   </div>
 
-                  {/* Cột Bác sĩ */}
-                  <div className={`mega-menu-column ${activeMobileColumn === 'doctors' ? 'active' : ''}`}>
+                  <div className={`navbar-mega-menu-column ${activeMobileColumn === 'doctors' ? 'active' : ''}`}>
                     <Link 
                       to="/bac-si"
                       onClick={(e) => {
@@ -380,11 +365,11 @@ const Navbar = () => {
                           closeAllDropdowns();
                         }
                       }}
-                      className="column-header"
+                      className="navbar-column-header"
                     >
                       <FaUserMd /> Bác sĩ
                     </Link>
-                    <div className="column-items">
+                    <div className="navbar-column-items">
                       <Link to="/bac-si" onClick={closeAllDropdowns}>
                         Tất cả bác sĩ
                       </Link>
@@ -403,30 +388,27 @@ const Navbar = () => {
               </div>
             </div>
 
-            {/* Cẩm nang y tế - MEGA MENU */}
-            <div className="nav-item dropdown mega">
+            <div className="navbar-nav-item navbar-dropdown navbar-mega">
               <button 
-                className="nav-link dropdown-toggle"
+                className="navbar-nav-link navbar-dropdown-toggle"
                 onClick={() => toggleDropdown('articles')}
               >
                 Cẩm nang y tế
-                <FaChevronDown className={`chevron ${activeDropdown === 'articles' ? 'rotate' : ''}`} />
+                <FaChevronDown className={`navbar-chevron ${activeDropdown === 'articles' ? 'rotate' : ''}`} />
               </button>
-              <div className={`dropdown-menu mega-menu ${activeDropdown === 'articles' ? 'show' : ''}`}>
-                <div className="mega-menu-grid">
-                  {/* Diễn đàn sức khỏe */}
-                  <div className="mega-menu-column">
+              <div className={`navbar-dropdown-menu navbar-mega-menu ${activeDropdown === 'articles' ? 'show' : ''}`}>
+                <div className="navbar-mega-menu-grid">
+                  <div className="navbar-mega-menu-column">
                     <Link 
                       to="/dien-dan-suc-khoe"
-                      className="column-header"
+                      className="navbar-column-header"
                       onClick={closeAllDropdowns}
                     >
                       <FaComments /> Diễn đàn sức khỏe
                     </Link>
                   </div>
 
-                  {/* Cột Tin tức */}
-                  <div className={`mega-menu-column ${activeMobileColumn === 'news' ? 'active' : ''}`}>
+                  <div className={`navbar-mega-menu-column ${activeMobileColumn === 'news' ? 'active' : ''}`}>
                     <Link 
                       to="/tin-tuc" 
                       onClick={(e) => {
@@ -437,12 +419,12 @@ const Navbar = () => {
                           closeAllDropdowns();
                         }
                       }}
-                      className="column-header"
+                      className="navbar-column-header"
                     >
                       <FaNewspaper /> Tin tức
                     </Link>
                     {categories.tin_tuc && categories.tin_tuc.length > 0 && (
-                      <div className="column-items">
+                      <div className="navbar-column-items">
                         {categories.tin_tuc.slice(0, 5).map(cat => (
                           <Link 
                             key={cat.id} 
@@ -456,8 +438,7 @@ const Navbar = () => {
                     )}
                   </div>
 
-                  {/* Cột Thuốc */}
-                  <div className={`mega-menu-column ${activeMobileColumn === 'medicine' ? 'active' : ''}`}>
+                  <div className={`navbar-mega-menu-column ${activeMobileColumn === 'medicine' ? 'active' : ''}`}>
                     <Link 
                       to="/thuoc" 
                       onClick={(e) => {
@@ -468,12 +449,12 @@ const Navbar = () => {
                           closeAllDropdowns();
                         }
                       }}
-                      className="column-header"
+                      className="navbar-column-header"
                     >
                       <FaPills /> Thuốc
                     </Link>
                     {categories.thuoc && categories.thuoc.length > 0 && (
-                      <div className="column-items">
+                      <div className="navbar-column-items">
                         {categories.thuoc.slice(0, 5).map(cat => (
                           <Link 
                             key={cat.id} 
@@ -487,8 +468,7 @@ const Navbar = () => {
                     )}
                   </div>
 
-                  {/* Cột Bệnh lý */}
-                  <div className={`mega-menu-column ${activeMobileColumn === 'disease' ? 'active' : ''}`}>
+                  <div className={`navbar-mega-menu-column ${activeMobileColumn === 'disease' ? 'active' : ''}`}>
                     <Link 
                       to="/benh-ly" 
                       onClick={(e) => {
@@ -499,12 +479,12 @@ const Navbar = () => {
                           closeAllDropdowns();
                         }
                       }}
-                      className="column-header"
+                      className="navbar-column-header"
                     >
                       <FaHeartbeat /> Bệnh lý
                     </Link>
                     {categories.benh_ly && categories.benh_ly.length > 0 && (
-                      <div className="column-items">
+                      <div className="navbar-column-items">
                         {categories.benh_ly.slice(0, 5).map(cat => (
                           <Link 
                             key={cat.id} 
@@ -523,27 +503,25 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* PHẦN PHẢI */}
-        <div className="nav-right">
+        <div className="navbar-right">
           {user && <NotificationDropdown />}
 
-          {/* Dropdown Người dùng */}
-          <div className="nav-item dropdown user-dropdown">
+          <div className="navbar-nav-item navbar-dropdown navbar-user-dropdown">
             <button 
-              className="user-btn"
+              className="navbar-user-btn"
               onClick={() => toggleDropdown('user')}
             >
-              {renderUserAvatar()}
+              <UserAvatar user={user} userProfile={userProfile} />
             </button>
 
-            <div className={`dropdown-menu dropdown-menu-right ${activeDropdown === 'user' ? 'show' : ''}`}>
+            <div className={`navbar-dropdown-menu navbar-dropdown-menu-right ${activeDropdown === 'user' ? 'show' : ''}`}>
               {user ? (
                 <>
-                  <div className="dropdown-user-info">
+                  <div className="navbar-dropdown-user-info">
                     <strong>{user.full_name || user.email}</strong>
                     <span>{user.role}</span>
                   </div>
-                  <div className="dropdown-divider"></div>
+                  <div className="navbar-dropdown-divider"></div>
                   <Link to="/dashboard" onClick={closeAllDropdowns}>
                     <FaTachometerAlt /> Dashboard
                   </Link>
@@ -556,8 +534,8 @@ const Navbar = () => {
                   <Link to="/bai-viet-da-luu" onClick={closeAllDropdowns}>
                     <FaBookmark /> Bài viết đã lưu
                   </Link>
-                  <div className="dropdown-divider"></div>
-                  <button onClick={() => { handleLogout(); closeAllDropdowns(); }} className="dropdown-logout">
+                  <div className="navbar-dropdown-divider"></div>
+                  <button onClick={() => { handleLogout(); closeAllDropdowns(); }} className="navbar-dropdown-logout">
                     <FaSignOutAlt /> Đăng xuất
                   </button>
                 </>
@@ -566,7 +544,7 @@ const Navbar = () => {
                   <Link to="/login" onClick={closeAllDropdowns}>
                     <FaSignInAlt /> Đăng nhập
                   </Link>
-                  <Link to="/register" onClick={closeAllDropdowns} className="dropdown-register">
+                  <Link to="/register" onClick={closeAllDropdowns} className="navbar-dropdown-register">
                     <FaUserPlus /> Đăng ký ngay
                   </Link>
                 </>

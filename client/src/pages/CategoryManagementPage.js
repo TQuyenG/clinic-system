@@ -1,5 +1,5 @@
 // ============================================
-// CategoryManagementPage.js - Improved Design
+// CategoryManagementPage.js - Redesigned
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -9,7 +9,6 @@ import {
   FaEdit, 
   FaTrash, 
   FaFolder, 
-  FaList, 
   FaSearch,
   FaTimes,
   FaPills,
@@ -17,13 +16,15 @@ import {
   FaNewspaper,
   FaInfoCircle,
   FaLayerGroup,
-  FaTable,
-  FaFilter
+  FaFilter,
+  FaSortUp,
+  FaSortDown,
+  FaSort,
+  FaCalendarAlt
 } from 'react-icons/fa';
 import './CategoryManagementPage.css';
 
 const CategoryManagementPage = () => {
-  // State management
   const [categories, setCategories] = useState([]);
   const [categoryTypes, setCategoryTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +33,7 @@ const CategoryManagementPage = () => {
   const [currentCategory, setCurrentCategory] = useState(null);
   const [selectedType, setSelectedType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('grid');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   
   const [formData, setFormData] = useState({
     category_type: '',
@@ -41,7 +42,6 @@ const CategoryManagementPage = () => {
     description: ''
   });
 
-  // Category configuration with icons and colors
   const CATEGORY_CONFIG = {
     tin_tuc: { 
       label: 'Tin tức', 
@@ -96,6 +96,7 @@ const CategoryManagementPage = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -212,81 +213,100 @@ const CategoryManagementPage = () => {
     }
   };
 
-  const filteredCategories = categories.filter(cat => {
-    const matchType = selectedType === 'all' || cat.category_type === selectedType;
-    const matchSearch = cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        cat.slug.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchType && matchSearch;
-  });
-
-  const organizeByType = () => {
-    const organized = {};
-    
-    Object.keys(CATEGORY_CONFIG).forEach(type => {
-      organized[type] = {
-        ...CATEGORY_CONFIG[type],
-        items: categories.filter(cat => cat.category_type === type)
-      };
-    });
-
-    return organized;
+  // Sorting function
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
   };
 
-  const organizedCategories = organizeByType();
+  // Get sorted and filtered data
+  const getSortedAndFilteredData = () => {
+    let filtered = categories.filter(cat => {
+      const matchType = selectedType === 'all' || cat.category_type === selectedType;
+      const matchSearch = cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (cat.slug && cat.slug.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchType && matchSearch;
+    });
+
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+
+        if (sortConfig.key === 'created_at') {
+          aVal = new Date(aVal);
+          bVal = new Date(bVal);
+        }
+
+        if (aVal < bVal) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aVal > bVal) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filtered;
+  };
+
+  const filteredCategories = getSortedAndFilteredData();
+
+  // Sort icon component
+  const SortIcon = ({ columnKey }) => {
+    if (sortConfig.key !== columnKey) {
+      return <FaSort className="cat-sort-icon" />;
+    }
+    return sortConfig.direction === 'asc' ? 
+      <FaSortUp className="cat-sort-icon active" /> : 
+      <FaSortDown className="cat-sort-icon active" />;
+  };
 
   if (loading) {
     return (
-      <div className="category-mgmt-page">
-        <div className="category-mgmt-loading">
-          <div className="category-mgmt-spinner"></div>
-          <p className="category-mgmt-loading-text">Đang tải dữ liệu...</p>
+      <div className="cat-page">
+        <div className="cat-loading">
+          <div className="cat-spinner"></div>
+          <p className="cat-loading-text">Đang tải dữ liệu...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="category-mgmt-page">
-      <div className="category-mgmt-container">
+    <div className="cat-page">
+      <div className="cat-container">
         {/* Header */}
-        <div className="category-mgmt-header">
-          <div className="category-mgmt-header-content">
-            <div className="category-mgmt-title-section">
-              <h1 className="category-mgmt-title">
-                <FaLayerGroup className="category-mgmt-title-icon" />
+        <div className="cat-header">
+          <div className="cat-header-content">
+            <div className="cat-title-section">
+              <h1 className="cat-title">
+                <FaLayerGroup className="cat-title-icon" />
                 Quản lý Danh mục
               </h1>
-              <p className="category-mgmt-subtitle">
+              <p className="cat-subtitle">
                 Quản lý danh mục cho: Tin tức, Thuốc, Bệnh lý
               </p>
             </div>
-            <button className="category-mgmt-btn category-mgmt-btn-primary" onClick={openCreateModal}>
+            <button className="cat-btn cat-btn-primary" onClick={openCreateModal}>
               <FaPlus /> Thêm danh mục
             </button>
           </div>
         </div>
 
         {/* Statistics */}
-        <div className="category-mgmt-stats">
+        <div className="cat-stats">
           {categoryTypes.map(type => {
             const config = CATEGORY_CONFIG[type.type];
             const Icon = config?.icon || FaFolder;
             return (
-              <div 
-                key={type.type} 
-                className="category-mgmt-stat-card"
-                style={{ 
-                  '--stat-color': config?.color,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.setProperty('--hover-border', config?.color);
-                }}
-              >
-                <style>
-                  {`.category-mgmt-stat-card:hover::before { background: ${config?.color} !important; }`}
-                </style>
+              <div key={type.type} className="cat-stat-card">
                 <div 
-                  className="category-mgmt-stat-icon"
+                  className="cat-stat-icon"
                   style={{ 
                     backgroundColor: config?.bgColor,
                     color: config?.color 
@@ -294,9 +314,9 @@ const CategoryManagementPage = () => {
                 >
                   <Icon />
                 </div>
-                <div className="category-mgmt-stat-info">
-                  <p className="category-mgmt-stat-label">{type.label}</p>
-                  <p className="category-mgmt-stat-number">{type.count}</p>
+                <div className="cat-stat-content">
+                  <p className="cat-stat-label">{type.label}</p>
+                  <p className="cat-stat-value">{type.count}</p>
                 </div>
               </div>
             );
@@ -304,152 +324,70 @@ const CategoryManagementPage = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="category-mgmt-toolbar">
-          <div className="category-mgmt-toolbar-row">
-            <div className="category-mgmt-search-wrapper">
-              <FaSearch className="category-mgmt-search-icon" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm danh mục..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="category-mgmt-search-input"
-              />
-              {searchTerm && (
-                <button 
-                  className="category-mgmt-search-clear"
-                  onClick={() => setSearchTerm('')}
-                >
-                  <FaTimes />
-                </button>
-              )}
-            </div>
-
-            <div className="category-mgmt-filter-group">
-              <label htmlFor="category-type-filter" className="category-mgmt-filter-label">
-                <FaFilter /> Lọc:
-              </label>
-              <select 
-                id="category-type-filter"
-                value={selectedType} 
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="category-mgmt-filter-select"
-              >
-                <option value="all">Tất cả</option>
-                {Object.entries(CATEGORY_CONFIG).map(([type, config]) => (
-                  <option key={type} value={type}>{config.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="category-mgmt-view-toggle">
+        <div className="cat-toolbar">
+          <div className="cat-search-bar">
+            <FaSearch className="cat-search-icon" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm danh mục..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="cat-search-input"
+            />
+            {searchTerm && (
               <button 
-                className={`category-mgmt-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-                onClick={() => setViewMode('grid')}
-                title="Xem dạng lưới"
+                className="cat-search-clear"
+                onClick={() => setSearchTerm('')}
               >
-                <FaFolder />
+                <FaTimes />
               </button>
-              <button 
-                className={`category-mgmt-view-btn ${viewMode === 'table' ? 'active' : ''}`}
-                onClick={() => setViewMode('table')}
-                title="Xem dạng bảng"
-              >
-                <FaTable />
-              </button>
-            </div>
+            )}
+          </div>
+
+          <div className="cat-filter-group">
+            <FaFilter className="cat-filter-icon" />
+            <select 
+              value={selectedType} 
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="cat-filter-select"
+            >
+              <option value="all">Tất cả</option>
+              {Object.entries(CATEGORY_CONFIG).map(([type, config]) => (
+                <option key={type} value={type}>{config.label}</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Content Views */}
-        {viewMode === 'grid' ? (
-          /* Grid View */
-          <div className="category-mgmt-grid-view">
-            {Object.entries(organizedCategories).map(([type, data]) => {
-              const Icon = data.icon;
-              const filteredItems = data.items.filter(cat => 
-                cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                cat.slug.toLowerCase().includes(searchTerm.toLowerCase())
-              );
-
-              return (
-                <div key={type} className="category-mgmt-type-section">
-                  <div className="category-mgmt-type-header">
-                    <h3 className="category-mgmt-type-title">
-                      <Icon style={{ color: data.color }} />
-                      {data.label}
-                    </h3>
-                    <span 
-                      className="category-mgmt-type-count" 
-                      style={{ backgroundColor: data.bgColor, color: data.color }}
-                    >
-                      {filteredItems.length}
-                    </span>
-                  </div>
-                  <div className="category-mgmt-cards-grid">
-                    {filteredItems.length === 0 ? (
-                      <div className="category-mgmt-empty-state">
-                        <FaInfoCircle className="category-mgmt-empty-icon" />
-                        <span>Chưa có danh mục nào</span>
-                      </div>
-                    ) : (
-                      filteredItems.map(cat => (
-                        <div key={cat.id} className="category-mgmt-card">
-                          <div 
-                            className="category-mgmt-card-header" 
-                            style={{ borderLeftColor: data.color }}
-                          >
-                            <h4 className="category-mgmt-card-title">{cat.name}</h4>
-                            <div className="category-mgmt-card-actions">
-                              <button
-                                className="category-mgmt-icon-btn edit"
-                                onClick={() => openEditModal(cat)}
-                                title="Sửa"
-                              >
-                                <FaEdit />
-                              </button>
-                              <button
-                                className="category-mgmt-icon-btn delete"
-                                onClick={() => handleDelete(cat.id, cat.name)}
-                                title="Xóa"
-                              >
-                                <FaTrash />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="category-mgmt-card-body">
-                            <code className="category-mgmt-card-slug">{cat.slug}</code>
-                            {cat.description && (
-                              <p className="category-mgmt-card-description">{cat.description}</p>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          /* Table View */
-          <div className="category-mgmt-table-container">
-            <table className="category-mgmt-table">
+        {/* Table */}
+        <div className="cat-table-wrapper">
+          <div className="cat-table-container">
+            <table className="cat-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Loại</th>
-                  <th>Tên danh mục</th>
+                  <th onClick={() => handleSort('id')} style={{ cursor: 'pointer' }}>
+                    ID <SortIcon columnKey="id" />
+                  </th>
+                  <th onClick={() => handleSort('category_type')} style={{ cursor: 'pointer' }}>
+                    Loại <SortIcon columnKey="category_type" />
+                  </th>
+                  <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+                    Tên danh mục <SortIcon columnKey="name" />
+                  </th>
                   <th>Slug</th>
                   <th>Mô tả</th>
+                  <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
+                    Ngày tạo <SortIcon columnKey="created_at" />
+                  </th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredCategories.length === 0 ? (
                   <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
-                      <FaInfoCircle /> Không tìm thấy danh mục nào
+                    <td colSpan="7" className="cat-table-empty">
+                      <FaInfoCircle className="cat-empty-icon" />
+                      {searchTerm || selectedType !== 'all' ? 'Không tìm thấy kết quả' : 'Chưa có danh mục nào'}
                     </td>
                   </tr>
                 ) : (
@@ -458,10 +396,10 @@ const CategoryManagementPage = () => {
                     const Icon = config?.icon || FaFolder;
                     return (
                       <tr key={cat.id}>
-                        <td>{cat.id}</td>
+                        <td className="cat-table-id">{cat.id}</td>
                         <td>
                           <span 
-                            className="category-mgmt-type-badge"
+                            className="cat-type-badge"
                             style={{ 
                               backgroundColor: config?.bgColor,
                               color: config?.color 
@@ -470,24 +408,30 @@ const CategoryManagementPage = () => {
                             <Icon /> {cat.category_type_label}
                           </span>
                         </td>
-                        <td><strong>{cat.name}</strong></td>
-                        <td><code>{cat.slug}</code></td>
-                        <td>
-                          {cat.description || <span style={{ color: 'var(--cat-text-lighter)', fontStyle: 'italic' }}>-</span>}
+                        <td className="cat-table-name">{cat.name}</td>
+                        <td><code className="cat-code">{cat.slug}</code></td>
+                        <td className="cat-table-desc">
+                          {cat.description || <span className="cat-text-muted">-</span>}
+                        </td>
+                        <td className="cat-table-date">
+                          <FaCalendarAlt className="cat-date-icon" />
+                          {new Date(cat.created_at).toLocaleDateString('vi-VN')}
                         </td>
                         <td>
-                          <div className="category-mgmt-table-actions">
+                          <div className="cat-table-actions">
                             <button
-                              className="category-mgmt-btn category-mgmt-btn-sm category-mgmt-btn-edit"
+                              className="cat-btn-icon cat-btn-edit"
                               onClick={() => openEditModal(cat)}
+                              title="Sửa"
                             >
-                              <FaEdit /> Sửa
+                              <FaEdit />
                             </button>
                             <button
-                              className="category-mgmt-btn category-mgmt-btn-sm category-mgmt-btn-delete"
+                              className="cat-btn-icon cat-btn-delete"
                               onClick={() => handleDelete(cat.id, cat.name)}
+                              title="Xóa"
                             >
-                              <FaTrash /> Xóa
+                              <FaTrash />
                             </button>
                           </div>
                         </td>
@@ -498,30 +442,30 @@ const CategoryManagementPage = () => {
               </tbody>
             </table>
           </div>
-        )}
+        </div>
 
         {/* Modal */}
         {showModal && (
-          <div className="category-mgmt-modal-overlay" onClick={closeModal}>
-            <div className="category-mgmt-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="category-mgmt-modal-header">
-                <h2 className="category-mgmt-modal-title">
+          <div className="cat-modal-overlay" onClick={closeModal}>
+            <div className="cat-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="cat-modal-header">
+                <h2 className="cat-modal-title">
                   {editMode ? (
                     <><FaEdit /> Chỉnh sửa danh mục</>
                   ) : (
                     <><FaPlus /> Thêm danh mục mới</>
                   )}
                 </h2>
-                <button className="category-mgmt-modal-close" onClick={closeModal}>
+                <button className="cat-modal-close" onClick={closeModal}>
                   <FaTimes />
                 </button>
               </div>
 
               <form onSubmit={handleSubmit}>
-                <div className="category-mgmt-modal-body">
-                  <div className="category-mgmt-form-group">
-                    <label htmlFor="cat-type" className="category-mgmt-form-label">
-                      Loại danh mục <span className="category-mgmt-form-required">*</span>
+                <div className="cat-modal-body">
+                  <div className="cat-form-group">
+                    <label htmlFor="cat-type" className="cat-form-label">
+                      Loại danh mục <span className="cat-required">*</span>
                     </label>
                     <select
                       id="cat-type"
@@ -529,7 +473,7 @@ const CategoryManagementPage = () => {
                       value={formData.category_type}
                       onChange={handleInputChange}
                       required
-                      className="category-mgmt-form-control category-mgmt-form-select"
+                      className="cat-form-control cat-form-select"
                     >
                       <option value="">-- Chọn loại --</option>
                       {Object.entries(CATEGORY_CONFIG).map(([type, config]) => (
@@ -538,14 +482,14 @@ const CategoryManagementPage = () => {
                         </option>
                       ))}
                     </select>
-                    <small className="category-mgmt-form-hint">
+                    <small className="cat-form-hint">
                       Chọn loại danh mục: Tin tức, Thuốc hoặc Bệnh lý
                     </small>
                   </div>
 
-                  <div className="category-mgmt-form-group">
-                    <label htmlFor="cat-name" className="category-mgmt-form-label">
-                      Tên danh mục <span className="category-mgmt-form-required">*</span>
+                  <div className="cat-form-group">
+                    <label htmlFor="cat-name" className="cat-form-label">
+                      Tên danh mục <span className="cat-required">*</span>
                     </label>
                     <input
                       id="cat-name"
@@ -555,13 +499,16 @@ const CategoryManagementPage = () => {
                       onChange={handleInputChange}
                       placeholder="VD: Thuốc xương khớp, Bệnh tim mạch..."
                       required
-                      className="category-mgmt-form-control"
+                      className="cat-form-control"
                     />
+                    <small className="cat-form-hint">
+                      Viết hoa chữ cái đầu mỗi từ (VD: Tim Mạch, Nội Khoa)
+                    </small>
                   </div>
 
-                  <div className="category-mgmt-form-group">
-                    <label htmlFor="cat-slug" className="category-mgmt-form-label">
-                      Slug <small style={{ color: 'var(--cat-text-light)' }}>(URL thân thiện)</small>
+                  <div className="cat-form-group">
+                    <label htmlFor="cat-slug" className="cat-form-label">
+                      Slug <small className="cat-text-muted">(URL thân thiện)</small>
                     </label>
                     <input
                       id="cat-slug"
@@ -570,36 +517,36 @@ const CategoryManagementPage = () => {
                       value={formData.slug}
                       onChange={handleInputChange}
                       placeholder="thuoc-xuong-khop"
-                      className="category-mgmt-form-control"
+                      className="cat-form-control"
                     />
-                    <small className="category-mgmt-form-hint">
+                    <small className="cat-form-hint">
                       Tự động tạo từ tên nếu để trống
                     </small>
                   </div>
 
-                  <div className="category-mgmt-form-group">
-                    <label htmlFor="cat-desc" className="category-mgmt-form-label">Mô tả</label>
+                  <div className="cat-form-group">
+                    <label htmlFor="cat-desc" className="cat-form-label">Mô tả</label>
                     <textarea
                       id="cat-desc"
                       name="description"
                       value={formData.description}
                       onChange={handleInputChange}
                       placeholder="Mô tả ngắn về danh mục..."
-                      rows="4"
-                      className="category-mgmt-form-control category-mgmt-form-textarea"
+                      rows="3"
+                      className="cat-form-control cat-form-textarea"
                     />
                   </div>
                 </div>
 
-                <div className="category-mgmt-modal-footer">
+                <div className="cat-modal-footer">
                   <button 
                     type="button" 
-                    className="category-mgmt-btn category-mgmt-btn-secondary" 
+                    className="cat-btn cat-btn-secondary" 
                     onClick={closeModal}
                   >
                     Hủy
                   </button>
-                  <button type="submit" className="category-mgmt-btn category-mgmt-btn-primary">
+                  <button type="submit" className="cat-btn cat-btn-primary">
                     {editMode ? 'Cập nhật' : 'Tạo mới'}
                   </button>
                 </div>
