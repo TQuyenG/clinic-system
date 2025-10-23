@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
-import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import { 
@@ -14,7 +14,6 @@ import {
   FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaUser,
   FaInfoCircle
 } from 'react-icons/fa';
-import { HideArticlePopup } from '../components/article/ArticleReportComponents';
 import './ArticleManagementPage.css';
 
 const ArticleManagementPage = () => {
@@ -31,6 +30,8 @@ const ArticleManagementPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [showHidePopup, setShowHidePopup] = useState(false);
   const [articleToHide, setArticleToHide] = useState(null);
+  const [hideReason, setHideReason] = useState('');
+  const [hidingArticle, setHidingArticle] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -117,60 +118,293 @@ const ArticleManagementPage = () => {
   }, [formData, showModal]);
 
   // Custom Upload Adapter cho CKEditor
-  class MyUploadAdapter {
-    constructor(loader) {
-      this.loader = loader;
-    }
-
-    upload() {
-      return this.loader.file.then(file => new Promise((resolve, reject) => {
-        const formDataUpload = new FormData();
-        formDataUpload.append('upload', file);
-
-        axios.post(`${API_BASE_URL}/api/upload/image`, formDataUpload, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        })
-        .then(response => {
-          if (response.data.uploaded) {
-            resolve({ default: response.data.url });
-          } else {
-            reject(response.data.error?.message || 'Upload failed');
-          }
-        })
-        .catch(error => {
-          reject(error.response?.data?.error?.message || error.message);
-        });
-      }));
-    }
-
-    abort() {}
+class MyUploadAdapter {
+  constructor(loader) {
+    this.loader = loader;
   }
 
-  function MyCustomUploadAdapterPlugin(editor) {
-    editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
-      return new MyUploadAdapter(loader);
-    };
+  upload() {
+    return this.loader.file.then(file => new Promise((resolve, reject) => {
+      if (!file) {
+        console.error('DEBUG: No file selected for upload');
+        return reject('Không có file được chọn');
+      }
+
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        console.error('DEBUG: Invalid file type', file.type);
+        return reject('Chỉ hỗ trợ JPEG, PNG, GIF, WEBP');
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        console.error('DEBUG: File too large', file.size);
+        return reject('File quá lớn, tối đa 5MB');
+      }
+
+      const formDataUpload = new FormData();
+      //  SỬA: Thay 'upload' thành 'image' để khớp với backend
+      formDataUpload.append('image', file);
+
+      console.log('DEBUG: Uploading image to backend', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      });
+
+      //  SỬA: Đổi endpoint từ /api/upload/image sang /api/upload/image
+      axios.post(`${API_BASE_URL}/api/upload/image`, formDataUpload, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      .then(response => {
+        console.log('DEBUG: Upload response:', response.data);
+        //  SỬA: Backend trả về { success: true, url: "..." }
+        if (response.data.success && response.data.url) {
+          resolve({ default: response.data.url });
+        } else {
+          reject(response.data.message || 'Upload thất bại');
+        }
+      })
+      .catch(error => {
+        console.error('DEBUG: Upload error:', error.response?.data || error.message);
+        reject(error.response?.data?.message || 'Lỗi server khi upload ảnh');
+      });
+    }));
   }
 
-  const editorConfig = {
-    extraPlugins: [MyCustomUploadAdapterPlugin],
-    toolbar: {
-      items: [
-        'heading', '|',
-        'bold', 'italic', 'underline', '|',
-        'link', 'imageUpload', 'insertTable', '|',
-        'bulletedList', 'numberedList', '|',
-        'undo', 'redo'
-      ],
-      shouldNotGroupWhenFull: true
-    },
-    image: {
-      toolbar: ['imageTextAlternative', 'toggleImageCaption', 'imageStyle:inline', 'imageStyle:block']
-    }
+  abort() {
+    console.log('DEBUG: Upload aborted');
+  }
+}
+
+function MyCustomUploadAdapterPlugin(editor) {
+  editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+    return new MyUploadAdapter(loader);
   };
+}
+
+// ============================================
+// CKEDITOR CONFIG - DECOUPLED EDITOR
+// ============================================
+const editorConfig = {
+  extraPlugins: [MyCustomUploadAdapterPlugin],
+  
+  toolbar: {
+    items: [
+      'heading', '|',
+      'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
+      'bold', 'italic', 'underline', 'strikethrough', '|',
+      'alignment', '|',
+      'numberedList', 'bulletedList', '|',
+      'outdent', 'indent', '|',
+      'link', 'imageUpload', 'insertTable', 'blockQuote', 'mediaEmbed', '|',
+      'highlight', '|',
+      'undo', 'redo'
+    ],
+    shouldNotGroupWhenFull: true
+  },
+  
+  fontSize: {
+    options: [9, 11, 13, 'default', 17, 19, 21, 24, 28, 32],
+    supportAllValues: true
+  },
+  
+  fontFamily: {
+    options: [
+      'default',
+      'Arial, Helvetica, sans-serif',
+      'Courier New, Courier, monospace',
+      'Georgia, serif',
+      'Lucida Sans Unicode, Lucida Grande, sans-serif',
+      'Tahoma, Geneva, sans-serif',
+      'Times New Roman, Times, serif',
+      'Trebuchet MS, Helvetica, sans-serif',
+      'Verdana, Geneva, sans-serif',
+      'Comic Sans MS, cursive'
+    ],
+    supportAllValues: true
+  },
+  
+  fontColor: {
+    columns: 6,
+    documentColors: 12,
+    colors: [
+      {
+        color: '#000000',
+        label: 'Black'
+      },
+      {
+        color: '#4d4d4d',
+        label: 'Dim grey'
+      },
+      {
+        color: '#999999',
+        label: 'Grey'
+      },
+      {
+        color: '#e6e6e6',
+        label: 'Light grey'
+      },
+      {
+        color: '#ffffff',
+        label: 'White',
+        hasBorder: true
+      },
+      {
+        color: '#e74c3c',
+        label: 'Red'
+      },
+      {
+        color: '#e67e22',
+        label: 'Orange'
+      },
+      {
+        color: '#f39c12',
+        label: 'Yellow'
+      },
+      {
+        color: '#2ecc71',
+        label: 'Light green'
+      },
+      {
+        color: '#3498db',
+        label: 'Blue'
+      },
+      {
+        color: '#9b59b6',
+        label: 'Purple'
+      }
+    ]
+  },
+  
+  fontBackgroundColor: {
+    columns: 6,
+    documentColors: 12,
+    colors: [
+      {
+        color: '#000000',
+        label: 'Black'
+      },
+      {
+        color: '#4d4d4d',
+        label: 'Dim grey'
+      },
+      {
+        color: '#999999',
+        label: 'Grey'
+      },
+      {
+        color: '#e6e6e6',
+        label: 'Light grey'
+      },
+      {
+        color: '#ffffff',
+        label: 'White',
+        hasBorder: true
+      },
+      {
+        color: '#e74c3c',
+        label: 'Red'
+      },
+      {
+        color: '#e67e22',
+        label: 'Orange'
+      },
+      {
+        color: '#f39c12',
+        label: 'Yellow'
+      },
+      {
+        color: '#2ecc71',
+        label: 'Light green'
+      },
+      {
+        color: '#3498db',
+        label: 'Blue'
+      },
+      {
+        color: '#9b59b6',
+        label: 'Purple'
+      }
+    ]
+  },
+  
+  alignment: {
+    options: ['left', 'center', 'right', 'justify']
+  },
+  
+  highlight: {
+    options: [
+      {
+        model: 'yellowMarker',
+        class: 'marker-yellow',
+        title: 'Yellow marker',
+        color: 'var(--ck-highlight-marker-yellow)',
+        type: 'marker'
+      },
+      {
+        model: 'greenMarker',
+        class: 'marker-green',
+        title: 'Green marker',
+        color: 'var(--ck-highlight-marker-green)',
+        type: 'marker'
+      },
+      {
+        model: 'pinkMarker',
+        class: 'marker-pink',
+        title: 'Pink marker',
+        color: 'var(--ck-highlight-marker-pink)',
+        type: 'marker'
+      },
+      {
+        model: 'blueMarker',
+        class: 'marker-blue',
+        title: 'Blue marker',
+        color: 'var(--ck-highlight-marker-blue)',
+        type: 'marker'
+      }
+    ]
+  },
+  
+  image: {
+    toolbar: [
+      'imageTextAlternative', '|',
+      'imageStyle:inline',
+      'imageStyle:block',
+      'imageStyle:side', '|',
+      'toggleImageCaption'
+    ],
+    styles: [
+      'inline',
+      'block',
+      'side'
+    ]
+  },
+  
+  table: {
+    contentToolbar: [
+      'tableColumn',
+      'tableRow',
+      'mergeTableCells',
+      'tableCellProperties',
+      'tableProperties'
+    ]
+  },
+  
+  heading: {
+    options: [
+      { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+      { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+      { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+      { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
+      { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' }
+    ]
+  },
+  
+  language: 'vi'
+};
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
@@ -195,41 +429,59 @@ const ArticleManagementPage = () => {
   };
 
   const fetchArticles = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      
-      let queryFilters = { ...filters };
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    
+    let queryFilters = { ...filters };
 
-      if (activeTab === 'pending') queryFilters.status = 'pending';
-      else if (activeTab === 'request_edit') queryFilters.status = 'request_edit';
-      else if (activeTab === 'approved') queryFilters.status = 'approved';
-      else if (activeTab === 'rejected') queryFilters.status = 'rejected';
-      else if (activeTab === 'hidden') queryFilters.status = 'hidden';
-      else if (activeTab === 'draft') queryFilters.status = 'draft';
-      else if (activeTab === 'medicine') queryFilters.category_type = 'thuoc';
-      else if (activeTab === 'disease') queryFilters.category_type = 'benh_ly';
+    if (activeTab === 'pending') queryFilters.status = 'pending';
+    else if (activeTab === 'request_edit') queryFilters.status = 'request_edit';
+    else if (activeTab === 'approved') queryFilters.status = 'approved';
+    else if (activeTab === 'rejected') queryFilters.status = 'rejected';
+    else if (activeTab === 'hidden') queryFilters.status = 'hidden';
+    else if (activeTab === 'draft') queryFilters.status = 'draft';
+    else if (activeTab === 'medicine') queryFilters.category_type = 'thuoc';
+    else if (activeTab === 'disease') queryFilters.category_type = 'benh_ly';
 
-      const params = new URLSearchParams(
-        Object.entries(queryFilters).filter(([_, v]) => v !== '')
-      ).toString();
-
-      const response = await axios.get(`${API_BASE_URL}/api/articles?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (response.data.success) {
-        setArticles(response.data.articles || []);
-        setPagination(response.data.pagination || {});
-        setStats(response.data.stats || {});
+    // Phân quyền xem bài viết
+    if (user.role === 'admin') {
+      // Admin: Thấy tất cả bài viết TRỪKHI là tab draft thì chỉ thấy draft của mình
+      if (activeTab === 'draft') {
+        queryFilters.author_id = user.id; // Chỉ lấy draft của chính admin
+      } else {
+        queryFilters.exclude_drafts_of_others = true; // Loại bỏ draft của người khác trong tab 'all'
       }
-    } catch (error) {
-      console.error('Error fetching articles:', error);
-      showToast('Lỗi tải danh sách bài viết', 'error');
-    } finally {
-      setLoading(false);
+    } else {
+      queryFilters.author_id = user.id; // Tác giả chỉ thấy bài của mình
     }
-  };
+
+    const params = new URLSearchParams(
+      Object.entries(queryFilters).filter(([_, v]) => v !== '')
+    ).toString();
+
+    console.log(`DEBUG: Fetching articles with params: ${params}`); // Debug query params
+
+    const response = await axios.get(`${API_BASE_URL}/api/articles?${params}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (response.data.success) {
+      console.log(`DEBUG: Received ${response.data.articles.length} articles`, response.data.articles); // Debug response
+      setArticles(response.data.articles || []);
+      setPagination(response.data.pagination || {});
+      setStats(response.data.stats || {});
+    } else {
+      console.error('DEBUG: API returned success: false', response.data);
+      showToast('Lỗi tải danh sách bài viết', 'error');
+    }
+  } catch (error) {
+    console.error('Error fetching articles:', error);
+    showToast('Lỗi tải danh sách bài viết', 'error');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleCategoryChange = (categoryId) => {
     const category = categories.find(c => c.id === parseInt(categoryId));
@@ -258,6 +510,57 @@ const ArticleManagementPage = () => {
   const handlePageChange = (newPage) => {
     setFilters(prev => ({ ...prev, page: newPage }));
   };
+
+  const handleUnhideArticle = async (articleId) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.post(
+      `${API_BASE_URL}/api/articles/${articleId}/unhide`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    if (response.data.success) {
+      showToast('Đã hiện bài viết thành công', 'success');
+      fetchArticles();
+    } else {
+      showToast('Lỗi khi hiện bài viết', 'error');
+    }
+  } catch (error) {
+    console.error('Error unhiding article:', error);
+    showToast('Lỗi khi hiện bài viết', 'error');
+  }
+};
+
+  const handleHideArticle = async (e) => {
+  e.preventDefault();
+  if (!hideReason.trim()) return;
+
+  try {
+    setHidingArticle(true);
+    const token = localStorage.getItem('token');
+    const response = await axios.post(
+      `${API_BASE_URL}/api/articles/${articleToHide.id}/hide`,
+      { reason: hideReason },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    if (response.data.success) {
+      showToast('Đã ẩn bài viết thành công', 'success');
+      fetchArticles();
+      setShowHidePopup(false);
+      setArticleToHide(null);
+      setHideReason('');
+    } else {
+      showToast('Lỗi khi ẩn bài viết', 'error');
+    }
+  } catch (error) {
+    console.error('Error hiding article:', error);
+    showToast('Lỗi khi ẩn bài viết', 'error');
+  } finally {
+    setHidingArticle(false);
+  }
+};
 
   const openModal = async (type, article = null) => {
     setModalType(type);
@@ -738,17 +1041,32 @@ const ArticleManagementPage = () => {
 
         {/* NÚT ẨN/HIỆN */}
         {isAdmin && article.status === 'approved' && (
-          <button
-            className="article-mgmt-btn-action visibility"
-            onClick={() => {
-              setArticleToHide(article);
-              setShowHidePopup(true);
-            }}
-            title="Ẩn bài viết"
-          >
-            <FaEyeSlash />
-          </button>
-        )}
+        <button
+          className="article-mgmt-btn-action visibility"
+          onClick={() => {
+            setArticleToHide(article);
+            setShowHidePopup(true);
+          }}
+          title="Ẩn bài viết"
+        >
+          <FaEyeSlash />
+        </button>
+      )}
+      {isAdmin && article.status === 'hidden' && (
+        <button
+          className="article-mgmt-btn-action visibility success"
+          onClick={() => showConfirm(
+            'Xác nhận hiện bài viết',
+            'Bạn có chắc muốn hiện bài viết này?',
+            () => handleUnhideArticle(article.id),
+            'Hiện bài viết',
+            'success'
+          )}
+          title="Hiện bài viết"
+        >
+          <FaEye />
+        </button>
+      )}
 
         {/* NÚT XÓA */}
         {(isAdmin || (isAuthor && article.status === 'draft')) && (
@@ -1163,16 +1481,29 @@ const ArticleManagementPage = () => {
                   )}
 
                   <div className="article-mgmt-form-group">
-                    <label className="article-mgmt-form-label">
-                      <FaFileAlt /> Nội dung *
-                    </label>
-                    <CKEditor
-                      editor={ClassicEditor}
-                      config={editorConfig}
-                      data={formData.content}
-                      onChange={handleContentChange}
-                    />
-                  </div>
+  <label className="article-mgmt-form-label">
+    <FaFileAlt /> Nội dung *
+  </label>
+  
+  {/* ✅ TOOLBAR CONTAINER - Phải đặt TRƯỚC CKEditor */}
+  <div id="toolbar-container" className="ckeditor-toolbar-container"></div>
+  
+  {/* ✅ CKEDITOR - Decoupled Editor */}
+  <CKEditor
+    editor={DecoupledEditor}
+    config={editorConfig}
+    data={formData.content}
+    onReady={editor => {
+      // Mount toolbar vào container
+      const toolbarContainer = document.querySelector('#toolbar-container');
+      if (toolbarContainer && editor.ui.view.toolbar.element) {
+        toolbarContainer.innerHTML = ''; // Clear cũ (nếu có)
+        toolbarContainer.appendChild(editor.ui.view.toolbar.element);
+      }
+    }}
+    onChange={handleContentChange}
+  />
+</div>
 
                   <div className="article-mgmt-form-row">
                     <div className="article-mgmt-form-group">
@@ -1337,21 +1668,90 @@ const ArticleManagementPage = () => {
 
         {/* Popup ẩn bài viết */}
         {showHidePopup && articleToHide && (
-          <HideArticlePopup
-            articleId={articleToHide.id}
-            articleTitle={articleToHide.title}
-            onClose={() => {
-              setShowHidePopup(false);
-              setArticleToHide(null);
-            }}
-            onSuccess={() => {
-              setShowHidePopup(false);
-              setArticleToHide(null);
-              showToast('Đã ẩn bài viết thành công', 'success');
-              fetchArticles();
-            }}
-          />
-        )}
+        <div className="popup-overlay" onClick={() => setShowHidePopup(false)}>
+          <div className="popup" onClick={(e) => e.stopPropagation()}>
+            <div className="popup-header">
+              <div className="popup-header-content">
+                <FaEyeSlash className="popup-icon" />
+                <h3>Ẩn bài viết</h3>
+              </div>
+              <button onClick={() => setShowHidePopup(false)} className="btn-close-popup">
+                <FaTimes />
+              </button>
+            </div>
+            <form onSubmit={handleHideArticle} className="popup-body">
+              <div className="popup-warning">
+                <FaExclamationTriangle />
+                <div>
+                  <p className="warning-title">Lưu ý quan trọng</p>
+                  <p className="warning-text">
+                    Bài viết sẽ bị ẩn khỏi danh sách công khai. Chỉ admin và tác giả có thể xem.
+                  </p>
+                </div>
+              </div>
+              <div className="popup-info">
+                <label className="popup-label">Bài viết:</label>
+                <p className="article-title-display">{articleToHide.title}</p>
+              </div>
+              <div className="popup-quick-reasons">
+                <label className="popup-label">Lý do nhanh:</label>
+                <div className="quick-reason-buttons">
+                  {['Nội dung không phù hợp', 'Vi phạm chính sách', 'Thông tin sai lệch', 'Yêu cầu từ tác giả'].map((r, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => setHideReason(r)}
+                      className={`btn-quick-reason ${hideReason === r ? 'active' : ''}`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="popup-form-group">
+                <label className="popup-label">
+                  Lý do chi tiết <span className="required">*</span>
+                </label>
+                <textarea
+                  value={hideReason}
+                  onChange={(e) => setHideReason(e.target.value)}
+                  placeholder="Nhập lý do ẩn bài viết (tối đa 500 ký tự)..."
+                  maxLength={500}
+                  rows={5}
+                  className="popup-textarea"
+                  required
+                />
+                <small className="char-count">{hideReason.length}/500 ký tự</small>
+              </div>
+              <div className="popup-footer">
+                <button
+                  type="button"
+                  onClick={() => setShowHidePopup(false)}
+                  className="btn-cancel"
+                  disabled={hidingArticle}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit btn-hide-confirm"
+                  disabled={hidingArticle || !hideReason.trim()}
+                >
+                  {hidingArticle ? (
+                    <>
+                      <FaSpinner className="spinner-icon" /> Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <FaEyeSlash /> Xác nhận ẩn
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

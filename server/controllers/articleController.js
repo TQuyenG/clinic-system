@@ -396,93 +396,117 @@ exports.getSavedArticles = async (req, res) => {
 
 /**
  * GET /api/articles
- * Lấy danh sách bài viết (Admin: all, Staff/Doctor: chỉ của mình)
+ * Lấy danh sách bài viết (Admin thấy tất cả trừ draft của người khác, Tác giả chỉ thấy của mình)
  */
 exports.getArticles = async (req, res) => {
   try {
     const {
-      search = '',
-      status = '',
-      category_id = '',
-      category_type = '',
-      author_id = '',
-      date_from = '',
-      date_to = '',
-      min_views = '',
+      search,
+      status,
+      category_id,
+      category_type,
       page = 1,
       limit = 10,
       sort_by = 'created_at',
-      sort_order = 'DESC'
+      sort_order = 'DESC',
+      exclude_drafts_of_others,
+      author_id
     } = req.query;
+    const user = req.user;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
+    // Xây dựng điều kiện where
     const where = {};
 
-    // PHÂN QUYỀN: Staff/Doctor chỉ thấy bài của mình
-    if (req.user.role === 'staff' || req.user.role === 'doctor') {
-      where.author_id = req.user.id;
+    // Phân quyền
+    if (user.role !== 'admin') {
+      // Tác giả: Chỉ thấy bài viết của mình
+      where.author_id = user.id;
+    } else if (exclude_drafts_of_others === 'true') {
+      // Admin ở tab "Tất cả": Loại bỏ draft của người khác
+      where[Op.or] = [
+        { status: { [Op.ne]: 'draft' } }, // Lấy tất cả bài không phải draft
+        { [Op.and]: [{ status: 'draft' }, { author_id: user.id }] } // Chỉ lấy draft của chính admin
+      ];
+    } else if (status === 'draft') {
+      // Admin ở tab "Nháp": Chỉ lấy draft của chính admin
+      where.status = 'draft';
+      where.author_id = user.id;
     }
 
+    // Bộ lọc tìm kiếm
     if (search) {
       where[Op.or] = [
         { title: { [Op.like]: `%${search}%` } },
-        { content: { [Op.like]: `%${search}%` } },
-        { '$category.name$': { [Op.like]: `%${search}%` } },
-        { '$author.full_name$': { [Op.like]: `%${search}%` } }
+        { content: { [Op.like]: `%${search}%` } }
       ];
     }
-    if (status) where.status = status;
-    if (category_id) where.category_id = category_id;
-    if (author_id && req.user.role === 'admin') where.author_id = author_id; // Chỉ admin filter theo author
-    if (date_from || date_to) {
-      where.created_at = {};
-      if (date_from) where.created_at[Op.gte] = date_from;
-      if (date_to) where.created_at[Op.lte] = date_to;
-    }
-    if (min_views) where.views = { [Op.gte]: parseInt(min_views) };
 
+    // Bộ lọc trạng thái (nếu chưa được set ở trên)
+    if (status && !where.status) {
+      where.status = status;
+    }
+
+    // Bộ lọc danh mục
+    if (category_id) {
+      where.category_id = parseInt(category_id);
+    }
+
+    // Include cho Category
+    const categoryInclude = {
+      model: Category,
+      as: 'category',
+      attributes: ['id', 'name', 'category_type', 'slug']
+    };
+
+    // Bộ lọc category_type
     if (category_type) {
-      where['$category.category_type$'] = category_type;
+      categoryInclude.where = { category_type };
     }
 
-    const include = [
-      { model: Category, as: 'category' },
-      { model: User, as: 'author', attributes: ['id', 'username', 'full_name', 'avatar_url'] },
-      { model: Medicine, as: 'medicine', required: false },
-      { model: Disease, as: 'disease', required: false }
-    ];
-
-    const articles = await Article.findAndCountAll({
+    // Query database
+    const { count, rows } = await Article.findAndCountAll({
       where,
-      include,
+      include: [
+        categoryInclude,
+        { model: User, as: 'author', attributes: ['id', 'full_name', 'avatar_url', 'role'] },
+        { model: Medicine, as: 'medicine', required: false },
+        { model: Disease, as: 'disease', required: false }
+      ],
       order: [[sort_by, sort_order]],
       limit: parseInt(limit),
-      offset: (parseInt(page) - 1) * parseInt(limit),
+      offset: parseInt(offset),
       distinct: true
     });
 
-    const processedArticles = await Promise.all(
-      articles.rows.map(article => loadEntityData(article))
+    // Load dữ liệu entity (medicine/disease)
+    const articlesWithEntity = await Promise.all(
+      rows.map(article => loadEntityData(article))
     );
 
+    // Tính stats (admin thấy tổng số, user chỉ thấy của mình)
+    const statsWhere = user.role === 'admin' ? {} : { author_id: user.id };
+    
+    // Trả về response
     res.json({
       success: true,
-      count: articles.count,
-      articles: processedArticles,
+      articles: articlesWithEntity,
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(articles.count / parseInt(limit)),
-        totalItems: articles.count
+        totalPages: Math.ceil(count / parseInt(limit)),
+        totalItems: count
       },
       stats: {
-        pending: await Article.count({ where: { status: 'pending', ...(req.user.role !== 'admin' && { author_id: req.user.id }) } }),
-        approved: await Article.count({ where: { status: 'approved', ...(req.user.role !== 'admin' && { author_id: req.user.id }) } }),
-        rejected: await Article.count({ where: { status: 'rejected', ...(req.user.role !== 'admin' && { author_id: req.user.id }) } }),
-        request_edit: await Article.count({ where: { status: 'request_edit', ...(req.user.role !== 'admin' && { author_id: req.user.id }) } }),
-        draft: await Article.count({ where: { status: 'draft', ...(req.user.role !== 'admin' && { author_id: req.user.id }) } })
+        total: count,
+        pending: await Article.count({ where: { ...statsWhere, status: 'pending' } }),
+        approved: await Article.count({ where: { ...statsWhere, status: 'approved' } }),
+        rejected: await Article.count({ where: { ...statsWhere, status: 'rejected' } }),
+        draft: await Article.count({ where: { status: 'draft', author_id: user.id } }), // Draft luôn là của user hiện tại
+        request_edit: await Article.count({ where: { ...statsWhere, status: 'request_edit' } })
       }
     });
   } catch (error) {
-    console.error('ERROR: Lỗi khi lấy danh sách bài viết:', error);
+    console.error('Error fetching articles:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
