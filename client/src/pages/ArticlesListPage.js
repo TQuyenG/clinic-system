@@ -213,7 +213,7 @@ const ArticlesListPage = ({ type }) => {
                   />
                   {!getFirstImage(article.content) && (
                     <div className="no-image-overlay">
-                      Chưa có ảnh đại diện
+                      Chưa có ảnh
                     </div>
                   )}
                 </div>

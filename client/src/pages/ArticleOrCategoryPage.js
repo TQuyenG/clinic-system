@@ -42,13 +42,15 @@ const ArticleOrCategoryPage = ({ type }) => {
   if (loading) {
     return (
       <div style={{ 
-        display: 'flex', 
+        display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center', 
         alignItems: 'center', 
-        minHeight: '60vh' 
+        minHeight: '60vh',
+        gap: '1rem'
       }}>
         <div className="spinner"></div>
-        <p>Đang tải...</p>
+        <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Đang tải...</p>
       </div>
     );
   }

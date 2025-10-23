@@ -52,6 +52,13 @@ const CategoryArticlesPage = ({ category, categoryType }) => {
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   };
 
+  const getFirstImage = (html) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const img = doc.querySelector('img');
+  return img ? img.src : null;
+};
+
   const breadcrumbItems = [
     { label: 'Trang chủ', url: '/' },
     { label: 'Bài viết', url: '/bai-viet' },
@@ -100,6 +107,28 @@ const CategoryArticlesPage = ({ category, categoryType }) => {
                 className="article-card"
                 onClick={() => navigate(getCategoryTypeUrl(article))}
               >
+                {/* THÊM PHẦN NÀY */}
+                <div className="card-image">
+                  <img 
+                    src={getFirstImage(article.content) || '/placeholder.jpg'}
+                    alt={article.title} 
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = '/placeholder.jpg';
+                    }}
+                  />
+                  {!getFirstImage(article.content) && (
+                    <div className="no-image-overlay">
+                      Chưa có ảnh
+                    </div>
+                  )}
+                </div>
+                
+                {/* THÊM CARD HEADER */}
+                <div className="card-header">
+                  <span className="category-name">{article.category?.name}</span>
+                </div>
+
                 <h3 className="card-title">{article.title}</h3>
                 <p className="card-excerpt">{truncateContent(article.content)}</p>
 

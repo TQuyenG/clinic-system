@@ -1359,3 +1359,161 @@
     padding: 0.25rem;
   }
 }
+
+/* ============================================
+   COVER IMAGE UPLOAD
+   ============================================ */
+.article-mgmt-cover-image-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border);
+}
+
+.article-mgmt-cover-preview-container {
+  position: relative;
+  margin-top: 0.75rem;
+}
+
+.article-mgmt-cover-preview {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  height: 250px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 2px solid var(--border);
+}
+
+.article-mgmt-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.article-mgmt-cover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.article-mgmt-cover-preview:hover .article-mgmt-cover-overlay {
+  opacity: 1;
+}
+
+.article-mgmt-btn-cover-change,
+.article-mgmt-btn-cover-remove {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.article-mgmt-btn-cover-change {
+  background: var(--primary-dark);
+  color: white;
+}
+
+.article-mgmt-btn-cover-change:hover {
+  background: var(--primary);
+  transform: translateY(-2px);
+}
+
+.article-mgmt-btn-cover-remove {
+  background: var(--danger);
+  color: white;
+}
+
+.article-mgmt-btn-cover-remove:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+}
+
+.article-mgmt-cover-placeholder {
+  width: 100%;
+  max-width: 400px;
+  height: 250px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: var(--bg-gray);
+}
+
+.article-mgmt-cover-placeholder .placeholder-icon {
+  font-size: 3rem;
+  color: var(--text-tertiary);
+}
+
+.article-mgmt-cover-placeholder p {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.article-mgmt-btn-cover-upload {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--primary-dark);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.article-mgmt-btn-cover-upload:hover {
+  background: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.article-mgmt-cover-uploading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 1.5rem 2rem;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  color: var(--primary-dark);
+  box-shadow: var(--shadow-lg);
+}
+
+.article-mgmt-cover-uploading .spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .article-mgmt-cover-preview,
+  .article-mgmt-cover-placeholder {
+    max-width: 100%;
+    height: 200px;
+  }
+}

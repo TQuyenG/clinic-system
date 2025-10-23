@@ -62,6 +62,9 @@ const ArticleManagementPage = () => {
     description: ''
   });
 
+  const [coverImage, setCoverImage] = useState(null); // URL ảnh bìa hiện tại
+  const [uploadingCover, setUploadingCover] = useState(false); // Trạng thái đang upload ảnh bìa
+
   const [pagination, setPagination] = useState({});
   const [stats, setStats] = useState({});
   const [tagInput, setTagInput] = useState('');
@@ -563,53 +566,59 @@ const editorConfig = {
 };
 
   const openModal = async (type, article = null) => {
-    setModalType(type);
-    setShowModal(true);
+  setModalType(type);
+  setShowModal(true);
 
-    if (article) {
-      const response = await axios.get(`${API_BASE_URL}/api/articles/${article.id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+  if (article) {
+    const response = await axios.get(`${API_BASE_URL}/api/articles/${article.id}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
 
-      if (response.data.success) {
-        const art = response.data.article;
-        setSelectedArticle(art);
-        setFormData({
-          title: art.title,
-          content: art.content,
-          category_id: art.category_id,
-          tags_json: art.tags_json || [],
-          source: art.source || '',
-          composition: art.medicine?.composition || '',
-          uses: art.medicine?.uses || '',
-          side_effects: art.medicine?.side_effects || '',
-          manufacturer: art.medicine?.manufacturer || '',
-          symptoms: art.disease?.symptoms || '',
-          treatments: art.disease?.treatments || '',
-          description: art.medicine?.description || art.disease?.description || ''
-        });
-        setSelectedCategoryType(art.category?.category_type || '');
-      }
-    } else {
-      setSelectedArticle(null);
+    if (response.data.success) {
+      const art = response.data.article;
+      setSelectedArticle(art);
       setFormData({
-        title: '',
-        content: '',
-        category_id: '',
-        tags_json: [],
-        source: '',
-        composition: '',
-        uses: '',
-        side_effects: '',
-        manufacturer: '',
-        symptoms: '',
-        treatments: '',
-        description: ''
+        title: art.title,
+        content: art.content,
+        category_id: art.category_id,
+        tags_json: art.tags_json || [],
+        source: art.source || '',
+        composition: art.medicine?.composition || '',
+        uses: art.medicine?.uses || '',
+        side_effects: art.medicine?.side_effects || '',
+        manufacturer: art.medicine?.manufacturer || '',
+        symptoms: art.disease?.symptoms || '',
+        treatments: art.disease?.treatments || '',
+        description: art.medicine?.description || art.disease?.description || ''
       });
-      setSelectedCategoryType('');
+      setSelectedCategoryType(art.category?.category_type || '');
+      
+      // ✅ Set cover image
+      setCoverImage(getFirstImageFromContent(art.content));
     }
-    setHasUnsavedChanges(false);
-  };
+  } else {
+    setSelectedArticle(null);
+    setFormData({
+      title: '',
+      content: '',
+      category_id: '',
+      tags_json: [],
+      source: '',
+      composition: '',
+      uses: '',
+      side_effects: '',
+      manufacturer: '',
+      symptoms: '',
+      treatments: '',
+      description: ''
+    });
+    setSelectedCategoryType('');
+    
+    // ✅ Reset cover image
+    setCoverImage(null);
+  }
+  setHasUnsavedChanges(false);
+};
 
   const closeModal = () => {
   if (hasUnsavedChanges) {
@@ -640,6 +649,7 @@ const editorConfig = {
         setSelectedCategoryType('');
         setTagInput('');
         setHasUnsavedChanges(false);
+        setCoverImage(null); // ✅ Reset cover image
       }
     );
   } else {
@@ -661,6 +671,7 @@ const editorConfig = {
     setSelectedCategoryType('');
     setTagInput('');
     setHasUnsavedChanges(false);
+    setCoverImage(null); // ✅ Reset cover image
   }
 };
 
@@ -693,6 +704,23 @@ const editorConfig = {
     const data = editor.getData();
     setFormData(prev => ({ ...prev, content: data }));
   };
+
+  // Hàm lấy ảnh đầu tiên từ content HTML
+const getFirstImageFromContent = (htmlContent) => {
+  if (!htmlContent) return null;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlContent, 'text/html');
+  const img = doc.querySelector('img');
+  return img ? img.src : null;
+};
+
+// Tự động cập nhật cover image khi content thay đổi
+useEffect(() => {
+  const firstImg = getFirstImageFromContent(formData.content);
+  if (firstImg && !coverImage) {
+    setCoverImage(firstImg);
+  }
+}, [formData.content]);
 
   const addTag = (tag) => {
     if (tag && !formData.tags_json.includes(tag)) {
@@ -916,6 +944,69 @@ const editorConfig = {
       showToast('Lỗi khi xử lý file. Vui lòng thử lại.', 'error');
     }
   };
+
+  // Upload ảnh bìa
+const handleCoverImageUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  // Validate file
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    showToast('Chỉ hỗ trợ ảnh JPEG, PNG, GIF, WEBP', 'error');
+    e.target.value = '';
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('Ảnh quá lớn! Tối đa 5MB', 'error');
+    e.target.value = '';
+    return;
+  }
+
+  try {
+    setUploadingCover(true);
+    const formDataUpload = new FormData();
+    formDataUpload.append('image', file);
+
+    const token = localStorage.getItem('token');
+    const response = await axios.post(`${API_BASE_URL}/api/upload/image`, formDataUpload, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
+    if (response.data.success && response.data.url) {
+      const imageUrl = response.data.url;
+      
+      // Cập nhật cover image
+      setCoverImage(imageUrl);
+      
+      // Thêm ảnh vào cuối body text
+      const imgHtml = `<figure class="image"><img src="${imageUrl}" alt="Cover Image"></figure>`;
+      setFormData(prev => ({
+        ...prev,
+        content: prev.content + imgHtml
+      }));
+      
+      showToast('Upload ảnh bìa thành công!', 'success');
+    } else {
+      showToast('Upload thất bại', 'error');
+    }
+  } catch (error) {
+    console.error('Error uploading cover image:', error);
+    showToast('Lỗi khi upload ảnh bìa', 'error');
+  } finally {
+    setUploadingCover(false);
+    e.target.value = ''; // Reset input
+  }
+};
+
+// Xóa ảnh bìa
+const handleRemoveCoverImage = () => {
+  setCoverImage(null);
+};
 
   const getArticleLink = (article) => {
     const typeMap = {
@@ -1370,6 +1461,60 @@ const editorConfig = {
 
               <div className="article-mgmt-modal-body">
                 <form onSubmit={handleSubmit} className="article-mgmt-form">
+                  {/* ✅ THÊM PHẦN UPLOAD ẢNH BÌA */}
+    <div className="article-mgmt-cover-image-section">
+      <label className="article-mgmt-form-label">
+        <FaFileAlt /> Ảnh bìa
+      </label>
+      
+      <div className="article-mgmt-cover-preview-container">
+        {coverImage ? (
+          <div className="article-mgmt-cover-preview">
+            <img src={coverImage} alt="Cover" />
+            <div className="article-mgmt-cover-overlay">
+              <label htmlFor="cover-upload" className="article-mgmt-btn-cover-change">
+                <FaEdit /> Đổi ảnh
+              </label>
+              <button 
+                type="button" 
+                onClick={handleRemoveCoverImage}
+                className="article-mgmt-btn-cover-remove"
+              >
+                <FaTimes /> Xóa
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="article-mgmt-cover-placeholder">
+            <FaFileAlt className="placeholder-icon" />
+            <p>Chưa có ảnh bìa</p>
+            <label htmlFor="cover-upload" className="article-mgmt-btn-cover-upload">
+              <FaPlus /> Upload ảnh bìa
+            </label>
+          </div>
+        )}
+        
+        <input
+          id="cover-upload"
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleCoverImageUpload}
+          style={{ display: 'none' }}
+          disabled={uploadingCover}
+        />
+        
+        {uploadingCover && (
+          <div className="article-mgmt-cover-uploading">
+            <FaSpinner className="spinner" /> Đang upload...
+          </div>
+        )}
+      </div>
+      
+      <small className="article-mgmt-form-hint">
+        Ảnh sẽ tự động lấy từ ảnh đầu tiên trong nội dung. Hoặc upload ảnh mới (JPEG, PNG, GIF, WEBP - Max 5MB)
+      </small>
+    </div>
+
                   <div className="article-mgmt-form-row">
                     <div className="article-mgmt-form-group">
                       <label className="article-mgmt-form-label">
