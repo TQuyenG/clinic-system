@@ -154,10 +154,22 @@ exports.getArticleBySlug = async (req, res) => {
  */
 exports.getPublicArticles = async (req, res) => {
   try {
-    const { category_id, category_type, search, page = 1, limit = 12 } = req.query;
+    const { 
+      category_id, 
+      category_type, 
+      search, 
+      tag,
+      letter,
+      sort_by = 'created_at',
+      sort_order = 'DESC',
+      page = 1, 
+      limit = 12 
+    } = req.query;
+    
     const offset = (page - 1) * limit;
     const where = { status: 'approved' };
 
+    // Search
     if (search) {
       where[Op.or] = [
         { title: { [Op.like]: `%${search}%` } },
@@ -165,6 +177,12 @@ exports.getPublicArticles = async (req, res) => {
       ];
     }
 
+    // Letter filter (chữ cái đầu)
+    if (letter) {
+      where.title = { [Op.like]: `${letter}%` };
+    }
+
+    // Category filter
     if (category_id) where.category_id = category_id;
 
     const categoryInclude = {
@@ -177,7 +195,8 @@ exports.getPublicArticles = async (req, res) => {
       categoryInclude.where = { category_type };
     }
 
-    const { count, rows } = await Article.findAndCountAll({
+    // Fetch articles
+    let { count, rows } = await Article.findAndCountAll({
       where,
       include: [
         categoryInclude,
@@ -185,12 +204,21 @@ exports.getPublicArticles = async (req, res) => {
         { model: Medicine, as: 'medicine', required: false },
         { model: Disease, as: 'disease', required: false }
       ],
-      order: [['created_at', 'DESC']],
+      order: [[sort_by, sort_order]],
       limit: parseInt(limit),
       offset: parseInt(offset),
       distinct: true
     });
 
+    // Filter by tag nếu có
+    if (tag) {
+      rows = rows.filter(article => 
+        article.tags_json && Array.isArray(article.tags_json) && article.tags_json.includes(tag)
+      );
+      count = rows.length;
+    }
+
+    // Load entity data
     const articlesWithEntity = await Promise.all(
       rows.map(article => loadEntityData(article))
     );
@@ -1753,5 +1781,168 @@ exports.getArticleReviewHistory = async (req, res) => {
   } catch (error) {
     console.error('Error fetching review history:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * GET /api/articles/tags/all
+ * Lấy tất cả tags
+ */
+exports.getAllTags = async (req, res) => {
+  try {
+    const articles = await Article.findAll({
+      where: { status: 'approved' },
+      attributes: ['tags_json']
+    });
+
+    const tagsSet = new Set();
+    articles.forEach(article => {
+      if (article.tags_json && Array.isArray(article.tags_json)) {
+        article.tags_json.forEach(tag => tagsSet.add(tag));
+      }
+    });
+
+    const tags = Array.from(tagsSet).sort();
+    res.json({ success: true, tags });
+  } catch (error) {
+    console.error('Error fetching all tags:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * GET /api/articles/related/:id
+ * Lấy bài viết liên quan
+ */
+// Thay the ham exports.getRelatedArticles trong articleController.js bang ham nay
+
+exports.getRelatedArticles = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category_id, tags } = req.query;
+    
+    console.log('=== Fetching related articles ===');
+    console.log('Article ID:', id);
+    console.log('Category ID:', category_id);
+    console.log('Tags:', tags);
+    
+    let parsedTags = [];
+    if (tags) {
+      try {
+        parsedTags = JSON.parse(tags);
+        console.log('Parsed tags:', parsedTags);
+      } catch (e) {
+        console.error('Error parsing tags:', e);
+      }
+    }
+    
+    const baseWhere = {
+      id: { [Op.ne]: id },
+      status: 'approved',
+      deleted_at: null
+    };
+    
+    let allArticles = [];
+    
+    // BUOC 1: Neu co category_id, uu tien lay bai cung danh muc
+    if (category_id) {
+      console.log('Step 1: Fetching same category articles...');
+      const sameCategoryArticles = await Article.findAll({
+        where: {
+          ...baseWhere,
+          category_id: category_id
+        },
+        include: [
+          { 
+            model: Category, 
+            as: 'category',
+            attributes: ['id', 'name', 'category_type', 'slug']
+          },
+          { 
+            model: User, 
+            as: 'author', 
+            attributes: ['id', 'full_name'] 
+          }
+        ],
+        order: [['created_at', 'DESC']],
+        limit: 10
+      });
+      
+      console.log(`Found ${sameCategoryArticles.length} same category articles`);
+      
+      // Neu co tags, sap xep bai co tag chung len dau
+      if (parsedTags.length > 0) {
+        const withCommonTags = sameCategoryArticles.filter(article => {
+          if (!article.tags_json || !Array.isArray(article.tags_json)) return false;
+          return article.tags_json.some(tag => parsedTags.includes(tag));
+        });
+        
+        const withoutCommonTags = sameCategoryArticles.filter(article => {
+          if (!article.tags_json || !Array.isArray(article.tags_json)) return true;
+          return !article.tags_json.some(tag => parsedTags.includes(tag));
+        });
+        
+        console.log(`- With common tags: ${withCommonTags.length}`);
+        console.log(`- Without common tags: ${withoutCommonTags.length}`);
+        
+        allArticles.push(...withCommonTags, ...withoutCommonTags);
+      } else {
+        allArticles.push(...sameCategoryArticles);
+      }
+    }
+    
+    // BUOC 2: Neu chua du 5 bai, lay them bai gan day nhat (bat ky category nao)
+    if (allArticles.length < 5) {
+      console.log(`Step 2: Need ${5 - allArticles.length} more articles...`);
+      
+      const excludeIds = allArticles.map(a => a.id);
+      excludeIds.push(parseInt(id));
+      
+      const recentArticles = await Article.findAll({
+        where: {
+          ...baseWhere,
+          id: { [Op.notIn]: excludeIds }
+        },
+        include: [
+          { 
+            model: Category, 
+            as: 'category',
+            attributes: ['id', 'name', 'category_type', 'slug']
+          },
+          { 
+            model: User, 
+            as: 'author', 
+            attributes: ['id', 'full_name'] 
+          }
+        ],
+        order: [['created_at', 'DESC']],
+        limit: 5 - allArticles.length
+      });
+      
+      console.log(`Found ${recentArticles.length} recent articles`);
+      allArticles.push(...recentArticles);
+    }
+    
+    // Loai bo trung lap va gioi han 5 bai
+    const uniqueArticles = Array.from(
+      new Map(allArticles.map(a => [a.id, a])).values()
+    ).slice(0, 5);
+    
+    console.log(`=== Total articles to return: ${uniqueArticles.length} ===`);
+    console.log('Article IDs:', uniqueArticles.map(a => a.id));
+    
+    res.json({ 
+      success: true, 
+      articles: uniqueArticles,
+      count: uniqueArticles.length
+    });
+    
+  } catch (error) {
+    console.error('=== Error fetching related articles ===');
+    console.error('Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 };

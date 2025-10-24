@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
-import { FaSearch, FaTimes, FaEye, FaCalendar, FaUser } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaEye, FaCalendar, FaUser, FaFilter } from 'react-icons/fa';
 import './ArticlesListPage.css';
 
 const ArticlesListPage = ({ type }) => {
   const navigate = useNavigate();
+  const API_BASE_URL = 'http://localhost:3001';
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,16 +16,31 @@ const ArticlesListPage = ({ type }) => {
     search: '',
     category_id: '',
     category_type: type || '',
+    tag: '',
+    sort_by: 'created_at', // created_at, views, likes, title
+    sort_order: 'DESC',
     page: 1,
     limit: 12
   });
+  const [availableTags, setAvailableTags] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
   const [pagination, setPagination] = useState({});
+  const fetchTags = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/articles/tags/all`);
+      if (response.data.success) {
+        setAvailableTags(response.data.tags || []);
+      }
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+    }
+  };
 
-  const API_BASE_URL = 'http://localhost:3001';
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+  fetchCategories();
+  fetchTags();
+}, []);
 
   useEffect(() => {
     setFilters(prev => ({ ...prev, category_type: type || '', page: 1 }));
@@ -75,6 +91,9 @@ const ArticlesListPage = ({ type }) => {
       search: '',
       category_id: '',
       category_type: type || '',
+      tag: '',
+      sort_by: 'created_at',
+      sort_order: 'DESC',
       page: 1,
       limit: 12
     });
@@ -134,56 +153,124 @@ const ArticlesListPage = ({ type }) => {
         <p className="subtitle">Khám phá kiến thức y tế và sức khỏe</p>
       </div>
 
-      <div className="filters-bar">
-        <div className="search-box">
-          <FaSearch />
-          <input
-            type="text"
-            name="search"
-            value={filters.search}
-            onChange={handleFilterChange}
-            placeholder="Tìm kiếm bài viết..."
-          />
-          {filters.search && (
-            <button onClick={() => setFilters(prev => ({ ...prev, search: '', page: 1 }))}>
-              <FaTimes />
+      <div className="filters-section">
+        {/* Search Box */}
+        <div className="filters-bar">
+          <div className="search-box">
+            <FaSearch />
+            <input
+              type="text"
+              name="search"
+              value={filters.search}
+              onChange={handleFilterChange}
+              placeholder="Tìm kiếm theo tiêu đề, nội dung..."
+            />
+            {filters.search && (
+              <button 
+                type="button"
+                onClick={() => setFilters(prev => ({ ...prev, search: '', page: 1 }))}
+              >
+                <FaTimes />
+              </button>
+            )}
+          </div>
+
+          <button 
+            className="btn-toggle-filters"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <FaFilter /> {showFilters ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}
+          </button>
+
+          {(filters.search || filters.category_id || filters.tag || (!type && filters.category_type)) && (
+            <button className="btn-clear" onClick={clearFilters}>
+              <FaTimes /> Xóa lọc
             </button>
           )}
         </div>
 
-        {!type && (
-          <select
-            name="category_type"
-            value={filters.category_type}
-            onChange={handleFilterChange}
-          >
-            <option value="">Tất cả loại</option>
-            <option value="tin_tuc">Tin tức</option>
-            <option value="thuoc">Thuốc</option>
-            <option value="benh_ly">Bệnh lý</option>
-          </select>
-        )}
+        {/* Advanced Filters */}
+        {showFilters && (
+          <div className="advanced-filters">
+            <div className="filter-row">
+              {!type && (
+                <div className="filter-item">
+                  <label>Loại bài viết</label>
+                  <select
+                    name="category_type"
+                    value={filters.category_type}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tất cả loại</option>
+                    <option value="tin_tuc">Tin tức</option>
+                    <option value="thuoc">Thuốc</option>
+                    <option value="benh_ly">Bệnh lý</option>
+                  </select>
+                </div>
+              )}
 
-        <select
-          name="category_id"
-          value={filters.category_id}
-          onChange={handleFilterChange}
-        >
-          <option value="">Tất cả danh mục</option>
-          {categories
-            .filter(cat => !filters.category_type || cat.category_type === filters.category_type)
-            .map(cat => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))
-          }
-        </select>
+              <div className="filter-item">
+                <label>Danh mục</label>
+                <select
+                  name="category_id"
+                  value={filters.category_id}
+                  onChange={handleFilterChange}
+                >
+                  <option value="">Tất cả danh mục</option>
+                  {categories
+                    .filter(cat => !filters.category_type || cat.category_type === filters.category_type)
+                    .map(cat => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
 
-        {(filters.search || filters.category_id || (!type && filters.category_type)) && (
-          <button className="btn-clear" onClick={clearFilters}>
-            <FaTimes /> Xóa lọc
-          </button>
+              <div className="filter-item">
+                <label>Tag</label>
+                <select
+                  name="tag"
+                  value={filters.tag}
+                  onChange={handleFilterChange}
+                >
+                  <option value="">Tất cả tag</option>
+                  {availableTags.map((tag, index) => (
+                    <option key={index} value={tag}>
+                      {tag}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-item">
+                <label>Sắp xếp theo</label>
+                <select
+                  name="sort_by"
+                  value={filters.sort_by}
+                  onChange={handleFilterChange}
+                >
+                  <option value="created_at">Mới nhất</option>
+                  <option value="views">Lượt xem</option>
+                  <option value="likes">Lượt thích</option>
+                  <option value="title">Tiêu đề A-Z</option>
+                </select>
+              </div>
+
+              <div className="filter-item">
+                <label>Thứ tự</label>
+                <select
+                  name="sort_order"
+                  value={filters.sort_order}
+                  onChange={handleFilterChange}
+                >
+                  <option value="DESC">Giảm dần</option>
+                  <option value="ASC">Tăng dần</option>
+                </select>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

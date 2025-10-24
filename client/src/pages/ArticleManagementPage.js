@@ -1,4 +1,4 @@
-// client/src/pages/ArticleManagementPage.js - OPTIMIZED VERSION
+// client/src/pages/ArticleManagementPage.js - VERSION 4.0 - HOÀN CHỈNH
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -12,7 +12,8 @@ import {
   FaNewspaper, FaPills, FaDisease, FaFileAlt, FaCopy, FaHistory,
   FaPaperPlane, FaSave, FaExternalLinkAlt, FaSpinner, FaClock,
   FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaUser,
-  FaInfoCircle
+  FaInfoCircle, FaImage, FaUpload, FaLink, FaTags, FaCog, FaFileImport,
+  FaFileExcel, FaFileCsv, FaFileDownload
 } from 'react-icons/fa';
 import './ArticleManagementPage.css';
 
@@ -20,60 +21,160 @@ const ArticleManagementPage = () => {
   const navigate = useNavigate();
   const API_BASE_URL = 'http://localhost:3001';
   
+  // ============================================
+  // QUẢN LÝ STATE
+  // ============================================
+  
+  // State người dùng hiện tại
   const [user, setUser] = useState({});
+  
+  // State danh sách bài viết
   const [articles, setArticles] = useState([]);
+  
+  // State danh sách danh mục
   const [categories, setCategories] = useState([]);
+  
+  // State loading
   const [loading, setLoading] = useState(true);
+  
+  // State hiển thị modal tạo/sửa bài viết
   const [showModal, setShowModal] = useState(false);
+  
+  // Loại modal: 'create' hoặc 'edit'
   const [modalType, setModalType] = useState('');
+  
+  // Bài viết đang được chọn để sửa/xóa
   const [selectedArticle, setSelectedArticle] = useState(null);
+  
+  // Tab hiện tại: 'all', 'draft', 'pending', 'approved', 'rejected', 'hidden'
   const [activeTab, setActiveTab] = useState('all');
+  
+  // State popup ẩn/hiện bài viết
   const [showHidePopup, setShowHidePopup] = useState(false);
   const [articleToHide, setArticleToHide] = useState(null);
   const [hideReason, setHideReason] = useState('');
   const [hidingArticle, setHidingArticle] = useState(false);
+  
+  // State confirm dialog
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  
+  // State theo dõi thay đổi chưa lưu
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
+  // ============================================
+  // BỘ LỌC TÌM KIẾM
+  // ============================================
   const [filters, setFilters] = useState({
-    search: '',
-    status: '',
-    category_id: '',
-    category_type: '',
-    page: 1,
-    limit: 10,
-    sort_by: 'created_at',
-    sort_order: 'DESC'
+    search: '',           // Tìm kiếm theo tiêu đề/nội dung
+    status: '',           // Lọc theo trạng thái
+    category_id: '',      // Lọc theo danh mục
+    category_type: '',    // Lọc theo loại danh mục
+    page: 1,              // Trang hiện tại
+    limit: 10,            // Số bài viết mỗi trang
+    sort_by: 'created_at', // Sắp xếp theo trường
+    sort_order: 'DESC'    // Thứ tự sắp xếp
   });
 
+  // ============================================
+  // DỮ LIỆU FORM TẠO/SỬA BÀI VIẾT
+  // ============================================
   const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    category_id: '',
-    tags_json: [],
-    source: '',
-    composition: '',
-    uses: '',
-    side_effects: '',
-    manufacturer: '',
-    symptoms: '',
-    treatments: '',
-    description: ''
+    // Thông tin chung
+    title: '',              // Tiêu đề bài viết
+    content: '',            // Nội dung HTML
+    category_id: '',        // ID danh mục
+    tags_json: [],          // Mảng tags
+    source: '',             // Nguồn bài viết
+    
+    // Thông tin thuốc (Medicine)
+    name: '',                         // Tên thuốc - BẮT BUỘC
+    composition: '',                  // Thành phần
+    uses: '',                         // Công dụng
+    side_effects: '',                 // Tác dụng phụ
+    image_url: '',                    // URL hình ảnh thuốc
+    manufacturer: '',                 // Nhà sản xuất
+    excellent_review_percent: 0,      // % đánh giá xuất sắc
+    average_review_percent: 0,        // % đánh giá trung bình
+    poor_review_percent: 0,           // % đánh giá kém
+    components: '',                   // Thành phần (cũ)
+    medicine_usage: '',               // Cách dùng
+    
+    // Thông tin bệnh lý (Disease)
+    symptoms: '',           // Triệu chứng
+    treatments: '',         // Điều trị
+    description: ''         // Mô tả
   });
 
-  const [coverImage, setCoverImage] = useState(null); // URL ảnh bìa hiện tại
-  const [uploadingCover, setUploadingCover] = useState(false); // Trạng thái đang upload ảnh bìa
+  // ============================================
+  // XỬ LÝ ẢNH BÌA
+  // ============================================
+  const [coverImage, setCoverImage] = useState(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [imageUploadMethod, setImageUploadMethod] = useState('file'); // 'file' hoặc 'url'
+  const [tempImageUrl, setTempImageUrl] = useState('');
 
+  // ============================================
+  // PHÂN TRANG VÀ THỐNG KÊ
+  // ============================================
   const [pagination, setPagination] = useState({});
-  const [stats, setStats] = useState({});
+  const [stats, setStats] = useState({
+    total: 0,
+    draft: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    hidden: 0
+  });
+
+  // ============================================
+  // TAGS
+  // ============================================
   const [tagInput, setTagInput] = useState('');
   const [suggestedTags, setSuggestedTags] = useState([]);
+  
+  // Loại danh mục được chọn
   const [selectedCategoryType, setSelectedCategoryType] = useState('');
 
-  // Toast notification system
+  // ============================================
+  // HIỂN THỊ CỘT - CHỈ GIỮ 2 CỘT CỐ ĐỊNH: ID, TIÊU ĐỀ VÀ CỘT THAO TÁC
+  // ============================================
+  const [visibleColumns, setVisibleColumns] = useState({
+    id: true,              // Cột ID - CỐ ĐỊNH
+    title: true,           // Cột Tiêu đề - CỐ ĐỊNH
+    tags: true,            // Cột Tags
+    category: true,        // Cột Danh mục
+    status: true,          // Cột Trạng thái
+    author: true,          // Cột Tác giả
+    created_at: false,     // Cột Ngày tạo
+    views: false,          // Cột Lượt xem
+    composition: false,    // Cột Thành phần (thuốc)
+    uses: false,           // Cột Công dụng (thuốc)
+    manufacturer: false,   // Cột Nhà sản xuất (thuốc)
+    symptoms: false,       // Cột Triệu chứng (bệnh)
+    treatments: false      // Cột Điều trị (bệnh)
+  });
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
+
+  const [showAdminPublishChoice, setShowAdminPublishChoice] = useState(false); // Popup chọn publish ngay hay gửi duyệt
+  const [countdownSeconds, setCountdownSeconds] = useState(0); // Đếm ngược cho delete/hide
+  const [deleteArticleId, setDeleteArticleId] = useState(null); // ID bài viết đang xóa
+  const [hideArticleData, setHideArticleData] = useState(null); // Data bài viết đang ẩn
+
+  // Constants cho countdown
+  const DELETE_COUNTDOWN = 5;
+  const HIDE_COUNTDOWN = 5;
+
+  // ============================================
+  // TOAST NOTIFICATIONS
+  // ============================================
   const [toasts, setToasts] = useState([]);
 
+  /**
+   * Hiển thị toast notification
+   * @param {string} message - Nội dung thông báo
+   * @param {string} type - Loại: 'success', 'error', 'warning', 'info'
+   */
   const showToast = (message, type = 'success') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -82,29 +183,42 @@ const ArticleManagementPage = () => {
     }, 4000);
   };
 
+  /**
+   * Xóa toast theo ID
+   */
   const removeToast = (id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Confirm dialog
+  /**
+   * Hiển thị confirm dialog
+   * @param {string} title - Tiêu đề
+   * @param {string} message - Nội dung
+   * @param {function} onConfirm - Hàm callback khi xác nhận
+   * @param {string} confirmText - Text nút xác nhận
+   * @param {string} type - Loại: 'warning', 'danger', 'info'
+   * @param {function} onCancelWithoutSave - Hàm callback khi không lưu
+   * @param {string} cancelWithoutSaveText - Text nút không lưu
+   */
   const showConfirm = (title, message, onConfirm, confirmText = 'Xác nhận', type = 'warning', onCancelWithoutSave = null, cancelWithoutSaveText = 'Không lưu') => {
-  setConfirmAction({
-    title,
-    message,
-    onConfirm,
-    confirmText,
-    type,
-    onCancelWithoutSave,
-    cancelWithoutSaveText
-  });
-  setShowConfirmDialog(true);
-};
+    setConfirmAction({
+      title, message, onConfirm, confirmText, type,
+      onCancelWithoutSave, cancelWithoutSaveText
+    });
+    setShowConfirmDialog(true);
+  };
 
+  /**
+   * Đóng confirm dialog
+   */
   const closeConfirm = () => {
     setShowConfirmDialog(false);
     setConfirmAction(null);
   };
 
+  /**
+   * Xử lý khi xác nhận trong dialog
+   */
   const handleConfirm = () => {
     if (confirmAction?.onConfirm) {
       confirmAction.onConfirm();
@@ -112,7 +226,9 @@ const ArticleManagementPage = () => {
     closeConfirm();
   };
 
-  // Track unsaved changes
+  /**
+   * Theo dõi thay đổi chưa lưu trong form
+   */
   useEffect(() => {
     if (showModal) {
       const hasData = formData.title || formData.content || formData.category_id;
@@ -120,305 +236,130 @@ const ArticleManagementPage = () => {
     }
   }, [formData, showModal]);
 
-  // Custom Upload Adapter cho CKEditor
-class MyUploadAdapter {
-  constructor(loader) {
-    this.loader = loader;
-  }
-
-  upload() {
-    return this.loader.file.then(file => new Promise((resolve, reject) => {
-      if (!file) {
-        console.error('DEBUG: No file selected for upload');
-        return reject('Không có file được chọn');
-      }
-
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        console.error('DEBUG: Invalid file type', file.type);
-        return reject('Chỉ hỗ trợ JPEG, PNG, GIF, WEBP');
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        console.error('DEBUG: File too large', file.size);
-        return reject('File quá lớn, tối đa 5MB');
-      }
-
-      const formDataUpload = new FormData();
-      //  SỬA: Thay 'upload' thành 'image' để khớp với backend
-      formDataUpload.append('image', file);
-
-      console.log('DEBUG: Uploading image to backend', {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type
-      });
-
-      //  SỬA: Đổi endpoint từ /api/upload/image sang /api/upload/image
-      axios.post(`${API_BASE_URL}/api/upload/image`, formDataUpload, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      })
-      .then(response => {
-        console.log('DEBUG: Upload response:', response.data);
-        //  SỬA: Backend trả về { success: true, url: "..." }
-        if (response.data.success && response.data.url) {
-          resolve({ default: response.data.url });
-        } else {
-          reject(response.data.message || 'Upload thất bại');
-        }
-      })
-      .catch(error => {
-        console.error('DEBUG: Upload error:', error.response?.data || error.message);
-        reject(error.response?.data?.message || 'Lỗi server khi upload ảnh');
-      });
-    }));
-  }
-
-  abort() {
-    console.log('DEBUG: Upload aborted');
-  }
-}
-
-function MyCustomUploadAdapterPlugin(editor) {
-  editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
-    return new MyUploadAdapter(loader);
-  };
-}
-
-// ============================================
-// CKEDITOR CONFIG - DECOUPLED EDITOR
-// ============================================
-const editorConfig = {
-  extraPlugins: [MyCustomUploadAdapterPlugin],
-  
-  toolbar: {
-    items: [
-      'heading', '|',
-      'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
-      'bold', 'italic', 'underline', 'strikethrough', '|',
-      'alignment', '|',
-      'numberedList', 'bulletedList', '|',
-      'outdent', 'indent', '|',
-      'link', 'imageUpload', 'insertTable', 'blockQuote', 'mediaEmbed', '|',
-      'highlight', '|',
-      'undo', 'redo'
-    ],
-    shouldNotGroupWhenFull: true
-  },
-  
-  fontSize: {
-    options: [9, 11, 13, 'default', 17, 19, 21, 24, 28, 32],
-    supportAllValues: true
-  },
-  
-  fontFamily: {
-    options: [
-      'default',
-      'Arial, Helvetica, sans-serif',
-      'Courier New, Courier, monospace',
-      'Georgia, serif',
-      'Lucida Sans Unicode, Lucida Grande, sans-serif',
-      'Tahoma, Geneva, sans-serif',
-      'Times New Roman, Times, serif',
-      'Trebuchet MS, Helvetica, sans-serif',
-      'Verdana, Geneva, sans-serif',
-      'Comic Sans MS, cursive'
-    ],
-    supportAllValues: true
-  },
-  
-  fontColor: {
-    columns: 6,
-    documentColors: 12,
-    colors: [
-      {
-        color: '#000000',
-        label: 'Black'
-      },
-      {
-        color: '#4d4d4d',
-        label: 'Dim grey'
-      },
-      {
-        color: '#999999',
-        label: 'Grey'
-      },
-      {
-        color: '#e6e6e6',
-        label: 'Light grey'
-      },
-      {
-        color: '#ffffff',
-        label: 'White',
-        hasBorder: true
-      },
-      {
-        color: '#e74c3c',
-        label: 'Red'
-      },
-      {
-        color: '#e67e22',
-        label: 'Orange'
-      },
-      {
-        color: '#f39c12',
-        label: 'Yellow'
-      },
-      {
-        color: '#2ecc71',
-        label: 'Light green'
-      },
-      {
-        color: '#3498db',
-        label: 'Blue'
-      },
-      {
-        color: '#9b59b6',
-        label: 'Purple'
-      }
-    ]
-  },
-  
-  fontBackgroundColor: {
-    columns: 6,
-    documentColors: 12,
-    colors: [
-      {
-        color: '#000000',
-        label: 'Black'
-      },
-      {
-        color: '#4d4d4d',
-        label: 'Dim grey'
-      },
-      {
-        color: '#999999',
-        label: 'Grey'
-      },
-      {
-        color: '#e6e6e6',
-        label: 'Light grey'
-      },
-      {
-        color: '#ffffff',
-        label: 'White',
-        hasBorder: true
-      },
-      {
-        color: '#e74c3c',
-        label: 'Red'
-      },
-      {
-        color: '#e67e22',
-        label: 'Orange'
-      },
-      {
-        color: '#f39c12',
-        label: 'Yellow'
-      },
-      {
-        color: '#2ecc71',
-        label: 'Light green'
-      },
-      {
-        color: '#3498db',
-        label: 'Blue'
-      },
-      {
-        color: '#9b59b6',
-        label: 'Purple'
-      }
-    ]
-  },
-  
-  alignment: {
-    options: ['left', 'center', 'right', 'justify']
-  },
-  
-  highlight: {
-    options: [
-      {
-        model: 'yellowMarker',
-        class: 'marker-yellow',
-        title: 'Yellow marker',
-        color: 'var(--ck-highlight-marker-yellow)',
-        type: 'marker'
-      },
-      {
-        model: 'greenMarker',
-        class: 'marker-green',
-        title: 'Green marker',
-        color: 'var(--ck-highlight-marker-green)',
-        type: 'marker'
-      },
-      {
-        model: 'pinkMarker',
-        class: 'marker-pink',
-        title: 'Pink marker',
-        color: 'var(--ck-highlight-marker-pink)',
-        type: 'marker'
-      },
-      {
-        model: 'blueMarker',
-        class: 'marker-blue',
-        title: 'Blue marker',
-        color: 'var(--ck-highlight-marker-blue)',
-        type: 'marker'
-      }
-    ]
-  },
-  
-  image: {
-    toolbar: [
-      'imageTextAlternative', '|',
-      'imageStyle:inline',
-      'imageStyle:block',
-      'imageStyle:side', '|',
-      'toggleImageCaption'
-    ],
-    styles: [
-      'inline',
-      'block',
-      'side'
-    ]
-  },
-  
-  table: {
-    contentToolbar: [
-      'tableColumn',
-      'tableRow',
-      'mergeTableCells',
-      'tableCellProperties',
-      'tableProperties'
-    ]
-  },
-  
-  heading: {
-    options: [
-      { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
-      { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
-      { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
-      { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
-      { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' }
-    ]
-  },
-  
-  language: 'vi'
-};
-
+  /**
+   * Khóa scroll khi mở modal để không cuộn được màn hình bên ngoài
+   */
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user') || '{}');
-    setUser(userData);
+    if (showModal || showHidePopup) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showModal, showHidePopup]);
+
+  
+
+  // ============================================
+  // CKEDITOR - UPLOAD ADAPTER
+  // ============================================
+  
+  /**
+   * Custom upload adapter cho CKEditor
+   * Xử lý upload ảnh lên server
+   */
+  class MyUploadAdapter {
+    constructor(loader) {
+      this.loader = loader;
+    }
+
+    upload() {
+      return this.loader.file.then(file => new Promise((resolve, reject) => {
+        if (!file) return reject('Không có file được chọn');
+
+        // Kiểm tra định dạng file
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+          return reject('Chỉ hỗ trợ JPEG, PNG, GIF, WEBP');
+        }
+
+        // Kiểm tra kích thước file (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          return reject('File quá lớn, tối đa 5MB');
+        }
+
+        const formDataUpload = new FormData();
+        formDataUpload.append('image', file);
+
+        axios.post(`${API_BASE_URL}/api/upload/image`, formDataUpload, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        })
+        .then(response => {
+          if (response.data.success && response.data.url) {
+            resolve({ default: response.data.url });
+          } else {
+            reject(response.data.message || 'Upload thất bại');
+          }
+        })
+        .catch(error => {
+          reject(error.response?.data?.message || 'Lỗi server khi upload ảnh');
+        });
+      }));
+    }
+
+    abort() {}
+  }
+
+  /**
+   * Plugin để thêm upload adapter vào CKEditor
+   */
+  function MyCustomUploadAdapterPlugin(editor) {
+    editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+      return new MyUploadAdapter(loader);
+    };
+  }
+
+  // ============================================
+  // LIFECYCLE - LOAD DỮ LIỆU BAN ĐẦU
+  // ============================================
+  
+  useEffect(() => {
+    fetchUserInfo();
     fetchCategories();
   }, []);
 
   useEffect(() => {
     fetchArticles();
+    fetchStats();
   }, [filters, activeTab]);
 
+  // THÊM SAU CÁC useEffect HIỆN CÓ:
+
+useEffect(() => {
+  if (countdownSeconds > 0) {
+    const timer = setTimeout(() => {
+      setCountdownSeconds(prev => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }
+}, [countdownSeconds]);
+
+
+
+  /**
+   * Lấy thông tin user hiện tại
+   */
+  const fetchUserInfo = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/user/profile`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (response.data.success) {
+        setUser(response.data.user);
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy thông tin user:', error);
+    }
+  };
+
+  /**
+   * Lấy danh sách categories
+   */
   const fetchCategories = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/articles/categories`);
@@ -426,177 +367,129 @@ const editorConfig = {
         setCategories(response.data.categories || []);
       }
     } catch (error) {
-      console.error('Error fetching categories:', error);
-      showToast('Lỗi tải danh mục', 'error');
+      console.error('Lỗi khi lấy danh mục:', error);
+      showToast('Không thể tải danh sách danh mục', 'error');
     }
   };
 
-  const fetchArticles = async () => {
+  /**
+   * Lấy danh sách bài viết theo bộ lọc
+   */
+  // THAY THẾ HÀM fetchArticles HOÀN TOÀN:
+
+const fetchArticles = async () => {
   try {
     setLoading(true);
-    const token = localStorage.getItem('token');
+    const params = { ...filters };
     
-    let queryFilters = { ...filters };
-
-    if (activeTab === 'pending') queryFilters.status = 'pending';
-    else if (activeTab === 'request_edit') queryFilters.status = 'request_edit';
-    else if (activeTab === 'approved') queryFilters.status = 'approved';
-    else if (activeTab === 'rejected') queryFilters.status = 'rejected';
-    else if (activeTab === 'hidden') queryFilters.status = 'hidden';
-    else if (activeTab === 'draft') queryFilters.status = 'draft';
-    else if (activeTab === 'medicine') queryFilters.category_type = 'thuoc';
-    else if (activeTab === 'disease') queryFilters.category_type = 'benh_ly';
-
-    // Phân quyền xem bài viết
-    if (user.role === 'admin') {
-      // Admin: Thấy tất cả bài viết TRỪKHI là tab draft thì chỉ thấy draft của mình
-      if (activeTab === 'draft') {
-        queryFilters.author_id = user.id; // Chỉ lấy draft của chính admin
-      } else {
-        queryFilters.exclude_drafts_of_others = true; // Loại bỏ draft của người khác trong tab 'all'
-      }
-    } else {
-      queryFilters.author_id = user.id; // Tác giả chỉ thấy bài của mình
+    // Nếu đang ở tab cụ thể, set filter status
+    if (activeTab !== 'all') {
+      params.status = activeTab;
+    } else if (user.role === 'admin') {
+      // Admin ở tab "Tất cả": Loại bỏ draft của người khác
+      params.exclude_drafts_of_others = 'true';
     }
 
-    const params = new URLSearchParams(
-      Object.entries(queryFilters).filter(([_, v]) => v !== '')
-    ).toString();
-
-    console.log(`DEBUG: Fetching articles with params: ${params}`); // Debug query params
-
-    const response = await axios.get(`${API_BASE_URL}/api/articles?${params}`, {
-      headers: { Authorization: `Bearer ${token}` }
+    const response = await axios.get(`${API_BASE_URL}/api/articles`, {
+      params,
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     });
 
     if (response.data.success) {
-      console.log(`DEBUG: Received ${response.data.articles.length} articles`, response.data.articles); // Debug response
       setArticles(response.data.articles || []);
       setPagination(response.data.pagination || {});
-      setStats(response.data.stats || {});
-    } else {
-      console.error('DEBUG: API returned success: false', response.data);
-      showToast('Lỗi tải danh sách bài viết', 'error');
+      
+      // Cập nhật stats - KHÔNG thống kê tổng draft
+      if (response.data.stats) {
+        setStats({
+          total: response.data.stats.total || 0,
+          draft: response.data.stats.draft || 0, // Chỉ draft của chính user
+          pending: response.data.stats.pending || 0,
+          approved: response.data.stats.approved || 0,
+          rejected: response.data.stats.rejected || 0,
+          hidden: response.data.stats.hidden || 0
+        });
+      }
     }
   } catch (error) {
-    console.error('Error fetching articles:', error);
-    showToast('Lỗi tải danh sách bài viết', 'error');
+    console.error('Lỗi khi lấy bài viết:', error);
+    showToast('Không thể tải danh sách bài viết', 'error');
   } finally {
     setLoading(false);
   }
 };
 
-  const handleCategoryChange = (categoryId) => {
-    const category = categories.find(c => c.id === parseInt(categoryId));
-    if (category) {
-      setSelectedCategoryType(category.category_type);
-      setFormData(prev => ({ ...prev, category_id: categoryId }));
-    } else {
-      setSelectedCategoryType('');
+  /**
+   * Lấy thống kê số lượng bài viết theo trạng thái
+   */
+  const fetchStats = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/articles`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      if (response.data.success) {
+        const articles = response.data.articles || [];
+        const statsData = {
+          total: articles.length,
+          draft: articles.filter(a => a.status === 'draft').length,
+          pending: articles.filter(a => a.status === 'pending').length,
+          approved: articles.filter(a => a.status === 'approved').length,
+          rejected: articles.filter(a => a.status === 'rejected').length,
+          hidden: articles.filter(a => a.status === 'hidden').length
+        };
+        setStats(statsData);
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy thống kê:', error);
     }
   };
 
+  // ============================================
+  // XỬ LÝ BỘ LỌC VÀ TÌM KIẾM
+  // ============================================
+  
+  /**
+   * Xử lý thay đổi bộ lọc
+   */
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value, page: 1 }));
   };
 
-  const handleSortChange = (field) => {
-    setFilters(prev => ({
-      ...prev,
-      sort_by: field,
-      sort_order: prev.sort_by === field && prev.sort_order === 'DESC' ? 'ASC' : 'DESC',
-      page: 1
-    }));
-  };
-
-  const handlePageChange = (newPage) => {
-    setFilters(prev => ({ ...prev, page: newPage }));
-  };
-
-  const handleUnhideArticle = async (articleId) => {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await axios.post(
-      `${API_BASE_URL}/api/articles/${articleId}/unhide`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    if (response.data.success) {
-      showToast('Đã hiện bài viết thành công', 'success');
-      fetchArticles();
-    } else {
-      showToast('Lỗi khi hiện bài viết', 'error');
-    }
-  } catch (error) {
-    console.error('Error unhiding article:', error);
-    showToast('Lỗi khi hiện bài viết', 'error');
-  }
-};
-
-  const handleHideArticle = async (e) => {
-  e.preventDefault();
-  if (!hideReason.trim()) return;
-
-  try {
-    setHidingArticle(true);
-    const token = localStorage.getItem('token');
-    const response = await axios.post(
-      `${API_BASE_URL}/api/articles/${articleToHide.id}/hide`,
-      { reason: hideReason },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    if (response.data.success) {
-      showToast('Đã ẩn bài viết thành công', 'success');
-      fetchArticles();
-      setShowHidePopup(false);
-      setArticleToHide(null);
-      setHideReason('');
-    } else {
-      showToast('Lỗi khi ẩn bài viết', 'error');
-    }
-  } catch (error) {
-    console.error('Error hiding article:', error);
-    showToast('Lỗi khi ẩn bài viết', 'error');
-  } finally {
-    setHidingArticle(false);
-  }
-};
-
-  const openModal = async (type, article = null) => {
-  setModalType(type);
-  setShowModal(true);
-
-  if (article) {
-    const response = await axios.get(`${API_BASE_URL}/api/articles/${article.id}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+  /**
+   * Xóa tất cả bộ lọc
+   */
+  const clearFilters = () => {
+    setFilters({
+      search: '',
+      status: '',
+      category_id: '',
+      category_type: '',
+      page: 1,
+      limit: 10,
+      sort_by: 'created_at',
+      sort_order: 'DESC'
     });
+  };
 
-    if (response.data.success) {
-      const art = response.data.article;
-      setSelectedArticle(art);
-      setFormData({
-        title: art.title,
-        content: art.content,
-        category_id: art.category_id,
-        tags_json: art.tags_json || [],
-        source: art.source || '',
-        composition: art.medicine?.composition || '',
-        uses: art.medicine?.uses || '',
-        side_effects: art.medicine?.side_effects || '',
-        manufacturer: art.medicine?.manufacturer || '',
-        symptoms: art.disease?.symptoms || '',
-        treatments: art.disease?.treatments || '',
-        description: art.medicine?.description || art.disease?.description || ''
-      });
-      setSelectedCategoryType(art.category?.category_type || '');
-      
-      // ✅ Set cover image
-      setCoverImage(getFirstImageFromContent(art.content));
-    }
-  } else {
+  /**
+   * Thay đổi tab hiện tại
+   */
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setFilters(prev => ({ ...prev, page: 1 }));
+  };
+
+  // ============================================
+  // XỬ LÝ MODAL TẠO/SỬA BÀI VIẾT
+  // ============================================
+  
+  /**
+   * Mở modal tạo bài viết mới
+   */
+  const openCreateModal = () => {
+    setModalType('create');
     setSelectedArticle(null);
     setFormData({
       title: '',
@@ -604,1205 +497,1907 @@ const editorConfig = {
       category_id: '',
       tags_json: [],
       source: '',
+      name: '',
       composition: '',
       uses: '',
       side_effects: '',
+      image_url: '',
       manufacturer: '',
+      excellent_review_percent: 0,
+      average_review_percent: 0,
+      poor_review_percent: 0,
+      components: '',
+      medicine_usage: '',
       symptoms: '',
       treatments: '',
       description: ''
     });
-    setSelectedCategoryType('');
-    
-    // ✅ Reset cover image
     setCoverImage(null);
-  }
-  setHasUnsavedChanges(false);
-};
-
-  const closeModal = () => {
-  if (hasUnsavedChanges) {
-    showConfirm(
-      'Xác nhận đóng',
-      'Bạn có thay đổi chưa lưu. Bạn có muốn lưu nháp trước khi đóng?',
-      async () => {
-        await handleSubmit(null, true);
-      },
-      'Lưu nháp',
-      'warning',
-      () => {
-        setShowModal(false);
-        setFormData({
-          title: '',
-          content: '',
-          category_id: '',
-          tags_json: [],
-          source: '',
-          composition: '',
-          uses: '',
-          side_effects: '',
-          manufacturer: '',
-          symptoms: '',
-          treatments: '',
-          description: ''
-        });
-        setSelectedCategoryType('');
-        setTagInput('');
-        setHasUnsavedChanges(false);
-        setCoverImage(null); // ✅ Reset cover image
-      }
-    );
-  } else {
-    setShowModal(false);
-    setFormData({
-      title: '',
-      content: '',
-      category_id: '',
-      tags_json: [],
-      source: '',
-      composition: '',
-      uses: '',
-      side_effects: '',
-      manufacturer: '',
-      symptoms: '',
-      treatments: '',
-      description: ''
-    });
+    setTempImageUrl('');
+    setImageUploadMethod('file');
     setSelectedCategoryType('');
-    setTagInput('');
-    setHasUnsavedChanges(false);
-    setCoverImage(null); // ✅ Reset cover image
-  }
-};
-
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      content: '',
-      category_id: '',
-      tags_json: [],
-      source: '',
-      composition: '',
-      uses: '',
-      side_effects: '',
-      manufacturer: '',
-      symptoms: '',
-      treatments: '',
-      description: ''
-    });
-    setTagInput('');
-    setSuggestedTags([]);
-    setHasUnsavedChanges(false);
+    setShowModal(true);
   };
 
+  /**
+   * Mở modal sửa bài viết
+   */
+  const openEditModal = async (article) => {
+    try {
+      // Lấy chi tiết bài viết từ server
+      const response = await axios.get(`${API_BASE_URL}/api/articles/${article.id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      if (response.data.success) {
+        const articleData = response.data.article;
+        setModalType('edit');
+        setSelectedArticle(articleData);
+        
+        // Xác định category type
+        const category = categories.find(c => c.id === articleData.category_id);
+        const categoryType = category?.category_type || '';
+        setSelectedCategoryType(categoryType);
+
+        // Set dữ liệu form
+        setFormData({
+          title: articleData.title || '',
+          content: articleData.content || '',
+          category_id: articleData.category_id || '',
+          tags_json: articleData.tags_json || [],
+          source: articleData.source || '',
+          
+          // Medicine fields
+          name: articleData.medicine?.name || articleData.name || '',
+          composition: articleData.medicine?.composition || '',
+          uses: articleData.medicine?.uses || '',
+          side_effects: articleData.medicine?.side_effects || '',
+          image_url: articleData.medicine?.image_url || '',
+          manufacturer: articleData.medicine?.manufacturer || '',
+          excellent_review_percent: articleData.medicine?.excellent_review_percent || 0,
+          average_review_percent: articleData.medicine?.average_review_percent || 0,
+          poor_review_percent: articleData.medicine?.poor_review_percent || 0,
+          components: articleData.medicine?.components || '',
+          medicine_usage: articleData.medicine?.medicine_usage || '',
+          
+          // Disease fields
+          symptoms: articleData.disease?.symptoms || '',
+          treatments: articleData.disease?.treatments || '',
+          description: articleData.disease?.description || ''
+        });
+
+        // Set ảnh nếu có
+        if (articleData.medicine?.image_url) {
+          setTempImageUrl(articleData.medicine.image_url);
+          setImageUploadMethod('url');
+        }
+
+        setShowModal(true);
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy chi tiết bài viết:', error);
+      showToast('Không thể tải thông tin bài viết', 'error');
+    }
+  };
+
+  /**
+   * Đóng modal
+   */
+  const closeModal = () => {
+    if (hasUnsavedChanges) {
+      showConfirm(
+        'Có thay đổi chưa lưu',
+        'Bạn có muốn lưu thay đổi trước khi đóng?',
+        () => {
+          handleSubmit(null, true); // Lưu nháp
+        },
+        'Lưu',
+        'warning',
+        () => {
+          setShowModal(false);
+          setHasUnsavedChanges(false);
+        },
+        'Không lưu'
+      );
+    } else {
+      setShowModal(false);
+    }
+  };
+
+  /**
+   * Xử lý thay đổi trong form
+   */
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleContentChange = (event, editor) => {
-    const data = editor.getData();
-    setFormData(prev => ({ ...prev, content: data }));
-  };
+  /**
+   * Xử lý thay đổi danh mục
+   * Khi chọn danh mục thuốc/bệnh lý, hiển thị thêm các trường bổ sung
+   */
+  // THAY THẾ HÀM handleCategoryChange:
 
-  // Hàm lấy ảnh đầu tiên từ content HTML
-const getFirstImageFromContent = (htmlContent) => {
-  if (!htmlContent) return null;
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(htmlContent, 'text/html');
-  const img = doc.querySelector('img');
-  return img ? img.src : null;
+const handleCategoryChange = (e) => {
+  const categoryId = e.target.value;
+  const category = categories.find(c => c.id === parseInt(categoryId));
+  const categoryType = category?.category_type || '';
+  
+  setSelectedCategoryType(categoryType);
+  setFormData(prev => ({ 
+    ...prev, 
+    category_id: categoryId,
+    // Reset các trường entity khi đổi category
+    name: categoryType === 'thuoc' ? prev.name : '',
+    composition: '',
+    uses: '',
+    side_effects: '',
+    manufacturer: '',
+    symptoms: '',
+    treatments: '',
+    description: ''
+  }));
 };
 
-// Tự động cập nhật cover image khi content thay đổi
-useEffect(() => {
-  const firstImg = getFirstImageFromContent(formData.content);
-  if (firstImg && !coverImage) {
-    setCoverImage(firstImg);
-  }
-}, [formData.content]);
+// THÊM HÀM MỚI SAU handleCategoryChange:
 
-  const addTag = (tag) => {
-    if (tag && !formData.tags_json.includes(tag)) {
-      setFormData(prev => ({
-        ...prev,
-        tags_json: [...prev.tags_json, tag]
-      }));
+const handleCategoryTypeChange = (e) => {
+  const type = e.target.value;
+  setSelectedCategoryType(type);
+  
+  // Reset category_id khi đổi type
+  setFormData(prev => ({
+    ...prev,
+    category_id: '',
+    // Reset entity fields
+    name: '',
+    composition: '',
+    uses: '',
+    side_effects: '',
+    manufacturer: '',
+    symptoms: '',
+    treatments: '',
+    description: ''
+  }));
+};
+
+  /**
+   * Xử lý upload ảnh bìa
+   */
+  const handleCoverImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Kiểm tra định dạng
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      showToast('Chỉ hỗ trợ JPEG, PNG, GIF, WEBP', 'error');
+      return;
     }
-    setTagInput('');
-    setSuggestedTags([]);
-  };
 
-  const removeTag = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      tags_json: prev.tags_json.filter((_, i) => i !== index)
-    }));
-  };
-
-  const fetchSuggestedTags = useCallback(async (input) => {
-    if (!input) {
-      setSuggestedTags([]);
+    // Kiểm tra kích thước
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('File quá lớn, tối đa 5MB', 'error');
       return;
     }
 
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/articles/tags/suggest?query=${input}`,
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-      );
+      setUploadingCover(true);
+      const formDataUpload = new FormData();
+      formDataUpload.append('image', file);
+
+      const response = await axios.post(`${API_BASE_URL}/api/upload/image`, formDataUpload, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (response.data.success) {
+        setCoverImage(response.data.url);
+        setFormData(prev => ({ ...prev, image_url: response.data.url }));
+        showToast('Upload ảnh thành công', 'success');
+      }
+    } catch (error) {
+      console.error('Lỗi upload ảnh:', error);
+      showToast('Upload ảnh thất bại', 'error');
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
+  /**
+   * Xử lý nhập URL ảnh
+   */
+  const handleImageUrlSubmit = () => {
+    if (!tempImageUrl.trim()) {
+      showToast('Vui lòng nhập URL ảnh', 'error');
+      return;
+    }
+    
+    // Validate URL
+    try {
+      new URL(tempImageUrl);
+      setCoverImage(tempImageUrl);
+      setFormData(prev => ({ ...prev, image_url: tempImageUrl }));
+      showToast('Đã thêm ảnh từ URL', 'success');
+    } catch {
+      showToast('URL không hợp lệ', 'error');
+    }
+  };
+
+  /**
+   * Xử lý thêm tag
+   */
+  const handleAddTag = () => {
+    const tag = tagInput.trim();
+    if (!tag) return;
+    
+    if (formData.tags_json.includes(tag)) {
+      showToast('Tag đã tồn tại', 'warning');
+      return;
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      tags_json: [...prev.tags_json, tag]
+    }));
+    setTagInput('');
+  };
+
+  /**
+   * Xử lý xóa tag
+   */
+  const handleRemoveTag = (tagToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      tags_json: prev.tags_json.filter(t => t !== tagToRemove)
+    }));
+  };
+
+  /**
+   * Lấy gợi ý tags
+   */
+  const fetchSuggestedTags = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/articles/tags/suggest`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
       if (response.data.success) {
         setSuggestedTags(response.data.tags || []);
       }
     } catch (error) {
-      console.error('Error fetching tags:', error);
+      console.error('Lỗi khi lấy gợi ý tags:', error);
     }
-  }, []);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => fetchSuggestedTags(tagInput), 300);
-    return () => clearTimeout(timeout);
-  }, [tagInput, fetchSuggestedTags]);
-
-  const handleSubmit = async (e, isDraft = false) => {
-  if (e && typeof e.preventDefault === 'function') {
-  e.preventDefault();
-}
-  console.log('DEBUG: handleSubmit - isDraft:', isDraft, 'formData:', formData); // Debug giá trị isDraft và formData
-
-  if (!formData.title || !formData.content || !formData.category_id) {
-    showToast('Vui lòng điền đầy đủ tiêu đề, nội dung và danh mục', 'error');
-    return;
-  }
-
-  const token = localStorage.getItem('token');
-  const payload = {
-    ...formData,
-    tags_json: formData.tags_json,
-    isDraft // Đảm bảo gửi isDraft
   };
 
-  try {
-    let response;
-    if (modalType === 'create') {
-      response = await axios.post(`${API_BASE_URL}/api/articles`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    } else if (modalType === 'edit' && selectedArticle) {
-      response = await axios.put(`${API_BASE_URL}/api/articles/${selectedArticle.id}`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    }
-
-    if (response.data.success) {
-      showToast(isDraft ? 'Lưu nháp thành công' : 'Gửi phê duyệt thành công', 'success');
-      setShowModal(false);
-      setFormData({
-        title: '',
-        content: '',
-        category_id: '',
-        tags_json: [],
-        source: '',
-        composition: '',
-        uses: '',
-        side_effects: '',
-        manufacturer: '',
-        symptoms: '',
-        treatments: '',
-        description: ''
-      });
-      setSelectedCategoryType('');
-      setTagInput('');
-      setHasUnsavedChanges(false);
-      fetchArticles();
-    }
-  } catch (error) {
-    console.error('Error submitting article:', error);
-    showToast(error.response?.data?.message || 'Lỗi khi gửi bài viết', 'error');
-  }
-};
-
-  const handleDeleteArticle = async (article) => {
-    if (user.role !== 'admin' && article.status !== 'draft') {
-      showToast('Bạn chỉ có thể xóa bài viết ở trạng thái nháp', 'error');
-      return;
-    }
-
-    if (user.role !== 'admin' && article.author_id !== user.id) {
-      showToast('Bạn không có quyền xóa bài viết này', 'error');
-      return;
-    }
-
-    showConfirm(
-      'Xác nhận xóa',
-      `Bạn có chắc chắn muốn xóa bài viết "${article.title}" không? Hành động này không thể hoàn tác.`,
-      async () => {
-        try {
-          const token = localStorage.getItem('token');
-          const response = await axios.delete(`${API_BASE_URL}/api/articles/${article.id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-
-          if (response.data.success) {
-            showToast('Đã xóa bài viết thành công', 'success');
-            fetchArticles();
-          }
-        } catch (error) {
-          console.error('Error deleting article:', error);
-          showToast('Lỗi: ' + (error.response?.data?.message || error.message), 'error');
-        }
-      },
-      'Xóa',
-      'danger'
-    );
-  };
-
-  const handleDuplicateArticle = async (article) => {
-    showConfirm(
-      'Xác nhận nhân bản',
-      `Bạn có muốn tạo bản sao của bài viết "${article.title}" không?`,
-      async () => {
-        try {
-          const token = localStorage.getItem('token');
-          const response = await axios.post(
-            `${API_BASE_URL}/api/articles/${article.id}/duplicate`,
-            {},
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-
-          if (response.data.success) {
-            showToast('Đã nhân bản bài viết thành công', 'success');
-            fetchArticles();
-          }
-        } catch (error) {
-          console.error('Error duplicating article:', error);
-          showToast('Lỗi: ' + (error.response?.data?.message || error.message), 'error');
-        }
-      },
-      'Nhân bản',
-      'info'
-    );
-  };
-
-  const handleRequestEdit = async (article) => {
-    const reason = prompt('Nhập lý do yêu cầu chỉnh sửa (max 500 ký tự):');
-    if (!reason) return;
-
-    showConfirm(
-      'Gửi yêu cầu chỉnh sửa',
-      'Bạn có chắc chắn muốn gửi yêu cầu chỉnh sửa đến admin không?',
-      async () => {
-        try {
-          const token = localStorage.getItem('token');
-          const response = await axios.post(
-            `${API_BASE_URL}/api/articles/${article.id}/request-edit`,
-            { reason: reason.substring(0, 500) },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-
-          if (response.data.success) {
-            showToast('Đã gửi yêu cầu chỉnh sửa thành công', 'success');
-            fetchArticles();
-          }
-        } catch (error) {
-          console.error('Error requesting edit:', error);
-          showToast('Lỗi: ' + (error.response?.data?.message || error.message), 'error');
-        }
-      },
-      'Gửi yêu cầu',
-      'warning'
-    );
-  };
-
-  const handleFileUpload = async (e) => {
+  /**
+   * Upload file Word/Excel
+   */
+  const handleFileImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const MAX_FILE_SIZE = 10 * 1024 * 1024;
-    if (file.size > MAX_FILE_SIZE) {
-      showToast(`File quá lớn! Vui lòng chọn file nhỏ hơn ${MAX_FILE_SIZE / 1024 / 1024}MB`, 'error');
-      e.target.value = '';
-      return;
-    }
-
     try {
-      if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+        // Đọc file Word
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.convertToHtml({ arrayBuffer });
         setFormData(prev => ({ ...prev, content: result.value }));
         showToast('Đã import nội dung từ Word', 'success');
-      } else if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+      } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        // Đọc file Excel
         const arrayBuffer = await file.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const html = XLSX.utils.sheet_to_html(worksheet);
+        const workbook = XLSX.read(arrayBuffer);
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const html = XLSX.utils.sheet_to_html(firstSheet);
         setFormData(prev => ({ ...prev, content: html }));
-        showToast('Đã import bảng từ Excel', 'success');
+        showToast('Đã import nội dung từ Excel', 'success');
+      } else {
+        showToast('Chỉ hỗ trợ file .docx, .doc, .xlsx, .xls', 'error');
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
-      showToast('Lỗi khi xử lý file. Vui lòng thử lại.', 'error');
+      console.error('Lỗi khi import file:', error);
+      showToast('Import file thất bại', 'error');
     }
   };
 
-  // Upload ảnh bìa
-const handleCoverImageUpload = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  /**
+   * Xử lý submit form tạo/sửa bài viết
+   * @param {Event} e - Event
+   * @param {boolean} isDraft - Lưu nháp hay gửi phê duyệt
+   */
+  // THAY THẾ HÀM handleSubmit HOÀN TOÀN:
 
-  // Validate file
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  if (!allowedTypes.includes(file.type)) {
-    showToast('Chỉ hỗ trợ ảnh JPEG, PNG, GIF, WEBP', 'error');
-    e.target.value = '';
+const handleSubmit = async (e, isDraft = false, isAdminDirectPublish = false) => {
+  if (e) e.preventDefault();
+
+  // Validate
+  if (!formData.title.trim()) {
+    showToast('Vui lòng nhập tiêu đề', 'error');
     return;
   }
 
-  if (file.size > 5 * 1024 * 1024) {
-    showToast('Ảnh quá lớn! Tối đa 5MB', 'error');
-    e.target.value = '';
+  if (!formData.content.trim()) {
+    showToast('Vui lòng nhập nội dung', 'error');
+    return;
+  }
+
+  if (!formData.category_id) {
+    showToast('Vui lòng chọn danh mục', 'error');
+    return;
+  }
+
+  // Validate cho thuốc: Phải có tên thuốc
+  if (selectedCategoryType === 'thuoc' && !formData.name.trim()) {
+    showToast('Vui lòng nhập tên thuốc', 'error');
+    return;
+  }
+
+  // Validate cho bệnh lý: Phải có tên bệnh (dùng title)
+  if (selectedCategoryType === 'benh_ly' && !formData.title.trim()) {
+    showToast('Vui lòng nhập tên bệnh lý', 'error');
+    return;
+  }
+
+  // Nếu admin gửi phê duyệt (không phải draft), hiện popup chọn
+  if (user.role === 'admin' && !isDraft && !isAdminDirectPublish && modalType === 'create') {
+    setShowAdminPublishChoice(true);
     return;
   }
 
   try {
-    setUploadingCover(true);
-    const formDataUpload = new FormData();
-    formDataUpload.append('image', file);
+    const submitData = {
+      title: formData.title,
+      content: formData.content,
+      category_id: formData.category_id,
+      tags_json: formData.tags_json,
+      source: formData.source,
+      isDraft: isDraft
+    };
 
-    const token = localStorage.getItem('token');
-    const response = await axios.post(`${API_BASE_URL}/api/upload/image`, formDataUpload, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data'
-      }
-    });
+    // Admin publish trực tiếp
+    if (isAdminDirectPublish) {
+      submitData.status = 'approved';
+      submitData.isDraft = false;
+    }
 
-    if (response.data.success && response.data.url) {
-      const imageUrl = response.data.url;
-      
-      // Cập nhật cover image
-      setCoverImage(imageUrl);
-      
-      // Thêm ảnh vào cuối body text
-      const imgHtml = `<figure class="image"><img src="${imageUrl}" alt="Cover Image"></figure>`;
-      setFormData(prev => ({
-        ...prev,
-        content: prev.content + imgHtml
-      }));
-      
-      showToast('Upload ảnh bìa thành công!', 'success');
+    // Thêm dữ liệu thuốc nếu category là thuốc
+    if (selectedCategoryType === 'thuoc') {
+      submitData.medicineData = {
+        name: formData.name || formData.title,
+        composition: formData.composition,
+        uses: formData.uses,
+        side_effects: formData.side_effects,
+        image_url: formData.image_url || coverImage,
+        manufacturer: formData.manufacturer,
+        excellent_review_percent: formData.excellent_review_percent,
+        average_review_percent: formData.average_review_percent,
+        poor_review_percent: formData.poor_review_percent,
+        components: formData.components,
+        medicine_usage: formData.medicine_usage
+      };
+    }
+
+    // Thêm dữ liệu bệnh lý nếu category là bệnh lý
+    if (selectedCategoryType === 'benh_ly') {
+      submitData.diseaseData = {
+        name: formData.title, // Tên bệnh chính là title
+        symptoms: formData.symptoms,
+        treatments: formData.treatments,
+        description: formData.description
+      };
+    }
+
+    let response;
+    if (modalType === 'create') {
+      response = await axios.post(`${API_BASE_URL}/api/articles`, submitData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
     } else {
-      showToast('Upload thất bại', 'error');
+      response = await axios.put(`${API_BASE_URL}/api/articles/${selectedArticle.id}`, submitData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+    }
+
+    if (response.data.success) {
+      const message = isDraft 
+        ? 'Đã lưu bài viết dưới dạng nháp' 
+        : isAdminDirectPublish
+          ? 'Đã đăng bài viết công khai'
+          : modalType === 'create' 
+            ? 'Tạo bài viết thành công' 
+            : 'Cập nhật bài viết thành công';
+            
+      showToast(message, 'success');
+      setShowModal(false);
+      setShowAdminPublishChoice(false);
+      setHasUnsavedChanges(false);
+      fetchArticles();
+      fetchStats();
     }
   } catch (error) {
-    console.error('Error uploading cover image:', error);
-    showToast('Lỗi khi upload ảnh bìa', 'error');
-  } finally {
-    setUploadingCover(false);
-    e.target.value = ''; // Reset input
+    console.error('Lỗi khi lưu bài viết:', error);
+    showToast(
+      error.response?.data?.message || 'Có lỗi xảy ra khi lưu bài viết',
+      'error'
+    );
   }
 };
 
-// Xóa ảnh bìa
-const handleRemoveCoverImage = () => {
-  setCoverImage(null);
+  /**
+   * Xử lý xóa bài viết
+   */
+  // THAY THẾ HÀM handleDelete:
+
+const handleDelete = async (articleId) => {
+  setDeleteArticleId(articleId);
+  setCountdownSeconds(DELETE_COUNTDOWN);
+  
+  showConfirm(
+    'Xác nhận xóa',
+    `Bạn có chắc chắn muốn xóa bài viết này? Hành động này không thể hoàn tác.`,
+    () => performDelete(articleId),
+    'Xóa',
+    'danger'
+  );
 };
 
-  const getArticleLink = (article) => {
-    const typeMap = {
-      'tin_tuc': 'tin-tuc',
-      'thuoc': 'thuoc',
-      'benh_ly': 'benh-ly'
-    };
-
-    const categoryType = typeMap[article.category?.category_type] || 'tin-tuc';
-
-    if (article.status === 'draft') {
-      return null;
-    }
-
-    if (['pending', 'request_edit', 'hidden', 'request_rewrite'].includes(article.status)) {
-      return `/phe-duyet-bai-viet/${article.id}`;
-    }
-
-    if (article.status === 'approved') {
-      return `/${categoryType}/${article.slug}`;
-    }
-
-    if (article.status === 'rejected') {
-      return `/phe-duyet-bai-viet/${article.id}`;
-    }
-
-    return null;
-  };
-
-  const handleTitleClick = (article) => {
-    if (article.status === 'draft') {
-      openModal('edit', article);
-    } else {
-      const link = getArticleLink(article);
-      if (link) {
-        if (link.startsWith('/phe-duyet-bai-viet')) {
-          navigate(link);
-        } else {
-          window.open(link, '_blank');
-        }
-      }
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    const badges = {
-      draft: { icon: FaFileAlt, label: 'Nháp', class: 'draft' },
-      pending: { icon: FaClock, label: 'Chờ duyệt', class: 'pending' },
-      approved: { icon: FaCheckCircle, label: 'Đã duyệt', class: 'approved' },
-      rejected: { icon: FaTimesCircle, label: 'Từ chối', class: 'rejected' },
-      hidden: { icon: FaEyeSlash, label: 'Ẩn', class: 'hidden' },
-      request_edit: { icon: FaRedo, label: 'Yêu cầu sửa', class: 'request_edit' },
-      request_rewrite: { icon: FaExclamationTriangle, label: 'Viết lại', class: 'request_rewrite' }
-    };
-    return badges[status] || { icon: FaFileAlt, label: status, class: 'default' };
-  };
-
-  const StatusBadge = ({ status }) => {
-    const { icon: Icon, label, class: className } = getStatusBadge(status);
-    return (
-      <span className={`article-mgmt-badge ${className}`}>
-        <Icon /> {label}
-      </span>
-    );
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now - date;
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (hours < 1) return 'Vừa xong';
-    if (hours < 24) return `${hours} giờ trước`;
-    if (days < 7) return `${days} ngày trước`;
-    return date.toLocaleDateString('vi-VN', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric'
+// THÊM HÀM MỚI:
+const performDelete = async (articleId) => {
+  try {
+    const response = await axios.delete(`${API_BASE_URL}/api/articles/${articleId}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     });
-  };
 
-  const renderActions = (article) => {
-    const isAuthor = article.author_id === user.id;
-    const isAdmin = user.role === 'admin';
+    if (response.data.success) {
+      showToast('Đã xóa bài viết', 'success');
+      fetchArticles();
+      fetchStats();
+    }
+  } catch (error) {
+    console.error('Lỗi khi xóa bài viết:', error);
+    showToast('Không thể xóa bài viết', 'error');
+  } finally {
+    setDeleteArticleId(null);
+    setCountdownSeconds(0);
+  }
+};
 
-    return (
-      <div className="article-mgmt-actions-cell">
-        {/* NÚT XEM CHI TIẾT - Hiện với mọi bài viết trừ draft */}
-        {article.status !== 'draft' && (
-          <button
-            className="article-mgmt-btn-action view"
-            onClick={() => navigate(`/phe-duyet-bai-viet/${article.id}`)}
-            title="Xem chi tiết"
-          >
-            <FaInfoCircle />
-          </button>
-        )}
+  /**
+   * Mở popup ẩn/hiện bài viết (Admin only)
+   */
+  // THAY THẾ HÀM openHidePopup:
 
-        {/* NÚT CHỈNH SỬA */}
-        {(isAdmin || (isAuthor && ['draft', 'request_edit', 'request_rewrite'].includes(article.status))) && (
-          <button
-            className="article-mgmt-btn-action edit"
-            onClick={() => openModal('edit', article)}
-            title="Chỉnh sửa"
-          >
-            <FaEdit />
-          </button>
-        )}
+const openHidePopup = (article) => {
+  setArticleToHide(article);
+  setHideReason('');
+  setCountdownSeconds(article.status === 'hidden' ? 0 : HIDE_COUNTDOWN);
+  setShowHidePopup(true);
+};
 
-        {/* NÚT YÊU CẦU CHỈNH SỬA */}
-        {isAuthor && !isAdmin && article.status === 'approved' && (
-          <button
-            className="article-mgmt-btn-action request"
-            onClick={() => handleRequestEdit(article)}
-            title="Yêu cầu chỉnh sửa"
-          >
-            <FaRedo />
-          </button>
-        )}
+  /**
+   * Xử lý ẩn/hiện bài viết
+   */
+  // THAY THẾ HÀM handleHideArticle:
 
-        {/* NÚT ẨN/HIỆN */}
-        {isAdmin && article.status === 'approved' && (
-        <button
-          className="article-mgmt-btn-action visibility"
-          onClick={() => {
-            setArticleToHide(article);
-            setShowHidePopup(true);
-          }}
-          title="Ẩn bài viết"
-        >
-          <FaEyeSlash />
-        </button>
-      )}
-      {isAdmin && article.status === 'hidden' && (
-        <button
-          className="article-mgmt-btn-action visibility success"
-          onClick={() => showConfirm(
-            'Xác nhận hiện bài viết',
-            'Bạn có chắc muốn hiện bài viết này?',
-            () => handleUnhideArticle(article.id),
-            'Hiện bài viết',
-            'success'
-          )}
-          title="Hiện bài viết"
-        >
-          <FaEye />
-        </button>
-      )}
-
-        {/* NÚT XÓA */}
-        {(isAdmin || (isAuthor && article.status === 'draft')) && (
-          <button
-            className="article-mgmt-btn-action delete"
-            onClick={() => handleDeleteArticle(article)}
-            title="Xóa"
-          >
-            <FaTrash />
-          </button>
-        )}
-
-        {/* NÚT NHÂN BẢN */}
-        <button
-          className="article-mgmt-btn-action duplicate"
-          onClick={() => handleDuplicateArticle(article)}
-          title="Nhân bản"
-        >
-          <FaCopy />
-        </button>
-      </div>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="article-mgmt-page">
-        <div className="article-mgmt-container">
-          <div className="article-mgmt-loading">
-            <div className="article-mgmt-spinner"></div>
-            <p>Đang tải dữ liệu...</p>
-          </div>
-        </div>
-      </div>
-    );
+const handleHideArticle = async (e) => {
+  e.preventDefault();
+  
+  if (!hideReason.trim()) {
+    showToast('Vui lòng nhập lý do', 'error');
+    return;
   }
 
+  if (countdownSeconds > 0) {
+    return; // Chưa hết countdown
+  }
+
+  try {
+    setHidingArticle(true);
+    const endpoint = articleToHide.status === 'hidden' ? 'unhide' : 'hide';
+    
+    const response = await axios.post(
+      `${API_BASE_URL}/api/articles/${articleToHide.id}/${endpoint}`,
+      { reason: hideReason },
+      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+    );
+
+    if (response.data.success) {
+      showToast(
+        `Đã ${articleToHide.status === 'hidden' ? 'hiện' : 'ẩn'} bài viết`,
+        'success'
+      );
+      setShowHidePopup(false);
+      setArticleToHide(null);
+      setHideReason('');
+      setCountdownSeconds(0);
+      fetchArticles();
+      fetchStats();
+    }
+  } catch (error) {
+    console.error('Lỗi khi ẩn/hiện bài viết:', error);
+    showToast('Có lỗi xảy ra', 'error');
+  } finally {
+    setHidingArticle(false);
+  }
+};
+
+  /**
+   * Xử lý duplicate bài viết
+   */
+  // THAY THẾ HÀM handleDuplicate:
+
+const handleDuplicate = async (article) => {
+  showConfirm(
+    'Nhân bản bài viết',
+    `Bạn có muốn nhân bản bài viết "${article.title}"?\n\nBài viết mới sẽ có tên "${article.title} (Copy)" và ở trạng thái Nháp.`,
+    async () => {
+      try {
+        const response = await axios.post(
+          `${API_BASE_URL}/api/articles/${article.id}/duplicate`,
+          {},
+          { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        );
+
+        if (response.data.success) {
+          showToast('Đã nhân bản bài viết', 'success');
+          fetchArticles();
+          fetchStats();
+        }
+      } catch (error) {
+        console.error('Lỗi khi nhân bản bài viết:', error);
+        showToast('Không thể nhân bản bài viết', 'error');
+      }
+    },
+    'Nhân bản',
+    'info'
+  );
+};
+
+// THÊM HÀM MỚI SAU handleDuplicate:
+
+const handleSortColumn = (column) => {
+  setFilters(prev => ({
+    ...prev,
+    sort_by: column,
+    sort_order: prev.sort_by === column && prev.sort_order === 'DESC' ? 'ASC' : 'DESC'
+  }));
+};
+
+  /**
+   * Xem chi tiết bài viết
+   */
+  const viewArticle = (article) => {
+    if (article.status === 'approved') {
+      const typeMap = {
+        'tin_tuc': 'tin-tuc',
+        'thuoc': 'thuoc',
+        'benh_ly': 'benh-ly'
+      };
+      const categoryType = typeMap[article.category?.category_type] || 'bai-viet';
+      navigate(`/${categoryType}/${article.slug}`);
+    } else {
+      showToast('Bài viết chưa được duyệt', 'warning');
+    }
+  };
+
+  /**
+   * Xem lịch sử phê duyệt
+   */
+  const viewHistory = (articleId) => {
+    navigate(`/phe-duyet-bai-viet/${articleId}`);
+  };
+
+  // THÊM/SỬA HÀM getCategoryTypeUrl:
+
+const getCategoryTypeUrl = (article) => {
+  const typeMap = {
+    'tin_tuc': 'tin-tuc',
+    'thuoc': 'thuoc',
+    'benh_ly': 'benh-ly'
+  };
+  const categoryType = typeMap[article.category?.category_type] || 'tin-tuc';
+  return `/${categoryType}/${article.slug}`;
+};
+
+  // ============================================
+  // XỬ LÝ XUẤT FILE CSV/EXCEL
+  // ============================================
+  
+  /**
+   * Xuất danh sách bài viết ra file CSV
+   */
+  const exportToCSV = () => {
+    try {
+      // Chuẩn bị dữ liệu
+      const csvData = articles.map(article => ({
+        'ID': article.id,
+        'Tiêu đề': article.title,
+        'Tags': Array.isArray(article.tags_json) ? article.tags_json.join(', ') : '',
+        'Danh mục': article.category?.name || '',
+        'Loại': article.category?.category_type || '',
+        'Trạng thái': getStatusText(article.status),
+        'Tác giả': article.author?.full_name || '',
+        'Lượt xem': article.views || 0,
+        'Ngày tạo': new Date(article.created_at).toLocaleDateString('vi-VN')
+      }));
+
+      // Tạo CSV content
+      const headers = Object.keys(csvData[0]);
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => headers.map(h => `"${row[h]}"`).join(','))
+      ].join('\n');
+
+      // Download file
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `bai-viet-${new Date().getTime()}.csv`;
+      link.click();
+      
+      showToast('Đã xuất file CSV', 'success');
+    } catch (error) {
+      console.error('Lỗi khi xuất CSV:', error);
+      showToast('Không thể xuất file CSV', 'error');
+    }
+  };
+
+  /**
+   * Xuất danh sách bài viết ra file Excel
+   */
+  const exportToExcel = () => {
+    try {
+      // Chuẩn bị dữ liệu
+      const excelData = articles.map(article => ({
+        'ID': article.id,
+        'Tiêu đề': article.title,
+        'Tags': Array.isArray(article.tags_json) ? article.tags_json.join(', ') : '',
+        'Danh mục': article.category?.name || '',
+        'Loại': article.category?.category_type || '',
+        'Trạng thái': getStatusText(article.status),
+        'Tác giả': article.author?.full_name || '',
+        'Lượt xem': article.views || 0,
+        'Ngày tạo': new Date(article.created_at).toLocaleDateString('vi-VN')
+      }));
+
+      // Tạo workbook và worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Bài viết');
+
+      // Download file
+      XLSX.writeFile(wb, `bai-viet-${new Date().getTime()}.xlsx`);
+      
+      showToast('Đã xuất file Excel', 'success');
+    } catch (error) {
+      console.error('Lỗi khi xuất Excel:', error);
+      showToast('Không thể xuất file Excel', 'error');
+    }
+  };
+
+  // ============================================
+  // HELPER FUNCTIONS
+  // ============================================
+  
+  /**
+   * Lấy text hiển thị cho status
+   */
+  const getStatusText = (status) => {
+    const statusMap = {
+      draft: 'Nháp',
+      pending: 'Chờ duyệt',
+      approved: 'Đã duyệt',
+      rejected: 'Từ chối',
+      hidden: 'Đã ẩn',
+      request_edit: 'Yêu cầu sửa',
+      request_rewrite: 'Yêu cầu viết lại'
+    };
+    return statusMap[status] || status;
+  };
+
+  /**
+   * Lấy class CSS cho status badge
+   */
+  const getStatusClass = (status) => {
+    const classMap = {
+      draft: 'status-draft',
+      pending: 'status-pending',
+      approved: 'status-approved',
+      rejected: 'status-rejected',
+      hidden: 'status-hidden',
+      request_edit: 'status-request-edit',
+      request_rewrite: 'status-request-rewrite'
+    };
+    return classMap[status] || '';
+  };
+
+  /**
+   * Lấy icon cho loại danh mục
+   */
+  const getCategoryIcon = (categoryType) => {
+    const iconMap = {
+      tin_tuc: <FaNewspaper />,
+      thuoc: <FaPills />,
+      benh_ly: <FaDisease />
+    };
+    return iconMap[categoryType] || <FaFileAlt />;
+  };
+
+  /**
+   * Toggle hiển thị cột
+   */
+  const toggleColumn = (columnName) => {
+    setVisibleColumns(prev => ({
+      ...prev,
+      [columnName]: !prev[columnName]
+    }));
+  };
+
+  // ============================================
+  // RENDER
+  // ============================================
+  
   return (
     <div className="article-mgmt-page">
       <div className="article-mgmt-container">
-        {/* Header */}
+        
+        {/* HEADER */}
         <div className="article-mgmt-header">
-          <div className="article-mgmt-header-content">
-            <div>
-              <h1 className="article-mgmt-title">Quản lý Bài viết</h1>
-              <div className="article-mgmt-quick-stats">
-                <div className="article-mgmt-stat-item">
-                  <span className="article-mgmt-stat-label">Tổng</span>
-                  <span className="article-mgmt-stat-value">{pagination.totalItems || 0}</span>
-                </div>
-                <div className="article-mgmt-stat-item">
-                  <span className="article-mgmt-stat-label">Chờ</span>
-                  <span className="article-mgmt-stat-value">{stats.pending || 0}</span>
-                </div>
-                <div className="article-mgmt-stat-item">
-                  <span className="article-mgmt-stat-label">Duyệt</span>
-                  <span className="article-mgmt-stat-value">{stats.approved || 0}</span>
-                </div>
+        <div className="article-mgmt-header-content">
+          <div className="article-mgmt-title-section">
+            <h1 className="article-mgmt-main-title">
+              <FaNewspaper /> Quản lý bài viết
+            </h1>
+            
+            {/* Thống kê inline */}
+            <div className="article-mgmt-stats-inline">
+              <div className="stat-item">
+                Tổng: <strong>{stats.total}</strong>
+              </div>
+              <div className="stat-item stat-pending">
+                Chờ duyệt: <strong>{stats.pending}</strong>
+              </div>
+              <div className="stat-item stat-info">
+                <FaInfoCircle /> 
+                <span className="stat-note">Nháp: Chỉ của bạn ({stats.draft})</span>
               </div>
             </div>
-            <button className="article-mgmt-btn article-mgmt-btn-primary" onClick={() => openModal('create')}>
-              <FaPlus /> Tạo bài viết
-            </button>
           </div>
-        </div>
 
-        {/* Tabs */}
+          {/* Nút tạo bài viết */}
+          <button className="btn-create-article" onClick={openCreateModal}>
+            <FaPlus /> Tạo bài viết
+          </button>
+        </div>
+      </div>
+
+        {/* TABS */}
         <div className="article-mgmt-tabs">
           {[
-            { id: 'all', label: 'Tất cả', icon: FaNewspaper, count: pagination.totalItems },
-            { id: 'draft', label: 'Nháp', icon: FaFileAlt, count: stats.draft },
-            { id: 'pending', label: 'Chờ duyệt', icon: FaClock, count: stats.pending },
-            { id: 'approved', label: 'Đã duyệt', icon: FaCheck, count: stats.approved },
-            { id: 'rejected', label: 'Từ chối', icon: FaBan, count: stats.rejected },
-            { id: 'request_edit', label: 'Yêu cầu sửa', icon: FaRedo, count: stats.request_edit },
-            { id: 'hidden', label: 'Ẩn', icon: FaEyeSlash, count: stats.hidden || 0 },
-            { id: 'medicine', label: 'Thuốc', icon: FaPills },
-            { id: 'disease', label: 'Bệnh lý', icon: FaDisease }
+            { key: 'all', label: 'Tất cả', count: stats.total },
+            { key: 'draft', label: 'Nháp', count: stats.draft },
+            { key: 'pending', label: 'Chờ duyệt', count: stats.pending },
+            { key: 'approved', label: 'Đã duyệt', count: stats.approved },
+            { key: 'rejected', label: 'Từ chối', count: stats.rejected },
+            { key: 'hidden', label: 'Đã ẩn', count: stats.hidden }
           ].map(tab => (
             <button
-              key={tab.id}
-              className={`article-mgmt-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
+              key={tab.key}
+              className={`tab-button ${activeTab === tab.key ? 'active' : ''}`}
+              onClick={() => handleTabChange(tab.key)}
             >
-              <tab.icon />
-              <span>{tab.label}</span>
-              {tab.count > 0 && <span className="article-mgmt-tab-badge">{tab.count}</span>}
+              {tab.label} <span className="tab-count">{tab.count}</span>
             </button>
           ))}
         </div>
 
-        {/* Filters */}
+        {/* FILTERS */}
         <div className="article-mgmt-filters">
-          <div className="article-mgmt-filters-header">
-            <h3 className="article-mgmt-filters-title">
-              <FaFilter /> Bộ lọc
-            </h3>
-            <button className="article-mgmt-filters-clear" onClick={() => setFilters({
-              search: '', status: '', category_id: '', category_type: '',
-              page: 1, limit: 10, sort_by: 'created_at', sort_order: 'DESC'
-            })}>
-              <FaTimes /> Xóa
-            </button>
-          </div>
-
-          <div className="article-mgmt-filters-grid">
-            <div className="article-mgmt-filter-item">
-              <label>Tìm kiếm</label>
-              <div className="article-mgmt-search-wrapper">
-                <FaSearch className="article-mgmt-search-icon" />
-                <input
-                  type="text"
-                  name="search"
-                  value={filters.search}
-                  onChange={handleFilterChange}
-                  placeholder="Tìm theo tiêu đề..."
-                  className="article-mgmt-filter-input"
-                />
-              </div>
+          <div className="filters-row">
+            {/* Search */}
+            <div className="filter-search">
+              <FaSearch />
+              <input
+                type="text"
+                name="search"
+                value={filters.search}
+                onChange={handleFilterChange}
+                placeholder="Tìm kiếm theo tiêu đề..."
+              />
+              {filters.search && (
+                <button onClick={() => setFilters(prev => ({ ...prev, search: '', page: 1 }))}>
+                  <FaTimes />
+                </button>
+              )}
             </div>
 
-            <div className="article-mgmt-filter-item">
-              <label>Trạng thái</label>
-              <select name="status" value={filters.status} onChange={handleFilterChange} className="article-mgmt-filter-select">
-                <option value="">Tất cả</option>
-                <option value="draft">Nháp</option>
-                <option value="pending">Chờ duyệt</option>
-                <option value="approved">Đã duyệt</option>
-                <option value="rejected">Từ chối</option>
-                <option value="hidden">Ẩn</option>
-                <option value="request_edit">Yêu cầu sửa</option>
-                <option value="request_rewrite">Viết lại</option>
-              </select>
-            </div>
+            {/* Category Type */}
+            <select
+              name="category_type"
+              value={filters.category_type}
+              onChange={handleFilterChange}
+              className="filter-select"
+            >
+              <option value="">Tất cả loại</option>
+              <option value="tin_tuc">Tin tức</option>
+              <option value="thuoc">Thuốc</option>
+              <option value="benh_ly">Bệnh lý</option>
+            </select>
 
-            <div className="article-mgmt-filter-item">
-              <label>Danh mục</label>
-              <select name="category_id" value={filters.category_id} onChange={handleFilterChange} className="article-mgmt-filter-select">
-                <option value="">Tất cả</option>
-                {categories.map(cat => (
+            {/* Category */}
+            <select
+              name="category_id"
+              value={filters.category_id}
+              onChange={handleFilterChange}
+              className="filter-select"
+            >
+              <option value="">Tất cả danh mục</option>
+              {categories
+                .filter(cat => !filters.category_type || cat.category_type === filters.category_type)
+                .map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
+                ))
+              }
+            </select>
+
+            {/* THÊM: Số bài viết/trang */}
+            <select
+              name="limit"
+              value={filters.limit}
+              onChange={handleFilterChange}
+              className="filter-select filter-limit"
+            >
+              <option value="10">10 bài/trang</option>
+              <option value="20">20 bài/trang</option>
+              <option value="50">50 bài/trang</option>
+              <option value="100">100 bài/trang</option>
+            </select>
+
+            {/* Clear filters */}
+            {(filters.search || filters.category_type || filters.category_id) && (
+              <button className="btn-clear-filters" onClick={clearFilters}>
+                <FaTimes /> Xóa lọc
+              </button>
+            )}
+
+            {/* Export buttons */}
+            <button className="btn-export btn-export-csv" onClick={exportToCSV} title="Xuất CSV">
+              <FaFileCsv /> CSV
+            </button>
+            
+            <button className="btn-export btn-export-excel" onClick={exportToExcel} title="Xuất Excel">
+              <FaFileExcel /> Excel
+            </button>
+
+            {/* Column selector */}
+            <div className="column-selector-wrapper">
+              <button
+                className="btn-column-selector"
+                onClick={() => setShowColumnSelector(!showColumnSelector)}
+              >
+                <FaCog /> Tùy chỉnh cột
+              </button>
+              
+              {showColumnSelector && (
+                <div className="column-selector-dropdown">
+                  <div className="column-selector-header">
+                    <strong>Hiển thị cột</strong>
+                    <button onClick={() => setShowColumnSelector(false)}>
+                      <FaTimes />
+                    </button>
+                  </div>
+                  <div className="column-selector-body">
+                    {Object.entries(visibleColumns)
+                      .filter(([key]) => !['id', 'title'].includes(key))
+                      .map(([key, value]) => (
+                        <label key={key} className="column-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={value}
+                            onChange={() => toggleColumn(key)}
+                          />
+                          <span>{getColumnName(key)}</span>
+                        </label>
+                      ))
+                    }
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Articles Table */}
+        {/* TABLE */}
         <div className="article-mgmt-table-wrapper">
-          <div className="article-mgmt-table-container">
-            <table className="article-mgmt-table">
-              <thead>
+          <table className="article-mgmt-table">
+            <thead>
+              <tr>
+                <th 
+                  className="col-fixed col-id col-sortable" 
+                  onClick={() => handleSortColumn('id')}
+                >
+                  ID {filters.sort_by === 'id' && (filters.sort_order === 'DESC' ? '↓' : '↑')}
+                </th>
+                <th 
+                  className="col-fixed col-title col-sortable" 
+                  onClick={() => handleSortColumn('title')}
+                >
+                  Tiêu đề {filters.sort_by === 'title' && (filters.sort_order === 'DESC' ? '↓' : '↑')}
+                </th>
+                {visibleColumns.tags && (
+                  <th 
+                    className="col-scrollable col-sortable" 
+                    onClick={() => handleSortColumn('tags_json')}
+                  >
+                    Tags
+                  </th>
+                )}
+                {visibleColumns.category && <th className="col-scrollable">Danh mục</th>}
+                {visibleColumns.status && <th className="col-scrollable">Trạng thái</th>}
+                {visibleColumns.author && <th className="col-scrollable">Tác giả</th>}
+                {visibleColumns.created_at && (
+                  <th 
+                    className="col-scrollable col-sortable" 
+                    onClick={() => handleSortColumn('created_at')}
+                  >
+                    Ngày tạo {filters.sort_by === 'created_at' && (filters.sort_order === 'DESC' ? '↓' : '↑')}
+                  </th>
+                )}
+                {visibleColumns.views && (
+                  <th 
+                    className="col-scrollable col-sortable" 
+                    onClick={() => handleSortColumn('views')}
+                  >
+                    Lượt xem {filters.sort_by === 'views' && (filters.sort_order === 'DESC' ? '↓' : '↑')}
+                  </th>
+                )}
+                {visibleColumns.composition && <th className="col-scrollable">Thành phần</th>}
+                {visibleColumns.uses && <th className="col-scrollable">Công dụng</th>}
+                {visibleColumns.manufacturer && <th className="col-scrollable">Nhà SX</th>}
+                {visibleColumns.symptoms && <th className="col-scrollable">Triệu chứng</th>}
+                {visibleColumns.treatments && <th className="col-scrollable">Điều trị</th>}
+                <th className="col-fixed col-actions">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
                 <tr>
-                  <th onClick={() => handleSortChange('id')} className="sortable">
-                    ID {filters.sort_by === 'id' && (filters.sort_order === 'DESC' ? <FaSortAmountDown /> : <FaSortAmountUp />)}
-                  </th>
-                  <th onClick={() => handleSortChange('title')} className="sortable">
-                    Tiêu đề {filters.sort_by === 'title' && (filters.sort_order === 'DESC' ? <FaSortAmountDown /> : <FaSortAmountUp />)}
-                  </th>
-                  <th>Danh mục</th>
-                  <th>Trạng thái</th>
-                  <th>Tác giả</th>
-                  
-                  {activeTab === 'medicine' && (
-                    <>
-                      <th>Thành phần</th>
-                      <th>Công dụng</th>
-                      <th>Nhà SX</th>
-                    </>
-                  )}
-                  
-                  {activeTab === 'disease' && (
-                    <>
-                      <th>Triệu chứng</th>
-                      <th>Điều trị</th>
-                    </>
-                  )}
-                  
-                  <th onClick={() => handleSortChange('created_at')} className="sortable">
-                    Ngày tạo {filters.sort_by === 'created_at' && (filters.sort_order === 'DESC' ? <FaSortAmountDown /> : <FaSortAmountUp />)}
-                  </th>
-                  <th>Thao tác</th>
+                  <td colSpan="20" className="text-center">
+                    <div className="loading-spinner">
+                      <FaSpinner className="spin" /> Đang tải...
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {articles.length === 0 ? (
-                  <tr>
-                    <td colSpan="20" className="article-mgmt-empty">
-                      <FaFileAlt className="article-mgmt-empty-icon" />
+              ) : articles.length === 0 ? (
+                <tr>
+                  <td colSpan="20" className="text-center">
+                    <div className="empty-state">
+                      <FaFileAlt />
                       <p>Không có bài viết nào</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                articles.map(article => (
+                  <tr key={article.id}>
+                    <td className="col-fixed col-id">{article.id}</td>
+                    {/* Title - Thêm link */}
+                    <td className="col-fixed col-title">
+                      <div className="article-title-cell">
+                        {getCategoryIcon(article.category?.category_type)}
+                        {article.status === 'approved' ? (
+                          <a 
+                            href={getCategoryTypeUrl(article)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="article-title-link"
+                            title={article.title}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {article.title}
+                          </a>
+                        ) : (
+                          <span className="article-title-text" title={article.title}>
+                            {article.title}
+                          </span>
+                        )}
+                      </div>
                     </td>
-                  </tr>
-                ) : (
-                  articles.map(article => (
-                    <tr key={article.id}>
-                      <td>{article.id}</td>
-                      <td className="article-mgmt-title-cell">
-                        <button
-                          onClick={() => handleTitleClick(article)}
-                          className="article-title-link"
-                          title={article.status === 'draft' ? 'Mở popup chỉnh sửa' : 
-                                 ['pending', 'request_edit', 'hidden', 'rejected', 'request_rewrite'].includes(article.status) ? 'Đến trang review' : 
-                                 'Xem bài viết'}
-                        >
-                          {article.title}
-                        </button>
-                      </td>
-                      <td>
-                        <span className="article-mgmt-category-badge">
-                          {article.category?.name || 'N/A'}
-                        </span>
-                      </td>
-                      <td><StatusBadge status={article.status} /></td>
-                      <td>
-                        <div className="article-mgmt-author">
-                          <FaUser /> {article.author?.full_name || 'N/A'}
+                    {visibleColumns.tags && (
+                      <td className="col-scrollable">
+                        <div className="tags-cell">
+                          {article.tags_json && Array.isArray(article.tags_json) && article.tags_json.length > 0 ? (
+                            article.tags_json.map((tag, idx) => (
+                              <span key={idx} className="tag-badge">{tag}</span>
+                            ))
+                          ) : (
+                            <span className="text-muted">-</span>
+                          )}
                         </div>
                       </td>
-                      
-                      {activeTab === 'medicine' && (
-                        <>
-                          <td className="article-mgmt-cell-truncate">
-                            {article.medicine?.composition?.substring(0, 50) || 'N/A'}
-                            {article.medicine?.composition?.length > 50 && '...'}
-                          </td>
-                          <td className="article-mgmt-cell-truncate">
-                            {article.medicine?.uses?.substring(0, 50) || 'N/A'}
-                            {article.medicine?.uses?.length > 50 && '...'}
-                          </td>
-                          <td>{article.medicine?.manufacturer || 'N/A'}</td>
-                        </>
-                      )}
-                      
-                      {activeTab === 'disease' && (
-                        <>
-                          <td className="article-mgmt-cell-truncate">
-                            {article.disease?.symptoms?.substring(0, 50) || 'N/A'}
-                            {article.disease?.symptoms?.length > 50 && '...'}
-                          </td>
-                          <td className="article-mgmt-cell-truncate">
-                            {article.disease?.treatments?.substring(0, 50) || 'N/A'}
-                            {article.disease?.treatments?.length > 50 && '...'}
-                          </td>
-                        </>
-                      )}
-                      
-                      <td>{formatDate(article.created_at)}</td>
-                      <td>{renderActions(article)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                    )}
+                    {visibleColumns.category && (
+                      <td className="col-scrollable">
+                        <span className="category-badge">
+                          {article.category?.name || '-'}
+                        </span>
+                      </td>
+                    )}
+                    {visibleColumns.status && (
+                      <td className="col-scrollable">
+                        <span className={`status-badge ${getStatusClass(article.status)}`}>
+                          {getStatusText(article.status)}
+                        </span>
+                      </td>
+                    )}
+                    {visibleColumns.author && (
+                      <td className="col-scrollable">
+                        <div className="author-cell">
+                          <FaUser />
+                          <span>{article.author?.full_name || '-'}</span>
+                        </div>
+                      </td>
+                    )}
+                    {visibleColumns.created_at && (
+                      <td className="col-scrollable">
+                        {new Date(article.created_at).toLocaleDateString('vi-VN')}
+                      </td>
+                    )}
+                    {visibleColumns.views && (
+                      <td className="col-scrollable">
+                        <div className="views-cell">
+                          <FaEye /> {article.views || 0}
+                        </div>
+                      </td>
+                    )}
+                    {visibleColumns.composition && (
+                      <td className="col-scrollable">
+                        {article.medicine?.composition ? (
+                          <span title={article.medicine.composition}>
+                            {article.medicine.composition.substring(0, 50)}...
+                          </span>
+                        ) : '-'}
+                      </td>
+                    )}
+                    {visibleColumns.uses && (
+                      <td className="col-scrollable">
+                        {article.medicine?.uses ? (
+                          <span title={article.medicine.uses}>
+                            {article.medicine.uses.substring(0, 50)}...
+                          </span>
+                        ) : '-'}
+                      </td>
+                    )}
+                    {visibleColumns.manufacturer && (
+                      <td className="col-scrollable">
+                        {article.medicine?.manufacturer || '-'}
+                      </td>
+                    )}
+                    {visibleColumns.symptoms && (
+                      <td className="col-scrollable">
+                        {article.disease?.symptoms ? (
+                          <span title={article.disease.symptoms}>
+                            {article.disease.symptoms.substring(0, 50)}...
+                          </span>
+                        ) : '-'}
+                      </td>
+                    )}
+                    {visibleColumns.treatments && (
+                      <td className="col-scrollable">
+                        {article.disease?.treatments ? (
+                          <span title={article.disease.treatments}>
+                            {article.disease.treatments.substring(0, 50)}...
+                          </span>
+                        ) : '-'}
+                      </td>
+                    )}
+                    {/* Actions - BỎ btn-view, thêm màu icon */}
+                    <td className="col-fixed col-actions">
+                      <div className="action-buttons">
+                        <button
+                          className="btn-action btn-edit"
+                          onClick={() => openEditModal(article)}
+                          title="Sửa"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          className="btn-action btn-duplicate"
+                          onClick={() => handleDuplicate(article)}
+                          title="Nhân bản"
+                        >
+                          <FaCopy />
+                        </button>
+                        <button
+                          className="btn-action btn-history"
+                          onClick={() => viewHistory(article.id)}
+                          title="Lịch sử"
+                        >
+                          <FaHistory />
+                        </button>
+                        {user.role === 'admin' && (
+                          <button
+                            className="btn-action btn-hide"
+                            onClick={() => openHidePopup(article)}
+                            title={article.status === 'hidden' ? 'Hiện' : 'Ẩn'}
+                          >
+                            {article.status === 'hidden' ? <FaEye /> : <FaEyeSlash />}
+                          </button>
+                        )}
+                        <button
+                          className="btn-action btn-delete"
+                          onClick={() => handleDelete(article.id)}
+                          title="Xóa"
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* Pagination */}
+        {/* PAGINATION */}
         {pagination.totalPages > 1 && (
           <div className="article-mgmt-pagination">
             <button
-              className="article-mgmt-btn-page"
-              onClick={() => handlePageChange(pagination.currentPage - 1)}
-              disabled={pagination.currentPage === 1}
+              onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+              disabled={filters.page === 1}
+              className="btn-page"
             >
               Trước
             </button>
-            <div className="article-mgmt-page-numbers">
+            
+            <div className="page-numbers">
               {[...Array(pagination.totalPages)].map((_, i) => (
                 <button
                   key={i + 1}
-                  className={`article-mgmt-btn-page ${pagination.currentPage === i + 1 ? 'active' : ''}`}
-                  onClick={() => handlePageChange(i + 1)}
+                  className={`btn-page ${filters.page === i + 1 ? 'active' : ''}`}
+                  onClick={() => setFilters(prev => ({ ...prev, page: i + 1 }))}
                 >
                   {i + 1}
                 </button>
               ))}
             </div>
+
             <button
-              className="article-mgmt-btn-page"
-              onClick={() => handlePageChange(pagination.currentPage + 1)}
-              disabled={pagination.currentPage === pagination.totalPages}
+              onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+              disabled={filters.page === pagination.totalPages}
+              className="btn-page"
             >
               Sau
             </button>
           </div>
         )}
 
-        {/* Modal Form */}
+        {/* MODAL TẠO/SỬA BÀI VIẾT */}
         {showModal && (
-          <div className="article-mgmt-modal-overlay" onClick={closeModal}>
-            <div className="article-mgmt-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="article-mgmt-modal-header">
-                <h2 className="article-mgmt-modal-title">
-                  {modalType === 'create' && 'Tạo bài viết mới'}
-                  {modalType === 'edit' && 'Chỉnh sửa bài viết'}
+          <div className="article-modal-overlay">
+            <div className="article-modal-container">
+              <div className="article-modal-header">
+                <h2>
+                  {modalType === 'create' ? <><FaPlus /> Tạo bài viết mới</> : <><FaEdit /> Sửa bài viết</>}
                 </h2>
-                <button className="article-mgmt-modal-close" onClick={closeModal}>
+                <button className="btn-close-modal" onClick={closeModal}>
                   <FaTimes />
                 </button>
               </div>
 
-              <div className="article-mgmt-modal-body">
-                <form onSubmit={handleSubmit} className="article-mgmt-form">
-                  {/* ✅ THÊM PHẦN UPLOAD ẢNH BÌA */}
-    <div className="article-mgmt-cover-image-section">
-      <label className="article-mgmt-form-label">
-        <FaFileAlt /> Ảnh bìa
-      </label>
-      
-      <div className="article-mgmt-cover-preview-container">
-        {coverImage ? (
-          <div className="article-mgmt-cover-preview">
-            <img src={coverImage} alt="Cover" />
-            <div className="article-mgmt-cover-overlay">
-              <label htmlFor="cover-upload" className="article-mgmt-btn-cover-change">
-                <FaEdit /> Đổi ảnh
-              </label>
-              <button 
-                type="button" 
-                onClick={handleRemoveCoverImage}
-                className="article-mgmt-btn-cover-remove"
-              >
-                <FaTimes /> Xóa
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="article-mgmt-cover-placeholder">
-            <FaFileAlt className="placeholder-icon" />
-            <p>Chưa có ảnh bìa</p>
-            <label htmlFor="cover-upload" className="article-mgmt-btn-cover-upload">
-              <FaPlus /> Upload ảnh bìa
-            </label>
-          </div>
-        )}
-        
-        <input
-          id="cover-upload"
-          type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          onChange={handleCoverImageUpload}
-          style={{ display: 'none' }}
-          disabled={uploadingCover}
-        />
-        
-        {uploadingCover && (
-          <div className="article-mgmt-cover-uploading">
-            <FaSpinner className="spinner" /> Đang upload...
-          </div>
-        )}
-      </div>
-      
-      <small className="article-mgmt-form-hint">
-        Ảnh sẽ tự động lấy từ ảnh đầu tiên trong nội dung. Hoặc upload ảnh mới (JPEG, PNG, GIF, WEBP - Max 5MB)
-      </small>
-    </div>
+              <form className="article-modal-body">
+                <div className="article-modal-content">
+  
+                {/* SIDEBAR - Ảnh bìa + BUTTONS */}
+                <div className="article-modal-sidebar">
+                  {/* Ảnh bìa */}
+                  <div className="cover-image-section">
+                    <label className="section-label">
+                      <FaImage /> Ảnh bìa
+                    </label>
+                    
+                    {/* Tabs: File vs URL */}
+                    <div className="image-upload-tabs">
+                      <button
+                        type="button"
+                        className={`tab-btn ${imageUploadMethod === 'file' ? 'active' : ''}`}
+                        onClick={() => setImageUploadMethod('file')}
+                      >
+                        <FaUpload /> Upload
+                      </button>
+                      <button
+                        type="button"
+                        className={`tab-btn ${imageUploadMethod === 'url' ? 'active' : ''}`}
+                        onClick={() => setImageUploadMethod('url')}
+                      >
+                        <FaLink /> URL
+                      </button>
+                    </div>
 
-                  <div className="article-mgmt-form-row">
-                    <div className="article-mgmt-form-group">
-                      <label className="article-mgmt-form-label">
-                        <FaNewspaper /> Tiêu đề *
-                      </label>
+                    {/* Preview ảnh */}
+                    {(coverImage || tempImageUrl) && (
+                      <div className="image-preview">
+                        <img src={coverImage || tempImageUrl} alt="Cover" />
+                        <button
+                          type="button"
+                          className="btn-remove-image"
+                          onClick={() => {
+                            setCoverImage(null);
+                            setTempImageUrl('');
+                            setFormData(prev => ({ ...prev, image_url: '' }));
+                          }}
+                        >
+                          <FaTimes />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Upload method */}
+                    {imageUploadMethod === 'file' ? (
+                      <div className="upload-area">
+                        <input
+                          type="file"
+                          id="cover-upload"
+                          accept="image/*"
+                          onChange={handleCoverImageUpload}
+                          style={{ display: 'none' }}
+                        />
+                        <label htmlFor="cover-upload" className="upload-label">
+                          {uploadingCover ? (
+                            <><FaSpinner className="spin" /> Đang tải...</>
+                          ) : (
+                            <><FaUpload /> Chọn ảnh</>
+                          )}
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="url-input-group">
+                        <input
+                          type="text"
+                          value={tempImageUrl}
+                          onChange={(e) => setTempImageUrl(e.target.value)}
+                          placeholder="https://example.com/image.jpg"
+                          className="url-input"
+                        />
+                        <button
+                          type="button"
+                          className="btn-add-url"
+                          onClick={handleImageUrlSubmit}
+                        >
+                          Thêm
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* BUTTONS - Di chuyển lên đây */}
+                  <div className="form-actions-sidebar">
+                    <button
+                      type="button"
+                      className="btn-submit btn-primary btn-full"
+                      onClick={(e) => handleSubmit(e, false)}
+                    >
+                      <FaPaperPlane /> Gửi phê duyệt
+                    </button>
+                    
+                    <div className="form-actions-row">
+                      <button
+                        type="button"
+                        className="btn-submit btn-secondary"
+                        onClick={(e) => handleSubmit(e, true)}
+                      >
+                        <FaSave /> Lưu nháp
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-submit btn-cancel"
+                        onClick={closeModal}
+                      >
+                        <FaTimes /> Hủy
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                  {/* MAIN FORM */}
+                <div className="article-modal-main">
+                  
+                  {/* HÀNG 1: Tiêu đề, Loại, Danh mục */}
+                  <div className="form-row form-row-3">
+                    <div className="form-group">
+                      <label className="form-label required">Tiêu đề</label>
                       <input
                         type="text"
                         name="title"
                         value={formData.title}
                         onChange={handleFormChange}
-                        className="article-mgmt-form-input"
+                        placeholder="Nhập tiêu đề bài viết..."
+                        className="form-input"
                         required
                       />
                     </div>
 
-                    <div className="article-mgmt-form-group">
-                      <label className="article-mgmt-form-label">Danh mục *</label>
+                    <div className="form-group">
+                      <label className="form-label required">Loại bài viết</label>
+                      <select
+                        value={selectedCategoryType}
+                        onChange={handleCategoryTypeChange}
+                        className="form-select"
+                        required
+                      >
+                        <option value="">Chọn loại</option>
+                        <option value="tin_tuc">Tin tức</option>
+                        <option value="thuoc">Thuốc</option>
+                        <option value="benh_ly">Bệnh lý</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label required">Danh mục</label>
                       <select
                         name="category_id"
                         value={formData.category_id}
-                        onChange={(e) => handleCategoryChange(e.target.value)}
-                        className="article-mgmt-form-select"
+                        onChange={handleCategoryChange}
+                        className="form-select"
                         required
+                        disabled={!selectedCategoryType}
                       >
                         <option value="">Chọn danh mục</option>
-                        {categories.map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
+                        {categories
+                          .filter(cat => cat.category_type === selectedCategoryType)
+                          .map(cat => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))
+                        }
                       </select>
                     </div>
                   </div>
 
-                  {selectedCategoryType === 'thuoc' && (
-                    <div className="article-mgmt-medical-fields">
-                      <h4>Thông tin thuốc</h4>
-                      <div className="article-mgmt-form-row">
-                        <div className="article-mgmt-form-group">
-                          <label className="article-mgmt-form-label">Thành phần</label>
-                          <textarea
-                            name="composition"
-                            value={formData.composition}
-                            onChange={handleFormChange}
-                            className="article-mgmt-form-textarea"
-                            rows="2"
-                          />
+                  {/* HÀNG 2: Tags và Import nội dung */}
+                  <div className="form-row form-row-2">
+                    {/* Tags */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        <FaTags /> Tags
+                      </label>
+                      <div className="tags-input-wrapper">
+                        <div className="tags-display">
+                          {formData.tags_json.map((tag, idx) => (
+                            <span key={idx} className="tag-item">
+                              {tag}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTag(tag)}
+                                className="btn-remove-tag"
+                              >
+                                <FaTimes />
+                              </button>
+                            </span>
+                          ))}
                         </div>
-                        <div className="article-mgmt-form-group">
-                          <label className="article-mgmt-form-label">Nhà sản xuất</label>
+                        <div className="tags-input-group">
                           <input
                             type="text"
-                            name="manufacturer"
-                            value={formData.manufacturer}
-                            onChange={handleFormChange}
-                            className="article-mgmt-form-input"
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddTag();
+                              }
+                            }}
+                            placeholder="Thêm tag..."
+                            className="tags-input"
                           />
-                        </div>
-                      </div>
-                      <div className="article-mgmt-form-row">
-                        <div className="article-mgmt-form-group">
-                          <label className="article-mgmt-form-label">Công dụng</label>
-                          <textarea
-                            name="uses"
-                            value={formData.uses}
-                            onChange={handleFormChange}
-                            className="article-mgmt-form-textarea"
-                            rows="2"
-                          />
-                        </div>
-                        <div className="article-mgmt-form-group">
-                          <label className="article-mgmt-form-label">Tác dụng phụ</label>
-                          <textarea
-                            name="side_effects"
-                            value={formData.side_effects}
-                            onChange={handleFormChange}
-                            className="article-mgmt-form-textarea"
-                            rows="2"
-                          />
+                          <button
+                            type="button"
+                            onClick={handleAddTag}
+                            className="btn-add-tag"
+                          >
+                            Thêm
+                          </button>
                         </div>
                       </div>
                     </div>
-                  )}
 
-                  {selectedCategoryType === 'benh_ly' && (
-                    <div className="article-mgmt-medical-fields">
-                      <h4>Thông tin bệnh lý</h4>
-                      <div className="article-mgmt-form-row">
-                        <div className="article-mgmt-form-group">
-                          <label className="article-mgmt-form-label">Triệu chứng</label>
-                          <textarea
-                            name="symptoms"
-                            value={formData.symptoms}
-                            onChange={handleFormChange}
-                            className="article-mgmt-form-textarea"
-                            rows="2"
-                          />
-                        </div>
-                        <div className="article-mgmt-form-group">
-                          <label className="article-mgmt-form-label">Điều trị</label>
-                          <textarea
-                            name="treatments"
-                            value={formData.treatments}
-                            onChange={handleFormChange}
-                            className="article-mgmt-form-textarea"
-                            rows="2"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="article-mgmt-form-group">
-  <label className="article-mgmt-form-label">
-    <FaFileAlt /> Nội dung *
-  </label>
-  
-  {/* ✅ TOOLBAR CONTAINER - Phải đặt TRƯỚC CKEditor */}
-  <div id="toolbar-container" className="ckeditor-toolbar-container"></div>
-  
-  {/* ✅ CKEDITOR - Decoupled Editor */}
-  <CKEditor
-    editor={DecoupledEditor}
-    config={editorConfig}
-    data={formData.content}
-    onReady={editor => {
-      // Mount toolbar vào container
-      const toolbarContainer = document.querySelector('#toolbar-container');
-      if (toolbarContainer && editor.ui.view.toolbar.element) {
-        toolbarContainer.innerHTML = ''; // Clear cũ (nếu có)
-        toolbarContainer.appendChild(editor.ui.view.toolbar.element);
-      }
-    }}
-    onChange={handleContentChange}
-  />
-</div>
-
-                  <div className="article-mgmt-form-row">
-                    <div className="article-mgmt-form-group">
-                      <label className="article-mgmt-form-label">Tags</label>
-                      <div className="article-mgmt-tags-container">
-                        {formData.tags_json.map((tag, index) => (
-                          <span key={index} className="article-mgmt-tag-item">
-                            {tag}
-                            <button
-                              type="button"
-                              onClick={() => removeTag(index)}
-                              className="article-mgmt-tag-remove"
-                            >
-                              <FaTimes />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                      <div className="article-mgmt-tag-input-wrapper">
-                        <input
-                          type="text"
-                          value={tagInput}
-                          onChange={(e) => setTagInput(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              addTag(tagInput);
-                            }
-                          }}
-                          className="article-mgmt-form-input"
-                          placeholder="Nhập tag và nhấn Enter"
-                        />
-                        {suggestedTags.length > 0 && (
-                          <div className="article-mgmt-tags-suggest">
-                            {suggestedTags.map((tag, index) => (
-                              <button
-                                key={index}
-                                type="button"
-                                onClick={() => addTag(tag)}
-                                className="article-mgmt-tag-suggest-item"
-                              >
-                                {tag}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="article-mgmt-form-group">
-                      <label className="article-mgmt-form-label">Nguồn</label>
-                      <input
-                        type="text"
-                        name="source"
-                        value={formData.source}
-                        onChange={handleFormChange}
-                        className="article-mgmt-form-input"
-                        placeholder="https://..."
-                      />
-                      <label className="article-mgmt-form-label" style={{marginTop: '1rem'}}>Import từ file</label>
+                    {/* Import file */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        <FaFileImport /> Import nội dung
+                      </label>
                       <input
                         type="file"
-                        accept=".docx,.xlsx"
-                        onChange={handleFileUpload}
-                        className="article-mgmt-form-file"
+                        accept=".doc,.docx,.xls,.xlsx"
+                        onChange={handleFileImport}
+                        className="file-input"
                       />
-                      <small className="article-mgmt-form-hint">
-                        Hỗ trợ: .docx, .xlsx (Max 10MB)
+                      <small className="form-hint">
+                        Hỗ trợ: .docx, .doc, .xlsx, .xls
                       </small>
                     </div>
                   </div>
 
-                  <div className="article-mgmt-form-actions">
-                    <button
-                      type="submit"
-                      className="article-mgmt-btn article-mgmt-btn-primary"
-                      onClick={(e) => handleSubmit(e, false)}
-                    >
-                      <FaPaperPlane /> Gửi phê duyệt
-                    </button>
-                    <button
-                      type="button"
-                      className="article-mgmt-btn article-mgmt-btn-secondary"
-                      onClick={(e) => handleSubmit(e, true)}
-                    >
-                      <FaSave /> Lưu nháp
-                    </button>
-                    <button
-                      type="button"
-                      className="article-mgmt-btn article-mgmt-btn-cancel"
-                      onClick={closeModal}
-                    >
-                      <FaTimes /> Đóng
-                    </button>
+                    {/* Nội dung */}
+                    <div className="form-group">
+                      <label className="form-label required">Nội dung</label>
+                      <div className="editor-wrapper">
+                        <CKEditor
+                          editor={DecoupledEditor}
+                          data={formData.content}
+                          onReady={editor => {
+                            const toolbarContainer = document.querySelector('.editor-wrapper .ck-toolbar');
+                            const editableElement = editor.ui.getEditableElement();
+                            if (toolbarContainer && editableElement) {
+                              toolbarContainer.appendChild(editor.ui.view.toolbar.element);
+                            } else if (editableElement && editableElement.parentElement) {
+                              editableElement.parentElement.insertBefore(
+                                editor.ui.view.toolbar.element,
+                                editableElement
+                              );
+                            }
+                          }}
+                          onChange={(event, editor) => {
+                            const data = editor.getData();
+                            setFormData(prev => ({ ...prev, content: data }));
+                          }}
+                          config={{
+                            extraPlugins: [MyCustomUploadAdapterPlugin],
+                            toolbar: [
+                              'heading', '|',
+                              'bold', 'italic', 'underline', 'strikethrough', '|',
+                              'fontSize', 'fontColor', 'fontBackgroundColor', '|',
+                              'link', 'imageUpload', 'blockQuote', '|',
+                              'alignment', 'bulletedList', 'numberedList', '|',
+                              'insertTable', 'tableColumn', 'tableRow', 'mergeTableCells', '|',
+                              'undo', 'redo'
+                            ],
+                            image: {
+                              toolbar: [
+                                'imageTextAlternative', '|',
+                                'imageStyle:alignLeft', 'imageStyle:full', 'imageStyle:alignRight'
+                              ],
+                              styles: ['full', 'alignLeft', 'alignRight']
+                            },
+                            table: {
+                              contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* THÔNG TIN BỔ SUNG - THUỐC */}
+                    {selectedCategoryType === 'thuoc' && (
+                      <div className="additional-fields medicine-fields">
+                        <h3 className="section-title">
+                          <FaPills /> Thông tin thuốc
+                        </h3>
+                        
+                        {/* Hàng 1: Tên thuốc + Nhà sản xuất */}
+                        <div className="form-row form-row-2">
+                          <div className="form-group">
+                            <label className="form-label required">Tên thuốc</label>
+                            <input
+                              type="text"
+                              name="name"
+                              value={formData.name}
+                              onChange={handleFormChange}
+                              placeholder="Tên thuốc..."
+                              className="form-input"
+                              required
+                            />
+                          </div>
+
+                          <div className="form-group">
+                            <label className="form-label">Nhà sản xuất</label>
+                            <input
+                              type="text"
+                              name="manufacturer"
+                              value={formData.manufacturer}
+                              onChange={handleFormChange}
+                              placeholder="Nhà sản xuất..."
+                              className="form-input"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Hàng 2: Thành phần + Công dụng */}
+                        <div className="form-row form-row-2">
+                          <div className="form-group">
+                            <label className="form-label">Thành phần</label>
+                            <textarea
+                              name="composition"
+                              value={formData.composition}
+                              onChange={handleFormChange}
+                              placeholder="Thành phần thuốc..."
+                              className="form-textarea"
+                              rows="3"
+                            />
+                          </div>
+
+                          <div className="form-group">
+                            <label className="form-label">Công dụng</label>
+                            <textarea
+                              name="uses"
+                              value={formData.uses}
+                              onChange={handleFormChange}
+                              placeholder="Công dụng..."
+                              className="form-textarea"
+                              rows="3"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Hàng 3: Tác dụng phụ + Cách dùng */}
+                        <div className="form-row form-row-2">
+                          <div className="form-group">
+                            <label className="form-label">Tác dụng phụ</label>
+                            <textarea
+                              name="side_effects"
+                              value={formData.side_effects}
+                              onChange={handleFormChange}
+                              placeholder="Tác dụng phụ..."
+                              className="form-textarea"
+                              rows="3"
+                            />
+                          </div>
+
+                          <div className="form-group">
+                            <label className="form-label">Cách dùng</label>
+                            <textarea
+                              name="medicine_usage"
+                              value={formData.medicine_usage}
+                              onChange={handleFormChange}
+                              placeholder="Cách sử dụng..."
+                              className="form-textarea"
+                              rows="3"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Hàng 4: % Đánh giá */}
+                        <div className="form-row form-row-3">
+                          <div className="form-group">
+                            <label className="form-label">% Xuất sắc</label>
+                            <input
+                              type="number"
+                              name="excellent_review_percent"
+                              value={formData.excellent_review_percent}
+                              onChange={handleFormChange}
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              className="form-input"
+                            />
+                          </div>
+
+                          <div className="form-group">
+                            <label className="form-label">% Trung bình</label>
+                            <input
+                              type="number"
+                              name="average_review_percent"
+                              value={formData.average_review_percent}
+                              onChange={handleFormChange}
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              className="form-input"
+                            />
+                          </div>
+
+                          <div className="form-group">
+                            <label className="form-label">% Kém</label>
+                            <input
+                              type="number"
+                              name="poor_review_percent"
+                              value={formData.poor_review_percent}
+                              onChange={handleFormChange}
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              className="form-input"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* THÔNG TIN BỔ SUNG - BỆNH LÝ */}
+                    {selectedCategoryType === 'benh_ly' && (
+                      <div className="additional-fields disease-fields">
+                        <h3 className="section-title">
+                          <FaDisease /> Thông tin bệnh lý
+                        </h3>
+                        
+                        {/* Hàng 1: Triệu chứng + Điều trị */}
+                        <div className="form-row form-row-2">
+                          <div className="form-group">
+                            <label className="form-label">Triệu chứng</label>
+                            <textarea
+                              name="symptoms"
+                              value={formData.symptoms}
+                              onChange={handleFormChange}
+                              placeholder="Các triệu chứng điển hình..."
+                              className="form-textarea"
+                              rows="4"
+                            />
+                          </div>
+
+                          <div className="form-group">
+                            <label className="form-label">Điều trị</label>
+                            <textarea
+                              name="treatments"
+                              value={formData.treatments}
+                              onChange={handleFormChange}
+                              placeholder="Phương pháp điều trị..."
+                              className="form-textarea"
+                              rows="4"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Mô tả thêm */}
+                        <div className="form-group">
+                          <label className="form-label">Mô tả thêm</label>
+                          <textarea
+                            name="description"
+                            value={formData.description}
+                            onChange={handleFormChange}
+                            placeholder="Thông tin bổ sung..."
+                            className="form-textarea"
+                            rows="3"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Nguồn */}
+                    <div className="form-group">
+                      <label className="form-label">Nguồn</label>
+                      <input
+                        type="url"
+                        name="source"
+                        value={formData.source}
+                        onChange={handleFormChange}
+                        placeholder="https://..."
+                        className="form-input"
+                      />
+                    </div>
                   </div>
-                </form>
-              </div>
+                </div>
+              </form>
             </div>
           </div>
         )}
 
-        {/* Confirm Dialog */}
+        {/* CONFIRM DIALOG */}
         {showConfirmDialog && confirmAction && (
-          <div className="article-mgmt-confirm-overlay" onClick={closeConfirm}>
-            <div className={`article-mgmt-confirm-dialog ${confirmAction.type}`} onClick={(e) => e.stopPropagation()}>
-              <div className="article-mgmt-confirm-icon">
+          <div className="confirm-overlay">
+            <div className={`confirm-dialog ${confirmAction.type}`}>
+              <div className="confirm-icon">
                 {confirmAction.type === 'danger' && <FaExclamationTriangle />}
                 {confirmAction.type === 'warning' && <FaExclamationTriangle />}
                 {confirmAction.type === 'info' && <FaInfoCircle />}
               </div>
-              <h3 className="article-mgmt-confirm-title">{confirmAction.title}</h3>
-              <p className="article-mgmt-confirm-message">{confirmAction.message}</p>
-              <div className="article-mgmt-confirm-actions">
-              <button
-                className={`article-mgmt-btn article-mgmt-btn-${confirmAction.type === 'danger' ? 'danger' : confirmAction.type === 'warning' ? 'warning' : 'primary'}`}
-                onClick={handleConfirm}
-              >
-                {confirmAction.confirmText}
-              </button>
-              {confirmAction.onCancelWithoutSave && (
-                <button
-                  className="article-mgmt-btn article-mgmt-btn-danger"
-                  onClick={() => {
-                    confirmAction.onCancelWithoutSave();
-                    closeConfirm();
-                  }}
-                >
-                  {confirmAction.cancelWithoutSaveText}
-                </button>
+              <h3 className="confirm-title">{confirmAction.title}</h3>
+              <p className="confirm-message">{confirmAction.message}</p>
+              
+              {/* THÊM COUNTDOWN */}
+              {deleteArticleId && countdownSeconds > 0 && (
+                <div className="countdown-timer">
+                  <FaClock />
+                  <span>Vui lòng chờ {countdownSeconds} giây để xác nhận...</span>
+                </div>
               )}
-              <button
-                className="article-mgmt-btn article-mgmt-btn-cancel"
-                onClick={closeConfirm}
-              >
-                Quay lại
-              </button>
-            </div>
+              
+              <div className="confirm-actions">
+                <button
+                  className={`btn-confirm btn-${confirmAction.type === 'danger' ? 'danger' : confirmAction.type === 'warning' ? 'warning' : 'primary'}`}
+                  onClick={handleConfirm}
+                  disabled={deleteArticleId && countdownSeconds > 0}
+                >
+                  {deleteArticleId && countdownSeconds > 0 ? (
+                    `Xác nhận (${countdownSeconds}s)`
+                  ) : (
+                    confirmAction.confirmText
+                  )}
+                </button>
+                {confirmAction.onCancelWithoutSave && (
+                  <button
+                    className="btn-confirm btn-danger"
+                    onClick={() => {
+                      confirmAction.onCancelWithoutSave();
+                      closeConfirm();
+                    }}
+                  >
+                    {confirmAction.cancelWithoutSaveText}
+                  </button>
+                )}
+                <button
+                  className="btn-confirm btn-cancel"
+                  onClick={closeConfirm}
+                >
+                  Quay lại
+                </button>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Toast Notifications */}
-        <div className="article-mgmt-toast-container">
+        {/* HIDE POPUP */}
+        {showHidePopup && articleToHide && (
+          <div className="popup-overlay">
+            <div className="popup">
+              <div className="popup-header">
+                <div className="popup-header-content">
+                  {articleToHide.status === 'hidden' ? <FaEye className="popup-icon" /> : <FaEyeSlash className="popup-icon" />}
+                  <h3>{articleToHide.status === 'hidden' ? 'Hiện bài viết' : 'Ẩn bài viết'}</h3>
+                </div>
+                <button onClick={() => setShowHidePopup(false)} className="btn-close-popup">
+                  <FaTimes />
+                </button>
+              </div>
+              <form onSubmit={handleHideArticle} className="popup-body">
+                <div className="popup-warning">
+                  <FaExclamationTriangle />
+                  <div>
+                    <p className="warning-title">Lưu ý</p>
+                    <p className="warning-text">
+                      {articleToHide.status === 'hidden' 
+                        ? 'Bài viết sẽ được hiển thị công khai.'
+                        : 'Bài viết sẽ bị ẩn khỏi danh sách công khai.'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div className="popup-info">
+                  <label className="popup-label">Bài viết:</label>
+                  <p className="article-title-display">{articleToHide.title}</p>
+                </div>
+                <div className="popup-quick-reasons">
+                  <label className="popup-label">Lý do nhanh:</label>
+                  <div className="quick-reason-buttons">
+                    {['Nội dung không phù hợp', 'Vi phạm chính sách', 'Thông tin sai lệch', 'Yêu cầu từ tác giả'].map((r, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setHideReason(r)}
+                        className={`btn-quick-reason ${hideReason === r ? 'active' : ''}`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="popup-form-group">
+                  <label className="popup-label">
+                    Lý do <span className="required">*</span>
+                  </label>
+                  <textarea
+                    value={hideReason}
+                    onChange={(e) => setHideReason(e.target.value)}
+                    placeholder={`Nhập lý do ${articleToHide.status === 'hidden' ? 'hiện' : 'ẩn'} bài viết...`}
+                    maxLength={500}
+                    rows={5}
+                    className="popup-textarea"
+                    required
+                  />
+                  <small className="char-count">{hideReason.length}/500</small>
+                </div>
+
+                <div className="popup-footer">
+                  {/* THÊM COUNTDOWN */}
+                  {articleToHide?.status !== 'hidden' && countdownSeconds > 0 && (
+                    <div className="countdown-notice">
+                      <FaClock />
+                      <span>Vui lòng chờ {countdownSeconds} giây để xác nhận...</span>
+                    </div>
+                  )}
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowHidePopup(false);
+                      setCountdownSeconds(0);
+                    }}
+                    className="btn-cancel"
+                    disabled={hidingArticle}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-submit btn-hide-confirm"
+                    disabled={hidingArticle || !hideReason.trim() || (articleToHide?.status !== 'hidden' && countdownSeconds > 0)}
+                  >
+                    {hidingArticle ? (
+                      <>
+                        <FaSpinner className="spinner-icon" /> Đang xử lý...
+                      </>
+                    ) : countdownSeconds > 0 ? (
+                      <>
+                        <FaEyeSlash /> Xác nhận ({countdownSeconds}s)
+                      </>
+                    ) : (
+                      <>
+                        {articleToHide?.status === 'hidden' ? <FaEye /> : <FaEyeSlash />}
+                        {' '}Xác nhận {articleToHide?.status === 'hidden' ? 'hiện' : 'ẩn'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ADMIN PUBLISH CHOICE POPUP */}
+        {showAdminPublishChoice && (
+          <div className="popup-overlay" onClick={() => setShowAdminPublishChoice(false)}>
+            <div className="popup admin-choice-popup" onClick={(e) => e.stopPropagation()}>
+              <div className="popup-header">
+                <div className="popup-header-content">
+                  <FaCheckCircle className="popup-icon" />
+                  <h3>Chọn cách đăng bài</h3>
+                </div>
+                <button onClick={() => setShowAdminPublishChoice(false)} className="btn-close-popup">
+                  <FaTimes />
+                </button>
+              </div>
+
+              <div className="popup-body">
+                <div className="popup-info">
+                  <p className="popup-label">Bạn là Admin, bạn có muốn:</p>
+                </div>
+
+                <div className="admin-choice-buttons">
+                  <button
+                    className="btn-admin-choice btn-publish-now"
+                    onClick={(e) => {
+                      setShowAdminPublishChoice(false);
+                      handleSubmit(null, false, true); // Publish trực tiếp
+                    }}
+                  >
+                    <FaCheckCircle />
+                    <span>Đăng bài ngay</span>
+                    <small>Bài viết sẽ hiển thị công khai ngay lập tức</small>
+                  </button>
+
+                  <button
+                    className="btn-admin-choice btn-send-review"
+                    onClick={(e) => {
+                      setShowAdminPublishChoice(false);
+                      handleSubmit(null, false, false); // Gửi phê duyệt cho admin khác
+                    }}
+                  >
+                    <FaPaperPlane />
+                    <span>Gửi phê duyệt</span>
+                    <small>Gửi cho Admin khác xem xét và phê duyệt</small>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TOAST NOTIFICATIONS */}
+        <div className="toast-container">
           {toasts.map(toast => (
-            <div key={toast.id} className={`article-mgmt-toast ${toast.type}`}>
-              <div className="article-mgmt-toast-icon">
+            <div key={toast.id} className={`toast toast-${toast.type}`}>
+              <div className="toast-icon">
                 {toast.type === 'success' && <FaCheckCircle />}
                 {toast.type === 'error' && <FaTimesCircle />}
                 {toast.type === 'warning' && <FaExclamationTriangle />}
                 {toast.type === 'info' && <FaInfoCircle />}
               </div>
-              <span className="article-mgmt-toast-message">{toast.message}</span>
+              <span className="toast-message">{toast.message}</span>
               <button
-                className="article-mgmt-toast-close"
+                className="toast-close"
                 onClick={() => removeToast(toast.id)}
               >
                 <FaTimes />
@@ -1810,96 +2405,34 @@ const handleRemoveCoverImage = () => {
             </div>
           ))}
         </div>
-
-        {/* Popup ẩn bài viết */}
-        {showHidePopup && articleToHide && (
-        <div className="popup-overlay" onClick={() => setShowHidePopup(false)}>
-          <div className="popup" onClick={(e) => e.stopPropagation()}>
-            <div className="popup-header">
-              <div className="popup-header-content">
-                <FaEyeSlash className="popup-icon" />
-                <h3>Ẩn bài viết</h3>
-              </div>
-              <button onClick={() => setShowHidePopup(false)} className="btn-close-popup">
-                <FaTimes />
-              </button>
-            </div>
-            <form onSubmit={handleHideArticle} className="popup-body">
-              <div className="popup-warning">
-                <FaExclamationTriangle />
-                <div>
-                  <p className="warning-title">Lưu ý quan trọng</p>
-                  <p className="warning-text">
-                    Bài viết sẽ bị ẩn khỏi danh sách công khai. Chỉ admin và tác giả có thể xem.
-                  </p>
-                </div>
-              </div>
-              <div className="popup-info">
-                <label className="popup-label">Bài viết:</label>
-                <p className="article-title-display">{articleToHide.title}</p>
-              </div>
-              <div className="popup-quick-reasons">
-                <label className="popup-label">Lý do nhanh:</label>
-                <div className="quick-reason-buttons">
-                  {['Nội dung không phù hợp', 'Vi phạm chính sách', 'Thông tin sai lệch', 'Yêu cầu từ tác giả'].map((r, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => setHideReason(r)}
-                      className={`btn-quick-reason ${hideReason === r ? 'active' : ''}`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="popup-form-group">
-                <label className="popup-label">
-                  Lý do chi tiết <span className="required">*</span>
-                </label>
-                <textarea
-                  value={hideReason}
-                  onChange={(e) => setHideReason(e.target.value)}
-                  placeholder="Nhập lý do ẩn bài viết (tối đa 500 ký tự)..."
-                  maxLength={500}
-                  rows={5}
-                  className="popup-textarea"
-                  required
-                />
-                <small className="char-count">{hideReason.length}/500 ký tự</small>
-              </div>
-              <div className="popup-footer">
-                <button
-                  type="button"
-                  onClick={() => setShowHidePopup(false)}
-                  className="btn-cancel"
-                  disabled={hidingArticle}
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="btn-submit btn-hide-confirm"
-                  disabled={hidingArticle || !hideReason.trim()}
-                >
-                  {hidingArticle ? (
-                    <>
-                      <FaSpinner className="spinner-icon" /> Đang xử lý...
-                    </>
-                  ) : (
-                    <>
-                      <FaEyeSlash /> Xác nhận ẩn
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
       </div>
     </div>
+    
   );
 };
+
+
+
+/**
+ * Helper: Lấy tên cột hiển thị
+ */
+function getColumnName(key) {
+  const names = {
+    id: 'ID',
+    title: 'Tiêu đề',
+    tags: 'Tags',
+    category: 'Danh mục',
+    status: 'Trạng thái',
+    author: 'Tác giả',
+    created_at: 'Ngày tạo',
+    views: 'Lượt xem',
+    composition: 'Thành phần',
+    uses: 'Công dụng',
+    manufacturer: 'Nhà sản xuất',
+    symptoms: 'Triệu chứng',
+    treatments: 'Điều trị'
+  };
+  return names[key] || key;
+}
 
 export default ArticleManagementPage;

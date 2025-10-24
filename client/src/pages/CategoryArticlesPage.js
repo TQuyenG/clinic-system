@@ -11,32 +11,45 @@ const CategoryArticlesPage = ({ category, categoryType }) => {
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({});
   const [page, setPage] = useState(1);
+  const [letterFilter, setLetterFilter] = useState('');
+const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
   const API_BASE_URL = 'http://localhost:3001';
 
   useEffect(() => {
-    if (category) {
-      fetchArticles();
-    }
-  }, [category, page]);
+  if (category) {
+    fetchArticles();
+  }
+}, [category, page, letterFilter]);
 
   const fetchArticles = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(
-        `${API_BASE_URL}/api/articles/public?category_id=${category.id}&page=${page}&limit=12`
-      );
-
-      if (response.data.success) {
-        setArticles(response.data.articles || []);
-        setPagination(response.data.pagination || {});
-      }
-    } catch (error) {
-      console.error('Error fetching articles:', error);
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    const params = {
+      category_id: category.id,
+      page,
+      limit: 12
+    };
+    
+    if (letterFilter) {
+      params.letter = letterFilter;
     }
-  };
+    
+    const response = await axios.get(
+      `${API_BASE_URL}/api/articles/public`,
+      { params }
+    );
+
+    if (response.data.success) {
+      setArticles(response.data.articles || []);
+      setPagination(response.data.pagination || {});
+    }
+  } catch (error) {
+    console.error('Error fetching articles:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getCategoryTypeUrl = (article) => {
     const typeMap = {
@@ -82,6 +95,27 @@ const CategoryArticlesPage = ({ category, categoryType }) => {
   return (
     <div className="articles-list-page">
       <Breadcrumb items={breadcrumbItems} />
+
+      {/* Alphabet Filter - Chỉ hiện với thuốc và bệnh lý */}
+{(categoryType === 'thuoc' || categoryType === 'benh-ly') && (
+  <div className="alphabet-filter">
+    <button
+      className={`alphabet-btn ${!letterFilter ? 'active' : ''}`}
+      onClick={() => setLetterFilter('')}
+    >
+      Tất cả
+    </button>
+    {alphabet.map(letter => (
+      <button
+        key={letter}
+        className={`alphabet-btn ${letterFilter === letter ? 'active' : ''}`}
+        onClick={() => setLetterFilter(letter)}
+      >
+        {letter}
+      </button>
+    ))}
+  </div>
+)}
 
       <div className="page-header">
         <h1><FaFolder /> {category.name}</h1>

@@ -14,6 +14,8 @@ const roleMiddleware = require('../middleware/roleMiddleware');
 router.get('/categories', articleController.getCategories);
 router.get('/public', articleController.getPublicArticles);
 router.get('/slug/:slug', articleController.getArticleBySlug);
+router.get('/tags/all', articleController.getAllTags);
+router.get('/related/:id', articleController.getRelatedArticles);
 
 // ===== PROTECTED ROUTES - CẦN AUTH =====
 
