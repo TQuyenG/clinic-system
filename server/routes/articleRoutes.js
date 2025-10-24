@@ -16,6 +16,8 @@ router.get('/public', articleController.getPublicArticles);
 router.get('/slug/:slug', articleController.getArticleBySlug);
 router.get('/tags/all', articleController.getAllTags);
 router.get('/related/:id', articleController.getRelatedArticles);
+router.get('/search', articleController.searchArticles);
+router.get('/search/global', articleController.globalSearch);
 
 // ===== PROTECTED ROUTES - CẦN AUTH =====
 

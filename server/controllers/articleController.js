@@ -1946,3 +1946,256 @@ exports.getRelatedArticles = async (req, res) => {
     });
   }
 };
+
+// Thêm vào cuối file articleController.js
+exports.searchArticles = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.trim().length < 2) {
+      return res.json({
+        success: true,
+        query: q,
+        articles: []
+      });
+    }
+    
+    const searchTerm = q.trim();
+    
+    const articles = await Article.findAll({
+      where: {
+        [Op.or]: [
+          { title: { [Op.like]: `%${searchTerm}%` } },
+          { content: { [Op.like]: `%${searchTerm}%` } }
+        ],
+        status: 'approved',
+        deleted_at: null
+      },
+      include: [{
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'category_type', 'slug']
+      }],
+      attributes: ['id', 'title', 'slug', 'views', 'created_at'],
+      limit: 10,
+      order: [['created_at', 'DESC']]
+    });
+    
+    const formattedArticles = articles.map(a => ({
+      id: a.id,
+      type: 'article',
+      title: a.title,
+      slug: a.slug,
+      category: a.category ? {
+        name: a.category.name,
+        type: a.category.category_type,
+        slug: a.category.slug
+      } : null,
+      views: a.views || 0
+    }));
+    
+    res.json({
+      success: true,
+      query: searchTerm,
+      articles: formattedArticles
+    });
+    
+  } catch (error) {
+    console.error('Error in searchArticles:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi tìm kiếm bài viết'
+    });
+  }
+};
+
+// ============================================
+// THEM HAM NAY VAO CUOI FILE articleController.js
+// ============================================
+
+exports.globalSearch = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.trim().length < 2) {
+      return res.json({
+        success: true,
+        query: q,
+        results: {
+          articles: [],
+          categories: [],
+          doctors: [],
+          specialties: []
+        }
+      });
+    }
+    
+    const searchTerm = q.trim();
+    
+    // 1. TIM BAI VIET (articles)
+    const articles = await Article.findAll({
+      where: {
+        [Op.or]: [
+          { title: { [Op.like]: `%${searchTerm}%` } },
+          { content: { [Op.like]: `%${searchTerm}%` } }
+        ],
+        status: 'approved',
+        deleted_at: null
+      },
+      include: [{
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'category_type', 'slug']
+      }],
+      attributes: ['id', 'title', 'slug', 'views', 'created_at'],
+      limit: 5,
+      order: [['views', 'DESC']]
+    });
+    
+    // 2. TIM DANH MUC (categories) - Thêm tìm theo slug nếu cần
+    const categories = await Category.findAll({
+      where: {
+        [Op.or]: [
+          { name: { [Op.like]: `%${searchTerm}%` } },
+          { description: { [Op.like]: `%${searchTerm}%` } },
+          { slug: { [Op.like]: `%${searchTerm}%` } }  // Mới: Tìm theo slug
+        ]
+      },
+      attributes: ['id', 'name', 'slug', 'category_type', 'description'],
+      limit: 5,
+      order: [['name', 'ASC']]
+    });
+    
+    // 3. TIM BAC SI (doctors) - Mở rộng tìm theo bio và experience_years (nếu là số)
+    let doctors = [];
+    let doctorWhere = {
+      [Op.or]: [
+        { full_name: { [Op.like]: `%${searchTerm}%` } },
+        { email: { [Op.like]: `%${searchTerm}%` } }
+      ],
+      is_active: true,
+      role: 'doctor'
+    };
+    
+    // Nếu searchTerm là số, tìm theo experience_years
+    if (!isNaN(searchTerm)) {
+      doctorWhere = {
+        ...doctorWhere,
+        '$Doctor.experience_years$': { [Op.gte]: parseInt(searchTerm) }
+      };
+    } else {
+      // Thêm tìm theo bio
+      doctorWhere = {
+        ...doctorWhere,
+        '$Doctor.bio$': { [Op.like]: `%${searchTerm}%` }
+      };
+    }
+    
+    try {
+      doctors = await models.User.findAll({  // Sửa từ Doctor sang User để dễ join
+        where: doctorWhere,
+        include: [{
+          model: models.Doctor,
+          attributes: ['id', 'code', 'experience_years', 'bio'],
+          required: true,
+          include: [{
+            model: models.Specialty,
+            attributes: ['id', 'name', 'slug'],
+            required: false
+          }]
+        }],
+        attributes: ['id', 'full_name', 'email', 'avatar_url'],
+        limit: 5,
+        order: [['full_name', 'ASC']]
+      });
+    } catch (err) {
+      console.log('Error searching doctors:', err.message);
+    }
+    
+    // 4. TIM CHUYEN KHOA (specialties) - Thêm tìm theo slug
+    let specialties = [];
+    try {
+      specialties = await models.Specialty.findAll({
+        where: {
+          [Op.or]: [
+            { name: { [Op.like]: `%${searchTerm}%` } },
+            { description: { [Op.like]: `%${searchTerm}%` } },
+            { slug: { [Op.like]: `%${searchTerm}%` } }  // Mới: Tìm theo slug
+          ]
+        },
+        attributes: ['id', 'name', 'slug', 'description'],
+        limit: 5,
+        order: [['name', 'ASC']]
+      });
+    } catch (err) {
+      console.log('Error searching specialties:', err.message);
+    }
+    
+    // FORMAT KET QUA
+    const formattedArticles = articles.map(a => ({
+      id: a.id,
+      type: 'article',
+      title: a.title,
+      slug: a.slug,
+      category: a.category ? {
+        name: a.category.name,
+        type: a.category.category_type,
+        slug: a.category.slug
+      } : null,
+      views: a.views || 0
+    }));
+    
+    const formattedCategories = categories.map(c => ({
+      id: c.id,
+      type: 'category',
+      name: c.name,
+      slug: c.slug,
+      category_type: c.category_type,
+      description: c.description ? c.description.substring(0, 100) : null
+    }));
+    
+    const formattedDoctors = doctors.map(user => {  // Sửa format để phù hợp với User-Doctor join
+      const doctor = user.Doctor;
+      return {
+        id: user.id,
+        type: 'doctor',
+        full_name: user.full_name,
+        email: user.email,
+        avatar_url: user.avatar_url,
+        code: doctor?.code,
+        bio: doctor?.bio,
+        experience_years: doctor?.experience_years || 0,
+        specialty: doctor?.Specialty ? {
+          name: doctor.Specialty.name,
+          slug: doctor.Specialty.slug
+        } : null
+      };
+    });
+    
+    const formattedSpecialties = specialties.map(s => ({
+      id: s.id,
+      type: 'specialty',
+      name: s.name,
+      slug: s.slug,
+      description: s.description ? s.description.substring(0, 100) : null
+    }));
+    
+    res.json({
+      success: true,
+      query: searchTerm,
+      results: {
+        articles: formattedArticles,
+        categories: formattedCategories,
+        doctors: formattedDoctors,
+        specialties: formattedSpecialties
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in globalSearch:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi tìm kiếm toàn bộ hệ thống'
+    });
+  }
+};

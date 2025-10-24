@@ -1,28 +1,13 @@
+// client/src/components/common/Navbar.js
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
-  FaSearch, 
-  FaUser, 
-  FaBars, 
-  FaTimes, 
-  FaSignOutAlt,
-  FaChevronDown,
-  FaTachometerAlt,
-  FaCalendarAlt,
-  FaUserMd,
-  FaNewspaper,
-  FaPills,
-  FaHeartbeat,
-  FaCogs,
-  FaInfoCircle,
-  FaBuilding,
-  FaMicroscope, 
-  FaSignInAlt, 
-  FaUserPlus, 
-  FaBookmark,
-  FaStethoscope,
-  FaComments
+  FaSearch, FaUser, FaBars, FaTimes, FaSignOutAlt, FaChevronDown,
+  FaTachometerAlt, FaCalendarAlt, FaUserMd, FaNewspaper, FaPills,
+  FaHeartbeat, FaCogs, FaInfoCircle, FaBuilding, FaMicroscope, 
+  FaSignInAlt, FaUserPlus, FaBookmark, FaStethoscope, FaComments,
+  FaEye, FaFolder, FaGraduationCap, FaSpinner
 } from 'react-icons/fa';
 import NotificationDropdown from './NotificationDropdown';
 import './Navbar.css';
@@ -71,28 +56,24 @@ const UserAvatar = ({ user, userProfile }) => {
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState(null);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [specialties, setSpecialties] = useState([]);
   const [categories, setCategories] = useState({
-    tin_tuc: [],
-    thuoc: [],
-    benh_ly: []
+    tin_tuc: [], thuoc: [], benh_ly: []
   });
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [activeMobileColumn, setActiveMobileColumn] = useState(null);
-  
   const [navbarData, setNavbarData] = useState({
-    logo_image: '',
-    logo_text: 'Clinic System',
-    search_placeholder: 'Tìm kiếm...'
+    logo_image: '', logo_text: 'Clinic System'
   });
   
   const navigate = useNavigate();
   const searchRef = useRef(null);
-
+  const searchTimeoutRef = useRef(null);
   const API_BASE_URL = 'http://localhost:3001';
 
   useEffect(() => {
@@ -119,7 +100,10 @@ const Navbar = () => {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
   }, []);
 
   const fetchUserProfile = async (token) => {
@@ -131,12 +115,7 @@ const Navbar = () => {
       if (response.data.success || response.data.user) {
         const profileData = response.data.user || response.data;
         setUserProfile(profileData);
-        
-        const updatedUser = {
-          ...user,
-          avatar_url: profileData.avatar_url,
-          full_name: profileData.full_name
-        };
+        const updatedUser = { ...user, avatar_url: profileData.avatar_url, full_name: profileData.full_name };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
       }
@@ -159,9 +138,7 @@ const Navbar = () => {
   const fetchSpecialties = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/specialties`);
-      if (response.data.success) {
-        setSpecialties(response.data.specialties || []);
-      }
+      if (response.data.success) setSpecialties(response.data.specialties || []);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách chuyên khoa:', error);
     }
@@ -185,53 +162,100 @@ const Navbar = () => {
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     
     if (query.trim().length < 2) {
-      setSearchResults([]);
+      setSearchResults(null);
       setShowSearchResults(false);
+      setIsSearching(false);
       return;
     }
 
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
-      if (response.data.success) {
-        setSearchResults(response.data.results || []);
-        setShowSearchResults(true);
+    setIsSearching(true);
+    setShowSearchResults(true);
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        // FIX: Dung endpoint dung
+        const response = await axios.get(`${API_BASE_URL}/api/articles/search/global?q=${encodeURIComponent(query)}`);
+        console.log('Search response:', response.data);
+        if (response.data.success) {
+          setSearchResults(response.data.results);
+        }
+      } catch (error) {
+        console.error('Lỗi tìm kiếm:', error);
+        // Neu 404, co nghia la backend chua co endpoint, thong bao cho user
+        if (error.response?.status === 404) {
+          console.error('Endpoint /api/articles/search/global chua duoc tao. Vui long them ham globalSearch vao articleController.js');
+        }
+        setSearchResults(null);
+      } finally {
+        setIsSearching(false);
       }
-    } catch (error) {
-      console.error('Lỗi khi tìm kiếm:', error);
-    }
+    }, 300);
   };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
       setShowSearchResults(false);
       setSearchQuery('');
+      closeAllDropdowns();
     }
   };
 
+  const handleResultClick = (type, item) => {
+    setShowSearchResults(false);
+    setSearchQuery('');
+    closeAllDropdowns();
+    
+    const typeMap = { 'tin_tuc': 'tin-tuc', 'thuoc': 'thuoc', 'benh_ly': 'benh-ly' };
+    
+    switch(type) {
+      case 'article':
+        navigate(`/${typeMap[item.category?.type] || 'tin-tuc'}/${item.slug}`);
+        break;
+      case 'category':
+        navigate(`/${typeMap[item.category_type] || 'tin-tuc'}/${item.slug}`);
+        break;
+      case 'doctor':
+        navigate(`/bac-si/${item.id}`);
+        break;
+      case 'specialty':
+        navigate(`/chuyen-khoa/${item.slug}`);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const getTotalResults = () => {
+    if (!searchResults) return 0;
+    return (searchResults.articles?.length || 0) + (searchResults.categories?.length || 0) +
+           (searchResults.doctors?.length || 0) + (searchResults.specialties?.length || 0);
+  };
+
+  const hasResults = () => {
+    if (!searchResults) return false;
+    return (searchResults.articles?.length > 0) || (searchResults.categories?.length > 0) ||
+           (searchResults.doctors?.length > 0) || (searchResults.specialties?.length > 0);
+  };
+
+  const toggleDropdown = (dropdown) => setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
+  const toggleMobileColumn = (column) => setActiveMobileColumn(activeMobileColumn === column ? null : column);
+  const closeAllDropdowns = () => { 
+    setActiveDropdown(null); 
+    setActiveMobileColumn(null);
+    setIsMenuOpen(false); 
+  };
+  
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
     setUserProfile(null);
     navigate('/login');
-  };
-
-  const toggleDropdown = (dropdown) => {
-    setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
-  };
-
-  const toggleMobileColumn = (column) => {
-    setActiveMobileColumn(activeMobileColumn === column ? null : column);
-  };
-
-  const closeAllDropdowns = () => {
-    setActiveDropdown(null);
-    setActiveMobileColumn(null);
-    setIsMenuOpen(false);
   };
 
   return (
@@ -255,36 +279,130 @@ const Navbar = () => {
         </button>
 
         <div className={`navbar-center ${isMenuOpen ? 'active' : ''}`}>
-          <div className="navbar-search-container" ref={searchRef}>
-            <form className="navbar-search-bar" onSubmit={handleSearchSubmit}>
-              <FaSearch className="navbar-search-icon" />
-              <input 
-                type="text" 
-                placeholder={navbarData.search_placeholder}
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-              />
-            </form>
+          {/* Search */}
+        <div className="navbar-search" ref={searchRef}>
+          <form onSubmit={handleSearchSubmit}>
+            <FaSearch />
+            <input 
+              type="text" 
+              placeholder="Tìm kiếm..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              autoComplete="off"
+            />
+            {isSearching && <FaSpinner className="navbar-spinner" />}
+          </form>
 
-            {showSearchResults && searchResults.length > 0 && (
-              <div className="navbar-search-results">
-                {searchResults.map((result, index) => (
-                  <Link
-                    key={index}
-                    to={result.url}
-                    className="navbar-search-result-item"
-                    onClick={() => {
-                      setShowSearchResults(false);
-                      setSearchQuery('');
-                      closeAllDropdowns();
-                    }}
-                  >
-                    <span className="navbar-result-title">{result.title}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+          {showSearchResults && (
+            <div className="navbar-search-dropdown">
+              {isSearching ? (
+                <div className="navbar-loading">
+                  <FaSpinner />
+                  <p>Đang tìm kiếm...</p>
+                </div>
+              ) : hasResults() ? (
+                <>
+                  <div className="navbar-search-header">
+                    Tìm thấy {getTotalResults()} kết quả
+                  </div>
+
+                  {searchResults.articles?.length > 0 && (
+                    <div className="navbar-search-section">
+                      <div className="navbar-section-title">
+                        <FaNewspaper /> Bài viết ({searchResults.articles.length})
+                      </div>
+                      {searchResults.articles.map((item) => (
+                        <div key={item.id} className="navbar-search-item" onClick={() => handleResultClick('article', item)}>
+                          <div className="navbar-item-icon article"><FaNewspaper /></div>
+                          <div className="navbar-item-content">
+                            <div className="navbar-item-title">{item.title}</div>
+                            {item.category && (
+                              <div className="navbar-item-meta">
+                                <FaFolder /> {item.category.name} · <FaEye /> {item.views} lượt xem
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {searchResults.categories?.length > 0 && (
+                    <div className="navbar-search-section">
+                      <div className="navbar-section-title">
+                        <FaFolder /> Danh mục ({searchResults.categories.length})
+                      </div>
+                      {searchResults.categories.map((item) => (
+                        <div key={item.id} className="navbar-search-item" onClick={() => handleResultClick('category', item)}>
+                          <div className="navbar-item-icon category"><FaFolder /></div>
+                          <div className="navbar-item-content">
+                            <div className="navbar-item-title">{item.name}</div>
+                            {item.description && <div className="navbar-item-desc">{item.description}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {searchResults.doctors?.length > 0 && (
+                    <div className="navbar-search-section">
+                      <div className="navbar-section-title">
+                        <FaUserMd /> Bác sĩ ({searchResults.doctors.length})
+                      </div>
+                      {searchResults.doctors.map((item) => (
+                        <div key={item.id} className="navbar-search-item" onClick={() => handleResultClick('doctor', item)}>
+                          <div className="navbar-item-avatar">
+                            {item.avatar_url ? (
+                              <img src={item.avatar_url} alt={item.full_name} />
+                            ) : (
+                              <div className="navbar-avatar-placeholder">{item.full_name.charAt(0)}</div>
+                            )}
+                          </div>
+                          <div className="navbar-item-content">
+                            <div className="navbar-item-title">BS. {item.full_name}</div>
+                            {item.specialty && (
+                              <div className="navbar-item-meta">
+                                <FaStethoscope /> {item.specialty.name}
+                                {item.experience_years > 0 && <> · <FaGraduationCap /> {item.experience_years} năm</>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {searchResults.specialties?.length > 0 && (
+                    <div className="navbar-search-section">
+                      <div className="navbar-section-title">
+                        <FaStethoscope /> Chuyên khoa ({searchResults.specialties.length})
+                      </div>
+                      {searchResults.specialties.map((item) => (
+                        <div key={item.id} className="navbar-search-item" onClick={() => handleResultClick('specialty', item)}>
+                          <div className="navbar-item-icon specialty"><FaStethoscope /></div>
+                          <div className="navbar-item-content">
+                            <div className="navbar-item-title">{item.name}</div>
+                            {item.description && <div className="navbar-item-desc">{item.description}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="navbar-search-footer">
+                    <button onClick={handleSearchSubmit}>Xem tất cả →</button>
+                  </div>
+                </>
+              ) : (
+                <div className="navbar-no-results">
+                  <FaSearch />
+                  <p>Không tìm thấy "{searchQuery}"</p>
+                  <span>Thử từ khóa khác</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
           <div className="navbar-nav-menu">
             <div className="navbar-nav-item navbar-dropdown">
