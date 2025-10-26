@@ -346,7 +346,7 @@ useEffect(() => {
    */
   const fetchUserInfo = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/user/profile`, {
+      const response = await axios.get(`${API_BASE_URL}/api/users/profile`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       if (response.data.success) {

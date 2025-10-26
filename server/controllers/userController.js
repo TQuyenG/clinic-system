@@ -185,71 +185,59 @@ exports.verifyEmail = async (req, res) => {
 };
 
 // Hàm đăng nhập
-exports.login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
+    // Validation
     if (!email || !password) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Email và mật khẩu là bắt buộc' 
+        message: 'Vui lòng nhập đầy đủ email và mật khẩu' 
       });
     }
 
-    const attemptInfo = loginAttempts.get(email);
-    if (attemptInfo && attemptInfo.lockedUntil > Date.now()) {
-      const remainingTime = Math.ceil((attemptInfo.lockedUntil - Date.now()) / 60000);
-      return res.status(423).json({ 
-        success: false, 
-        message: `Tài khoản đã bị khóa do nhập sai mật khẩu quá ${MAX_ATTEMPTS} lần. Vui lòng thử lại sau ${remainingTime} phút.` 
-      });
-    }
-
-    const user = await models.User.findOne({ where: { email } });
+    // Tìm user
+    const user = await models.User.findOne({ 
+      where: { email },
+      attributes: ['id', 'email', 'username', 'password_hash', 'full_name', 'role', 
+                   'is_verified', 'is_active', 'avatar_url', 'last_login']
+    });
 
     if (!user) {
       return res.status(401).json({ 
         success: false, 
-        message: 'Email hoặc mật khẩu không đúng' 
+        message: 'Email hoặc mật khẩu không chính xác' 
       });
     }
 
-    if (!user.is_verified || !user.is_active) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Tài khoản chưa được xác thực. Vui lòng kiểm tra email để kích hoạt tài khoản.' 
-      });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-
-    if (!isPasswordValid) {
-      const currentAttempt = attemptInfo || { count: 0, lockedUntil: null };
-      currentAttempt.count += 1;
-
-      if (currentAttempt.count >= MAX_ATTEMPTS) {
-        currentAttempt.lockedUntil = Date.now() + LOCK_TIME;
-        currentAttempt.count = 0;
-        loginAttempts.set(email, currentAttempt);
-        
-        return res.status(423).json({ 
-          success: false, 
-          message: `Bạn đã nhập sai mật khẩu ${MAX_ATTEMPTS} lần. Tài khoản bị khóa trong 15 phút.` 
-        });
-      }
-
-      loginAttempts.set(email, currentAttempt);
-      
+    // Kiểm tra mật khẩu
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
       return res.status(401).json({ 
         success: false, 
-        message: `Email hoặc mật khẩu không đúng. Còn ${MAX_ATTEMPTS - currentAttempt.count} lần thử.` 
+        message: 'Email hoặc mật khẩu không chính xác' 
       });
     }
 
-    loginAttempts.delete(email);
-    user.last_login = new Date();
-    await user.save();
+    // Kiểm tra xác thực email
+    if (!user.is_verified) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Tài khoản chưa được xác thực email. Vui lòng kiểm tra email để xác thực.' 
+      });
+    }
 
+    // Kiểm tra tài khoản có bị khóa không
+    if (!user.is_active) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.' 
+      });
+    }
+
+    // ✅ TẠO JWT TOKEN VỚI THỜI GIAN HẾT HẠN RÕ RÀNG
+    // Token hết hạn sau 7 ngày (có thể thay đổi: '1d', '12h', '30d')
     const token = jwt.sign(
       { 
         id: user.id, 
@@ -257,30 +245,44 @@ exports.login = async (req, res) => {
         role: user.role 
       },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { 
+        expiresIn: '7d', // ✅ Token hết hạn sau 7 ngày
+        issuer: 'your-app-name', // Tùy chọn
+        audience: 'your-app-users' // Tùy chọn
+      }
     );
 
-    res.status(200).json({
-      success: true,
+    // Cập nhật last_login
+    await user.update({ last_login: new Date() });
+
+    // Trả về thông tin user (không trả password_hash)
+    const userResponse = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      full_name: user.full_name,
+      role: user.role,
+      avatar_url: user.avatar_url,
+      is_verified: user.is_verified,
+      is_active: user.is_active
+    };
+
+    console.log(`✅ User ${email} đăng nhập thành công với role ${user.role}`);
+
+    res.status(200).json({ 
+      success: true, 
       message: 'Đăng nhập thành công',
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        role: user.role
-      }
+      user: userResponse,
+      expiresIn: '7d' // ✅ Gửi thông tin thời gian hết hạn cho client
     });
 
   } catch (error) {
     console.error('ERROR trong login:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Lỗi khi đăng nhập', 
-      error: error.message 
-    });
+    next(error);
   }
 };
+
 
 // // ============================================
 // PASSWORD RESET - Quên mật khẩu, đặt lại mật khẩu

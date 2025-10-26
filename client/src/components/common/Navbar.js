@@ -1,4 +1,8 @@
 // client/src/components/common/Navbar.js
+// ====================================================================
+// PHIÊN BẢN ĐÃ FIX: Đồng bộ authentication với AuthContext
+// ====================================================================
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -11,6 +15,7 @@ import {
 } from 'react-icons/fa';
 import NotificationDropdown from './NotificationDropdown';
 import './Navbar.css';
+import { useAuth } from '../../contexts/AuthContext'; // ✅ FIX: Import useAuth
 
 // Component riêng để hiển thị avatar người dùng
 const UserAvatar = ({ user, userProfile }) => {
@@ -54,13 +59,18 @@ const UserAvatar = ({ user, userProfile }) => {
 };
 
 const Navbar = () => {
+  // ✅ FIX: Sử dụng useAuth() để lấy thông tin user từ AuthContext
+  const { user: authUser, logout: authLogout, isAuthenticated } = useAuth();
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [user, setUser] = useState(null);
+  
+  // ✅ FIX: Giữ local state để merge với authUser (cho avatar và profile mới nhất)
   const [userProfile, setUserProfile] = useState(null);
+  
   const [specialties, setSpecialties] = useState([]);
   const [categories, setCategories] = useState({
     tin_tuc: [], thuoc: [], benh_ly: []
@@ -76,19 +86,39 @@ const Navbar = () => {
   const searchTimeoutRef = useRef(null);
   const API_BASE_URL = 'http://localhost:3001';
 
+  // ✅ FIX: Effect để fetch user profile khi authUser thay đổi
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    if (token && userStr) {
-      try {
-        const userData = JSON.parse(userStr);
-        setUser(userData);
+    if (authUser) {
+      const token = localStorage.getItem('token');
+      if (token) {
         fetchUserProfile(token);
-      } catch (error) {
-        console.error('Lỗi khi phân tích dữ liệu người dùng:', error);
       }
+    } else {
+      // Khi logout, clear userProfile
+      setUserProfile(null);
     }
+  }, [authUser]); // Re-run khi authUser thay đổi
 
+  // ✅ FIX: Effect để lắng nghe authStateChanged event
+  useEffect(() => {
+    const handleAuthChange = () => {
+      // Force re-render bằng cách check localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setUserProfile(null);
+      }
+    };
+
+    // Lắng nghe event từ AuthContext
+    window.addEventListener('authStateChanged', handleAuthChange);
+    
+    return () => {
+      window.removeEventListener('authStateChanged', handleAuthChange);
+    };
+  }, []);
+
+  // Effect để load data ban đầu
+  useEffect(() => {
     fetchSpecialties();
     fetchCategories();
     fetchNavbarData();
@@ -115,12 +145,25 @@ const Navbar = () => {
       if (response.data.success || response.data.user) {
         const profileData = response.data.user || response.data;
         setUserProfile(profileData);
-        const updatedUser = { ...user, avatar_url: profileData.avatar_url, full_name: profileData.full_name };
+        
+        // ✅ FIX: Cập nhật localStorage để đồng bộ với AuthContext
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUser = { 
+          ...currentUser, 
+          avatar_url: profileData.avatar_url, 
+          full_name: profileData.full_name 
+        };
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        setUser(updatedUser);
+        
+        // ✅ FIX: Dispatch event để các component khác biết user đã được cập nhật
+        window.dispatchEvent(new Event('authStateChanged'));
       }
     } catch (error) {
       console.error('Lỗi khi lấy profile:', error);
+      // ✅ FIX: Nếu token không hợp lệ, logout
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        handleLogout();
+      }
     }
   };
 
@@ -176,17 +219,14 @@ const Navbar = () => {
 
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        // FIX: Dung endpoint dung
         const response = await axios.get(`${API_BASE_URL}/api/articles/search/global?q=${encodeURIComponent(query)}`);
-        console.log('Search response:', response.data);
         if (response.data.success) {
           setSearchResults(response.data.results);
         }
       } catch (error) {
         console.error('Lỗi tìm kiếm:', error);
-        // Neu 404, co nghia la backend chua co endpoint, thong bao cho user
         if (error.response?.status === 404) {
-          console.error('Endpoint /api/articles/search/global chua duoc tao. Vui long them ham globalSearch vao articleController.js');
+          console.error('Endpoint /api/articles/search/global chưa được tạo');
         }
         setSearchResults(null);
       } finally {
@@ -213,208 +253,235 @@ const Navbar = () => {
     const typeMap = { 'tin_tuc': 'tin-tuc', 'thuoc': 'thuoc', 'benh_ly': 'benh-ly' };
     
     switch(type) {
-      case 'article':
-        navigate(`/${typeMap[item.category?.type] || 'tin-tuc'}/${item.slug}`);
+      case 'articles':
+        if (item.category_type && typeMap[item.category_type]) {
+          navigate(`/${typeMap[item.category_type]}/${item.slug}`);
+        } else {
+          navigate(`/bai-viet/${item.slug}`);
+        }
         break;
-      case 'category':
-        navigate(`/${typeMap[item.category_type] || 'tin-tuc'}/${item.slug}`);
+      case 'categories':
+        if (item.category_type && typeMap[item.category_type]) {
+          navigate(`/${typeMap[item.category_type]}/${item.slug}`);
+        } else {
+          navigate(`/danh-muc/${item.slug}`);
+        }
         break;
-      case 'doctor':
-        navigate(`/bac-si/${item.id}`);
-        break;
-      case 'specialty':
+      case 'specialties':
         navigate(`/chuyen-khoa/${item.slug}`);
+        break;
+      case 'doctors':
+        navigate(`/bac-si/${item.code}`);
         break;
       default:
         break;
     }
   };
 
-  const getTotalResults = () => {
-    if (!searchResults) return 0;
-    return (searchResults.articles?.length || 0) + (searchResults.categories?.length || 0) +
-           (searchResults.doctors?.length || 0) + (searchResults.specialties?.length || 0);
-  };
-
-  const hasResults = () => {
-    if (!searchResults) return false;
-    return (searchResults.articles?.length > 0) || (searchResults.categories?.length > 0) ||
-           (searchResults.doctors?.length > 0) || (searchResults.specialties?.length > 0);
-  };
-
-  const toggleDropdown = (dropdown) => setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
-  const toggleMobileColumn = (column) => setActiveMobileColumn(activeMobileColumn === column ? null : column);
-  const closeAllDropdowns = () => { 
-    setActiveDropdown(null); 
-    setActiveMobileColumn(null);
-    setIsMenuOpen(false); 
-  };
-  
+  // ✅ FIX: Sử dụng authLogout từ AuthContext
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    setUserProfile(null);
-    navigate('/login');
+    if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+      console.log('Đăng xuất từ Navbar');
+      authLogout(); // ✅ FIX: Gọi logout từ AuthContext
+      closeAllDropdowns();
+    }
   };
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+    if (!isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+  };
+
+  const toggleDropdown = (name) => {
+    setActiveDropdown(activeDropdown === name ? null : name);
+    if (name !== 'user') setActiveMobileColumn(null);
+  };
+
+  const closeAllDropdowns = () => {
+    setActiveDropdown(null);
+    setActiveMobileColumn(null);
+    setIsMenuOpen(false);
+    document.body.style.overflow = 'unset';
+  };
+
+  const toggleMobileColumn = (column) => {
+    setActiveMobileColumn(activeMobileColumn === column ? null : column);
+  };
+
+  // ✅ FIX: Sử dụng authUser từ AuthContext thay vì local state
+  const currentUser = authUser || userProfile;
 
   return (
     <nav className="navbar-main">
       <div className="navbar-container">
         <Link to="/" className="navbar-logo" onClick={closeAllDropdowns}>
           {navbarData.logo_image ? (
-            <img src={navbarData.logo_image} alt={navbarData.logo_text} />
-          ) : (
-            <img src={require('../../assets/images/logo.png')} alt="Clinic System" />
-          )}
-          <span>{navbarData.logo_text}</span>
+            <img 
+              src={`${API_BASE_URL}${navbarData.logo_image}`} 
+              alt={navbarData.logo_text} 
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'block';
+              }}
+            />
+          ) : null}
+          <span style={{ display: navbarData.logo_image ? 'none' : 'block' }}>
+            {navbarData.logo_text}
+          </span>
         </Link>
 
         <button 
-          className="navbar-mobile-menu-btn" 
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="Bật/tắt menu"
+          className="navbar-mobile-menu-btn"
+          onClick={toggleMenu}
+          aria-label="Toggle menu"
         >
           {isMenuOpen ? <FaTimes /> : <FaBars />}
         </button>
 
         <div className={`navbar-center ${isMenuOpen ? 'active' : ''}`}>
-          {/* Search */}
-        <div className="navbar-search" ref={searchRef}>
-          <form onSubmit={handleSearchSubmit}>
-            <FaSearch />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm..."
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              autoComplete="off"
-            />
-            {isSearching && <FaSpinner className="navbar-spinner" />}
-          </form>
+          <div className="navbar-search-container">
+            <div className="navbar-search" ref={searchRef}>
+              <form onSubmit={handleSearchSubmit} className="navbar-search-bar">
+                <FaSearch />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm bài viết, bác sĩ..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
+                />
+                {isSearching && <FaSpinner className="navbar-spinner" />}
+              </form>
 
-          {showSearchResults && (
-            <div className="navbar-search-dropdown">
-              {isSearching ? (
-                <div className="navbar-loading">
-                  <FaSpinner />
-                  <p>Đang tìm kiếm...</p>
-                </div>
-              ) : hasResults() ? (
-                <>
-                  <div className="navbar-search-header">
-                    Tìm thấy {getTotalResults()} kết quả
-                  </div>
-
-                  {searchResults.articles?.length > 0 && (
-                    <div className="navbar-search-section">
-                      <div className="navbar-section-title">
-                        <FaNewspaper /> Bài viết ({searchResults.articles.length})
-                      </div>
-                      {searchResults.articles.map((item) => (
-                        <div key={item.id} className="navbar-search-item" onClick={() => handleResultClick('article', item)}>
-                          <div className="navbar-item-icon article"><FaNewspaper /></div>
-                          <div className="navbar-item-content">
-                            <div className="navbar-item-title">{item.title}</div>
-                            {item.category && (
-                              <div className="navbar-item-meta">
-                                <FaFolder /> {item.category.name} · <FaEye /> {item.views} lượt xem
+              {showSearchResults && searchQuery.length >= 2 && (
+                <div className="navbar-search-dropdown">
+                  {isSearching ? (
+                    <div className="navbar-loading">
+                      <FaSpinner />
+                      <p>Đang tìm kiếm...</p>
+                    </div>
+                  ) : searchResults ? (
+                    <>
+                      {searchResults.articles && searchResults.articles.length > 0 && (
+                        <div className="navbar-search-section">
+                          <div className="navbar-section-title">
+                            <FaNewspaper /> Bài viết
+                          </div>
+                          {searchResults.articles.map(article => (
+                            <div
+                              key={article.id}
+                              className="navbar-search-item"
+                              onClick={() => handleResultClick('articles', article)}
+                            >
+                              <div className="navbar-item-icon article">
+                                <FaNewspaper />
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {searchResults.categories?.length > 0 && (
-                    <div className="navbar-search-section">
-                      <div className="navbar-section-title">
-                        <FaFolder /> Danh mục ({searchResults.categories.length})
-                      </div>
-                      {searchResults.categories.map((item) => (
-                        <div key={item.id} className="navbar-search-item" onClick={() => handleResultClick('category', item)}>
-                          <div className="navbar-item-icon category"><FaFolder /></div>
-                          <div className="navbar-item-content">
-                            <div className="navbar-item-title">{item.name}</div>
-                            {item.description && <div className="navbar-item-desc">{item.description}</div>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {searchResults.doctors?.length > 0 && (
-                    <div className="navbar-search-section">
-                      <div className="navbar-section-title">
-                        <FaUserMd /> Bác sĩ ({searchResults.doctors.length})
-                      </div>
-                      {searchResults.doctors.map((item) => (
-                        <div key={item.id} className="navbar-search-item" onClick={() => handleResultClick('doctor', item)}>
-                          <div className="navbar-item-avatar">
-                            {item.avatar_url ? (
-                              <img src={item.avatar_url} alt={item.full_name} />
-                            ) : (
-                              <div className="navbar-avatar-placeholder">{item.full_name.charAt(0)}</div>
-                            )}
-                          </div>
-                          <div className="navbar-item-content">
-                            <div className="navbar-item-title">BS. {item.full_name}</div>
-                            {item.specialty && (
-                              <div className="navbar-item-meta">
-                                <FaStethoscope /> {item.specialty.name}
-                                {item.experience_years > 0 && <> · <FaGraduationCap /> {item.experience_years} năm</>}
+                              <div className="navbar-item-content">
+                                <div className="navbar-item-title">{article.title}</div>
+                                {article.summary && (
+                                  <div className="navbar-item-desc">
+                                    {article.summary.substring(0, 80)}...
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+
+                      {searchResults.specialties && searchResults.specialties.length > 0 && (
+                        <div className="navbar-search-section">
+                          <div className="navbar-section-title">
+                            <FaStethoscope /> Chuyên khoa
+                          </div>
+                          {searchResults.specialties.map(specialty => (
+                            <div
+                              key={specialty.id}
+                              className="navbar-search-item"
+                              onClick={() => handleResultClick('specialties', specialty)}
+                            >
+                              <div className="navbar-item-icon specialty">
+                                <FaStethoscope />
+                              </div>
+                              <div className="navbar-item-content">
+                                <div className="navbar-item-title">{specialty.name}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {searchResults.doctors && searchResults.doctors.length > 0 && (
+                        <div className="navbar-search-section">
+                          <div className="navbar-section-title">
+                            <FaUserMd /> Bác sĩ
+                          </div>
+                          {searchResults.doctors.map(doctor => (
+                            <div
+                              key={doctor.id}
+                              className="navbar-search-item"
+                              onClick={() => handleResultClick('doctors', doctor)}
+                            >
+                              <div className="navbar-item-avatar">
+                                {doctor.avatar_url ? (
+                                  <img src={doctor.avatar_url} alt={doctor.full_name} />
+                                ) : (
+                                  <div className="navbar-avatar-placeholder">
+                                    {doctor.full_name?.charAt(0) || 'BS'}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="navbar-item-content">
+                                <div className="navbar-item-title">{doctor.full_name}</div>
+                                {doctor.specialty_name && (
+                                  <div className="navbar-item-desc">{doctor.specialty_name}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {(!searchResults.articles || searchResults.articles.length === 0) &&
+                       (!searchResults.specialties || searchResults.specialties.length === 0) &&
+                       (!searchResults.doctors || searchResults.doctors.length === 0) && (
+                        <div className="navbar-no-results">
+                          <FaSearch />
+                          <p>Không tìm thấy kết quả</p>
+                          <span>Thử tìm kiếm với từ khóa khác</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="navbar-no-results">
+                      <FaSearch />
+                      <p>Không tìm thấy kết quả</p>
                     </div>
                   )}
-
-                  {searchResults.specialties?.length > 0 && (
-                    <div className="navbar-search-section">
-                      <div className="navbar-section-title">
-                        <FaStethoscope /> Chuyên khoa ({searchResults.specialties.length})
-                      </div>
-                      {searchResults.specialties.map((item) => (
-                        <div key={item.id} className="navbar-search-item" onClick={() => handleResultClick('specialty', item)}>
-                          <div className="navbar-item-icon specialty"><FaStethoscope /></div>
-                          <div className="navbar-item-content">
-                            <div className="navbar-item-title">{item.name}</div>
-                            {item.description && <div className="navbar-item-desc">{item.description}</div>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="navbar-search-footer">
-                    <button onClick={handleSearchSubmit}>Xem tất cả →</button>
-                  </div>
-                </>
-              ) : (
-                <div className="navbar-no-results">
-                  <FaSearch />
-                  <p>Không tìm thấy "{searchQuery}"</p>
-                  <span>Thử từ khóa khác</span>
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
 
           <div className="navbar-nav-menu">
-            <div className="navbar-nav-item navbar-dropdown">
+            <Link to="/" className="navbar-nav-link" onClick={closeAllDropdowns}>
+              Trang chủ
+            </Link>
+
+            <div className="navbar-nav-item">
               <button 
-                className="navbar-nav-link navbar-dropdown-toggle"
-                onClick={() => toggleDropdown('intro')}
+                className="navbar-nav-link"
+                onClick={() => toggleDropdown('about')}
               >
                 Giới thiệu
-                <FaChevronDown className={`navbar-chevron ${activeDropdown === 'intro' ? 'rotate' : ''}`} />
+                <FaChevronDown className={`navbar-chevron ${activeDropdown === 'about' ? 'rotate' : ''}`} />
               </button>
-              <div className={`navbar-dropdown-menu ${activeDropdown === 'intro' ? 'show' : ''}`}>
-                <Link to="/ve-chung-toi" onClick={closeAllDropdowns}>
+              <div className={`navbar-dropdown-menu ${activeDropdown === 'about' ? 'show' : ''}`}>
+                <Link to="/gioi-thieu" onClick={closeAllDropdowns}>
                   <FaInfoCircle /> Về chúng tôi
                 </Link>
                 <Link to="/dich-vu" onClick={closeAllDropdowns}>
@@ -429,15 +496,15 @@ const Navbar = () => {
               </div>
             </div>
 
-            <div className="navbar-nav-item navbar-dropdown navbar-mega">
+            <div className="navbar-nav-item navbar-mega">
               <button 
-                className="navbar-nav-link navbar-dropdown-toggle"
-                onClick={() => toggleDropdown('team')}
+                className="navbar-nav-link"
+                onClick={() => toggleDropdown('medical')}
               >
-                Đội ngũ y tế
-                <FaChevronDown className={`navbar-chevron ${activeDropdown === 'team' ? 'rotate' : ''}`} />
+                Y tế
+                <FaChevronDown className={`navbar-chevron ${activeDropdown === 'medical' ? 'rotate' : ''}`} />
               </button>
-              <div className={`navbar-dropdown-menu navbar-mega-menu ${activeDropdown === 'team' ? 'show' : ''}`}>
+              <div className={`navbar-dropdown-menu ${activeDropdown === 'medical' ? 'show' : ''}`}>
                 <div className="navbar-mega-menu-grid">
                   <div className={`navbar-mega-menu-column ${activeMobileColumn === 'specialties' ? 'active' : ''}`}>
                     <Link 
@@ -456,7 +523,7 @@ const Navbar = () => {
                     </Link>
                     {specialties.length > 0 && (
                       <div className="navbar-column-items">
-                        {specialties.slice(0, 5).map(sp => (
+                        {specialties.slice(0, 8).map(sp => (
                           <Link 
                             key={sp.id} 
                             to={`/chuyen-khoa/${sp.slug}`}
@@ -466,7 +533,7 @@ const Navbar = () => {
                           </Link>
                         ))}
                         <Link to="/chuyen-khoa" onClick={closeAllDropdowns} className="navbar-view-all">
-                          Xem tất cả →
+                          Xem tất cả
                         </Link>
                       </div>
                     )}
@@ -497,24 +564,21 @@ const Navbar = () => {
                       <Link to="/bac-si?min_experience=10" onClick={closeAllDropdowns}>
                         Bác sĩ 10+ năm kinh nghiệm
                       </Link>
-                      <Link to="/bac-si?min_experience=15" onClick={closeAllDropdowns}>
-                        Bác sĩ 15+ năm kinh nghiệm
-                      </Link>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="navbar-nav-item navbar-dropdown navbar-mega">
+            <div className="navbar-nav-item navbar-mega">
               <button 
-                className="navbar-nav-link navbar-dropdown-toggle"
+                className="navbar-nav-link"
                 onClick={() => toggleDropdown('articles')}
               >
                 Cẩm nang y tế
                 <FaChevronDown className={`navbar-chevron ${activeDropdown === 'articles' ? 'rotate' : ''}`} />
               </button>
-              <div className={`navbar-dropdown-menu navbar-mega-menu ${activeDropdown === 'articles' ? 'show' : ''}`}>
+              <div className={`navbar-dropdown-menu ${activeDropdown === 'articles' ? 'show' : ''}`}>
                 <div className="navbar-mega-menu-grid">
                   <div className="navbar-mega-menu-column">
                     <Link 
@@ -622,22 +686,22 @@ const Navbar = () => {
         </div>
 
         <div className="navbar-right">
-          {user && <NotificationDropdown />}
+          {(isAuthenticated || authUser) && <NotificationDropdown />}
 
-          <div className="navbar-nav-item navbar-dropdown navbar-user-dropdown">
+          <div className="navbar-nav-item navbar-user-dropdown">
             <button 
               className="navbar-user-btn"
               onClick={() => toggleDropdown('user')}
             >
-              <UserAvatar user={user} userProfile={userProfile} />
+              <UserAvatar user={currentUser} userProfile={userProfile} />
             </button>
 
             <div className={`navbar-dropdown-menu navbar-dropdown-menu-right ${activeDropdown === 'user' ? 'show' : ''}`}>
-              {user ? (
+              {(isAuthenticated || authUser) ? (
                 <>
                   <div className="navbar-dropdown-user-info">
-                    <strong>{user.full_name || user.email}</strong>
-                    <span>{user.role}</span>
+                    <strong>{currentUser?.full_name || currentUser?.email || 'User'}</strong>
+                    <span>{currentUser?.role || 'Người dùng'}</span>
                   </div>
                   <div className="navbar-dropdown-divider"></div>
                   <Link to="/dashboard" onClick={closeAllDropdowns}>

@@ -1,10 +1,17 @@
 // client/src/pages/LoginPage.js
+// ====================================================================
+// PHIÊN BẢN ĐÃ FIX: Sử dụng AuthContext để đồng bộ login
+// ====================================================================
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext'; // ✅ FIX: Import useAuth
 import './LoginPage.css';
 
 const LoginPage = () => {
+  // ✅ FIX: Sử dụng login từ AuthContext thay vì axios trực tiếp
+  const { login } = useAuth();
+  
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,16 +28,23 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      const res = await axios.post('http://localhost:3001/api/users/login', formData);
+      // ✅ FIX: Gọi login từ AuthContext
+      // Hàm này sẽ tự động:
+      // 1. Lưu token và user vào localStorage
+      // 2. Cập nhật state trong AuthContext
+      // 3. Dispatch event authStateChanged
+      // 4. Navigate về /dashboard
+      await login(formData.email, formData.password);
       
-      if (res.data.success) {
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-        alert('Đăng nhập thành công!');
-        navigate('/dashboard');
-      }
+      // Không cần navigate ở đây vì AuthContext đã xử lý
+      // Không cần alert vì UX tốt hơn là chuyển trang ngay
     } catch (err) {
-      setError(err.response?.data?.message || 'Đăng nhập thất bại');
+      console.error('Lỗi đăng nhập:', err);
+      // Hiển thị thông báo lỗi chi tiết hơn
+      const errorMessage = err.response?.data?.message || 
+                          err.message || 
+                          'Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -49,7 +63,16 @@ const LoginPage = () => {
           <p className="subtitle">Chào mừng bạn trở lại</p>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {/* Hiển thị thông báo lỗi nếu có */}
+        {error && (
+          <div className="error-message">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+              <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+            </svg>
+            {error}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -61,6 +84,8 @@ const LoginPage = () => {
               onChange={handleChange}
               required
               placeholder="your@email.com"
+              disabled={loading}
+              autoComplete="email"
             />
           </div>
 
@@ -74,12 +99,15 @@ const LoginPage = () => {
                 onChange={handleChange}
                 required
                 placeholder="Nhập mật khẩu"
+                disabled={loading}
+                autoComplete="current-password"
               />
               <button
                 type="button"
                 className="toggle-password"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label="Toggle password visibility"
+                disabled={loading}
               >
                 {showPassword ? (
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
