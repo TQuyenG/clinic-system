@@ -291,3 +291,55 @@
     font-size: 16px; /* Prevents zoom on iOS */
   }
 }
+
+/* Thêm style cho thông báo thành công */
+.success-message {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 0.875rem;
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  border-left: 4px solid #4caf50;
+  font-size: 0.9rem;
+  animation: fadeIn 0.5s;
+}
+
+/* Thêm style cho actions khi lỗi verification */
+.verification-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.btn-resend {
+  background: #4caf50;
+  color: white;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-resend:hover {
+  background: #388e3c;
+  transform: translateY(-2px);
+}
+
+.btn-request-admin {
+  background: #2196f3;
+  color: white;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-request-admin:hover {
+  background: #1976d2;
+  transform: translateY(-2px);
+}

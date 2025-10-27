@@ -5,17 +5,21 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // ✅ FIX: Import useAuth
+import { useAuth } from '../contexts/AuthContext'; // FIX: Import useAuth
+import api from '../services/api'; // Import api để gọi resend và request
 import './LoginPage.css';
 
 const LoginPage = () => {
-  // ✅ FIX: Sử dụng login từ AuthContext thay vì axios trực tiếp
+  // FIX: Sử dụng login từ AuthContext thay vì axios trực tiếp
   const { login } = useAuth();
   
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -25,10 +29,11 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
     setLoading(true);
 
     try {
-      // ✅ FIX: Gọi login từ AuthContext
+      // FIX: Gọi login từ AuthContext
       // Hàm này sẽ tự động:
       // 1. Lưu token và user vào localStorage
       // 2. Cập nhật state trong AuthContext
@@ -50,55 +55,125 @@ const LoginPage = () => {
     }
   };
 
+  // Hàm gửi lại email xác thực
+  const handleResendVerification = async () => {
+    if (!formData.email) {
+      setError('Vui lòng nhập email để gửi lại xác thực.');
+      return;
+    }
+
+    setResendLoading(true);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const response = await api.post('/users/resend-verification', { email: formData.email });
+      setSuccessMessage(response.data.message || 'Email xác thực đã được gửi lại thành công!');
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Lỗi khi gửi lại email xác thực.';
+      setError(errorMsg);
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  // Hàm yêu cầu admin xác thực
+  const handleRequestManualVerification = async () => {
+    if (!formData.email) {
+      setError('Vui lòng nhập email để gửi yêu cầu.');
+      return;
+    }
+
+    setRequestLoading(true);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const response = await api.post('/users/request-manual-verification', { 
+        email: formData.email,
+        reason: 'Không thấy email xác thực gửi về'
+      });
+      setSuccessMessage(response.data.message || 'Yêu cầu xác thực đã được gửi đến admin!');
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Lỗi khi gửi yêu cầu đến admin.';
+      setError(errorMsg);
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+
+  const isVerificationError = error.includes('chưa được xác thực email');
+
   return (
     <div className="auth-container">
       <div className="auth-box">
         <div className="auth-header">
           <div className="logo-circle">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M11.5 2v8.5H3c0 4.7 3.8 8.5 8.5 8.5s8.5-3.8 8.5-8.5S16.2 2 11.5 2zm1 14.5c-3.6 0-6.5-2.9-6.5-6.5h6.5V3.5c3.6 0 6.5 2.9 6.5 6.5s-2.9 6.5-6.5 6.5z"/>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
             </svg>
           </div>
           <h2>Đăng nhập</h2>
-          <p className="subtitle">Chào mừng bạn trở lại</p>
+          <p className="subtitle">Chào mừng quay trở lại!</p>
         </div>
 
-        {/* Hiển thị thông báo lỗi nếu có */}
         {error && (
           <div className="error-message">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-              <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
-            </svg>
             {error}
+            {isVerificationError && (
+              <div className="verification-actions">
+                <button 
+                  onClick={handleResendVerification} 
+                  className="btn-resend" 
+                  disabled={resendLoading}
+                >
+                  {resendLoading ? 'Đang gửi...' : 'Gửi lại email xác thực'}
+                </button>
+                <button 
+                  onClick={handleRequestManualVerification} 
+                  className="btn-request-admin" 
+                  disabled={requestLoading}
+                >
+                  {requestLoading ? 'Đang gửi...' : 'Yêu cầu admin xác thực'}
+                </button>
+              </div>
+            )}
           </div>
         )}
-        
+
+        {successMessage && (
+          <div className="success-message">
+            {successMessage}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email</label>
+            <label htmlFor="email">Email</label>
             <input
               type="email"
+              id="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
+              placeholder="Nhập email của bạn"
               required
-              placeholder="your@email.com"
               disabled={loading}
               autoComplete="email"
             />
           </div>
 
           <div className="form-group">
-            <label>Mật khẩu</label>
-            <div className="password-input-wrapper">
+            <label htmlFor="password">Mật khẩu</label>
+            <div className="password-wrapper">
               <input
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
+                id="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                required
                 placeholder="Nhập mật khẩu"
+                required
                 disabled={loading}
                 autoComplete="current-password"
               />

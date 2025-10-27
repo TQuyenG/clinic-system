@@ -140,3 +140,23 @@ export const getToken = () => {
 export const isAuthenticated = () => {
   return !!getToken();
 };
+
+// Thêm hàm gửi lại verification
+export const resendVerification = async (email) => {
+  try {
+    const response = await api.post('/users/resend-verification', { email });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
+// Thêm hàm yêu cầu manual verification
+export const requestManualVerification = async (email, reason) => {
+  try {
+    const response = await api.post('/users/request-manual-verification', { email, reason });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};

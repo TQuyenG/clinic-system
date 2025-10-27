@@ -12,6 +12,8 @@ const { authenticateToken, authorize } = require('../middleware/authMiddleware')
 router.post('/register', userController.register);
 router.get('/verify-email', userController.verifyEmail);
 router.post('/login', userController.login);
+router.post('/resend-verification', userController.resendVerification);
+router.post('/request-manual-verification', userController.requestManualVerification);
 
 // // Quên mật khẩu, đặt lại mật khẩu qua OTP
 // router.post('/forgot-password', userController.forgotPassword);
@@ -90,6 +92,8 @@ console.log('  POST   /api/users/reset-password');
 console.log('  GET    /api/users/doctors');
 console.log('  GET    /api/users/doctors/public');
 console.log('  GET    /api/users/doctors/:code');
+console.log('  POST   /api/users/resend-verification');
+console.log('  POST   /api/users/request-manual-verification');
 console.log('\nAUTHENTICATED ROUTES:');
 console.log('  GET    /api/users/profile');
 console.log('  PUT    /api/users/profile');

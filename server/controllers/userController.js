@@ -185,7 +185,7 @@ exports.verifyEmail = async (req, res) => {
 };
 
 // Hàm đăng nhập
-const login = async (req, res, next) => {
+exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
@@ -236,7 +236,7 @@ const login = async (req, res, next) => {
       });
     }
 
-    // ✅ TẠO JWT TOKEN VỚI THỜI GIAN HẾT HẠN RÕ RÀNG
+    //  TẠO JWT TOKEN VỚI THỜI GIAN HẾT HẠN RÕ RÀNG
     // Token hết hạn sau 7 ngày (có thể thay đổi: '1d', '12h', '30d')
     const token = jwt.sign(
       { 
@@ -246,7 +246,7 @@ const login = async (req, res, next) => {
       },
       process.env.JWT_SECRET,
       { 
-        expiresIn: '7d', // ✅ Token hết hạn sau 7 ngày
+        expiresIn: '7d', //  Token hết hạn sau 7 ngày
         issuer: 'your-app-name', // Tùy chọn
         audience: 'your-app-users' // Tùy chọn
       }
@@ -267,14 +267,14 @@ const login = async (req, res, next) => {
       is_active: user.is_active
     };
 
-    console.log(`✅ User ${email} đăng nhập thành công với role ${user.role}`);
+    console.log(` User ${email} đăng nhập thành công với role ${user.role}`);
 
     res.status(200).json({ 
       success: true, 
       message: 'Đăng nhập thành công',
       token,
       user: userResponse,
-      expiresIn: '7d' // ✅ Gửi thông tin thời gian hết hạn cho client
+      expiresIn: '7d' //  Gửi thông tin thời gian hết hạn cho client
     });
 
   } catch (error) {
@@ -283,6 +283,133 @@ const login = async (req, res, next) => {
   }
 };
 
+
+// Thêm hàm gửi lại email xác thực
+exports.resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email là bắt buộc'
+      });
+    }
+
+    const user = await models.User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy tài khoản với email này'
+      });
+    }
+
+    if (user.is_verified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tài khoản đã được xác thực'
+      });
+    }
+
+    // Tạo token mới nếu token cũ hết hạn
+    let verification_token = user.verification_token;
+    let verification_expires = user.verification_expires;
+
+    if (!verification_token || new Date() > verification_expires) {
+      verification_token = crypto.randomBytes(32).toString('hex');
+      verification_expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await user.update({
+        verification_token,
+        verification_expires
+      });
+    }
+
+    const verificationLink = `${process.env.FRONTEND_URL}/verify-email?token=${verification_token}`;
+
+    await sendVerificationEmail(email, user.full_name || user.username, verificationLink);
+
+    res.status(200).json({
+      success: true,
+      message: 'Email xác thực đã được gửi lại thành công. Vui lòng kiểm tra hộp thư.'
+    });
+  } catch (error) {
+    console.error('ERROR trong resendVerification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi gửi lại email xác thực',
+      error: error.message
+    });
+  }
+};
+
+// Thêm hàm yêu cầu admin xác thực thủ công
+exports.requestManualVerification = async (req, res) => {
+  try {
+    const { email, reason } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email là bắt buộc'
+      });
+    }
+
+    const user = await models.User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy tài khoản'
+      });
+    }
+
+    if (user.is_verified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tài khoản đã được xác thực'
+      });
+    }
+
+    // Tìm admin (giả sử lấy admin đầu tiên hoặc tất cả admin)
+    const admins = await models.User.findAll({ where: { role: 'admin' } });
+
+    if (admins.length === 0) {
+      return res.status(500).json({
+        success: false,
+        message: 'Không tìm thấy admin để xử lý yêu cầu'
+      });
+    }
+
+    // Tạo notification cho từng admin
+    for (const admin of admins) {
+      await models.Notification.create({
+        user_id: admin.id,
+        type: 'verification_request',
+        title: 'Yêu cầu xác thực email thủ công',
+        content: `Người dùng ${user.email} yêu cầu xác thực email với lý do: "${reason}". Vui lòng kiểm tra và xác thực.`,
+        is_read: false,
+        metadata_json: {
+          userId: user.id,
+          action: 'toggle-verification'
+        }
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Yêu cầu đã được gửi đến admin. Chúng tôi sẽ xử lý sớm.'
+    });
+  } catch (error) {
+    console.error('ERROR trong requestManualVerification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi gửi yêu cầu đến admin',
+      error: error.message
+    });
+  }
+};
 
 // // ============================================
 // PASSWORD RESET - Quên mật khẩu, đặt lại mật khẩu

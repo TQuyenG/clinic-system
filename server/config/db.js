@@ -1,4 +1,4 @@
-// server/config/db.js - HOÀN CHỈNH
+// server/config/db.js - Cập nhật để chỉ log một lần
 const path = require('path');
 require('dotenv').config({ 
   path: path.join(__dirname, '../../.env') 
@@ -8,19 +8,27 @@ const mysql = require('mysql2/promise');
 const { Sequelize } = require('sequelize');
 const bcrypt = require('bcrypt');
 
-// Log để kiểm tra biến môi trường được load
-console.log('Database Config:', {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD ? '[SET]' : '[NOT SET]'
-});
+// Biến flag để kiểm soát logging
+let hasLoggedConfig = false;
+let hasLoggedInit = false;
+let hasLoggedSeed = false;
 
-// Khởi tạo Sequelize
+// Log cấu hình database (chỉ log một lần)
+if (!hasLoggedConfig) {
+  console.log('Database Config:', {
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD ? '[SET]' : '[NOT SET]'
+  });
+  hasLoggedConfig = true;
+}
+
+// Khởi tạo Sequelize với logging: false để tắt log query
 const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASSWORD, {
   host: process.env.DB_HOST,
   dialect: 'mysql',
-  logging: console.log
+  logging: false // TẮT LOG QUERY
 });
 
 // Hàm để kiểm tra kết nối database
@@ -37,19 +45,21 @@ async function testConnection() {
 
 // Hàm khởi tạo cơ sở dữ liệu
 async function initializeDatabase() {
+  if (hasLoggedInit) return; // Chỉ chạy nếu chưa log
+  hasLoggedInit = true;
+
   try {
     if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_PASSWORD) {
       throw new Error('Thiếu thông tin cấu hình database');
     }
 
-    console.log('Đang kết nối với MySQL...');
+    console.log('Đang khởi tạo cơ sở dữ liệu...');
     const connection = await mysql.createConnection({
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD
     });
 
-    console.log('Đang tạo database...');
     await connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME}`);
     await connection.end();
 
@@ -58,6 +68,7 @@ async function initializeDatabase() {
       throw new Error('Không thể kết nối với database qua Sequelize');
     }
 
+    console.log('SUCCESS: Khởi tạo cơ sở dữ liệu thành công.');
     return true;
   } catch (error) {
     console.error('ERROR trong initializeDatabase:', error.message);

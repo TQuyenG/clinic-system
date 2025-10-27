@@ -1,7 +1,7 @@
 // client/src/App.js - PHIÊN BẢN CẢI THIỆN
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext'; // ✅ Import AuthProvider
+import { AuthProvider } from './contexts/AuthContext'; // Import AuthProvider
 import MainLayout from './components/layout/MainLayout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -36,7 +36,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import './App.css';
 
-// ✅ Protected Route Component SỬ DỤNG AUTHCONTEXT
+// Protected Route Component SỬ DỤNG AUTHCONTEXT
 const ProtectedRoute = ({ children, requiredRole }) => {
   const token = localStorage.getItem('token');
   const userStr = localStorage.getItem('user');
@@ -64,7 +64,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 function App() {
   return (
     <Router>
-      {/* ✅ WRAP AuthProvider BÊN TRONG Router */}
+      {/* WRAP AuthProvider BÊN TRONG Router */}
       <AuthProvider>
         <MainLayout>
           <Routes>

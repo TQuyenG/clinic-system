@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }) => {
       // Dispatch custom event để thông báo cho tất cả components
       window.dispatchEvent(new Event('authStateChanged'));
 
-      console.log('✅ Đăng nhập thành công:', userData.email);
+      console.log('Đăng nhập thành công:', userData.email);
 
       // Chuyển hướng
       navigate('/dashboard');

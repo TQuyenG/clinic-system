@@ -15,7 +15,7 @@ import {
 } from 'react-icons/fa';
 import NotificationDropdown from './NotificationDropdown';
 import './Navbar.css';
-import { useAuth } from '../../contexts/AuthContext'; // ✅ FIX: Import useAuth
+import { useAuth } from '../../contexts/AuthContext'; // FIX: Import useAuth
 
 // Component riêng để hiển thị avatar người dùng
 const UserAvatar = ({ user, userProfile }) => {
@@ -59,7 +59,7 @@ const UserAvatar = ({ user, userProfile }) => {
 };
 
 const Navbar = () => {
-  // ✅ FIX: Sử dụng useAuth() để lấy thông tin user từ AuthContext
+  // FIX: Sử dụng useAuth() để lấy thông tin user từ AuthContext
   const { user: authUser, logout: authLogout, isAuthenticated } = useAuth();
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -68,7 +68,7 @@ const Navbar = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   
-  // ✅ FIX: Giữ local state để merge với authUser (cho avatar và profile mới nhất)
+  // FIX: Giữ local state để merge với authUser (cho avatar và profile mới nhất)
   const [userProfile, setUserProfile] = useState(null);
   
   const [specialties, setSpecialties] = useState([]);
@@ -86,7 +86,7 @@ const Navbar = () => {
   const searchTimeoutRef = useRef(null);
   const API_BASE_URL = 'http://localhost:3001';
 
-  // ✅ FIX: Effect để fetch user profile khi authUser thay đổi
+  // FIX: Effect để fetch user profile khi authUser thay đổi
   useEffect(() => {
     if (authUser) {
       const token = localStorage.getItem('token');
@@ -99,7 +99,7 @@ const Navbar = () => {
     }
   }, [authUser]); // Re-run khi authUser thay đổi
 
-  // ✅ FIX: Effect để lắng nghe authStateChanged event
+  // FIX: Effect để lắng nghe authStateChanged event
   useEffect(() => {
     const handleAuthChange = () => {
       // Force re-render bằng cách check localStorage
@@ -146,7 +146,7 @@ const Navbar = () => {
         const profileData = response.data.user || response.data;
         setUserProfile(profileData);
         
-        // ✅ FIX: Cập nhật localStorage để đồng bộ với AuthContext
+        // FIX: Cập nhật localStorage để đồng bộ với AuthContext
         const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
         const updatedUser = { 
           ...currentUser, 
@@ -155,12 +155,12 @@ const Navbar = () => {
         };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         
-        // ✅ FIX: Dispatch event để các component khác biết user đã được cập nhật
+        // FIX: Dispatch event để các component khác biết user đã được cập nhật
         window.dispatchEvent(new Event('authStateChanged'));
       }
     } catch (error) {
       console.error('Lỗi khi lấy profile:', error);
-      // ✅ FIX: Nếu token không hợp lệ, logout
+      // FIX: Nếu token không hợp lệ, logout
       if (error.response?.status === 401 || error.response?.status === 403) {
         handleLogout();
       }
@@ -278,11 +278,11 @@ const Navbar = () => {
     }
   };
 
-  // ✅ FIX: Sử dụng authLogout từ AuthContext
+  // FIX: Sử dụng authLogout từ AuthContext
   const handleLogout = () => {
     if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
       console.log('Đăng xuất từ Navbar');
-      authLogout(); // ✅ FIX: Gọi logout từ AuthContext
+      authLogout(); // FIX: Gọi logout từ AuthContext
       closeAllDropdowns();
     }
   };
@@ -312,7 +312,7 @@ const Navbar = () => {
     setActiveMobileColumn(activeMobileColumn === column ? null : column);
   };
 
-  // ✅ FIX: Sử dụng authUser từ AuthContext thay vì local state
+  // FIX: Sử dụng authUser từ AuthContext thay vì local state
   const currentUser = authUser || userProfile;
 
   return (
@@ -468,9 +468,6 @@ const Navbar = () => {
           </div>
 
           <div className="navbar-nav-menu">
-            <Link to="/" className="navbar-nav-link" onClick={closeAllDropdowns}>
-              Trang chủ
-            </Link>
 
             <div className="navbar-nav-item">
               <button 
@@ -501,7 +498,7 @@ const Navbar = () => {
                 className="navbar-nav-link"
                 onClick={() => toggleDropdown('medical')}
               >
-                Y tế
+                Đội ngũ y tế
                 <FaChevronDown className={`navbar-chevron ${activeDropdown === 'medical' ? 'rotate' : ''}`} />
               </button>
               <div className={`navbar-dropdown-menu ${activeDropdown === 'medical' ? 'show' : ''}`}>
@@ -532,9 +529,6 @@ const Navbar = () => {
                             {sp.name}
                           </Link>
                         ))}
-                        <Link to="/chuyen-khoa" onClick={closeAllDropdowns} className="navbar-view-all">
-                          Xem tất cả
-                        </Link>
                       </div>
                     )}
                   </div>
