@@ -32,20 +32,17 @@ const createNotification = async (userId, type, message, link) => {
  */
 const notifyAllAdmins = async (type, message, link) => {
   try {
+    // Tìm tất cả user có role là admin
     const admins = await User.findAll({
-      include: [{
-        model: models.Admin,
-        as: 'adminProfile',
-        required: true
-      }]
+      where: { role: 'admin' }
     });
 
     for (const admin of admins) {
       await createNotification(admin.id, type, message, link);
     }
-    console.log(`✓ Đã gửi thông báo tới ${admins.length} admin`);
+    console.log(`Đã gửi thông báo tới ${admins.length} admin`);
   } catch (error) {
-    console.error('✗ Lỗi khi gửi thông báo tới admin:', error);
+    console.error('Lỗi khi gửi thông báo tới admin:', error);
   }
 };
 
@@ -55,6 +52,12 @@ const notifyAllAdmins = async (type, message, link) => {
 const loadEntityData = async (article) => {
   const articleData = article.toJSON ? article.toJSON() : article;
   
+  // Nếu đã có medicine/disease từ include, trả về luôn
+  if (articleData.medicine || articleData.disease) {
+    return articleData;
+  }
+  
+  // Chỉ fetch khi chưa có data (trường hợp không include)
   if (articleData.entity_type === 'medicine' && articleData.entity_id) {
     const medicine = await Medicine.findByPk(articleData.entity_id);
     return { ...articleData, medicine };
@@ -615,53 +618,65 @@ exports.suggestTags = async (req, res) => {
 exports.createArticle = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { title, content, category_id, tags_json, source, composition, uses, side_effects, manufacturer, symptoms, treatments, description, isDraft = false } = req.body;
+    const { 
+    title, content, category_id, tags_json, source, 
+    name, composition, uses, side_effects, manufacturer, image_url,
+    symptoms, treatments, description, 
+    isDraft = false 
+  } = req.body;
 
-    // Log để debug giá trị isDraft
-    console.log('DEBUG: createArticle - isDraft:', isDraft, 'Body:', req.body);
+  // Log để debug
+  console.log('DEBUG: createArticle - isDraft:', isDraft, 'Body:', req.body);
 
-    if (!title || !content || !category_id) {
-      await t.rollback();
-      return res.status(400).json({ success: false, message: 'Vui lòng điền đầy đủ thông tin bắt buộc' });
-    }
+  if (!title || !content || !category_id) {
+    await t.rollback();
+    return res.status(400).json({ success: false, message: 'Vui lòng điền đầy đủ thông tin bắt buộc' });
+  }
 
-    const category = await Category.findByPk(category_id, { transaction: t });
-    if (!category) {
-      await t.rollback();
-      return res.status(404).json({ success: false, message: 'Không tìm thấy danh mục' });
-    }
+  const category = await Category.findByPk(category_id, { transaction: t });
+  if (!category) {
+    await t.rollback();
+    return res.status(404).json({ success: false, message: 'Không tìm thấy danh mục' });
+  }
 
-    const slug = slugify(title, { lower: true, strict: true });
+  const slug = slugify(title, { lower: true, strict: true });
 
-    const newArticle = await Article.create({
-      title,
-      slug,
-      content,
+  const newArticle = await Article.create({
+    title,
+    slug,
+    content,
+    category_id,
+    author_id: req.user.id,
+    tags_json: tags_json || [],
+    source: source || null,
+    status: isDraft ? 'draft' : 'pending'
+  }, { transaction: t });
+
+  let entity;
+  if (category.category_type === 'thuoc') {
+    //  THÊM name và category_id
+    entity = await Medicine.create({
       category_id,
-      author_id: req.user.id,
-      tags_json: tags_json || [],
-      source: source || null,
-      status: isDraft ? 'draft' : 'pending' // Set status dựa trên isDraft
+      name: name || title,  // ← QUAN TRỌNG
+      composition,
+      uses,
+      side_effects,
+      image_url,
+      manufacturer,
+      description
     }, { transaction: t });
-
-    let entity;
-    if (category.category_type === 'thuoc') {
-      entity = await Medicine.create({
-        composition,
-        uses,
-        side_effects,
-        manufacturer,
-        description
-      }, { transaction: t });
-      await newArticle.update({ entity_type: 'medicine', entity_id: entity.id }, { transaction: t });
-    } else if (category.category_type === 'benh_ly') {
-      entity = await Disease.create({
-        symptoms,
-        treatments,
-        description
-      }, { transaction: t });
-      await newArticle.update({ entity_type: 'disease', entity_id: entity.id }, { transaction: t });
-    }
+    await newArticle.update({ entity_type: 'medicine', entity_id: entity.id }, { transaction: t });
+  } else if (category.category_type === 'benh_ly') {
+    //  THÊM name và category_id
+    entity = await Disease.create({
+      category_id,
+      name: name || title,  // ← QUAN TRỌNG
+      symptoms,
+      treatments,
+      description
+    }, { transaction: t });
+    await newArticle.update({ entity_type: 'disease', entity_id: entity.id }, { transaction: t });
+  }
 
     // Xử lý history - Chỉ tạo khi không phải draft
     if (!isDraft) {
@@ -711,7 +726,12 @@ exports.updateArticle = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { title, content, category_id, tags_json, source, composition, uses, side_effects, manufacturer, symptoms, treatments, description, isDraft = false } = req.body;
+    const { 
+      title, content, category_id, tags_json, source,
+      name, composition, uses, side_effects, manufacturer, image_url,
+      symptoms, treatments, description,
+      isDraft = false 
+    } = req.body;
 
     // Log để debug giá trị isDraft
     console.log('DEBUG: updateArticle - isDraft:', isDraft, 'Body:', req.body);
@@ -770,13 +790,19 @@ exports.updateArticle = async (req, res) => {
         medicine = await Medicine.findByPk(article.entity_id, { transaction: t });
       }
       if (!medicine) {
-        medicine = await Medicine.create({}, { transaction: t });
+        medicine = await Medicine.create({
+          category_id,
+          name: name || title  // ← Tạo mới với name
+        }, { transaction: t });
         await updatedArticle.update({ entity_type: 'medicine', entity_id: medicine.id }, { transaction: t });
       }
+      // ✅ UPDATE ĐẦY ĐỦ TẤT CẢ FIELDS
       await medicine.update({
+        name: name || title,  // ← Cập nhật name
         composition,
         uses,
         side_effects,
+        image_url,
         manufacturer,
         description
       }, { transaction: t });
@@ -786,10 +812,15 @@ exports.updateArticle = async (req, res) => {
         disease = await Disease.findByPk(article.entity_id, { transaction: t });
       }
       if (!disease) {
-        disease = await Disease.create({}, { transaction: t });
+        disease = await Disease.create({
+          category_id,
+          name: name || title  // ← Tạo mới với name
+        }, { transaction: t });
         await updatedArticle.update({ entity_type: 'disease', entity_id: disease.id }, { transaction: t });
       }
+      // ✅ UPDATE ĐẦY ĐỦ TẤT CẢ FIELDS
       await disease.update({
+        name: name || title,  // ← Cập nhật name
         symptoms,
         treatments,
         description

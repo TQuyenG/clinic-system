@@ -5,12 +5,12 @@ import axios from 'axios';
 import { 
   FaBell, 
   FaCheck, 
-  FaCheckDouble, 
-  FaTrash, 
+  FaUserCheck, 
+  FaLock, 
   FaTimes,
   FaFileAlt,
-  FaExclamationCircle,
-  FaInfoCircle
+  FaDollarSign,
+  FaInfoCircle, FaCalendarCheck
 } from 'react-icons/fa';
 import './NotificationDropdown.css';
 
@@ -81,7 +81,6 @@ const NotificationDropdown = () => {
 
       if (response.data.success) {
         setNotifications(response.data.notifications);
-        setUnreadCount(response.data.unreadCount);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -100,7 +99,6 @@ const NotificationDropdown = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Cập nhật local state
       setNotifications(prev => 
         prev.map(notif => 
           notif.id === notificationId 
@@ -109,95 +107,88 @@ const NotificationDropdown = () => {
         )
       );
       
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setUnreadCount(prev => prev - 1);
     } catch (error) {
       console.error('Error marking as read:', error);
     }
   };
 
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      await axios.put(
-        `${API_BASE_URL}/api/notifications/read-all`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setNotifications(prev => prev.map(notif => ({ ...notif, is_read: true })));
-      setUnreadCount(0);
-    } catch (error) {
-      console.error('Error marking all as read:', error);
-    }
-  };
-
   const deleteNotification = async (notificationId, e) => {
     e.stopPropagation();
-    
     try {
       const token = localStorage.getItem('token');
       
-      await axios.delete(
-        `${API_BASE_URL}/api/notifications/${notificationId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axios.delete(`${API_BASE_URL}/api/notifications/${notificationId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+      
+      if (!notifications.find(n => n.id === notificationId)?.is_read) {
+        setUnreadCount(prev => prev - 1);
+      }
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
   };
 
-  const handleNotificationClick = async (notification) => {
-    // Đánh dấu đã đọc
+  const handleNotificationClick = (notification) => {
     if (!notification.is_read) {
-      await markAsRead(notification.id);
+      markAsRead(notification.id);
     }
-
-    // Đóng dropdown
-    setIsOpen(false);
-
-    // Navigate đến link nếu có
+    
     if (notification.link) {
       navigate(notification.link);
     }
+    
+    setIsOpen(false);
+  };
+
+  const formatTime = (dateString) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diff = now - date;
+    
+    if (diff < 60000) return 'Vừa xong';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
+    return date.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   };
 
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'article':
-        return <FaFileAlt className="notif-type-icon article" />;
+        return <FaFileAlt />;
+      case 'appointment':
+        return <FaCalendarCheck />;
+      case 'payment':
+        return <FaDollarSign />;
       case 'system':
-        return <FaExclamationCircle className="notif-type-icon system" />;
+        return <FaInfoCircle />;
+      case 'verification_request':
+        return <FaUserCheck />;
+      case 'otp':
+        return <FaLock />;
       default:
-        return <FaInfoCircle className="notif-type-icon default" />;
+        return <FaBell />;
     }
-  };
-
-  const formatTime = (date) => {
-    const now = new Date();
-    const notifDate = new Date(date);
-    const diff = Math.floor((now - notifDate) / 1000); // seconds
-
-    if (diff < 60) return 'Vừa xong';
-    if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`;
-    
-    return notifDate.toLocaleDateString('vi-VN');
   };
 
   return (
     <div className="notification-dropdown" ref={dropdownRef}>
       <button 
-        className="notification-bell-btn"
+        className="notification-bell-btn" 
         onClick={() => setIsOpen(!isOpen)}
-        aria-label="Thông báo"
       >
         <FaBell />
         {unreadCount > 0 && (
-          <span className="notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+          <span className="notification-badge">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
         )}
       </button>
 
@@ -206,13 +197,9 @@ const NotificationDropdown = () => {
           <div className="notification-header">
             <h3>Thông báo</h3>
             {unreadCount > 0 && (
-              <button 
-                className="mark-all-read-btn"
-                onClick={markAllAsRead}
-                title="Đánh dấu tất cả đã đọc"
-              >
-                <FaCheckDouble />
-              </button>
+              <span className="unread-badge">
+                {unreadCount} mới
+              </span>
             )}
           </div>
 

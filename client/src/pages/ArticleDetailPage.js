@@ -388,7 +388,21 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
 
   const isAuthor = user && article.author_id === user.id;
   const isApproved = article.status === 'approved';
-  const categoryType = propCategoryType || article.category?.category_type;
+  // Chuẩn hóa categoryType về dạng database (thuoc, benh_ly, tin_tuc)
+  const getCategoryType = () => {
+    const type = propCategoryType || article.category?.category_type;
+    // Convert từ URL format sang DB format
+    const typeMap = {
+      'thuoc': 'thuoc',
+      'benh-ly': 'benh_ly',
+      'tin-tuc': 'tin_tuc',
+      'benh_ly': 'benh_ly',
+      'tin_tuc': 'tin_tuc'
+    };
+    return typeMap[type] || type;
+  };
+
+  const categoryType = getCategoryType();
 
   return (
     <div className="detail-article-page">
@@ -497,11 +511,24 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
             </div>
           </div>
 
-          {((categoryType === 'thuoc' && article.medicine) || (categoryType === 'benh_ly' && article.disease)) && (
+          {/* Thêm debug để kiểm tra */}
+          {console.log('Debug ArticleDetailPage:', {
+            categoryType,
+            entity_type: article.entity_type,
+            has_medicine: !!article.medicine,
+            has_disease: !!article.disease,
+            medicine_data: article.medicine,
+            disease_data: article.disease
+          })}
+
+          {/* Kiểm tra theo entity_type thay vì categoryType */}
+          {((article.entity_type === 'medicine' && article.medicine) || (article.entity_type === 'disease' && article.disease)) && (
             <div className="detail-article-sidebar">
-              {categoryType === 'thuoc' && article.medicine && (
+              <h3 className="sidebar-title">Thông tin chuyên sâu</h3>
+              
+              {article.entity_type === 'medicine' && article.medicine && (
                 <div className="detail-article-medical-info detail-article-medicine-info">
-                  <h3>Thông tin thuốc</h3>
+                  <h3>Thông tin thuốc: {article.medicine.name || article.title}</h3>
                   
                   {article.medicine.composition && (
                     <div className="detail-article-info-section">
@@ -533,9 +560,9 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
                 </div>
               )}
 
-              {categoryType === 'benh_ly' && article.disease && (
+              {article.entity_type === 'disease' && article.disease && (
                 <div className="detail-article-medical-info detail-article-disease-info">
-                  <h3>Thông tin bệnh lý</h3>
+                  <h3>Thông tin bệnh lý: {article.disease.name || article.title}</h3>
                   
                   {article.disease.symptoms && (
                     <div className="detail-article-info-section">

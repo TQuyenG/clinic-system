@@ -476,31 +476,48 @@ const ArticleReviewPage = () => {
               />
             </div>
 
-            {/* Medical Info Box */}
-            {(article.medicine || article.disease) && (
+            {/* Debug log */}
+            {console.log('Debug ArticleReviewPage:', {
+              entity_type: article.entity_type,
+              has_medicine: !!article.medicine,
+              has_disease: !!article.disease,
+              medicine_data: article.medicine,
+              disease_data: article.disease
+            })}
+
+            {/* Medical Info Box - Kiểm tra theo entity_type */}
+            {(article.entity_type === 'medicine' || article.entity_type === 'disease') && (article.medicine || article.disease) && (
               <div className="medical-info-box">
                 <h3>Thông tin bổ sung</h3>
                 
-                {article.medicine && (
+                {article.entity_type === 'medicine' && article.medicine && (
                   <>
+                    <div className="info-item">
+                      <strong>Tên thuốc:</strong>
+                      <p>{article.medicine.name || article.title}</p>
+                    </div>
+                    
                     {article.medicine.composition && (
                       <div className="info-item">
                         <strong>Thành phần:</strong>
                         <p>{article.medicine.composition}</p>
                       </div>
                     )}
+                    
                     {article.medicine.uses && (
                       <div className="info-item">
                         <strong>Công dụng:</strong>
                         <p>{article.medicine.uses}</p>
                       </div>
                     )}
+                    
                     {article.medicine.side_effects && (
                       <div className="info-item">
                         <strong>Tác dụng phụ:</strong>
                         <p>{article.medicine.side_effects}</p>
                       </div>
                     )}
+                    
                     {article.medicine.manufacturer && (
                       <div className="info-item">
                         <strong>Nhà sản xuất:</strong>
@@ -510,18 +527,31 @@ const ArticleReviewPage = () => {
                   </>
                 )}
 
-                {article.disease && (
+                {article.entity_type === 'disease' && article.disease && (
                   <>
+                    <div className="info-item">
+                      <strong>Tên bệnh:</strong>
+                      <p>{article.disease.name || article.title}</p>
+                    </div>
+                    
                     {article.disease.symptoms && (
                       <div className="info-item">
                         <strong>Triệu chứng:</strong>
                         <p>{article.disease.symptoms}</p>
                       </div>
                     )}
+                    
                     {article.disease.treatments && (
                       <div className="info-item">
                         <strong>Điều trị:</strong>
                         <p>{article.disease.treatments}</p>
+                      </div>
+                    )}
+                    
+                    {article.disease.description && (
+                      <div className="info-item">
+                        <strong>Mô tả:</strong>
+                        <p>{article.disease.description}</p>
                       </div>
                     )}
                   </>

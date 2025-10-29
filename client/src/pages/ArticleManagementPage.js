@@ -802,17 +802,15 @@ const handleCategoryTypeChange = (e) => {
     }
   };
 
-  /**
-   * Xử lý submit form tạo/sửa bài viết
-   * @param {Event} e - Event
-   * @param {boolean} isDraft - Lưu nháp hay gửi phê duyệt
-   */
-  // THAY THẾ HÀM handleSubmit HOÀN TOÀN:
+  // ============================================
+// HÀM handleSubmit MỚI - THAY THẾ HOÀN TOÀN
+// Vị trí: Dòng 812-925 trong ArticleManagementPage.js
+// ============================================
 
 const handleSubmit = async (e, isDraft = false, isAdminDirectPublish = false) => {
   if (e) e.preventDefault();
 
-  // Validate
+  // ===== VALIDATION CƠ BẢN =====
   if (!formData.title.trim()) {
     showToast('Vui lòng nhập tiêu đề', 'error');
     return;
@@ -840,16 +838,60 @@ const handleSubmit = async (e, isDraft = false, isAdminDirectPublish = false) =>
     return;
   }
 
-  // Nếu admin gửi phê duyệt (không phải draft), hiện popup chọn
+  // ===== XỬ LÝ ẢNH BÌA TỰ ĐỘNG =====
+  
+  // Hàm helper: Extract ảnh đầu tiên từ HTML content
+  const extractFirstImageFromContent = (htmlContent) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, 'text/html');
+    const img = doc.querySelector('img');
+    return img ? img.src : null;
+  };
+
+  // Lấy ảnh đầu tiên từ content
+  const firstImageInContent = extractFirstImageFromContent(formData.content);
+  
+  // Xác định ảnh bìa: Ưu tiên ảnh upload, không thì lấy ảnh từ content
+  let finalCoverImage = coverImage || tempImageUrl || formData.image_url;
+  
+  // Nếu không có ảnh upload nhưng có ảnh trong content → dùng ảnh đó
+  if (!finalCoverImage && firstImageInContent) {
+    finalCoverImage = firstImageInContent;
+    // Cập nhật state để hiển thị preview
+    setCoverImage(firstImageInContent);
+    setFormData(prev => ({ ...prev, image_url: firstImageInContent }));
+  }
+  
+  // ===== VALIDATION ẢNH BÌA =====
+  // Nếu vẫn không có ảnh bìa → hiện cảnh báo
+  if (!finalCoverImage) {
+    showToast('⚠️ Bài viết chưa có ảnh bìa! Vui lòng thêm ảnh vào nội dung hoặc upload ảnh bìa.', 'error');
+    return;
+  }
+
+  // ===== THÊM ẢNH VÀO CUỐI CONTENT =====
+  let finalContent = formData.content;
+  
+  // Kiểm tra xem content đã có ảnh bìa này chưa
+  const contentHasCoverImage = finalContent.includes(finalCoverImage);
+  
+  if (!contentHasCoverImage) {
+    // Thêm ảnh vào CUỐI content (không phải đầu)
+    const imageHtml = `<figure class="image image-style-side"><img src="${finalCoverImage}" alt="${formData.title}"></figure>`;
+    finalContent = finalContent + imageHtml;
+  }
+
+  // ===== NẾU ADMIN GỬI PHÊ DUYỆT =====
   if (user.role === 'admin' && !isDraft && !isAdminDirectPublish && modalType === 'create') {
     setShowAdminPublishChoice(true);
     return;
   }
 
+  // ===== CHUẨN BỊ DATA GỬI LÊN SERVER =====
   try {
     const submitData = {
       title: formData.title,
-      content: formData.content,
+      content: finalContent,  // ← Sử dụng content đã thêm ảnh
       category_id: formData.category_id,
       tags_json: formData.tags_json,
       source: formData.source,
@@ -862,33 +904,32 @@ const handleSubmit = async (e, isDraft = false, isAdminDirectPublish = false) =>
       submitData.isDraft = false;
     }
 
-    // Thêm dữ liệu thuốc nếu category là thuốc
+    // ===== THÊM DỮ LIỆU THUỐC =====
     if (selectedCategoryType === 'thuoc') {
-      submitData.medicineData = {
-        name: formData.name || formData.title,
-        composition: formData.composition,
-        uses: formData.uses,
-        side_effects: formData.side_effects,
-        image_url: formData.image_url || coverImage,
-        manufacturer: formData.manufacturer,
-        excellent_review_percent: formData.excellent_review_percent,
-        average_review_percent: formData.average_review_percent,
-        poor_review_percent: formData.poor_review_percent,
-        components: formData.components,
-        medicine_usage: formData.medicine_usage
-      };
+      submitData.name = formData.name || formData.title;
+      submitData.composition = formData.composition;
+      submitData.uses = formData.uses;
+      submitData.side_effects = formData.side_effects;
+      submitData.image_url = finalCoverImage;  // ← Lưu ảnh bìa vào DB
+      submitData.manufacturer = formData.manufacturer;
+      submitData.description = formData.description;
+      submitData.excellent_review_percent = formData.excellent_review_percent || 0;
+      submitData.average_review_percent = formData.average_review_percent || 0;
+      submitData.poor_review_percent = formData.poor_review_percent || 0;
     }
 
-    // Thêm dữ liệu bệnh lý nếu category là bệnh lý
+    // ===== THÊM DỮ LIỆU BỆNH LÝ =====
     if (selectedCategoryType === 'benh_ly') {
-      submitData.diseaseData = {
-        name: formData.title, // Tên bệnh chính là title
-        symptoms: formData.symptoms,
-        treatments: formData.treatments,
-        description: formData.description
-      };
+      submitData.name = formData.title;
+      submitData.symptoms = formData.symptoms;
+      submitData.treatments = formData.treatments;
+      submitData.description = formData.description;
+      submitData.image_url = finalCoverImage;  // ← Lưu ảnh bìa vào DB (nếu cần)
     }
 
+    console.log('Submitting data:', submitData);  // Debug
+
+    // ===== GỬI REQUEST =====
     let response;
     if (modalType === 'create') {
       response = await axios.post(`${API_BASE_URL}/api/articles`, submitData, {
@@ -900,6 +941,7 @@ const handleSubmit = async (e, isDraft = false, isAdminDirectPublish = false) =>
       });
     }
 
+    // ===== XỬ LÝ RESPONSE =====
     if (response.data.success) {
       const message = isDraft 
         ? 'Đã lưu bài viết dưới dạng nháp' 
@@ -924,6 +966,15 @@ const handleSubmit = async (e, isDraft = false, isAdminDirectPublish = false) =>
     );
   }
 };
+
+// ============================================
+// GHI CHÚ:
+// ============================================
+// 1. Tự động lấy ảnh đầu tiên từ content làm ảnh bìa
+// 2. Nếu không có ảnh → bắt buộc upload ảnh bìa
+// 3. Ảnh bìa được thêm vào CUỐI content
+// 4. Ảnh bìa được lưu vào field image_url của Medicine/Disease
+// ============================================
 
   /**
    * Xử lý xóa bài viết

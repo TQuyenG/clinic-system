@@ -13,6 +13,59 @@ const LOCK_TIME = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 6;
 
 // ============================================
+// HELPER FUNCTIONS - Bổ sung từ articleController để nhất quán
+// ============================================
+
+/**
+ * Tạo thông báo cho 1 user
+ */
+const createNotification = async (userId, type, title, message, metadata_json) => {
+  try {
+    await models.Notification.create({
+      user_id: userId,
+      type,
+      title,
+      message,
+      is_read: false,
+      link
+    });
+    console.log(`Đã tạo thông báo cho user ${userId}`);
+  } catch (error) {
+    console.error('Lỗi khi tạo thông báo:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * Gửi thông báo đến tất cả admin
+ */
+const notifyAllAdmins = async (type, title, message, metadata_json) => {
+  try {
+    const admins = await models.User.findAll({
+      where: { role: 'admin' },
+      include: [{
+        model: models.Admin,
+        required: true
+      }]
+    });
+
+    for (const admin of admins) {
+      await createNotification(
+        admin.id, 
+        type, 
+        title, 
+        message,
+        link
+      );
+    }
+    console.log(`Đã gửi thông báo tới ${admins.length} admin`);
+  } catch (error) {
+    console.error('Lỗi khi gửi thông báo tới admin:', error.message);
+    throw error;
+  }
+};
+
+// ============================================
 // AUTHENTICATION - Đăng ký, đăng nhập, xác thực
 // ============================================
 
@@ -124,62 +177,54 @@ exports.register = async (req, res) => {
   }
 };
 
-// Hàm xác thực email qua link
+// Hàm xác thực email
 exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
 
     if (!token) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Token xác thực không hợp lệ' 
+      return res.status(400).json({
+        success: false,
+        message: 'Token không hợp lệ'
       });
     }
 
-    const user = await models.User.findOne({ 
-      where: { verification_token: token } 
+    const user = await models.User.findOne({
+      where: {
+        verification_token: token,
+        verification_expires: { [Op.gt]: new Date() }
+      }
     });
 
     if (!user) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Token xác thực không tồn tại hoặc đã được sử dụng' 
+      return res.status(400).json({
+        success: false,
+        message: 'Token không hợp lệ hoặc đã hết hạn'
       });
     }
 
-    // Kiểm tra đã xác thực chưa
-    if (user.is_verified && user.is_active) {
-      return res.status(200).json({
-        success: true,
-        message: 'Tài khoản đã được xác thực trước đó. Bạn có thể đăng nhập ngay.'
-      });
-    }
+    await user.update({
+      is_verified: true,
+      verification_token: null,
+      verification_expires: null
+    });
 
-    if (user.verification_expires && new Date() > user.verification_expires) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Token xác thực đã hết hạn. Vui lòng đăng ký lại hoặc yêu cầu gửi lại email xác thực.' 
-      });
-    }
-
-    // Kích hoạt user
-    user.is_verified = true;
-    user.is_active = true;
-    user.verification_token = null;
-    user.verification_expires = null;
-    await user.save();
+    // ✅ BỔ SUNG: Gửi thông báo đến admin về xác thực thành công
+    await notifyAllAdmins(
+      'email_verified',
+      `Người dùng ${user.email} vừa xác thực email thành công.`,
+      `/admin/users/${user.id}` // Giả sử link dẫn đến profile user
+    );
 
     res.status(200).json({
       success: true,
-      message: 'Xác thực email thành công. Tài khoản đã được kích hoạt.'
+      message: 'Xác thực email thành công. Bạn có thể đăng nhập ngay.'
     });
-
   } catch (error) {
     console.error('ERROR trong verifyEmail:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Lỗi khi xác thực email', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi xác thực email'
     });
   }
 };
@@ -372,30 +417,12 @@ exports.requestManualVerification = async (req, res) => {
       });
     }
 
-    // Tìm admin (giả sử lấy admin đầu tiên hoặc tất cả admin)
-    const admins = await models.User.findAll({ where: { role: 'admin' } });
-
-    if (admins.length === 0) {
-      return res.status(500).json({
-        success: false,
-        message: 'Không tìm thấy admin để xử lý yêu cầu'
-      });
-    }
-
-    // Tạo notification cho từng admin
-    for (const admin of admins) {
-      await models.Notification.create({
-        user_id: admin.id,
-        type: 'verification_request',
-        title: 'Yêu cầu xác thực email thủ công',
-        content: `Người dùng ${user.email} yêu cầu xác thực email với lý do: "${reason}". Vui lòng kiểm tra và xác thực.`,
-        is_read: false,
-        metadata_json: {
-          userId: user.id,
-          action: 'toggle-verification'
-        }
-      });
-    }
+    // Sử dụng notifyAllAdmins để gửi thông báo, nhất quán với articleController
+    await notifyAllAdmins(
+      'verification_request',
+      `Người dùng ${user.email} yêu cầu xác thực email với lý do: "${reason || 'Không thấy email xác thực gửi về'}". Vui lòng kiểm tra và xác thực.`,
+      `/admin/users/${user.id}/verify` // Giả sử link dẫn đến action xác thực
+    );
 
     res.status(200).json({
       success: true,
