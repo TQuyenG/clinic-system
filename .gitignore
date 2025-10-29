@@ -4,3 +4,5 @@ client/build/
 server/logs/
 *.log
 server/uploads/images/
+.DS_Store
+server/.DS_Store
