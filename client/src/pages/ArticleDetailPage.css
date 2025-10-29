@@ -1,0 +1,436 @@
+.article-detail-page {
+  min-height: 100vh;
+  background: #f8f9fa;
+  padding: 2rem 0;
+}
+
+.article-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* Back Button */
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  color: #374151;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 2rem;
+}
+
+.btn-back:hover {
+  background: #f3f4f6;
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+/* Layout 2 cột: Main Content + Sidebar */
+.article-main-content {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.article-content-area {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+/* Article Header */
+.article-header {
+  padding: 2.5rem 2.5rem 1.5rem;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.article-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #1a202c;
+  line-height: 1.2;
+  margin: 0 0 1.5rem 0;
+}
+
+.article-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.meta-icon {
+  color: #9ca3af;
+}
+
+/* Tags */
+.article-tags {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tags-icon {
+  color: #9ca3af;
+  font-size: 1.25rem;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.tag-item {
+  padding: 0.5rem 1rem;
+  background: #eff6ff;
+  color: #1e40af;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Content */
+.article-content {
+  padding: 2.5rem;
+}
+
+.content-body {
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  color: #374151;
+}
+
+.content-body h1,
+.content-body h2,
+.content-body h3,
+.content-body h4 {
+  color: #1a202c;
+  font-weight: 700;
+  margin: 2rem 0 1rem 0;
+}
+
+.content-body h1 { font-size: 2rem; }
+.content-body h2 { font-size: 1.75rem; }
+.content-body h3 { font-size: 1.5rem; }
+.content-body h4 { font-size: 1.25rem; }
+
+.content-body p {
+  margin-bottom: 1.5rem;
+}
+
+.content-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 2rem 0;
+}
+
+.content-body ul,
+.content-body ol {
+  margin: 1.5rem 0;
+  padding-left: 2rem;
+}
+
+.content-body li {
+  margin-bottom: 0.75rem;
+}
+
+.content-body a {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.content-body a:hover {
+  color: #2563eb;
+}
+
+.content-body blockquote {
+  border-left: 4px solid #3b82f6;
+  padding-left: 1.5rem;
+  margin: 2rem 0;
+  font-style: italic;
+  color: #6b7280;
+  background: #f9fafb;
+  padding: 1.25rem 1.5rem;
+  border-radius: 0 8px 8px 0;
+}
+
+.content-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2rem 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.content-body th,
+.content-body td {
+  border: 1px solid #e5e7eb;
+  padding: 1rem 1.25rem;
+  text-align: left;
+}
+
+.content-body th {
+  background: #f3f4f6;
+  font-weight: 700;
+}
+
+.content-body tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+/* Source */
+.article-source {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 2.5rem 2.5rem 1.5rem;
+  padding: 1.25rem 1.5rem;
+  background: #f9fafb;
+  border-left: 4px solid #3b82f6;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.95rem;
+}
+
+.article-source svg {
+  color: #3b82f6;
+  font-size: 1.25rem;
+}
+
+.article-source span {
+  font-weight: 700;
+  color: #374151;
+}
+
+.article-source a {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.article-source a:hover {
+  text-decoration: underline;
+}
+
+/* Actions */
+.article-actions {
+  display: flex;
+  gap: 1rem;
+  padding: 2rem 2.5rem;
+  border-top: 2px solid #f3f4f6;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #f3f4f6;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  color: #374151;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.action-btn:hover {
+  background: white;
+  border-color: #3b82f6;
+  color: #3b82f6;
+  transform: translateY(-2px);
+}
+
+.action-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.action-btn svg {
+  font-size: 1.25rem;
+}
+
+/* Share Dropdown */
+.share-dropdown {
+  position: relative;
+  flex: 1;
+}
+
+.share-dropdown:hover .share-menu {
+  display: block;
+}
+
+.share-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.share-menu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: white;
+  border: none;
+  color: #374151;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.share-menu button:hover {
+  background: #f3f4f6;
+}
+
+/* Sidebar - Thông tin bổ sung */
+.article-sidebar {
+  position: sticky;
+  top: 2rem;
+  height: fit-content;
+}
+
+.medical-info {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 2rem;
+}
+
+.medical-info h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 1.5rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.info-section {
+  margin-bottom: 1.5rem;
+}
+
+.info-section:last-child {
+  margin-bottom: 0;
+}
+
+.info-section h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 0.75rem 0;
+}
+
+.info-section p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #6b7280;
+  margin: 0;
+}
+
+.medicine-info {
+  border-left: 4px solid #10b981;
+}
+
+.disease-info {
+  border-left: 4px solid #ef4444;
+}
+
+/* Loading & Not Found */
+.article-loading,
+.article-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 1rem;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f4f6;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .article-main-content {
+    grid-template-columns: 1fr;
+  }
+
+  .article-sidebar {
+    position: relative;
+    top: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .article-container {
+    padding: 0 1rem;
+  }
+
+  .article-title {
+    font-size: 1.75rem;
+  }
+
+  .article-header,
+  .article-content {
+    padding: 1.5rem;
+  }
+
+  .article-actions {
+    flex-direction: column;
+    padding: 1.5rem;
+  }
+
+  .action-btn {
+    width: 100%;
+  }
+
+  .share-dropdown {
+    width: 100%;
+  }
+
+  .medical-info {
+    padding: 1.5rem;
+  }
+}

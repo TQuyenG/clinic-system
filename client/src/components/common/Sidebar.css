@@ -1,0 +1,227 @@
+/* client/src/components/common/Sidebar.css */
+.sidebar {
+  width: 250px;
+  background: white;
+  padding: 1rem 0;
+  box-shadow: 4px 0 15px rgba(34, 197, 94, 0.1);
+  position: sticky;
+  top: 108px;
+  left: 0;
+  height: calc(100vh - 108px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s ease;
+  z-index: 999;
+  border-right: 5px solid #575757;
+}
+
+/* Ẩn thanh cuộn nhưng vẫn cho phép cuộn */
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(34, 197, 94, 0.2);
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 197, 94, 0.4);
+}
+
+/* Firefox */
+.sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 197, 94, 0.2) transparent;
+}
+
+/* Khi scroll qua header, sidebar dính theo navbar */
+.sidebar.scrolled {
+  top: 70px;
+  height: calc(100vh - 70px);
+}
+
+
+.sidebar.mobile {
+  top: 86px;
+}
+
+.sidebar.mobile.scrolled {
+  top: 60px;
+  height: calc(100vh - 60px);
+}
+
+.sidebar.collapsed {
+  width: 70px;
+  padding: 0.5rem 0;
+}
+
+.sidebar.collapsed.mobile {
+  transform: translateX(-100%);
+  width: 250px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+}
+
+.sidebar a {
+  padding: 1rem 1.25rem;
+  color: #166534;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar a::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background: #22c55e;
+  transform: scaleY(0);
+  transition: transform 0.3s ease;
+}
+
+.sidebar a:hover {
+  background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%);
+  color: #14532d;
+  transform: translateX(5px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
+}
+
+.sidebar a:hover::before {
+  transform: scaleY(1);
+}
+
+.sidebar a.active {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
+  font-weight: 600;
+}
+
+.sidebar a.active::before {
+  transform: scaleY(1);
+  background: white;
+}
+
+.sidebar a svg {
+  font-size: 1.2rem;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.sidebar a:hover svg {
+  transform: scale(1.15);
+}
+
+.sidebar.collapsed a {
+  padding: 1rem 0.5rem;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+.sidebar.collapsed a span {
+  display: none;
+}
+
+.sidebar.collapsed a::before {
+  display: none;
+}
+
+.toggle-btn {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  border: none;
+  cursor: pointer;
+  padding: 0.75rem;
+  margin: 0.5rem 0.75rem 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);
+}
+
+.toggle-btn:hover {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.toggle-btn:active {
+  transform: scale(0.95);
+}
+
+.sidebar.collapsed .toggle-btn {
+  margin: 0.5rem;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 998;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(0);
+  }
+  
+  .sidebar.collapsed {
+    transform: translateX(-100%);
+  }
+  
+  .sidebar a {
+    font-size: 0.9rem;
+  }
+}
+
+/* Thêm hiệu ứng khi hover vào icon */
+.sidebar a svg {
+  filter: drop-shadow(0 0 0 transparent);
+  transition: all 0.3s ease;
+}
+
+.sidebar a:hover svg {
+  filter: drop-shadow(0 2px 4px rgba(34, 197, 94, 0.3));
+}
+
+.sidebar a.active svg {
+  filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.5));
+}
