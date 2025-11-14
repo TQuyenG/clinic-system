@@ -260,7 +260,7 @@ exports.getSpecialtyBySlug = async (req, res) => {
         success: false,
         message: 'Không tìm thấy chuyên khoa'
       });
-    }
+    } 
 
     // Format doctors
     const doctors = specialty.Doctors.map(doctor => ({
