@@ -1,0 +1,940 @@
+/* client/src/pages/UsersPage.css - HOÀN CHỈNH */
+
+/* ==============================================
+   CONTAINER & LAYOUT
+============================================== */
+
+.userspage-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  padding: 1.5rem;
+}
+
+/* ==============================================
+   HEADER
+============================================== */
+
+.userspage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.25);
+  color: white;
+}
+
+.userspage-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.userspage-header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* ==============================================
+   BUTTONS
+============================================== */
+
+.userspage-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.userspage-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.userspage-button-primary {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.25);
+}
+
+.userspage-button-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transform: translateY(-1px);
+}
+
+.userspage-button-secondary {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+}
+
+.userspage-button-secondary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  transform: translateY(-1px);
+}
+
+.userspage-button-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.userspage-button-success:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.userspage-button-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+.userspage-button-warning:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.userspage-button-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.userspage-button-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.userspage-button-export {
+  background: white;
+  color: #10b981;
+  border: 2px solid #10b981;
+}
+
+.userspage-button-export:hover {
+  background: #10b981;
+  color: white;
+}
+
+.userspage-button-filter {
+  background: white;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+}
+
+.userspage-button-filter:hover {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+/* ==============================================
+   FILTERS
+============================================== */
+
+.userspage-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.userspage-search-box {
+  flex: 1;
+  min-width: 250px;
+  position: relative;
+}
+
+.userspage-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.userspage-search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+}
+
+.userspage-search-input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.userspage-advanced-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  width: 100%;
+  padding-top: 0.75rem;
+  border-top: 2px solid #f3f4f6;
+}
+
+.userspage-filter-select {
+  padding: 0.5rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.userspage-filter-select:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* ==============================================
+   BULK ACTIONS
+============================================== */
+
+.userspage-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-radius: 8px;
+  border-left: 3px solid #3b82f6;
+}
+
+.userspage-bulk-count {
+  font-weight: 600;
+  color: #1e40af;
+  font-size: 0.85rem;
+}
+
+/* ==============================================
+   TABLE
+============================================== */
+
+.userspage-table-wrapper {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.userspage-table-container {
+  overflow-x: auto;
+}
+
+.userspage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.userspage-table thead {
+  background: linear-gradient(135deg, #f0fdf4 0%, #d1fae5 100%);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.userspage-table th {
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #047857;
+  border-bottom: 2px solid #10b981;
+  white-space: nowrap;
+}
+
+.userspage-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.8rem;
+  color: #374151;
+}
+
+.userspage-table tbody tr {
+  transition: all 0.2s ease;
+}
+
+.userspage-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.userspage-tr-selected {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important;
+}
+
+/* Sticky columns */
+.userspage-th-sticky,
+.userspage-td-sticky {
+  position: sticky;
+  background: inherit;
+  z-index: 5;
+}
+
+.userspage-th-sticky {
+  left: 0;
+  width: 40px;
+  z-index: 15;
+}
+
+.userspage-td-sticky {
+  left: 0;
+  background: white;
+}
+
+.userspage-tr-selected .userspage-td-sticky {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+}
+
+.userspage-th-sticky-id,
+.userspage-td-sticky-id {
+  left: 40px;
+  width: 60px;
+}
+
+.userspage-th-sticky-email,
+.userspage-td-sticky-email {
+  left: 100px;
+  min-width: 200px;
+}
+
+/* Sortable headers */
+.userspage-th-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.userspage-th-sortable:hover {
+  background: #d1fae5;
+}
+
+.userspage-sort-icon {
+  margin-left: 0.25rem;
+  font-size: 0.7rem;
+}
+
+/* Table cells */
+.userspage-td-id {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.userspage-td-email {
+  font-weight: 500;
+  color: #3b82f6;
+}
+
+.userspage-td-address {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userspage-td-empty {
+  text-align: center;
+  padding: 3rem !important;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.userspage-td-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+/* ==============================================
+   BADGES & STATUS
+============================================== */
+
+.userspage-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.userspage-badge-admin {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.userspage-badge-doctor {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  border: 1px solid #3b82f6;
+}
+
+.userspage-badge-staff {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.userspage-badge-patient {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.userspage-status {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.userspage-status-active {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #047857;
+  border: 1.5px solid #10b981;
+}
+
+.userspage-status-inactive {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 1.5px solid #ef4444;
+}
+
+.userspage-status-verified {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  border: 1.5px solid #3b82f6;
+}
+
+.userspage-status-unverified {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  color: #6b7280;
+  border: 1.5px solid #9ca3af;
+}
+
+/* ==============================================
+   ICON BUTTONS
+============================================== */
+
+.userspage-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.85rem;
+}
+
+.userspage-btn-icon:hover {
+  background: #f3f4f6;
+  color: #374151;
+  transform: scale(1.1);
+}
+
+.userspage-btn-icon-view {
+  color: #3b82f6;
+}
+
+.userspage-btn-icon-view:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+/* ==============================================
+   CHECKBOX
+============================================== */
+
+.userspage-checkbox-icon {
+  font-size: 1.1rem;
+  color: #d1d5db;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.userspage-checkbox-icon:hover {
+  color: #9ca3af;
+  transform: scale(1.1);
+}
+
+.userspage-checkbox-checked {
+  color: #10b981;
+}
+
+/* ==============================================
+   PAGINATION
+============================================== */
+
+.userspage-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.userspage-pagination-info {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.userspage-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.userspage-btn-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid #e5e7eb;
+  border-radius: 5px;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.85rem;
+}
+
+.userspage-btn-page:hover:not(:disabled) {
+  border-color: #10b981;
+  color: #10b981;
+  background: #f0fdf4;
+}
+
+.userspage-btn-page:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.userspage-page-info {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  padding: 0 0.5rem;
+}
+
+.userspage-limit-select {
+  padding: 0.4rem 0.6rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.userspage-limit-select:focus {
+  outline: none;
+  border-color: #10b981;
+}
+
+/* ==============================================
+   MODAL OVERLAY
+============================================== */
+
+.userspage-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.userspage-modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: userspage-modal-slide-in 0.3s ease-out;
+}
+
+@keyframes userspage-modal-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.userspage-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 2px solid #f3f4f6;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-radius: 12px 12px 0 0;
+}
+
+.userspage-modal-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #047857;
+}
+
+.userspage-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1.2rem;
+}
+
+.userspage-modal-close:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.userspage-modal-body {
+  padding: 1.5rem;
+}
+
+.userspage-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 2px solid #f3f4f6;
+  background: #f9fafb;
+  border-radius: 0 0 12px 12px;
+}
+
+/* ==============================================
+   DETAIL MODAL
+============================================== */
+
+.userspage-modal-detail {
+  max-width: 700px;
+}
+
+.userspage-detail-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-radius: 8px;
+  border-left: 3px solid #10b981;
+}
+
+.userspage-detail-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #059669;
+  margin: 0 0 0.75rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #d1fae5;
+}
+
+.userspage-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.userspage-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.userspage-detail-item strong {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.userspage-detail-item span {
+  font-size: 0.9rem;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.userspage-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding-top: 1rem;
+  border-top: 2px solid #f3f4f6;
+  margin-top: 1rem;
+}
+
+.userspage-detail-actions .userspage-button {
+  flex: 1;
+  min-width: 150px;
+  font-size: 0.85rem;
+  padding: 0.6rem 1rem;
+  justify-content: center;
+}
+
+/* ==============================================
+   FORM
+============================================== */
+
+.userspage-form-section {
+  margin-bottom: 1.5rem;
+}
+
+.userspage-form-section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #047857;
+  margin: 0 0 0.75rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #d1fae5;
+}
+
+.userspage-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.userspage-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.userspage-form-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.userspage-required {
+  color: #ef4444;
+}
+
+.userspage-input,
+.userspage-select {
+  padding: 0.5rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+}
+
+.userspage-input:focus,
+.userspage-select:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.userspage-input:disabled {
+  background: #f3f4f6;
+  cursor: not-allowed;
+}
+
+/* ==============================================
+   LOADING & ERROR
+============================================== */
+
+.userspage-loading {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.userspage-error {
+  text-align: center;
+  padding: 2rem;
+  color: #ef4444;
+  font-size: 0.9rem;
+  background: #fee2e2;
+  border-radius: 8px;
+  border-left: 3px solid #dc2626;
+}
+
+/* ==============================================
+   SCROLLBAR
+============================================== */
+
+.userspage-modal-content::-webkit-scrollbar,
+.userspage-table-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.userspage-modal-content::-webkit-scrollbar-track,
+.userspage-table-container::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+.userspage-modal-content::-webkit-scrollbar-thumb,
+.userspage-table-container::-webkit-scrollbar-thumb {
+  background: #10b981;
+  border-radius: 3px;
+}
+
+.userspage-modal-content::-webkit-scrollbar-thumb:hover,
+.userspage-table-container::-webkit-scrollbar-thumb:hover {
+  background: #059669;
+}
+
+/* ==============================================
+   RESPONSIVE
+============================================== */
+
+@media (max-width: 1024px) {
+  .userspage-th-sticky-email,
+  .userspage-td-sticky-email {
+    min-width: 150px;
+  }
+}
+
+@media (max-width: 768px) {
+  .userspage-container {
+    padding: 1rem;
+  }
+
+  .userspage-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .userspage-header-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .userspage-header-actions .userspage-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .userspage-filters {
+    flex-direction: column;
+  }
+
+  .userspage-search-box {
+    width: 100%;
+  }
+
+  .userspage-advanced-filters {
+    flex-direction: column;
+  }
+
+  .userspage-filter-select {
+    width: 100%;
+  }
+
+  .userspage-bulk-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .userspage-pagination {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .userspage-pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .userspage-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .userspage-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .userspage-detail-actions {
+    flex-direction: column;
+  }
+
+  .userspage-detail-actions .userspage-button {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .userspage-modal-content {
+    max-width: 95vw;
+  }
+
+  .userspage-table {
+    font-size: 0.75rem;
+  }
+
+  .userspage-table th,
+  .userspage-table td {
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .userspage-title {
+    font-size: 1.2rem;
+  }
+
+  .userspage-button {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.7rem;
+  }
+
+  .userspage-modal-header h2 {
+    font-size: 1rem;
+  }
+
+  .userspage-modal-body {
+    padding: 1rem;
+  }
+}

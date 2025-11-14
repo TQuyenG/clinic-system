@@ -1,0 +1,833 @@
+/*
+ * CSS cho trang Quản lý Diễn đàn
+ * Theme: Xanh lá pastel Y tế, thân thiện, đồng bộ với ProfilePage
+ * Naming: .forum-management-page-ten-class
+ * Sizing: Thu nhỏ
+ */
+
+:root {
+  /* Palette: Pastel Green, Medical, Friendly */
+  --forum-management-page-primary: #66bb6a;
+  --forum-management-page-primary-dark: #4caf50;
+  --forum-management-page-success: #27ae60;
+  --forum-management-page-success-light: #e0f7e9;
+  --forum-management-page-success-dark: #1e8e5e;
+  --forum-management-page-error: #e74c3c;
+  --forum-management-page-error-light: #fbe9e7;
+  --forum-management-page-error-dark: #c63c2c;
+  --forum-management-page-warning: #E67E22;
+  --forum-management-page-warning-light: #fff8e1;
+  
+  /* Backgrounds & Text */
+  --forum-management-page-bg: #f7fdfa; /* Nền xanh lá pastel rất nhạt */
+  --forum-management-page-content-bg: #ffffff;
+  --forum-management-page-gray-100: #f1f8f1;
+  --forum-management-page-gray-300: #eeeeee;
+  --forum-management-page-gray-400: #bdbdbd;
+  --forum-management-page-gray-600: #666;
+  --forum-management-page-gray-700: #444;
+  --forum-management-page-gray-800: #333;
+
+  /* Sizing & Shadow (Shrunk) */
+  --forum-management-page-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --forum-management-page-shadow-md: 0 3px 6px rgba(0, 0, 0, 0.07);
+  --forum-management-page-shadow-lg: 0 6px 15px rgba(0, 0, 0, 0.08);
+  --forum-management-page-radius: 8px;
+  --forum-management-page-radius-sm: 6px;
+  --forum-management-page-transition: all 0.25s ease;
+}
+
+.forum-management-page-container {
+  padding: 1.5rem; /* Thu nhỏ */
+  max-width: 1400px;
+  margin: 0 auto 3rem auto;
+  background: var(--forum-management-page-bg);
+  border-radius: var(--forum-management-page-radius);
+}
+
+.forum-management-page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 2rem 2.25rem; /* Thu nhỏ */
+  background: var(--forum-management-page-primary); /* Màu chủ đạo */
+  border-radius: var(--forum-management-page-radius);
+  color: #ffffff;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--forum-management-page-shadow-md);
+}
+
+.forum-management-page-title-group h1 {
+  font-size: 1.75rem; /* Thu nhỏ */
+  margin: 0.25rem 0 0.5rem 0;
+}
+
+.forum-management-page-title-group p {
+  max-width: 500px;
+  font-size: 0.9rem; /* Thu nhỏ */
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+.forum-management-page-kicker {
+  display: inline-flex;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.75rem; /* Thu nhỏ */
+  font-weight: 600;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+}
+
+.forum-management-page-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* Thu nhỏ */
+  align-items: flex-end;
+}
+
+.forum-management-page-metric-pill {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 0.5rem 1rem; /* Thu nhỏ */
+  border-radius: 999px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 140px;
+}
+
+.forum-management-page-metric-label {
+  font-size: 0.8rem; /* Thu nhỏ */
+  opacity: 0.9;
+}
+
+.forum-management-page-metric-value {
+  font-size: 1.5rem; /* Thu nhỏ */
+  font-weight: 700;
+}
+
+.forum-management-page-stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Thu nhỏ */
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.forum-management-page-stat-card {
+  border-radius: var(--forum-management-page-radius);
+  padding: 1.5rem; /* Thu nhỏ */
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: #ffffff;
+  box-shadow: var(--forum-management-page-shadow-sm);
+  transition: var(--forum-management-page-transition);
+}
+
+.forum-management-page-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--forum-management-page-shadow-md);
+}
+
+.forum-management-page-stat-icon {
+  font-size: 2rem; /* Thu nhỏ */
+  padding: 0.75rem; /* Thu nhỏ */
+  border-radius: var(--forum-management-page-radius);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Áp dụng màu sắc y tế */
+.forum-management-page-stat-total {
+  background: #29B6F6; /* Màu xanh dương thân thiện */
+}
+.forum-management-page-stat-pending {
+  background: var(--forum-management-page-warning); /* Cam cảnh báo */
+}
+.forum-management-page-stat-approved {
+  background: var(--forum-management-page-success); /* Xanh lá */
+}
+.forum-management-page-stat-rejected {
+  background: var(--forum-management-page-error); /* Đỏ */
+}
+
+.forum-management-page-stat-info h3 {
+  font-size: 2rem; /* Thu nhỏ */
+  margin: 0;
+  font-weight: 700;
+}
+
+.forum-management-page-stat-info p {
+  font-size: 0.85rem; /* Thu nhỏ */
+  margin: 0.25rem 0 0 0;
+  opacity: 0.9;
+}
+
+.forum-management-page-tab-navigation {
+  display: flex; /* Đổi sang flex cho gọn */
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background: var(--forum-management-page-gray-100);
+  padding: 0.5rem;
+  border-radius: var(--forum-management-page-radius);
+  box-shadow: var(--forum-management-page-shadow-sm);
+}
+
+.forum-management-page-tab-navigation button {
+  border: none;
+  background: var(--forum-management-page-content-bg);
+  color: var(--forum-management-page-gray-700);
+  font-size: 0.9rem; /* Thu nhỏ */
+  font-weight: 600;
+  padding: 0.6rem 1rem; /* Thu nhỏ */
+  border-radius: var(--forum-management-page-radius-sm);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-grow: 1;
+  border: 1px solid var(--forum-management-page-gray-300);
+  transition: var(--forum-management-page-transition);
+}
+
+.forum-management-page-count-badge {
+  background: var(--forum-management-page-gray-300);
+  color: var(--forum-management-page-gray-800);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem; /* Thu nhỏ */
+  font-weight: 700;
+}
+
+.forum-management-page-tab-navigation button:hover {
+  background: var(--forum-management-page-gray-100);
+  border-color: var(--forum-management-page-gray-400);
+}
+
+.forum-management-page-tab-navigation button.active {
+  background: var(--forum-management-page-primary); /* Màu chủ đạo */
+  color: #ffffff;
+  border-color: var(--forum-management-page-primary);
+  box-shadow: var(--forum-management-page-shadow-sm);
+}
+
+.forum-management-page-tab-navigation button.active .forum-management-page-count-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.forum-management-page-tab-panels {
+  margin-top: 1.5rem;
+}
+
+.forum-management-page-content-section {
+  background: var(--forum-management-page-content-bg);
+  border-radius: var(--forum-management-page-radius);
+  padding: 1.5rem; /* Thu nhỏ */
+  box-shadow: var(--forum-management-page-shadow-md);
+}
+
+.forum-management-page-section-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.forum-management-page-section-header h2 {
+  margin: 0;
+  font-size: 1.25rem; /* Thu nhỏ */
+  color: var(--forum-management-page-gray-800);
+}
+
+.forum-management-page-section-header p {
+  margin: 0.25rem 0 0 0;
+  color: var(--forum-management-page-gray-600);
+  font-size: 0.9rem; /* Thu nhỏ */
+}
+
+.forum-management-page-section-meta {
+  padding: 0.5rem 0.8rem;
+  background: var(--forum-management-page-gray-100);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--forum-management-page-primary-dark);
+}
+
+.forum-management-page-section-actions {
+  display: flex;
+  align-items: center;
+}
+
+.forum-management-page-search-bar {
+  position: relative;
+  width: 100%;
+  max-width: 350px;
+}
+
+.forum-management-page-search-icon {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--forum-management-page-gray-400);
+  font-size: 0.9rem; /* Thu nhỏ */
+}
+
+.forum-management-page-search-bar input {
+  width: 100%;
+  padding: 0.75rem 0.8rem 0.75rem 2.5rem; /* Thu nhỏ */
+  border: 1px solid var(--forum-management-page-gray-300);
+  border-radius: var(--forum-management-page-radius-sm);
+  font-size: 0.9rem; /* Thu nhỏ */
+  transition: var(--forum-management-page-transition);
+  background: var(--forum-management-page-content-bg);
+}
+
+.forum-management-page-search-bar input:focus {
+  outline: none;
+  border-color: var(--forum-management-page-primary);
+  box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.2);
+}
+
+/* --- Báo cáo (Report) --- */
+.forum-management-page-reports-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--forum-management-page-radius);
+  background: var(--forum-management-page-bg);
+  border: 1px solid var(--forum-management-page-gray-300);
+  align-items: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+.forum-management-page-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 160px;
+}
+
+.forum-management-page-filter-group label {
+  font-size: 0.85rem; /* Thu nhỏ */
+  color: var(--forum-management-page-gray-700);
+  font-weight: 600;
+}
+
+.forum-management-page-filter-group select {
+  padding: 0.6rem 0.8rem; /* Thu nhỏ */
+  border-radius: var(--forum-management-page-radius-sm);
+  border: 1px solid var(--forum-management-page-gray-300);
+  font-size: 0.9rem; /* Thu nhỏ */
+  background: var(--forum-management-page-content-bg);
+}
+
+.forum-management-page-btn-reset-filter {
+  padding: 0.6rem 1rem;
+  border-radius: var(--forum-management-page-radius-sm);
+  background: var(--forum-management-page-content-bg);
+  border: 1px solid var(--forum-management-page-gray-400);
+  color: var(--forum-management-page-gray-700);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--forum-management-page-transition);
+}
+.forum-management-page-btn-reset-filter:hover {
+  background: var(--forum-management-page-gray-100);
+}
+
+.forum-management-page-reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.forum-management-page-report-card {
+  background: var(--forum-management-page-content-bg);
+  border: 1px solid var(--forum-management-page-gray-300);
+  border-radius: var(--forum-management-page-radius);
+  padding: 1rem 1.25rem; /* Thu nhỏ */
+  box-shadow: var(--forum-management-page-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.forum-management-page-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.forum-management-page-report-status-chip {
+  padding: 0.3rem 0.8rem; /* Thu nhỏ */
+  border-radius: 999px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.8rem; /* Thu nhỏ */
+}
+
+.forum-management-page-report-meta {
+  font-size: 0.8rem; /* Thu nhỏ */
+  color: var(--forum-management-page-gray-600);
+}
+
+.forum-management-page-report-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--forum-management-page-gray-700);
+  font-size: 0.9rem; /* Thu nhỏ */
+}
+
+.forum-management-page-report-body p { margin: 0; }
+
+.forum-management-page-report-snippet {
+  padding: 0.75rem;
+  background: var(--forum-management-page-gray-100);
+  border: 1px solid var(--forum-management-page-gray-300);
+  border-radius: var(--forum-management-page-radius-sm);
+  color: var(--forum-management-page-gray-800);
+  font-style: italic;
+}
+
+.forum-management-page-report-warning {
+  padding: 0.75rem;
+  background: var(--forum-management-page-warning-light);
+  border-left: 4px solid var(--forum-management-page-warning);
+  border-radius: var(--forum-management-page-radius-sm);
+  color: #856404;
+}
+
+.forum-management-page-report-related {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.forum-management-page-report-related span {
+  font-weight: 600;
+  color: var(--forum-management-page-gray-700);
+  font-size: 0.9rem;
+}
+
+.forum-management-page-btn-view {
+  background: var(--forum-management-page-gray-600);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: var(--forum-management-page-radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.forum-management-page-btn-view:hover {
+  background: var(--forum-management-page-gray-800);
+}
+
+.forum-management-page-report-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--forum-management-page-gray-300);
+}
+
+.forum-management-page-btn-remove-entity {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem; /* Thu nhỏ */
+  border-radius: var(--forum-management-page-radius-sm);
+  border: none;
+  background: var(--forum-management-page-error);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--forum-management-page-transition);
+}
+.forum-management-page-btn-remove-entity:hover {
+  background: var(--forum-management-page-error-dark);
+}
+
+.forum-management-page-report-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.forum-management-page-btn-report-status {
+  padding: 0.5rem 1rem; /* Thu nhỏ */
+  border-radius: 999px;
+  border: 1px solid var(--forum-management-page-gray-300);
+  background: var(--forum-management-page-gray-100);
+  color: var(--forum-management-page-gray-700);
+  font-size: 0.8rem; /* Thu nhỏ */
+  cursor: pointer;
+  transition: var(--forum-management-page-transition);
+}
+.forum-management-page-btn-report-status:hover {
+  background: var(--forum-management-page-gray-300);
+}
+
+.forum-management-page-btn-report-status.active {
+  background: var(--forum-management-page-primary);
+  border-color: var(--forum-management-page-primary);
+  color: #ffffff;
+  cursor: default;
+}
+
+.forum-management-page-report-notes {
+  font-size: 0.8rem; /* Thu nhỏ */
+  color: var(--forum-management-page-gray-600);
+  padding: 0.5rem 0.8rem;
+  background: var(--forum-management-page-gray-100);
+  border-radius: var(--forum-management-page-radius-sm);
+}
+
+/* --- Loading / No Data --- */
+.forum-management-page-loading,
+.forum-management-page-no-data {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--forum-management-page-gray-600);
+  font-size: 0.9rem;
+  background: var(--forum-management-page-gray-100);
+  border-radius: var(--forum-management-page-radius);
+}
+
+/* --- Bảng Câu hỏi (Table) --- */
+.forum-management-page-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--forum-management-page-gray-300);
+  border-radius: var(--forum-management-page-radius);
+  box-shadow: var(--forum-management-page-shadow-sm);
+  background: var(--forum-management-page-content-bg);
+}
+
+.forum-management-page-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.forum-management-page-table th,
+.forum-management-page-table td {
+  padding: 0.9rem 1rem; /* Thu nhỏ */
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--forum-management-page-gray-300);
+}
+
+.forum-management-page-table th {
+  background: var(--forum-management-page-gray-100);
+  color: var(--forum-management-page-gray-700);
+  font-size: 0.8rem; /* Thu nhỏ */
+  font-weight: 600;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.forum-management-page-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.forum-management-page-table tbody tr:hover {
+  background-color: var(--forum-management-page-bg);
+}
+
+.forum-management-page-sortable-header {
+  cursor: pointer;
+  transition: var(--forum-management-page-transition);
+}
+.forum-management-page-sortable-header:hover {
+  color: var(--forum-management-page-primary-dark);
+}
+
+.forum-management-page-sort-icon {
+  margin-left: 0.4rem;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.forum-management-page-question-cell-title {
+  font-weight: 600;
+  color: var(--forum-management-page-gray-800);
+  font-size: 0.9rem; /* Thu nhỏ */
+  margin-bottom: 0.25rem;
+}
+
+.forum-management-page-question-cell-author {
+  font-size: 0.8rem; /* Thu nhỏ */
+  color: var(--forum-management-page-gray-600);
+}
+
+.forum-management-page-date-cell, 
+.forum-management-page-counts-cell {
+  font-size: 0.85rem; /* Thu nhỏ */
+  color: var(--forum-management-page-gray-700);
+  white-space: nowrap;
+}
+.forum-management-page-counts-cell div { line-height: 1.5; }
+
+.forum-management-page-status-badge-table {
+  padding: 0.3rem 0.6rem; /* Thu nhỏ */
+  border-radius: var(--forum-management-page-radius-sm);
+  font-size: 0.75rem; /* Thu nhỏ */
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.forum-management-page-actions-cell {
+  display: flex;
+  gap: 0.5rem; /* Thu nhỏ */
+}
+
+.forum-management-page-btn-table-action {
+  padding: 0.5rem; /* Thu nhỏ */
+  border: none;
+  border-radius: var(--forum-management-page-radius-sm);
+  font-size: 0.9rem; /* Thu nhỏ icon */
+  cursor: pointer;
+  color: #ffffff;
+  transition: var(--forum-management-page-transition);
+  line-height: 1;
+}
+.forum-management-page-btn-table-action:hover {
+  transform: translateY(-1px);
+}
+
+.forum-management-page-btn-table-approve {
+  background: var(--forum-management-page-success);
+}
+.forum-management-page-btn-table-approve:hover {
+  background: var(--forum-management-page-success-dark);
+}
+
+.forum-management-page-btn-table-reject {
+  background: var(--forum-management-page-error);
+}
+.forum-management-page-btn-table-reject:hover {
+  background: var(--forum-management-page-error-dark);
+}
+
+.forum-management-page-btn-table-view {
+  background: var(--forum-management-page-gray-600);
+}
+.forum-management-page-btn-table-view:hover {
+  background: var(--forum-management-page-gray-800);
+}
+
+.forum-management-page-rejection-reason-table {
+  font-size: 0.8rem;
+  color: var(--forum-management-page-error-dark);
+  background: var(--forum-management-page-error-light);
+  padding: 0.5rem;
+  border-radius: var(--forum-management-page-radius-sm);
+  max-width: 180px;
+}
+
+/* --- Modal --- */
+.forum-management-page-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.forum-management-page-modal-content {
+  background: var(--forum-management-page-content-bg);
+  border-radius: var(--forum-management-page-radius);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--forum-management-page-shadow-lg);
+}
+
+.forum-management-page-modal-header {
+  padding: 1.25rem 1.5rem; /* Thu nhỏ */
+  border-bottom: 1px solid var(--forum-management-page-gray-300);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.forum-management-page-modal-header h2 {
+  font-size: 1.25rem; /* Thu nhỏ */
+  color: var(--forum-management-page-gray-800);
+  margin: 0;
+}
+
+.forum-management-page-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.75rem; /* Thu nhỏ */
+  color: var(--forum-management-page-gray-400);
+  cursor: pointer;
+}
+.forum-management-page-close-btn:hover {
+  color: var(--forum-management-page-gray-700);
+}
+
+.forum-management-page-modal-body {
+  padding: 1.5rem; /* Thu nhỏ */
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.forum-management-page-question-detail h3 {
+  margin: 0 0 0.75rem 0;
+  color: var(--forum-management-page-gray-800);
+  font-size: 1.1rem;
+}
+.forum-management-page-question-detail p {
+  margin: 0.25rem 0;
+  color: var(--forum-management-page-gray-700);
+  font-size: 0.9rem;
+}
+
+.forum-management-page-content-box {
+  background: var(--forum-management-page-gray-100);
+  border-radius: var(--forum-management-page-radius-sm);
+  padding: 0.8rem 1rem; /* Thu nhỏ */
+  line-height: 1.6;
+  color: var(--forum-management-page-gray-800);
+  border: 1px solid var(--forum-management-page-gray-300);
+}
+
+.forum-management-page-form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--forum-management-page-gray-700);
+  font-size: 0.9rem;
+}
+
+.forum-management-page-form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--forum-management-page-gray-300);
+  border-radius: var(--forum-management-page-radius-sm);
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+}
+.forum-management-page-form-group textarea:focus {
+  outline: none;
+  border-color: var(--forum-management-page-primary);
+  box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.2);
+}
+
+.forum-management-page-modal-footer {
+  padding: 1rem 1.5rem; /* Thu nhỏ */
+  border-top: 1px solid var(--forum-management-page-gray-300);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.forum-management-page-modal-footer button {
+  padding: 0.6rem 1.2rem; /* Thu nhỏ */
+  border: none;
+  border-radius: var(--forum-management-page-radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--forum-management-page-transition);
+}
+
+.forum-management-page-btn-cancel {
+  background: var(--forum-management-page-gray-300);
+  color: var(--forum-management-page-gray-800);
+}
+.forum-management-page-btn-cancel:hover {
+  background: var(--forum-management-page-gray-400);
+}
+
+.forum-management-page-btn-confirm-approve {
+  background: var(--forum-management-page-success);
+  color: #ffffff;
+}
+.forum-management-page-btn-confirm-approve:hover {
+  background: var(--forum-management-page-success-dark);
+}
+
+.forum-management-page-btn-confirm-reject {
+  background: var(--forum-management-page-error);
+  color: #ffffff;
+}
+.forum-management-page-btn-confirm-reject:hover {
+  background: var(--forum-management-page-error-dark);
+}
+
+/* --- Responsive --- */
+@media (max-width: 1024px) {
+  .forum-management-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .forum-management-page-metrics {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .forum-management-page-container {
+    padding: 1rem;
+  }
+  .forum-management-page-header {
+    padding: 1.5rem;
+  }
+  .forum-management-page-stats-cards {
+    grid-template-columns: 1fr;
+  }
+  .forum-management-page-tab-navigation {
+    flex-direction: column;
+  }
+  .forum-management-page-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .forum-management-page-section-actions {
+    width: 100%;
+  }
+  .forum-management-page-search-bar {
+    max-width: none;
+  }
+  .forum-management-page-reports-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .forum-management-page-btn-reset-filter {
+    width: 100%;
+  }
+  .forum-management-page-report-header,
+  .forum-management-page-report-related,
+  .forum-management-page-report-status-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .forum-management-page-btn-report-status,
+  .forum-management-page-btn-remove-entity,
+  .forum-management-page-btn-view {
+    width: 100%;
+    justify-content: center;
+  }
+}

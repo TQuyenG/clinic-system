@@ -1,0 +1,429 @@
+/* client/src/pages/MedicalRecordFormPage.css */
+/* Giao diện trang Nhập Hồ sơ Y tế */
+
+:root {
+  /* Màu chủ đạo (Xanh lá y tế) */
+  --mrfp-primary: #22c55e; /* green-500 */
+  --mrfp-primary-dark: #16a34a; /* green-600 */
+  --mrfp-primary-light: #dcfce7; /* green-100 */
+  --mrfp-bg: #f0fdf4; /* green-50 (Màu nền pastel) */
+
+  /* Màu chữ */
+  --mrfp-text-primary: #1f2937; /* gray-800 */
+  --mrfp-text-secondary: #4b5563; /* gray-600 */
+  --mrfp-text-light: #6b7280; /* gray-500 */
+
+  /* Màu nền & Viền (Theo style thu nhỏ) */
+  --mrfp-card-bg: #ffffff;
+  --mrfp-border: #e5e7eb; /* gray-200 */
+  --mrfp-input-bg: #f9fafb; /* gray-50 */
+  
+  /* Màu Cảnh báo */
+  --mrfp-warning-bg: #fef9c3; /* yellow-100 */
+  --mrfp-warning-text: #854d0e; /* yellow-800 */
+  --mrfp-danger: #991b1b; /* red-800 */
+  
+  /* Kích thước (Thu nhỏ) */
+  --mrfp-radius: 6px;
+  --mrfp-font-size-base: 0.875rem; /* 14px */
+  --mrfp-font-size-small: 0.8rem;
+  --mrfp-input-padding: 0.6rem 0.75rem;
+  --mrfp-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/* === MAIN LAYOUT === */
+.medical-record-form-page-container {
+  background-color: var(--mrfp-bg);
+  min-height: 100vh;
+  padding: 1.5rem;
+  font-family: 'Inter', sans-serif;
+  font-size: var(--mrfp-font-size-base);
+  color: var(--mrfp-text-secondary);
+}
+
+.medical-record-form-page-form {
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+/* === HEADER === */
+.medical-record-form-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: var(--mrfp-card-bg);
+  border-radius: var(--mrfp-radius);
+  border: 1px solid var(--mrfp-border);
+  box-shadow: var(--mrfp-shadow);
+}
+
+.medical-record-form-page-header-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--mrfp-text-primary);
+  margin: 0 0 0.25rem 0;
+}
+.medical-record-form-page-header-content p {
+  font-size: 0.9rem;
+  margin: 0;
+  color: var(--mrfp-text-light);
+}
+
+.medical-record-form-page-btn-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.25rem;
+  font-size: var(--mrfp-font-size-base);
+  font-weight: 600;
+  background-color: var(--mrfp-primary);
+  color: white;
+  border: none;
+  border-radius: var(--mrfp-radius);
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+.medical-record-form-page-btn-submit:hover {
+  background-color: var(--mrfp-primary-dark);
+}
+.medical-record-form-page-btn-submit:disabled {
+  background-color: var(--mrfp-border);
+  color: var(--mrfp-text-light);
+  cursor: not-allowed;
+}
+
+/* === INFO CARD === */
+.medical-record-form-page-info-card {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.medical-record-form-page-info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: var(--mrfp-bg);
+  padding: 0.75rem 1rem;
+  border-radius: var(--mrfp-radius);
+  border: 1px solid var(--mrfp-primary-light);
+}
+.medical-record-form-page-info-icon {
+  font-size: 1.25rem;
+  color: var(--mrfp-primary);
+}
+.medical-record-form-page-info-text {
+  display: flex;
+  flex-direction: column;
+}
+.medical-record-form-page-info-text label {
+  font-size: var(--mrfp-font-size-small);
+  font-weight: 500;
+  color: var(--mrfp-text-light);
+}
+.medical-record-form-page-info-text span {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--mrfp-text-primary);
+}
+
+/* === CARD (Layout chung) === */
+.medical-record-form-page-card {
+  background-color: var(--mrfp-card-bg);
+  border-radius: var(--mrfp-radius);
+  border: 1px solid var(--mrfp-border);
+  box-shadow: var(--mrfp-shadow);
+  overflow: hidden; /* Giữ cho card gọn gàng */
+}
+.medical-record-form-page-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--mrfp-text-primary);
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background-color: var(--mrfp-input-bg);
+  border-bottom: 1px solid var(--mrfp-border);
+}
+.medical-record-form-page-card-title svg {
+  color: var(--mrfp-primary);
+}
+
+/* === MAIN GRID === */
+.medical-record-form-page-main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+}
+.medical-record-form-page-left-col,
+.medical-record-form-page-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* === FORM GROUP (Chung) === */
+.medical-record-form-page-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.medical-record-form-page-card .medical-record-form-page-form-group-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+}
+.medical-record-form-page-form-group.full-span {
+  grid-column: 1 / -1;
+}
+.medical-record-form-page-form-group label {
+  font-weight: 600;
+  color: var(--mrfp-text-primary);
+  font-size: var(--mrfp-font-size-base);
+}
+
+/* Form Controls (Input, Textarea - Thu nhỏ) */
+.medical-record-form-page-input,
+.medical-record-form-page-textarea {
+  width: 100%;
+  padding: var(--mrfp-input-padding);
+  font-size: var(--mrfp-font-size-base);
+  font-family: 'Inter', sans-serif;
+  color: var(--mrfp-text-primary);
+  background-color: var(--mrfp-card-bg);
+  border: 1px solid var(--mrfp-border);
+  border-radius: var(--mrfp-radius);
+  transition: all 0.2s ease;
+}
+.medical-record-form-page-textarea {
+  resize: vertical;
+}
+.medical-record-form-page-input:focus,
+.medical-record-form-page-textarea:focus {
+  outline: none;
+  border-color: var(--mrfp-primary);
+  box-shadow: 0 0 0 2px var(--mrfp-primary-light);
+  background-color: var(--mrfp-card-bg);
+}
+/* Highlight trường quan trọng */
+.medical-record-form-page-textarea.medical-record-form-page-highlight {
+  border-width: 1px;
+  border-color: var(--mrfp-primary);
+  background-color: var(--mrfp-bg);
+}
+
+/* === PRESCRIPTION (Đơn thuốc) === */
+.medical-record-form-page-prescription-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+.medical-record-form-page-prescription-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.medical-record-form-page-prescription-row .input-small {
+  flex-basis: 120px;
+  flex-shrink: 0;
+}
+.medical-record-form-page-prescription-row .input-large {
+  flex-grow: 1;
+}
+.medical-record-form-page-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: var(--mrfp-radius);
+  cursor: pointer;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+.medical-record-form-page-btn-remove {
+  background-color: var(--mrfp-border);
+  color: var(--mrfp-danger);
+}
+.medical-record-form-page-btn-remove:hover {
+  background-color: #fee2e2; /* red-100 */
+}
+.medical-record-form-page-btn-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.medical-record-form-page-btn-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 1rem 1rem 1rem;
+  padding: 0.5rem 1rem;
+  font-size: var(--mrfp-font-size-small);
+  font-weight: 600;
+  color: var(--mrfp-primary-dark);
+  background-color: var(--mrfp-primary-light);
+  border: 1px solid var(--mrfp-primary-light);
+  border-radius: var(--mrfp-radius);
+  cursor: pointer;
+}
+.medical-record-form-page-btn-add:hover {
+  background-color: var(--mrfp-primary);
+  color: white;
+}
+
+/* === RIGHT COL (Tái khám & Upload) === */
+.medical-record-form-page-right-col .medical-record-form-page-card {
+  padding-bottom: 1rem; /* Thu nhỏ padding dưới */
+}
+.medical-record-form-page-right-col .medical-record-form-page-form-group {
+  padding: 1rem;
+}
+
+/* Cảnh báo */
+.medical-record-form-page-alert-box {
+  display: flex;
+  gap: 0.5rem;
+  background-color: var(--mrfp-warning-bg);
+  color: var(--mrfp-warning-text);
+  padding: 0.75rem;
+  margin: 1rem;
+  border-radius: var(--mrfp-radius);
+  font-size: var(--mrfp-font-size-small);
+}
+.medical-record-form-page-alert-box svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* File Upload */
+.medical-record-form-page-file-group {
+  padding: 0 1rem 1rem 1rem;
+}
+.medical-record-form-page-file-group label {
+  font-weight: 600;
+  color: var(--mrfp-text-primary);
+  font-size: var(--mrfp-font-size-base);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+.medical-record-form-page-file-uploader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem;
+  background-color: var(--mrfp-card-bg);
+  border: 1px dashed var(--mrfp-primary);
+  border-radius: var(--mrfp-radius);
+  color: var(--mrfp-primary-dark);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.medical-record-form-page-file-uploader:hover {
+  background-color: var(--mrfp-bg);
+}
+.medical-record-form-page-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.medical-record-form-page-file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  background-color: var(--mrfp-input-bg);
+  border-radius: var(--mrfp-radius);
+  font-size: var(--mrfp-font-size-small);
+}
+/* Đánh dấu file mới */
+.medical-record-form-page-file-item.new {
+  background-color: var(--mrfp-primary-light);
+}
+.medical-record-form-page-file-item svg {
+  color: var(--mrfp-text-light);
+  flex-shrink: 0;
+}
+.medical-record-form-page-file-name {
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.medical-record-form-page-file-item button {
+  background: none;
+  border: none;
+  color: var(--mrfp-danger);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+}
+
+/* === LOADING === */
+.medical-record-form-page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 400px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--mrfp-primary-dark);
+}
+.medical-record-form-page-spin-icon {
+  font-size: 2rem;
+  animation: mrfp-spin 1s linear infinite;
+}
+.medical-record-form-page-spin-icon-small {
+  font-size: 0.9rem;
+  animation: mrfp-spin 1s linear infinite;
+}
+@keyframes mrfp-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* === RESPONSIVE (Thu gọn) === */
+@media (max-width: 900px) {
+  .medical-record-form-page-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .medical-record-form-page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .medical-record-form-page-info-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .medical-record-form-page-card .medical-record-form-page-form-group-grid-2 {
+    grid-template-columns: 1fr;
+  }
+  .medical-record-form-page-prescription-row {
+    flex-wrap: wrap;
+  }
+  .medical-record-form-page-prescription-row .input-large {
+    flex-basis: 100%;
+    order: 4;
+  }
+  .medical-record-form-page-prescription-row .medical-record-form-page-btn-icon {
+    order: 5;
+  }
+}

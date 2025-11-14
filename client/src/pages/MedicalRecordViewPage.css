@@ -1,0 +1,420 @@
+/* client/src/pages/MedicalRecordViewPage.css */
+/* Giao diện trang Xem Hồ sơ Y tế */
+
+:root {
+  /* Màu chủ đạo (Xanh lá y tế) */
+  --mrvp-primary: #22c55e; /* green-500 */
+  --mrvp-primary-dark: #16a34a; /* green-600 */
+  --mrvp-primary-light: #dcfce7; /* green-100 */
+  --mrvp-bg: #f0fdf4; /* green-50 (Màu nền pastel) */
+
+  /* Màu chữ */
+  --mrvp-text-primary: #1f2937; /* gray-800 */
+  --mrvp-text-secondary: #4b5563; /* gray-600 */
+  --mrvp-text-light: #6b7280; /* gray-500 */
+
+  /* Màu nền & Viền (Theo style thu nhỏ) */
+  --mrvp-card-bg: #ffffff;
+  --mrvp-border: #e5e7eb; /* gray-200 */
+  --mrvp-input-bg: #f9fafb; /* gray-50 */
+  
+  /* Màu Cảnh báo */
+  --mrvp-warning-bg: #fef9c3; /* yellow-100 */
+  --mrvp-warning-text: #854d0e; /* yellow-800 */
+  
+  /* Kích thước (Thu nhỏ) */
+  --mrvp-radius: 6px;
+  --mrvp-font-size-base: 0.875rem; /* 14px */
+  --mrvp-font-size-small: 0.8rem;
+  --mrvp-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/* === MAIN LAYOUT === */
+.medical-record-view-page-container {
+  background-color: var(--mrvp-bg);
+  min-height: 100vh;
+  padding: 1.5rem;
+  font-family: 'Inter', sans-serif;
+  font-size: var(--mrvp-font-size-base);
+  color: var(--mrvp-text-secondary);
+}
+
+.medical-record-view-page-wrapper {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* === HEADER === */
+.medical-record-view-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: var(--mrvp-card-bg);
+  border-radius: var(--mrvp-radius);
+  border: 1px solid var(--mrvp-border);
+  box-shadow: var(--mrvp-shadow);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.medical-record-view-page-header-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--mrvp-text-primary);
+  margin: 0 0 0.25rem 0;
+}
+.medical-record-view-page-header-content p {
+  font-size: 0.9rem;
+  margin: 0;
+  color: var(--mrvp-text-light);
+}
+
+.medical-record-view-page-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Nút bấm (Thu nhỏ) */
+.medical-record-view-page-btn-primary,
+.medical-record-view-page-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  font-size: var(--mrvp-font-size-small);
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: var(--mrvp-radius);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.medical-record-view-page-btn-primary {
+  background-color: var(--mrvp-primary);
+  color: white;
+}
+.medical-record-view-page-btn-primary:hover {
+  background-color: var(--mrvp-primary-dark);
+}
+.medical-record-view-page-btn-secondary {
+  background-color: var(--mrvp-card-bg);
+  color: var(--mrvp-text-secondary);
+  border-color: var(--mrvp-border);
+}
+.medical-record-view-page-btn-secondary:hover {
+  background-color: var(--mrvp-input-bg);
+}
+
+/* === INFO GRID (BN & BS) === */
+.medical-record-view-page-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.medical-record-view-page-info-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: var(--mrvp-card-bg);
+  border: 1px solid var(--mrvp-border);
+  padding: 1rem;
+  border-radius: var(--mrvp-radius);
+}
+.medical-record-view-page-info-icon {
+  font-size: 1.5rem;
+  color: var(--mrvp-primary);
+  flex-shrink: 0;
+}
+.medical-record-view-page-info-text {
+  display: flex;
+  flex-direction: column;
+}
+.medical-record-view-page-info-text label {
+  font-size: var(--mrvp-font-size-small);
+  font-weight: 500;
+  color: var(--mrvp-text-light);
+}
+.medical-record-view-page-info-text span {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--mrvp-text-primary);
+}
+
+/* === MAIN GRID === */
+.medical-record-view-page-main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+}
+
+.medical-record-view-page-left-col,
+.medical-record-view-page-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* === CARD (Layout chung) === */
+.medical-record-view-page-card {
+  background-color: var(--mrvp-card-bg);
+  border-radius: var(--mrvp-radius);
+  border: 1px solid var(--mrvp-border);
+  box-shadow: var(--mrvp-shadow);
+  overflow: hidden;
+}
+
+/* Tiêu đề card (thu nhỏ) */
+.medical-record-view-page-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--mrvp-text-primary);
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background-color: var(--mrvp-input-bg);
+  border-bottom: 1px solid var(--mrvp-border);
+}
+.medical-record-view-page-card-title svg {
+  color: var(--mrvp-primary);
+  font-size: 1rem;
+}
+
+/* === NỘI DUNG CHÍNH (Bên trái) === */
+
+/* Chẩn đoán (Nổi bật) */
+.medical-record-view-page-diagnosis-box {
+  padding: 1rem;
+  background-color: var(--mrvp-primary-light);
+  border-bottom: 1px solid var(--mrvp-primary-light);
+}
+.medical-record-view-page-diagnosis-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--mrvp-primary-dark);
+  margin: 0 0 0.5rem 0;
+}
+.medical-record-view-page-diagnosis-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--mrvp-text-primary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Các mục chi tiết */
+.medical-record-view-page-section {
+  padding: 1rem;
+  border-bottom: 1px solid var(--mrvp-border);
+}
+.medical-record-view-page-card > .medical-record-view-page-section:last-child {
+  border-bottom: none;
+}
+.medical-record-view-page-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--mrvp-text-light);
+  text-transform: uppercase;
+  margin: 0 0 0.5rem 0;
+}
+.medical-record-view-page-section p {
+  font-size: var(--mrvp-font-size-base);
+  color: var(--mrvp-text-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+.medical-record-view-page-follow-up {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--mrvp-font-size-base);
+  color: var(--mrvp-text-primary);
+}
+.medical-record-view-page-follow-up svg {
+  color: var(--mrvp-primary);
+}
+
+/* === CỘT PHẢI (Đơn thuốc & Files) === */
+
+/* Bảng đơn thuốc */
+.medical-record-view-page-prescription-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.medical-record-view-page-prescription-table th,
+.medical-record-view-page-prescription-table td {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--mrvp-border);
+  font-size: var(--mrvp-font-size-small);
+}
+.medical-record-view-page-prescription-table th {
+  font-weight: 600;
+  color: var(--mrvp-text-light);
+  background-color: var(--mrvp-input-bg);
+}
+.medical-record-view-page-prescription-table td {
+  color: var(--mrvp-text-secondary);
+}
+.medical-record-view-page-prescription-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Danh sách file */
+.medical-record-view-page-file-group {
+  padding: 1rem;
+}
+.medical-record-view-page-file-group:not(:last-child) {
+  border-bottom: 1px solid var(--mrvp-border);
+}
+.medical-record-view-page-file-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--mrvp-text-primary);
+  margin: 0 0 0.75rem 0;
+}
+.medical-record-view-page-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.medical-record-view-page-file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background-color: var(--mrvp-input-bg);
+  border-radius: var(--mrvp-radius);
+  font-size: var(--mrvp-font-size-small);
+  color: var(--mrvp-text-secondary);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+.medical-record-view-page-file-item:hover {
+  background-color: var(--mrvp-primary-light);
+  color: var(--mrvp-primary-dark);
+}
+.medical-record-view-page-file-item svg {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+.medical-record-view-page-file-name {
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.medical-record-view-page-file-download-icon {
+  margin-left: auto;
+  color: var(--mrvp-text-light);
+  transition: color 0.2s;
+}
+.medical-record-view-page-file-item:hover .medical-record-view-page-file-download-icon {
+  color: var(--mrvp-primary-dark);
+}
+
+/* === FOOTER ALERT === */
+.medical-record-view-page-footer-alert {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  margin-top: 1.5rem;
+  background-color: var(--mrvp-warning-bg);
+  color: var(--mrvp-warning-text);
+  border-radius: var(--mrvp-radius);
+  font-size: var(--mrvp-font-size-base);
+}
+.medical-record-view-page-footer-alert svg {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.medical-record-view-page-footer-alert p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* === LOADING / ERROR === */
+.medical-record-view-page-loading,
+.medical-record-view-page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 400px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--mrvp-primary-dark);
+}
+.medical-record-view-page-error {
+  color: var(--mrvp-warning-text);
+}
+.medical-record-view-page-spin-icon {
+  font-size: 2rem;
+  animation: mrvp-spin 1s linear infinite;
+}
+@keyframes mrvp-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.medical-record-view-page-error .medical-record-view-page-btn-back {
+  font-size: var(--mrvp-font-size-base);
+  padding: 0.6rem 1rem;
+}
+
+
+/* === RESPONSIVE (Thu gọn) === */
+@media (max-width: 900px) {
+  .medical-record-view-page-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .medical-record-view-page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .medical-record-view-page-header-actions {
+    flex-direction: column;
+  }
+  .medical-record-view-page-info-grid {
+    grid-template-columns: 1fr;
+  }
+  /* Bảng responsive */
+  .medical-record-view-page-prescription-table thead {
+    display: none;
+  }
+  .medical-record-view-page-prescription-table tr {
+    display: block;
+    border: 1px solid var(--mrvp-border);
+    border-radius: var(--mrvp-radius);
+    margin-bottom: 0.5rem;
+  }
+  .medical-record-view-page-prescription-table td {
+    display: block;
+    text-align: right;
+    border-bottom: 1px dotted var(--mrvp-border);
+    padding-left: 50%;
+    position: relative;
+  }
+  .medical-record-view-page-prescription-table td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0.75rem;
+    padding-right: 1rem;
+    font-weight: 600;
+    color: var(--mrvp-text-light);
+  }
+}
