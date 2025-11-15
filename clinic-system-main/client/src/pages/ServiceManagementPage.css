@@ -1,0 +1,781 @@
+/* client/src/pages/ServiceManagementPage.css */
+
+:root {
+  --servicemgmt-primary: #86efac;
+  --servicemgmt-primary-dark: #4ade80;
+  --servicemgmt-primary-light: #bbf7d0;
+  --servicemgmt-success: #22c55e;
+  --servicemgmt-warning: #fbbf24;
+  --servicemgmt-danger: #ef4444;
+  --servicemgmt-info: #3b82f6;
+  --servicemgmt-white: #ffffff;
+  --servicemgmt-gray-50: #f9fafb;
+  --servicemgmt-gray-100: #f3f4f6;
+  --servicemgmt-gray-200: #e5e7eb;
+  --servicemgmt-gray-300: #d1d5db;
+  --servicemgmt-gray-500: #6b7280;
+  --servicemgmt-gray-600: #4b5563;
+  --servicemgmt-gray-700: #374151;
+  --servicemgmt-gray-900: #111827;
+  --servicemgmt-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --servicemgmt-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --servicemgmt-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --servicemgmt-radius: 8px;
+  --servicemgmt-transition: all 0.2s ease;
+}
+
+/* PAGE CONTAINER */
+.servicemgmt-page {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.servicemgmt-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* LOADING */
+.servicemgmt-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1rem;
+}
+
+.servicemgmt-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--servicemgmt-gray-200);
+  border-top-color: var(--servicemgmt-primary);
+  border-radius: 50%;
+  animation: servicemgmt-spin 0.8s linear infinite;
+}
+
+@keyframes servicemgmt-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ERROR STATE */
+.servicemgmt-error {
+  max-width: 600px;
+  margin: 3rem auto;
+  padding: 2rem;
+  background: var(--servicemgmt-white);
+  border-radius: var(--servicemgmt-radius);
+  box-shadow: var(--servicemgmt-shadow-lg);
+  text-align: center;
+  border: 2px solid var(--servicemgmt-danger);
+}
+
+.servicemgmt-error-icon {
+  font-size: 3rem;
+  color: var(--servicemgmt-danger);
+  margin-bottom: 1rem;
+}
+
+.servicemgmt-error-title {
+  font-size: 1.5rem;
+  color: var(--servicemgmt-gray-900);
+  margin: 0 0 0.75rem 0;
+}
+
+.servicemgmt-error-message {
+  color: var(--servicemgmt-danger);
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+}
+
+.servicemgmt-error-details {
+  text-align: left;
+  background: var(--servicemgmt-gray-50);
+  padding: 1rem;
+  border-radius: var(--servicemgmt-radius);
+  margin-bottom: 1rem;
+}
+
+.servicemgmt-error-details ul {
+  margin: 0.5rem 0 0 0;
+  padding-left: 1.5rem;
+}
+
+.servicemgmt-error-details li {
+  margin: 0.25rem 0;
+  color: var(--servicemgmt-gray-700);
+  font-size: 0.875rem;
+}
+
+/* STATS CARDS */
+.servicemgmt-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.servicemgmt-stat-card {
+  background: var(--servicemgmt-white);
+  padding: 1rem;
+  border-radius: var(--servicemgmt-radius);
+  box-shadow: var(--servicemgmt-shadow);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 2px solid transparent;
+  transition: var(--servicemgmt-transition);
+}
+
+.servicemgmt-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--servicemgmt-shadow-md);
+}
+
+.servicemgmt-stat-primary {
+  border-color: var(--servicemgmt-primary-light);
+}
+
+.servicemgmt-stat-success {
+  border-color: #a7f3d0;
+}
+
+.servicemgmt-stat-warning {
+  border-color: #fde68a;
+}
+
+.servicemgmt-stat-info {
+  border-color: #bfdbfe;
+}
+
+.servicemgmt-stat-icon {
+  font-size: 2rem;
+  color: var(--servicemgmt-primary-dark);
+  flex-shrink: 0;
+}
+
+.servicemgmt-stat-success .servicemgmt-stat-icon {
+  color: var(--servicemgmt-success);
+}
+
+.servicemgmt-stat-warning .servicemgmt-stat-icon {
+  color: var(--servicemgmt-warning);
+}
+
+.servicemgmt-stat-info .servicemgmt-stat-icon {
+  color: var(--servicemgmt-info);
+}
+
+.servicemgmt-stat-content {
+  flex: 1;
+}
+
+.servicemgmt-stat-label {
+  font-size: 0.8125rem;
+  color: var(--servicemgmt-gray-600);
+  margin: 0 0 0.25rem 0;
+}
+
+.servicemgmt-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--servicemgmt-gray-900);
+  margin: 0;
+}
+
+/* HEADER */
+.servicemgmt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.servicemgmt-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--servicemgmt-gray-900);
+  margin: 0 0 0.25rem 0;
+}
+
+.servicemgmt-subtitle {
+  font-size: 0.875rem;
+  color: var(--servicemgmt-gray-600);
+  margin: 0;
+}
+
+/* BUTTONS */
+.servicemgmt-btn {
+  padding: 0.625rem 1rem;
+  border: none;
+  border-radius: var(--servicemgmt-radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--servicemgmt-transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.servicemgmt-btn-primary {
+  background: linear-gradient(135deg, var(--servicemgmt-primary), var(--servicemgmt-primary-dark));
+  color: white;
+  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.3);
+}
+
+.servicemgmt-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.4);
+}
+
+.servicemgmt-btn-secondary {
+  background: var(--servicemgmt-white);
+  color: var(--servicemgmt-gray-700);
+  border: 1px solid var(--servicemgmt-gray-300);
+}
+
+.servicemgmt-btn-secondary:hover {
+  background: var(--servicemgmt-gray-50);
+  border-color: var(--servicemgmt-primary);
+}
+
+/* FILTERS CARD */
+.servicemgmt-filters-card {
+  background: var(--servicemgmt-white);
+  padding: 1rem;
+  border-radius: var(--servicemgmt-radius);
+  box-shadow: var(--servicemgmt-shadow);
+  margin-bottom: 1.5rem;
+  border: 2px solid var(--servicemgmt-primary-light);
+}
+
+.servicemgmt-search-box {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.servicemgmt-search-icon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--servicemgmt-gray-500);
+  font-size: 0.875rem;
+}
+
+.servicemgmt-search-input {
+  width: 100%;
+  padding: 0.625rem 2.5rem;
+  border: 1px solid var(--servicemgmt-gray-300);
+  border-radius: var(--servicemgmt-radius);
+  font-size: 0.875rem;
+  transition: var(--servicemgmt-transition);
+}
+
+.servicemgmt-search-input:focus {
+  outline: none;
+  border-color: var(--servicemgmt-primary);
+  box-shadow: 0 0 0 3px var(--servicemgmt-primary-light);
+}
+
+.servicemgmt-clear-search {
+  position: absolute;
+  right: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--servicemgmt-gray-500);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.servicemgmt-clear-search:hover {
+  color: var(--servicemgmt-danger);
+}
+
+.servicemgmt-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.servicemgmt-filter-item {
+  position: relative;
+  flex: 1;
+  min-width: 150px;
+}
+
+.servicemgmt-filter-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--servicemgmt-primary-dark);
+  font-size: 0.875rem;
+  pointer-events: none;
+}
+
+.servicemgmt-filter-item .servicemgmt-select {
+  padding-left: 2.25rem;
+}
+
+.servicemgmt-select {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--servicemgmt-gray-300);
+  border-radius: var(--servicemgmt-radius);
+  font-size: 0.875rem;
+  background: var(--servicemgmt-white);
+  cursor: pointer;
+  transition: var(--servicemgmt-transition);
+  flex: 1;
+  min-width: 120px;
+}
+
+.servicemgmt-select:focus {
+  outline: none;
+  border-color: var(--servicemgmt-primary);
+  box-shadow: 0 0 0 3px var(--servicemgmt-primary-light);
+}
+
+/* BULK ACTIONS */
+.servicemgmt-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--servicemgmt-gray-200);
+  align-items: center;
+}
+
+.servicemgmt-bulk-count {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--servicemgmt-gray-700);
+  padding: 0.5rem 0;
+}
+
+.servicemgmt-bulk-btn {
+  padding: 0.5rem 0.875rem;
+  border: none;
+  border-radius: var(--servicemgmt-radius);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--servicemgmt-transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: var(--servicemgmt-gray-100);
+  color: var(--servicemgmt-gray-700);
+}
+
+.servicemgmt-bulk-activate:hover {
+  background: var(--servicemgmt-success);
+  color: white;
+}
+
+.servicemgmt-bulk-deactivate:hover {
+  background: var(--servicemgmt-warning);
+  color: white;
+}
+
+.servicemgmt-bulk-delete:hover {
+  background: var(--servicemgmt-danger);
+  color: white;
+}
+
+/* TABLE CARD */
+.servicemgmt-table-card {
+  background: var(--servicemgmt-white);
+  border-radius: var(--servicemgmt-radius);
+  box-shadow: var(--servicemgmt-shadow);
+  overflow: hidden;
+  border: 2px solid var(--servicemgmt-primary-light);
+}
+
+.servicemgmt-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--servicemgmt-gray-200);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.servicemgmt-table-header-left,
+.servicemgmt-table-header-right {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.servicemgmt-results-count {
+  font-size: 0.875rem;
+  color: var(--servicemgmt-gray-600);
+  font-weight: 500;
+}
+
+.servicemgmt-table-wrapper {
+  overflow-x: auto;
+}
+
+.servicemgmt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.servicemgmt-table thead {
+  background: var(--servicemgmt-gray-50);
+}
+
+.servicemgmt-table th {
+  padding: 0.75rem 0.875rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--servicemgmt-gray-700);
+  border-bottom: 2px solid var(--servicemgmt-gray-200);
+  white-space: nowrap;
+}
+
+.servicemgmt-th-checkbox {
+  width: 40px;
+}
+
+.servicemgmt-th-price,
+.servicemgmt-th-duration,
+.servicemgmt-th-doctors,
+.servicemgmt-th-status {
+  width: 100px;
+}
+
+.servicemgmt-th-actions {
+  width: 120px;
+  text-align: center;
+}
+
+.servicemgmt-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: var(--servicemgmt-transition);
+}
+
+.servicemgmt-sortable:hover {
+  color: var(--servicemgmt-primary-dark);
+  background: var(--servicemgmt-primary-light);
+}
+
+.servicemgmt-table tbody tr {
+  border-bottom: 1px solid var(--servicemgmt-gray-200);
+  transition: var(--servicemgmt-transition);
+}
+
+.servicemgmt-table tbody tr:hover {
+  background: var(--servicemgmt-gray-50);
+}
+
+.servicemgmt-table td {
+  padding: 0.75rem 0.875rem;
+  color: var(--servicemgmt-gray-700);
+}
+
+.servicemgmt-checkbox-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--servicemgmt-gray-400);
+  font-size: 1rem;
+  transition: var(--servicemgmt-transition);
+}
+
+.servicemgmt-checkbox-btn:hover {
+  color: var(--servicemgmt-primary-dark);
+}
+
+.servicemgmt-service-name {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.servicemgmt-service-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid var(--servicemgmt-gray-200);
+}
+
+.servicemgmt-category {
+  color: var(--servicemgmt-gray-600);
+}
+
+.servicemgmt-price {
+  font-weight: 600;
+  color: var(--servicemgmt-primary-dark);
+}
+
+.servicemgmt-duration {
+  color: var(--servicemgmt-gray-600);
+}
+
+.servicemgmt-doctors {
+  text-align: center;
+}
+
+.servicemgmt-doctors-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  background: var(--servicemgmt-primary-light);
+  color: var(--servicemgmt-primary-dark);
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.servicemgmt-no-doctors {
+  color: var(--servicemgmt-gray-400);
+  font-size: 0.8125rem;
+}
+
+.servicemgmt-status {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.servicemgmt-status-active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.servicemgmt-status-inactive {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.servicemgmt-actions {
+  display: flex;
+  gap: 0.375rem;
+  justify-content: center;
+}
+
+.servicemgmt-action-btn {
+  padding: 0.375rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--servicemgmt-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  background: var(--servicemgmt-gray-100);
+  color: var(--servicemgmt-gray-600);
+  text-decoration: none;
+}
+
+.servicemgmt-action-view:hover {
+  background: var(--servicemgmt-info);
+  color: white;
+}
+
+.servicemgmt-action-edit:hover {
+  background: var(--servicemgmt-primary);
+  color: white;
+}
+
+.servicemgmt-action-delete:hover {
+  background: var(--servicemgmt-danger);
+  color: white;
+}
+
+.servicemgmt-no-data {
+  text-align: center;
+  padding: 2rem;
+  color: var(--servicemgmt-gray-500);
+}
+
+/* PAGINATION */
+.servicemgmt-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-top: 1px solid var(--servicemgmt-gray-200);
+  flex-wrap: wrap;
+}
+
+.servicemgmt-pagination-btn {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--servicemgmt-gray-300);
+  background: var(--servicemgmt-white);
+  color: var(--servicemgmt-gray-700);
+  border-radius: var(--servicemgmt-radius);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: var(--servicemgmt-transition);
+}
+
+.servicemgmt-pagination-btn:hover:not(:disabled) {
+  border-color: var(--servicemgmt-primary);
+  background: var(--servicemgmt-primary-light);
+}
+
+.servicemgmt-pagination-btn.servicemgmt-active {
+  background: var(--servicemgmt-primary);
+  color: white;
+  border-color: var(--servicemgmt-primary);
+}
+
+.servicemgmt-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.servicemgmt-pagination-pages {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.servicemgmt-pagination-dots {
+  padding: 0.375rem 0.5rem;
+  color: var(--servicemgmt-gray-500);
+}
+
+.servicemgmt-pagination-select {
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--servicemgmt-gray-300);
+  border-radius: var(--servicemgmt-radius);
+  font-size: 0.8125rem;
+  background: var(--servicemgmt-white);
+  cursor: pointer;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1024px) {
+  .servicemgmt-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .servicemgmt-th-duration,
+  .servicemgmt-th-doctors {
+    display: none;
+  }
+
+  .servicemgmt-table td:nth-child(5),
+  .servicemgmt-table td:nth-child(6) {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .servicemgmt-page {
+    padding: 0.75rem;
+  }
+
+  .servicemgmt-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .servicemgmt-stat-card {
+    padding: 0.875rem;
+  }
+
+  .servicemgmt-stat-icon {
+    font-size: 1.5rem;
+  }
+
+  .servicemgmt-stat-value {
+    font-size: 1.25rem;
+  }
+
+  .servicemgmt-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .servicemgmt-title {
+    font-size: 1.5rem;
+  }
+
+  .servicemgmt-filters {
+    flex-direction: column;
+  }
+
+  .servicemgmt-filter-item,
+  .servicemgmt-select {
+    width: 100%;
+  }
+
+  .servicemgmt-table-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .servicemgmt-th-price,
+  .servicemgmt-category {
+    display: none;
+  }
+
+  .servicemgmt-table td:nth-child(3),
+  .servicemgmt-table td:nth-child(4) {
+    display: none;
+  }
+
+  .servicemgmt-table th,
+  .servicemgmt-table td {
+    padding: 0.625rem;
+    font-size: 0.8125rem;
+  }
+
+  .servicemgmt-service-thumb {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .servicemgmt-filters-card {
+    padding: 0.875rem;
+  }
+
+  .servicemgmt-bulk-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .servicemgmt-bulk-btn {
+    justify-content: center;
+  }
+
+  .servicemgmt-pagination {
+    gap: 0.375rem;
+  }
+
+  .servicemgmt-pagination-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}

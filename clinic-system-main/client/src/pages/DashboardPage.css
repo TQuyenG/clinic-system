@@ -1,0 +1,165 @@
+/* client/src/pages/DashboardPage.css */
+
+/*
+ * Theme: Xanh lá pastel Y tế, đồng bộ với các trang khác
+ * Naming: .dashboard-page-ten-class
+ * Sizing: Thu nhỏ, tập trung vào lời chào và đồng hồ
+ */
+
+:root {
+  --dashboard-page-primary: #66bb6a;
+  --dashboard-page-primary-dark: #4caf50;
+  --dashboard-page-bg: #f7fdfa; /* Nền xanh lá pastel rất nhạt */
+  --dashboard-page-content-bg: #ffffff;
+  --dashboard-page-gray-100: #f1f8f1;
+  --dashboard-page-gray-300: #eeeeee;
+  --dashboard-page-gray-600: #666;
+  --dashboard-page-gray-700: #444;
+  --dashboard-page-gray-800: #333;
+  --dashboard-page-error: #e74c3c;
+  --dashboard-page-error-dark: #c63c2c;
+
+  --dashboard-page-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --dashboard-page-shadow-md: 0 3px 6px rgba(0, 0, 0, 0.07);
+  --dashboard-page-radius: 8px;
+  --dashboard-page-radius-sm: 6px;
+  --dashboard-page-transition: all 0.25s ease;
+}
+
+.dashboard-page-container {
+  min-height: 100vh;
+  background: var(--dashboard-page-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Header --- */
+.dashboard-page-header {
+  background: var(--dashboard-page-content-bg);
+  color: var(--dashboard-page-gray-800);
+  padding: 0.75rem 1.5rem; /* Thu nhỏ */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--dashboard-page-gray-300);
+  box-shadow: var(--dashboard-page-shadow-sm);
+}
+
+.dashboard-page-brand {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--dashboard-page-primary-dark);
+}
+
+.dashboard-page-user-info {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.dashboard-page-btn-logout {
+  background: var(--dashboard-page-error);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem; /* Thu nhỏ */
+  border-radius: var(--dashboard-page-radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: var(--dashboard-page-transition);
+}
+
+.dashboard-page-btn-logout:hover {
+  background: var(--dashboard-page-error-dark);
+  box-shadow: var(--dashboard-page-shadow-sm);
+}
+
+/* --- Main Content Area --- */
+.dashboard-page-main-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  gap: 2rem;
+}
+
+/* --- Welcome Text --- */
+.dashboard-page-welcome h2 {
+  font-size: 1.75rem; /* Thu nhỏ */
+  font-weight: 600;
+  color: var(--dashboard-page-gray-800);
+  margin: 0 0 0.5rem 0;
+}
+
+.dashboard-page-welcome p {
+  font-size: 1rem; /* Thu nhỏ */
+  color: var(--dashboard-page-gray-600);
+  margin: 0;
+}
+
+/* --- Clock --- */
+.dashboard-page-clock-container {
+  background: var(--dashboard-page-content-bg);
+  padding: 1.5rem 2.5rem;
+  border-radius: var(--dashboard-page-radius);
+  box-shadow: var(--dashboard-page-shadow-md);
+  border-left: 5px solid var(--dashboard-page-primary);
+  min-width: 300px;
+}
+
+.dashboard-page-clock-time {
+  font-size: 2.5rem; /* Thu nhỏ */
+  font-weight: 600;
+  color: var(--dashboard-page-primary-dark);
+  line-height: 1.1;
+}
+
+.dashboard-page-clock-date {
+  font-size: 0.9rem; /* Thu nhỏ */
+  color: var(--dashboard-page-gray-600);
+  margin-top: 0.5rem;
+}
+
+/* --- Image Placeholder --- */
+.dashboard-page-image-placeholder {
+  width: 100%;
+  max-width: 400px;
+  height: 200px; /* Thu nhỏ */
+  background: var(--dashboard-page-gray-100);
+  border: 2px dashed var(--dashboard-page-gray-300);
+  border-radius: var(--dashboard-page-radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--dashboard-page-gray-600);
+}
+
+.dashboard-page-placeholder-icon {
+  font-size: 3rem; /* Thu nhỏ */
+  color: var(--dashboard-page-gray-400);
+  margin-bottom: 1rem;
+}
+
+.dashboard-page-image-placeholder p {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* --- Xóa bỏ các class cũ không dùng --- */
+.stats-grid,
+.stat-card,
+.role-stats,
+.admin-dashboard,
+.doctor-dashboard,
+.patient-dashboard,
+.staff-dashboard,
+.dashboard-cards,
+.dashboard-card {
+  display: none;
+}

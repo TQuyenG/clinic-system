@@ -1,0 +1,610 @@
+/* client/src/pages/ConsultationBookingPage.css */
+
+/*
+ * ==========================================================
+ * CHỦ ĐỀ GIAO DIỆN MỚI (Pastel Y Tế)
+ * ==========================================================
+ */
+:root {
+  --cbp-bg: #F8FCFC; /* Nền trắng xanh lá rất nhạt (pastel) */
+  --cbp-bg-soft: #FFFFFF;
+  --cbp-primary: #00a79d; /* Xanh y tế (Teal) */
+  --cbp-primary-dark: #00796b;
+  --cbp-primary-light: #e0f2f1;
+  --cbp-text-primary: #2d3748;
+  --cbp-text-secondary: #5a677b;
+  --cbp-border: #e2e8f0;
+  --cbp-error: #c62828;
+  --cbp-error-bg: #fdebee;
+  --cbp-warning-text: #e65100;
+  --cbp-warning-bg: #fff4e6;
+  --cbp-success: #2e7d32;
+  --cbp-success-bg: #e8f5e9;
+  --cbp-disabled: #f1f5f9;
+  --cbp-disabled-text: #94a3b8;
+  --cbp-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --cbp-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.consultation-booking-page {
+  background-color: var(--cbp-bg);
+  padding: 1.5rem 1rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--cbp-text-primary);
+  min-height: 100vh;
+}
+
+.consultation-booking-page-container {
+  max-width: 900px; /* Thu nhỏ container */
+  margin: 0 auto;
+  background: var(--cbp-bg-soft);
+  border-radius: 12px;
+  box-shadow: var(--cbp-shadow);
+  overflow: hidden;
+}
+
+/* * ==========================================================
+ * HEADER & PROGRESS
+ * ==========================================================
+ */
+.consultation-booking-page-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--cbp-border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.consultation-booking-page-btn-back {
+  background: none;
+  border: 1px solid var(--cbp-border);
+  color: var(--cbp-text-secondary);
+  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.2s;
+}
+.consultation-booking-page-btn-back:hover {
+  background: #f8f9fa;
+  border-color: #ced4da;
+}
+
+.consultation-booking-page-header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--cbp-text-primary);
+  margin: 0;
+}
+.consultation-booking-page-header p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--cbp-text-secondary);
+}
+
+.consultation-booking-page-progress {
+  display: flex;
+  justify-content: space-between;
+  padding: 1.25rem 2rem;
+  background-color: var(--cbp-bg);
+}
+
+.consultation-booking-page-progress-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--cbp-text-secondary);
+  position: relative;
+  flex: 1;
+}
+
+.consultation-booking-page-step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--cbp-bg-soft);
+  border: 2px solid var(--cbp-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  transition: all 0.3s;
+}
+.consultation-booking-page-step-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.consultation-booking-page-progress-line {
+  flex: 1;
+  height: 2px;
+  background: var(--cbp-border);
+  margin: 0 1rem;
+  align-self: center;
+}
+
+/* Active/Completed States */
+.consultation-booking-page-progress-step.active .consultation-booking-page-step-number {
+  border-color: var(--cbp-primary);
+  background-color: var(--cbp-primary-light);
+  color: var(--cbp-primary-dark);
+}
+.consultation-booking-page-progress-step.active .consultation-booking-page-step-label {
+  color: var(--cbp-primary-dark);
+  font-weight: 700;
+}
+
+.consultation-booking-page-progress-step.completed .consultation-booking-page-step-number {
+  border-color: var(--cbp-success);
+  background-color: var(--cbp-success-bg);
+  color: var(--cbp-success);
+  font-size: 1rem;
+}
+.consultation-booking-page-progress-step.completed .consultation-booking-page-step-label {
+  color: var(--cbp-text-primary);
+}
+
+/* * ==========================================================
+ * CONTENT & FORM (THU NHỎ)
+ * ==========================================================
+ */
+.consultation-booking-page-content-wrapper {
+  padding: 1.5rem 2rem;
+}
+.consultation-booking-page-step h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--cbp-text-primary);
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--cbp-border);
+}
+
+.consultation-booking-page-form-group {
+  margin-bottom: 1rem;
+}
+.consultation-booking-page-form-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cbp-text-secondary);
+  margin-bottom: 0.3rem;
+}
+.consultation-booking-page-required {
+  color: var(--cbp-error);
+  font-size: 0.8rem;
+}
+
+.consultation-booking-page-input,
+.consultation-booking-page-select,
+.consultation-booking-page-textarea {
+  width: 100%;
+  padding: 0.6rem 0.8rem; /* Thu nhỏ padding */
+  font-size: 0.9rem;
+  border: 1px solid var(--cbp-border);
+  border-radius: 6px;
+  background: var(--cbp-bg-soft);
+  color: var(--cbp-text-primary);
+  transition: all 0.2s;
+}
+.consultation-booking-page-input:focus,
+.consultation-booking-page-select:focus,
+.consultation-booking-page-textarea:focus {
+  outline: none;
+  border-color: var(--cbp-primary);
+  box-shadow: 0 0 0 2px var(--cbp-primary-light);
+}
+.consultation-booking-page-input.error,
+.consultation-booking-page-select.error,
+.consultation-booking-page-textarea.error {
+  border-color: var(--cbp-error);
+  background-color: var(--cbp-error-bg);
+}
+.consultation-booking-page-textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+.consultation-booking-page-error-message {
+  color: var(--cbp-error);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+/* * ==========================================================
+ * STEP 1: BÁC SĨ & GÓI
+ * ==========================================================
+ */
+.consultation-booking-page-doctor-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--cbp-bg);
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+.consultation-booking-page-doctor-preview img {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.consultation-booking-page-doctor-info h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.consultation-booking-page-doctor-info p {
+  margin: 0.1rem 0;
+  font-size: 0.8rem;
+  color: var(--cbp-text-secondary);
+}
+
+.consultation-booking-page-package-filter {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.consultation-booking-page-btn-filter {
+  flex: 1;
+  padding: 0.6rem 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--cbp-border);
+  background: var(--cbp-bg-soft);
+  color: var(--cbp-text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: all 0.2s;
+}
+.consultation-booking-page-btn-filter:hover {
+  background: var(--cbp-bg);
+}
+.consultation-booking-page-btn-filter.active {
+  background: var(--cbp-primary-light);
+  border-color: var(--cbp-primary);
+  color: var(--cbp-primary-dark);
+}
+
+.consultation-booking-page-package-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.consultation-booking-page-package-option {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  border: 2px solid var(--cbp-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.consultation-booking-page-package-option:hover {
+  border-color: #b0bec5;
+}
+.consultation-booking-page-package-option.selected {
+  border-color: var(--cbp-primary);
+  background: var(--cbp-primary-light);
+}
+.consultation-booking-page-package-option input[type="radio"] {
+  margin-right: 0.75rem;
+  accent-color: var(--cbp-primary);
+}
+.consultation-booking-page-package-info {
+  flex: 1;
+}
+.consultation-booking-page-package-info h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--cbp-text-primary);
+}
+.consultation-booking-page-package-info p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--cbp-text-secondary);
+}
+.consultation-booking-page-package-price {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--cbp-primary-dark);
+}
+.consultation-booking-page-package-loading {
+  font-size: 0.85rem;
+  color: var(--cbp-text-secondary);
+  padding: 1rem;
+  text-align: center;
+}
+
+/* * ==========================================================
+ * STEP 2: THÔNG TIN BỆNH NHÂN (NỔI BẬT)
+ * ==========================================================
+ */
+.consultation-booking-page-step-2 .consultation-booking-page-form-group label {
+  color: var(--cbp-text-primary); /* Nổi bật các label ở bước 2 */
+}
+.consultation-booking-page-file-upload-btn {
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  border: 1px dashed var(--cbp-text-secondary);
+  background: var(--cbp-bg);
+  color: var(--cbp-text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.consultation-booking-page-file-upload-btn:hover {
+  border-color: var(--cbp-primary);
+  color: var(--cbp-primary);
+  background: var(--cbp-primary-light);
+}
+
+.consultation-booking-page-attachments-list {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.consultation-booking-page-attachment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  background: var(--cbp-bg);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  border-left: 3px solid var(--cbp-primary);
+}
+.consultation-booking-page-btn-remove {
+  background: none;
+  border: none;
+  color: var(--cbp-error);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* * ==========================================================
+ * STEP 3: XÁC NHẬN (NỔI BẬT)
+ * ==========================================================
+ */
+.consultation-booking-page-confirmation-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.consultation-booking-page-summary-section {
+  padding: 1rem;
+  background: var(--cbp-bg);
+  border-radius: 8px;
+}
+.consultation-booking-page-summary-section h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--cbp-primary-dark);
+  margin: 0 0 0.75rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--cbp-border);
+}
+
+.consultation-booking-page-summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: var(--cbp-text-secondary);
+  margin-bottom: 0.4rem;
+}
+.consultation-booking-page-summary-row strong {
+  color: var(--cbp-text-primary);
+  font-weight: 600;
+  max-width: 60%;
+  text-align: right;
+}
+.consultation-booking-page-summary-row.total {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--cbp-text-primary);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--cbp-border);
+}
+.consultation-booking-page-summary-row.total strong {
+  font-size: 1.1rem;
+  color: var(--cbp-primary-dark);
+}
+
+.consultation-booking-page-terms-section {
+  font-size: 0.85rem;
+  color: var(--cbp-text-secondary);
+}
+.consultation-booking-page-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.consultation-booking-page-checkbox-label a {
+  color: var(--cbp-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+.consultation-booking-page-checkbox-label a:hover {
+  text-decoration: underline;
+}
+
+/* Alert (Nổi bật) */
+.consultation-booking-page-alert {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: var(--cbp-warning-bg);
+  border-left: 4px solid var(--cbp-warning-text);
+  color: var(--cbp-warning-text);
+}
+.consultation-booking-page-alert > svg {
+  font-size: 1.25rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+.consultation-booking-page-alert strong {
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.consultation-booking-page-alert ul {
+  margin: 0.25rem 0 0 1rem;
+  padding-left: 0.5rem;
+  font-size: 0.85rem;
+}
+
+/* * ==========================================================
+ * ACTIONS (THU NHỎ)
+ * ==========================================================
+ */
+.consultation-booking-page-actions {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  border-top: 1px solid var(--cbp-border);
+  background-color: var(--cbp-bg);
+}
+
+.consultation-booking-page-btn {
+  padding: 0.6rem 1rem; /* Thu nhỏ button */
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: all 0.2s;
+}
+.consultation-booking-page-btn:disabled {
+  background: var(--cbp-disabled);
+  color: var(--cbp-disabled-text);
+  cursor: not-allowed;
+}
+
+.consultation-booking-page-btn-secondary {
+  background: var(--cbp-bg-soft);
+  color: var(--cbp-text-secondary);
+  border: 1px solid var(--cbp-border);
+}
+.consultation-booking-page-btn-secondary:hover:not(:disabled) {
+  background: #f8f9fa;
+}
+
+.consultation-booking-page-btn-primary {
+  background: var(--cbp-primary);
+  color: white;
+}
+.consultation-booking-page-btn-primary:hover:not(:disabled) {
+  background: var(--cbp-primary-dark);
+}
+
+.consultation-booking-page-btn-success {
+  background: var(--cbp-success);
+  color: white;
+}
+.consultation-booking-page-btn-success:hover:not(:disabled) {
+  background: #256629;
+}
+
+.consultation-booking-page-spinner-small {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: consultation-booking-page-spin 0.8s linear infinite;
+}
+@keyframes consultation-booking-page-spin {
+  to { transform: rotate(360deg); }
+}
+
+.consultation-booking-page-loading {
+  text-align: center;
+  padding: 3rem;
+}
+.consultation-booking-page-loading .spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--cbp-primary-light);
+  border-top-color: var(--cbp-primary);
+  border-radius: 50%;
+  animation: consultation-booking-page-spin 1s linear infinite;
+  margin: 0 auto 0.75rem auto;
+}
+.consultation-booking-page-loading p {
+  font-size: 0.9rem;
+  color: var(--cbp-text-secondary);
+}
+
+/* Thêm vào cuối file: client/src/pages/ConsultationBookingPage.css */
+
+.consultation-booking-page-slots-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: var(--cbp-bg);
+  border-radius: 6px;
+}
+
+.consultation-booking-page-slot-btn {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--cbp-border);
+  background: var(--cbp-bg-soft);
+  color: var(--cbp-primary-dark);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.consultation-booking-page-slot-btn:hover:not(:disabled) {
+  background: var(--cbp-primary-light);
+  border-color: var(--cbp-primary);
+}
+
+.consultation-booking-page-slot-btn.active {
+  background: var(--cbp-primary);
+  color: white;
+  border-color: var(--cbp-primary);
+}
+
+/* Đây là class quan trọng cho yêu cầu của bạn */
+.consultation-booking-page-slot-btn.busy,
+.consultation-booking-page-slot-btn:disabled {
+  background: var(--cbp-disabled);
+  color: var(--cbp-disabled-text);
+  border-color: var(--cbp-border);
+  text-decoration: line-through; /* Gạch ngang */
+  cursor: not-allowed;
+}
+
+.consultation-booking-page-slots-loading,
+.consultation-booking-page-slots-empty {
+  font-size: 0.85rem;
+  color: var(--cbp-text-secondary);
+  width: 100%;
+  text-align: center;
+  padding: 1rem 0;
+}
