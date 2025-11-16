@@ -6,9 +6,9 @@ import React, { useState, useEffect, useCallback } from 'react';// <-- Thêm use
 import consultationService from '../../services/consultationService';
 import { 
   FaSearch, 
-  FaEye, 
   FaCheckCircle, 
   FaTimesCircle,
+  FaEye,
   FaMoneyBillWave,
   FaEdit,
   FaFileExport,
@@ -388,26 +388,6 @@ export const ConsultationRealtimeList = ({ initialType }) => {
                                 <FaEye />
                               </button>
 
-                              {/* ✅ THÊM MỚI: NÚT THAM GIA KHI ĐANG DIỄN RA */}
-                              {(consultation.status === 'in_progress' || consultation.status === 'confirmed') && (
-                                <button 
-                                  className="btn-icon btn-join-realtime" 
-                                  title={consultation.status === 'in_progress' ? 'Tham gia ngay' : 'Vào phòng'}
-                                  onClick={() => {
-                                    const url = consultation.consultation_type === 'video' 
-                                      ? `/tu-van/video/${consultation.id}`
-                                      : `/tu-van/${consultation.id}/chat`;
-                                    window.open(url, '_blank'); // Mở tab mới
-                                  }}
-                                  style={{
-                                    background: 'linear-gradient(135deg, #2ecc71, #27ae60)',
-                                    color: 'white',
-                                    animation: consultation.status === 'in_progress' ? 'pulse 2s infinite' : 'none'
-                                  }}
-                                >
-                                  {consultation.consultation_type === 'video' ? '📹' : '💬'}
-                                </button>
-                              )}
 
                               {consultation.status === 'pending' && (
                                 <>

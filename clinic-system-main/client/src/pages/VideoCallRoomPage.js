@@ -27,9 +27,124 @@ import {
   FaSmile,
   FaPaperclip,
   FaImage,
-  FaMagic
+  FaMagic,
+  FaSave, // THÊM MỚI
+  FaNotesMedical
 } from 'react-icons/fa';
 import './VideoCallRoomPage.css';
+
+// ============================================
+// ✅ COMPONENT MỚI: FORM GHI CHÚ BẮT BUỘC
+// ============================================
+const DoctorSummaryModal = ({ consultation, onComplete, onCancel }) => {
+  const [diagnosis, setDiagnosis] = useState(consultation?.diagnosis || '');
+  const [treatmentPlan, setTreatmentPlan] = useState(consultation?.treatment_plan || '');
+  const [prescription, setPrescription] = useState(consultation?.prescription_data || '');
+  const [notes, setNotes] = useState(consultation?.notes || '');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    if (!diagnosis) {
+      setError('Vui lòng nhập chẩn đoán.');
+      return;
+    }
+    if (!treatmentPlan) {
+      setError('Vui lòng nhập kế hoạch điều trị.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const summaryData = {
+        diagnosis,
+        treatment_plan: treatmentPlan,
+        prescription_data: prescription,
+        notes,
+      };
+
+      // Gọi API để hoàn thành (từ consultationController)
+      await consultationService.completeConsultation(consultation.id, summaryData);
+      
+      setIsLoading(false);
+      onComplete(); // Gọi hàm onComplete (sẽ hangUp cuộc gọi)
+    } catch (err) {
+      console.error('Lỗi lưu ghi chú:', err);
+      setError(err.response?.data?.message || 'Không thể lưu ghi chú. Vui lòng thử lại.');
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="video-call-room-page-summary-modal-overlay">
+      <div className="video-call-room-page-summary-modal">
+        <div className="video-call-room-page-summary-modal-header">
+          <h3><FaNotesMedical /> Kết quả tư vấn</h3>
+          <p>Bắt buộc hoàn thành để kết thúc buổi tư vấn.</p>
+        </div>
+        <div className="video-call-room-page-summary-modal-body">
+          {error && (
+            <div className="video-call-room-page-summary-error">{error}</div>
+          )}
+          <div className="video-call-room-page-summary-form-group">
+            <label>Chẩn đoán <span className="video-call-room-page-required">*</span></label>
+            <input
+              type="text"
+              value={diagnosis}
+              onChange={(e) => setDiagnosis(e.target.value)}
+              placeholder="Chẩn đoán sơ bộ..."
+            />
+          </div>
+          <div className="video-call-room-page-summary-form-group">
+            <label>Kế hoạch điều trị <span className="video-call-room-page-required">*</span></label>
+            <textarea
+              rows="3"
+              value={treatmentPlan}
+              onChange={(e) => setTreatmentPlan(e.target.value)}
+              placeholder="Lời khuyên, kế hoạch điều trị..."
+            />
+          </div>
+          <div className="video-call-room-page-summary-form-group">
+            <label>Đơn thuốc (Nếu có)</label>
+            <textarea
+              rows="3"
+              value={prescription}
+              onChange={(e) => setPrescription(e.target.value)}
+              placeholder="VD: Paracetamol 500mg (2 viên/ngày sau ăn)"
+            />
+          </div>
+          <div className="video-call-room-page-summary-form-group">
+            <label>Ghi chú thêm (Nếu có)</label>
+            <textarea
+              rows="2"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ghi chú nội bộ..."
+            />
+          </div>
+        </div>
+        <div className="video-call-room-page-summary-modal-actions">
+          <button
+            className="video-call-room-page-btn video-call-room-page-btn-secondary"
+            onClick={onCancel}
+            disabled={isLoading}
+          >
+            Hủy
+          </button>
+          <button
+            className="video-call-room-page-btn video-call-room-page-btn-primary"
+            onClick={handleSubmit}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Đang lưu...' : 'Lưu và Hoàn thành'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const VideoCallRoomPage = () => {
   const { id: consultationId } = useParams();
@@ -59,6 +174,7 @@ const VideoCallRoomPage = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [hasNewMessage, setHasNewMessage] = useState(false);
   
   // ✅ THÊM: State Emoji Reactions
   const [floatingEmojis, setFloatingEmojis] = useState([]);
@@ -72,6 +188,15 @@ const VideoCallRoomPage = () => {
   // Timer
   const [callDuration, setCallDuration] = useState(0);
   const timerRef = useRef(null);
+  const [showEmojiPanel, setShowEmojiPanel] = useState(false);
+
+  // ==================== ✅ TÍNH NĂNG MỚI ====================
+  // State đếm ngược (phút)
+  const [timeLeft, setTimeLeft] = useState(null); // Tổng số giây còn lại
+  const [showTimeWarning, setShowTimeWarning] = useState(false);
+  const [showEndCallModal, setShowEndCallModal] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const totalDurationRef = useRef(0);
 
   // Video Refs
   const localVideoRef = useRef(null);
@@ -79,7 +204,10 @@ const VideoCallRoomPage = () => {
 
   // THÊM MỚI: State xác thực OTP
   // Bác sĩ được vào thẳng, bệnh nhân phải chờ
-  const [isVerified, setIsVerified] = useState(user.role === 'doctor');
+  const [isVerified, setIsVerified] = useState(
+  user.role === 'doctor' || 
+  sessionStorage.getItem(`video_verified_${consultationId}`) === 'true'
+);
   const [otpInput, setOtpInput] = useState('');
   const [otpError, setOtpError] = useState('');
   // THÊM MỚI: State đếm ngược
@@ -102,6 +230,11 @@ const VideoCallRoomPage = () => {
         setConsultation(consultationData);
         console.log('✅ [VideoCall] Đã tải thông tin consultation');
 
+        // ✅ TÍNH NĂNG MỚI: Set tổng thời gian
+        const durationMins = consultationData.package?.duration_minutes || 30;
+        totalDurationRef.current = durationMins * 60; // Lưu tổng giây vào ref
+        setTimeLeft(totalDurationRef.current); // Set thời gian ban đầu
+
         // 2. Kiểm tra trạng thái consultation
         if (consultationData.status !== 'confirmed' && consultationData.status !== 'in_progress') {
           // SỬA: Cung cấp thông báo lỗi rõ ràng hơn
@@ -119,15 +252,22 @@ const VideoCallRoomPage = () => {
           return;
         }
 
-        // 3. Kết nối WebSocket
-        // SỬA: Chỉ chạy khi đã xác thực (Bác sĩ) hoặc (Bệnh nhân đã nhập OTP)
-        if (isVerified) {
-          console.log('📡 [VideoCall] Đang kết nối WebSocket...');
-          await chatService.connect(user.id, consultationId);
+        // 3. Xử lý WebSocket và xác thực
+        if (!isVerified) {
+          // Nếu là bệnh nhân và chưa xác thực OTP,
+          // tắt loading và dừng hàm init tại đây để hiển thị màn hình OTP.
+          console.log('🧑‍⚕️ [VideoCall] Bệnh nhân đang chờ OTP, tạm dừng init...');
+          setLoading(false); 
+          return; // Dừng hàm init
         }
 
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // --- TỪ ĐÂY TRỞ ĐI, CODE CHỈ CHẠY KHI (isVerified = true) ---
         
+        // 4. Kết nối WebSocket
+        console.log('📡 [VideoCall] Đang kết nối WebSocket...');
+        await chatService.connect(user.id, consultationId);
+        
+        // 5. Kiểm tra kết nối (SỬA: Di chuyển vào đây)
         if (!chatService.isConnected()) {
           throw new Error('WebSocket không kết nối được');
         }
@@ -172,9 +312,16 @@ const VideoCallRoomPage = () => {
           if (isMounted) {
             setCallStatus('Đã kết thúc');
             stopCallTimer();
-            setTimeout(() => {
+            // KHÔNG tự động chuyển trang, đợi bác sĩ điền form
+            if (user.role === 'patient') {
+              alert('Cuộc gọi đã kết thúc.');
               navigate(`/tu-van/${consultationId}`);
-            }, 1000);
+            } else {
+              // Nếu là bác sĩ, và form chưa mở, thì mở form
+              if (!showSummaryModal) {
+                setShowSummaryModal(true);
+              }
+            }
           }
         };
 
@@ -265,11 +412,20 @@ const VideoCallRoomPage = () => {
     try {
       setLoading(true); // Hiển thị loading
       await consultationService.verifyVideoOtp(consultationId, otpInput);
+      
+      // ✅ SỬA LỖI: Lưu trạng thái vào sessionStorage
+      sessionStorage.setItem(`video_verified_${consultationId}`, 'true');
+
       setIsVerified(true); // Xác thực thành công!
       setLoading(false);
     } catch (err) {
       console.error('Lỗi xác thực OTP:', err);
-      setOtpError(err.response?.data?.message || 'Lỗi không xác định');
+      // ✅ SỬA LOGIC HIỂN THỊ LỖI
+      if (err.response?.data?.message === 'Phiên tư vấn này đã kết thúc') {
+        setError('Phiên tư vấn này đã kết thúc. Bạn không thể tham gia.');
+      } else {
+        setOtpError(err.response?.data?.message || 'Lỗi không xác định');
+      }
       setLoading(false);
     }
   };
@@ -290,8 +446,19 @@ const VideoCallRoomPage = () => {
     }
     
     // Lắng nghe tin nhắn mới qua WebSocket
+    // Lắng nghe tin nhắn mới qua WebSocket
     const handleNewMessage = (payload) => {
+      
+      // ✅ SỬA LỖI: Thêm tin nhắn mới vào state
       setChatMessages(prev => [...prev, payload]);
+
+      // Dùng `setShowChatBox` với callback để lấy state mới nhất
+      setShowChatBox(currentShowChatBox => {
+        if (!currentShowChatBox) {
+          setHasNewMessage(true);
+        }
+        return currentShowChatBox; // Trả về state hiện tại
+      });
     };
     
     chatService.on('new_message', handleNewMessage);
@@ -330,10 +497,38 @@ const VideoCallRoomPage = () => {
   }, [beautyFilterLevel]);
 
 
-  // ========== TIMER ==========
   const startCallTimer = () => {
     timerRef.current = setInterval(() => {
-      setCallDuration(prev => prev + 1);
+      // SỬA LỖI: Cập nhật cả hai state bằng functional update
+      // 'prevDuration' là giá trị trước đó của callDuration
+      setCallDuration(prevDuration => {
+        const newDuration = prevDuration + 1;
+        
+        // ✅ TÍNH NĂNG MỚI: Logic đếm ngược
+        // Dùng newDuration (đã có giá trị) thay vì 'prev'
+        const newTimeLeft = totalDurationRef.current - newDuration;
+        setTimeLeft(newTimeLeft); // Cập nhật timeLeft
+        
+        // Cảnh báo 10 phút (600 giây)
+        if (newTimeLeft === 600) {
+          setShowTimeWarning(true);
+        }
+        
+        // Hết giờ
+        if (newTimeLeft <= 0) {
+          setTimeLeft(0);
+          stopCallTimer();
+          if (user.role === 'doctor') {
+            setShowEndCallModal(true); // Hiển thị modal cho bác sĩ
+          } else {
+            // Tự động ngắt kết nối cho bệnh nhân
+            alert('Đã hết thời gian tư vấn. Cuộc gọi sẽ tự động kết thúc.');
+            videoService.hangUp();
+          }
+        }
+        
+        return newDuration; // Trả về giá trị mới cho callDuration
+      });
     }, 1000);
   };
 
@@ -345,9 +540,10 @@ const VideoCallRoomPage = () => {
   };
 
   const formatDuration = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const mins = Math.floor(Math.abs(seconds) / 60);
+    const secs = Math.abs(seconds) % 60;
+    const prefix = seconds < 0 ? "-" : "";
+    return `${prefix}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   // ========== CÁC HÀM ĐIỀU KHIỂN ==========
@@ -431,10 +627,25 @@ const VideoCallRoomPage = () => {
     setIsScreenSharing(false);
   };
 
+  // ✅ SỬA: Logc Nút "Hoàn thành"
   const handleHangUp = () => {
-    if (window.confirm('Bạn có chắc muốn kết thúc cuộc gọi?')) {
-      videoService.hangUp();
+    if (user.role === 'doctor') {
+      // Bác sĩ phải điền form
+      setShowSummaryModal(true);
+    } else {
+      // Bệnh nhân có thể rời
+      if (window.confirm('Bạn có chắc muốn kết thúc cuộc gọi?')) {
+        videoService.hangUp();
+      }
     }
+  };
+
+  // ✅ HÀM MỚI: Bác sĩ hoàn tất form và kết thúc
+  const handleCompleteAndHangUp = () => {
+    setShowSummaryModal(false);
+    videoService.hangUp();
+    // Chuyển bác sĩ đến trang quản lý
+    navigate('/bac-si/tu-van'); 
   };
 
   // ✅ THÊM: CHAT BOX FUNCTIONS
@@ -459,28 +670,60 @@ const VideoCallRoomPage = () => {
     }
   };
   
-  const handleSendImage = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const validation = chatService.validateFile(file, 5);
-    if (!validation.isValid) {
-      alert(Object.values(validation.errors).join('\n'));
-      return;
-    }
-    
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('consultation_id', consultationId);
-      formData.append('message_type', 'image');
-      
-      await chatService.uploadFile(formData);
-    } catch (error) {
-      console.error('❌ Lỗi gửi ảnh:', error);
-      alert('Không thể gửi ảnh. Vui lòng thử lại.');
-    }
-  };
+  // ✅ SỬA: TÁCH RIÊNG HÀM NÀY RA
+          const handleSendFile = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Bạn có thể thêm validation file ở đây nếu muốn
+            // const validation = chatService.validateFile(file, 25); // 25MB
+            // if (!validation.isValid) {
+            //   alert(Object.values(validation.errors).join('\n'));
+            //   return;
+            // }
+            
+            try {
+              const formData = new FormData();
+              formData.append('file', file);
+              formData.append('consultation_id', consultationId);
+              formData.append('message_type', 'file'); // <-- Sửa thành 'file'
+              formData.append('receiver_id', otherUser.id); // <-- Đây là fix quan trọng
+        
+              await chatService.uploadFile(formData);
+            } catch (error) {
+              console.error('❌ Lỗi gửi file:', error);
+              alert('Không thể gửi file. Vui lòng thử lại.');
+            }
+            // Xóa giá trị của input để có thể chọn lại file tương tự
+            e.target.value = null;
+          };
+
+          // ✅ SỬA: HÀM GỐC (không còn lồng hàm khác)
+          const handleSendImage = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const validation = chatService.validateFile(file, 5);
+            if (!validation.isValid) {
+              alert(Object.values(validation.errors).join('\n'));
+              return;
+            }
+            
+            try {
+              const formData = new FormData();
+              formData.append('file', file);
+              formData.append('consultation_id', consultationId);
+              formData.append('message_type', 'image');
+              formData.append('receiver_id', otherUser.id);
+        
+              await chatService.uploadFile(formData);
+            } catch (error) {
+              console.error('❌ Lỗi gửi ảnh:', error);
+              alert('Không thể gửi ảnh. Vui lòng thử lại.');
+            }
+            // Thêm dòng này để xóa giá trị của input
+            e.target.value = null;
+          };
   
   // ✅ THÊM: EMOJI REACTION FUNCTIONS
   const handleEmojiClick = (emoji) => {
@@ -537,7 +780,7 @@ if (loading) {
     return (
       <div className="video-call-room-page-error">
         <FaExclamationTriangle />
-        <h3>Lỗi kết nối</h3>
+        <h3>Đã xảy ra lỗi</h3>
         <p>{error}</p>
         <button onClick={() => navigate('/tu-van/lich-su')}>Quay lại</button>
       </div>
@@ -615,12 +858,11 @@ if (loading) {
             <FaWifi />
           </div>
           
-          {callStatus === 'Đang diễn ra' && (
-            <div className="video-call-room-page-call-timer">
-              <FaClock />
-              <span>{formatDuration(callDuration)}</span>
-            </div>
-          )}
+          {/* ========== ✅ THAY ĐỔI: HIỂN THỊ ĐỒNG HỒ ĐẾM NGƯỢC ========== */}
+          <div className={`video-call-room-page-call-timer ${timeLeft <= 600 ? 'video-call-room-page-call-timer-warning' : ''}`}>
+            <FaClock />
+            <span>{timeLeft !== null ? formatDuration(timeLeft) : '--:--'}</span>
+          </div>
           
           <span className={`video-call-room-page-status-badge ${callStatus === 'Đang diễn ra' ? 'active' : ''}`}>
             {callStatus === 'Đang diễn ra' && <FaCheckCircle />}
@@ -673,6 +915,22 @@ if (loading) {
 
       {/* ========== CONTROLS ========== */}
       <div className="video-call-room-page-controls">
+        {/* ===== THÊM KHỐI NÀY VÀO ĐÂY ===== */}
+        {/* ========== EMOJI REACTIONS (TOGGLEABLE) ========== */}
+        {showEmojiPanel && (
+          <div className="video-call-room-page-emoji-panel">
+            {emojiReactions.map((emoji, index) => (
+              <button
+                key={index}
+                onClick={() => handleEmojiClick(emoji)}
+                className="video-call-room-page-emoji-btn"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+        {/* ===== KẾT THÚC KHỐI THÊM ===== */}
         <div className="video-call-room-page-controls-left">
           <button 
             className="video-call-room-page-control-btn video-call-room-page-control-btn-secondary"
@@ -700,13 +958,15 @@ if (loading) {
             {isAudioMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
           </button>
 
+          {/* ========== ✅ THAY ĐỔI: NÚT KẾT THÚC/HOÀN THÀNH ========== */}
           <button 
-            className="video-call-room-page-control-btn video-call-room-page-control-btn-hangup"
+            className={`video-call-room-page-control-btn ${user.role === 'doctor' ? 'video-call-room-page-control-btn-complete' : 'video-call-room-page-control-btn-hangup'}`}
             onClick={handleHangUp}
-            title="Kết thúc"
+            title={user.role === 'doctor' ? 'Hoàn thành' : 'Kết thúc'}
           >
-            <FaPhoneSlash />
+            {user.role === 'doctor' ? <FaSave /> : <FaPhoneSlash />}
           </button>
+          {/* ======================================================== */}
 
           <button 
             className={`video-call-room-page-control-btn ${isVideoMuted ? 'video-call-room-page-control-btn-muted' : ''}`}
@@ -718,6 +978,14 @@ if (loading) {
         </div>
         
        <div className="video-call-room-page-controls-right">
+        {/* ===== THÊM NÚT NÀY ===== */}
+          <button 
+            className={`video-call-room-page-control-btn video-call-room-page-control-btn-secondary ${showEmojiPanel ? 'video-call-room-page-control-btn-active' : ''}`}
+            onClick={() => setShowEmojiPanel(!showEmojiPanel)}
+            title="Phản ứng"
+          >
+            <FaSmile />
+          </button>
           <button 
             className={`video-call-room-page-control-btn video-call-room-page-control-btn-secondary ${isScreenSharing ? 'video-call-room-page-control-btn-active' : ''}`}
             onClick={handleScreenShare}
@@ -728,10 +996,18 @@ if (loading) {
           
           <button 
             className={`video-call-room-page-control-btn video-call-room-page-control-btn-secondary ${showChatBox ? 'video-call-room-page-control-btn-active' : ''}`}
-            onClick={() => setShowChatBox(!showChatBox)}
+            onClick={() => {
+              setShowChatBox(true); // Luôn mở
+              setHasNewMessage(false); // Tắt thông báo khi mở
+            }}
             title="Chat"
           >
             <FaComments />
+            {/* ===== THÊM BADGE NÀY ===== */}
+            {hasNewMessage && !showChatBox && (
+              <span className="video-call-room-page-notification-badge"></span>
+            )}
+            {/* ===== KẾT THÚC THÊM ===== */}
           </button>
           
           <button 
@@ -845,6 +1121,57 @@ if (loading) {
         </div>
       )}
 
+      {/* ========== ✅ MODAL MỚI: CẢNH BÁO HẾT GIỜ ========== */}
+      {showTimeWarning && (
+        <div className="video-call-room-page-time-warning-modal">
+          <FaClock />
+          <span>Thời gian tư vấn còn lại 10 phút.</span>
+          <button onClick={() => setShowTimeWarning(false)}>
+            <FaTimes />
+          </button>
+        </div>
+      )}
+
+      {/* ========== ✅ MODAL MỚI: BÁC SĨ XÁC NHẬN KẾT THÚC ========== */}
+      {showEndCallModal && (
+        <div className="video-call-room-page-modal-overlay">
+          <div className="video-call-room-page-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="video-call-room-page-modal-header">
+              <h3><FaClock /> Đã hết giờ</h3>
+            </div>
+            <div className="video-call-room-page-modal-body">
+              <p>Đã hết thời gian tư vấn. Bạn có muốn kết thúc cuộc gọi và điền ghi chú ngay bây giờ không?</p>
+            </div>
+            <div className="video-call-room-page-modal-actions">
+              <button 
+                className="video-call-room-page-btn video-call-room-page-btn-secondary"
+                onClick={() => setShowEndCallModal(false)}
+              >
+                Tiếp tục (thêm giờ)
+              </button>
+              <button 
+                className="video-call-room-page-btn video-call-room-page-btn-primary"
+                onClick={() => {
+                  setShowEndCallModal(false);
+                  setShowSummaryModal(true); // Mở form ghi chú
+                }}
+              >
+                Kết thúc ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== ✅ MODAL MỚI: BÁC SĨ ĐIỀN GHI CHÚ BẮT BUỘC ========== */}
+      {showSummaryModal && (
+        <DoctorSummaryModal 
+          consultation={consultation}
+          onCancel={() => setShowSummaryModal(false)}
+          onComplete={handleCompleteAndHangUp}
+        />
+      )}
+
       {/* ========== CHAT BOX ========== */}
       {showChatBox && (
         <div className="video-call-room-page-chat-box">
@@ -856,7 +1183,50 @@ if (loading) {
           </div>
           
           <div className="video-call-room-page-chat-body">
-            {chatMessages.map((msg, index) => (
+            {chatMessages.map((msg, index) => {
+            // ✅ SỬA LỖI: Xác định URL của API (Tạm thời)
+            // (Tôi sẽ sửa lại khi có file api.js)
+            const API_BASE_URL = 'http://localhost:3001'; 
+
+            let content;
+
+            if (msg.message_type === 'image') {
+              const imageUrl = msg.file_url?.startsWith('http') 
+                ? msg.file_url 
+                : `${API_BASE_URL}${msg.file_url}`;
+
+              content = <img src={imageUrl} alt="Hình ảnh" className="video-call-room-page-chat-image" />;
+
+            } else if (msg.message_type === 'file') {
+              const fileUrl = msg.file_url?.startsWith('http') 
+                ? msg.file_url 
+                : `${API_BASE_URL}${msg.file_url}`;
+
+              // Cố gắng decode tên file bị lỗi
+              let fileName = msg.file_name || 'Tệp đính kèm';
+              try {
+                fileName = decodeURIComponent(escape(atob(fileName.replace(/%/g, ''))));
+              } catch (e) {
+                 // Nếu decode thất bại, thử cách khác
+                try { fileName = decodeURIComponent(msg.file_name); }
+                catch (e2) { /* Dùng tên gốc nếu vẫn lỗi */ }
+              }
+
+              content = (
+                <a 
+                  href={fileUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="video-call-room-page-chat-file-link"
+                >
+                  <FaPaperclip /> {fileName}
+                </a>
+              );
+            } else {
+              content = <p>{msg.content}</p>;
+            }
+
+            return (
               <div 
                 key={msg.id || index}
                 className={`video-call-room-page-chat-message ${
@@ -869,17 +1239,14 @@ if (loading) {
                   </div>
                 )}
                 <div className="video-call-room-page-chat-content">
-                  {msg.message_type === 'image' ? (
-                    <img src={msg.file_url} alt="Hình ảnh" />
-                  ) : (
-                    <p>{msg.content}</p>
-                  )}
+                  {content}
                   <span className="video-call-room-page-chat-time">
                     {chatService.formatDetailedTime(msg.created_at)}
                   </span>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
           
           <div className="video-call-room-page-chat-footer">
@@ -893,6 +1260,18 @@ if (loading) {
             <label htmlFor="chat-image-upload" className="video-call-room-page-chat-icon-btn">
               <FaImage />
             </label>
+
+            {/* ===== THÊM KHỐI NÀY ===== */}
+            <input
+              type="file"
+              onChange={handleSendFile}
+              style={{ display: 'none' }}
+              id="chat-file-upload"
+            />
+            <label htmlFor="chat-file-upload" className="video-call-room-page-chat-icon-btn" title="Gửi file đính kèm">
+              <FaPaperclip />
+            </label>
+            {/* ===== KẾT THÚC KHỐI THÊM ===== */}
             
             <input
               type="text"
@@ -913,19 +1292,6 @@ if (loading) {
           </div>
         </div>
       )}
-
-      {/* ========== EMOJI REACTIONS ========== */}
-      <div className="video-call-room-page-emoji-panel">
-        {emojiReactions.map((emoji, index) => (
-          <button
-            key={index}
-            onClick={() => handleEmojiClick(emoji)}
-            className="video-call-room-page-emoji-btn"
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
       
       {/* Floating Emojis */}
       {floatingEmojis.map((item) => (

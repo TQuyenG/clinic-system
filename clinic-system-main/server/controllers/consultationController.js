@@ -1698,10 +1698,29 @@ exports.verifyVideoOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Mã OTP không chính xác' });
     }
     
-    // Kiểm tra thời gian hết hạn
-    if (new Date() > new Date(consultation.video_otp_expires_at)) {
-      return res.status(400).json({ success: false, message: 'Mã OTP đã hết hạn' });
+    // SỬA LOGIC: Kiểm tra OTP có hiệu lực trong suốt thời gian hẹn
+    
+    // 1. Lấy thời gian hiện tại
+    const now = moment();
+    
+    // 2. Lấy thời lượng của gói (từ Model Consultation), fallback 30 phút
+    // (Model Consultation.js đã định nghĩa 'duration_minutes')
+    const duration = consultation.duration_minutes || 30;
+    
+    // 3. Tính thời điểm KẾT THÚC của phiên hẹn
+    const sessionEndTime = moment(consultation.appointment_time).add(duration, 'minutes');
+
+    // 4. So sánh
+    // Nếu thời gian hiện tại đã TRỄ HƠN thời gian kết thúc phiên
+    if (now.isAfter(sessionEndTime)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Phiên tư vấn này đã kết thúc' // Thông báo chính xác hơn
+      });
     }
+    
+    // Nếu logic này được chạy, nghĩa là OTP vẫn còn trong thời gian hợp lệ của phiên
+    // (Chúng ta không cần kiểm tra video_otp_expires_at nữa)
 
     // Xác thực thành công
     res.status(200).json({

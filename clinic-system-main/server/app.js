@@ -277,7 +277,7 @@ global.wsConsultationRooms = consultationRooms;
 global.wsBroadcastToConsultation = broadcastToConsultation;
 global.wsSendToUser = sendToUser;
 
-console.log(' WebSocket Server khởi động trên cổng 8080');
+
 
 // ========== CRON JOBS ==========
 // SỬA: Thay thế toàn bộ Cron Jobs inline của file 2 bằng import và start từ file 1
@@ -598,7 +598,7 @@ async function startServer() {
       }
     }
 
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`SUCCESS: Server đang chạy trên cổng ${PORT}`);
       
       // THÊM TỪ FILE 1: Gọi hàm start cron jobs từ file ngoài
@@ -623,7 +623,7 @@ async function startServer() {
       console.log('    Chat:          http://localhost:3001/api/chat');
       console.log('─────────────────────────────────────────────────────────');
       console.log('📡 WEBSOCKET:');
-      console.log('   WebSocket Server: ws://localhost:8080');
+      console.log(`   WebSocket Server: ws://localhost:${PORT}`);
       console.log('─────────────────────────────────────────────────────────');
       console.log(' CRON JOBS ACTIVE:');
       console.log('    (Cron jobs được quản lý trong ./utils/cronJobs.js)'); // SỬA: Thông báo

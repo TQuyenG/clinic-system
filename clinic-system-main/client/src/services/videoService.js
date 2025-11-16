@@ -175,9 +175,20 @@ async startLocalStream() {
    */
   async handleAnswer(payload) {
     if (!this.peerConnection || !payload.sdp) return;
+
+    // ===== SỬA: Thêm kiểm tra trạng thái =====
+    const currentState = this.peerConnection.signalingState;
+    console.log(`[WebRTC] Nhận Answer. Trạng thái hiện tại: ${currentState}`);
+
+    if (currentState !== 'have-local-offer') {
+       console.warn(`[WebRTC] Bỏ qua Answer vì trạng thái là ${currentState}, không phải "have-local-offer"`);
+       return; 
+    }
+    // ===== KẾT THÚC SỬA =====
+
     try {
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-      console.log('[WebRTC] Đã nhận và set Remote Answer');
+      console.log('[WebRTC] Đã nhận và set Remote Answer. Trạng thái mới: stable');
     } catch (error) {
       console.error('Lỗi khi xử lý Answer:', error);
     }

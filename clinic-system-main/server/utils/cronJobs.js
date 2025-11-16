@@ -109,16 +109,18 @@ const sendConsultationReminders = cron.schedule('* * * * *', async () => {
   if (!models) return;
     try {
     const now = new Date();
-    // SỬA LỖI: Tìm tất cả các cuộc hẹn trong vòng 5 phút tới
+    // ✅ SỬA LOGIC: Chỉ tìm các cuộc hẹn bắt đầu sau 4-5 phút nữa
+    // (Để cron job 1 phút chỉ chạy 1 lần cho mỗi cuộc hẹn)
+    const fourMinutesFromNow = new Date(now.getTime() + 4 * 60000);
     const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60000);
 
     const consultations = await models.Consultation.findAll({
       where: {
         appointment_time: {
-          [Op.gt]: now, // Phải ở tương lai
-          [Op.lte]: fiveMinutesFromNow // Và trong vòng 5 phút tới
+          [Op.gt]: fourMinutesFromNow,   // Sửa: Lớn hơn 4 phút
+          [Op.lte]: fiveMinutesFromNow  // Sửa: Nhỏ hơn hoặc bằng 5 phút
         },
-        status: { [Op.in]: ['confirmed', 'in_progress'] }, // ✅ SỬA DÒNG NÀY
+        status: { [Op.in]: ['confirmed', 'in_progress'] },
         reminder_sent: false // Chỉ gửi 1 lần
 
       },
@@ -158,7 +160,7 @@ const sendConsultationReminders = cron.schedule('* * * * *', async () => {
           // 1. Gửi Email cho Bệnh nhân (THÊM OTP)
           await emailSender.sendEmail({
               to: consultation.patient.email,
-              subject: `Sắp đến giờ Video Call (Mã OTP: ${videoOtp})`, // SỬA: Thêm OTP vào tiêu đề
+              subject: `Sắp đến giờ Video Call`, // SỬA: Thêm OTP vào tiêu đề
               template: 'video_reminder', // Template mới (sẽ tạo ở bước 3)
               data: {
                   patientName: consultation.patient.full_name,
@@ -172,7 +174,7 @@ const sendConsultationReminders = cron.schedule('* * * * *', async () => {
           // 2. Gửi Email cho BÁC SĨ (THÊM OTP)
           await emailSender.sendEmail({
               to: consultation.doctor.email,
-              subject: `Sắp đến giờ Video Call (BN OTP: ${videoOtp})`, // SỬA: Thêm OTP vào tiêu đề
+              subject: `Sắp đến giờ Video Call`, // SỬA: Thêm OTP vào tiêu đề
               template: 'video_reminder',
               data: {
                   patientName: `Bác sĩ ${consultation.doctor.full_name}`,

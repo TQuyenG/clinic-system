@@ -24,8 +24,9 @@
 .video-call-room-page-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  background: linear-gradient(135deg, var(--video-call-bg-light) 0%, var(--video-call-bg-lighter) 100%);
+  /* SỬA: Đổi 100vh để fix lỗi bị che khuất bởi Header chính */
+  height: calc(100vh - 65px); /* Giả sử header chính cao 65px */
+  background: var(--video-call-bg-light); /* SỬA: Đổi màu nền chính */
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   overflow: hidden;
 }
@@ -37,7 +38,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  height: 100%; /* SỬA: Đổi từ 100vh sang 100% */
   background: var(--video-call-bg-light);
   color: var(--video-call-text-primary);
 }
@@ -105,10 +106,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1.5rem;
+  padding: 0.6rem 1.25rem; /* SỬA: Thu nhỏ padding */
   background: var(--video-call-white);
-  border-bottom: 2px solid var(--video-call-border);
-  box-shadow: 0 2px 8px var(--video-call-shadow);
+  border-bottom: 1px solid var(--video-call-border); /* SỬA: Giảm độ dày border */
+  box-shadow: 0 2px 5px var(--video-call-shadow);
   z-index: 10;
 }
 
@@ -149,7 +150,7 @@
 .video-call-room-page-status-group {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.6rem; /* SỬA: Giảm gap */
 }
 
 .video-call-room-page-connection-indicator {
@@ -186,11 +187,24 @@
   background: var(--video-call-bg-light);
   padding: 0.4rem 0.8rem;
   border-radius: 6px;
+  border: 1px solid var(--video-call-border);
 }
 
 .video-call-room-page-call-timer svg {
   font-size: 0.95rem;
   color: var(--video-call-primary-color);
+}
+
+/* THÊM MỚI: Style cho đồng hồ khi cảnh báo */
+.video-call-room-page-call-timer-warning {
+  background: #FFF3E0;
+  color: #E65100;
+  border-color: var(--video-call-warning);
+  animation: video-call-room-page-pulse-warning 1.5s infinite;
+}
+@keyframes video-call-room-page-pulse-warning {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 167, 38, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(255, 167, 38, 0); }
 }
 
 .video-call-room-page-status-badge {
@@ -230,7 +244,12 @@
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #1A1A1A;
+  /* SỬA: Đổi màu nền khu vực video */
+  background: var(--video-call-bg-light); 
+  border: 1px solid var(--video-call-border);
+  margin: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px var(--video-call-shadow-hover);
 }
 
 .video-call-room-page-video-wrapper {
@@ -248,13 +267,20 @@
   left: 0;
   width: 100%;
   height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  /* SỬA: Đổi màu nền chờ */
+  background: var(--video-call-bg-lighter);
 }
 
 .video-call-room-page-remote-video {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: #000000;
+  background: transparent;
+  /* ✅ SỬA LỖI: Thêm 2 dòng này */
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* Overlay khi chưa kết nối */
@@ -264,7 +290,8 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(102, 187, 106, 0.1) 0%, rgba(76, 175, 80, 0.1) 100%);
+  /* SỬA: Đổi màu nền overlay */
+  background: var(--video-call-bg-lighter);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -273,27 +300,27 @@
 
 .video-call-room-page-overlay-content {
   text-align: center;
-  color: white;
+  color: var(--video-call-text-primary); /* SỬA: Đổi màu chữ */
 }
 
 .video-call-room-page-overlay-content p {
   margin-top: 1rem;
   font-size: 1.05rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--video-call-text-secondary); /* SỬA: Đổi màu chữ */
 }
 
 /* Local Video (Góc phải dưới) */
 .video-call-room-page-video-wrapper.video-call-room-page-local {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
-  width: 220px;
-  height: 165px;
-  border: 3px solid var(--video-call-primary-color);
-  border-radius: 12px;
+  bottom: 15px; /* SỬA: Giảm */
+  right: 15px; /* SỬA: Giảm */
+  width: 200px; /* SỬA: Giảm */
+  height: 150px; /* SỬA: Giảm */
+  border: 2px solid var(--video-call-primary-color); /* SỬA: Giảm */
+  border-radius: 10px; /* SỬA: Giảm */
   z-index: 10;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   overflow: hidden;
 }
 
@@ -302,7 +329,7 @@
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-  border-radius: 9px;
+  border-radius: 8px; /* SỬA: Giảm */
 }
 
 .video-call-room-page-video-off-overlay {
@@ -343,34 +370,36 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 1.5rem; /* SỬA: Giảm padding */
   background: var(--video-call-white);
-  border-top: 2px solid var(--video-call-border);
+  border-top: 1px solid var(--video-call-border); /* SỬA: Giảm border */
   box-shadow: 0 -2px 8px var(--video-call-shadow);
   z-index: 10;
+  position: relative;
 }
 
 .video-call-room-page-controls-left,
 .video-call-room-page-controls-center,
 .video-call-room-page-controls-right {
   display: flex;
-  gap: 0.8rem;
+  align-items: center; /* SỬA: Thêm align-items */
+  gap: 0.6rem; /* SỬA: Giảm gap */
 }
 
 .video-call-room-page-control-btn {
   background: var(--video-call-bg-lighter);
   color: var(--video-call-text-primary);
-  border: 2px solid var(--video-call-border);
-  width: 48px;
-  height: 48px;
+  border: 1px solid var(--video-call-border); /* SỬA: Giảm border */
+  width: 44px; /* SỬA: Giảm size */
+  height: 44px; /* SỬA: Giảm size */
   border-radius: 50%;
-  font-size: 1.15rem;
+  font-size: 1.05rem; /* SỬA: Giảm size */
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 6px var(--video-call-shadow);
+  box-shadow: 0 2px 4px var(--video-call-shadow); /* SỬA: Giảm shadow */
 }
 
 .video-call-room-page-control-btn:hover {
@@ -387,14 +416,28 @@
   background: var(--video-call-danger);
   color: white;
   border-color: var(--video-call-danger);
-  width: 56px;
-  height: 56px;
-  font-size: 1.3rem;
+  width: 52px; /* SỬA: Giảm size */
+  height: 52px; /* SỬA: Giảm size */
+  font-size: 1.2rem; /* SỬA: Giảm size */
 }
 
 .video-call-room-page-control-btn-hangup:hover {
   background: #D32F2F;
   border-color: #D32F2F;
+}
+
+/* THÊM MỚI: Nút Complete (của bác sĩ) */
+.video-call-room-page-control-btn-complete {
+  background: var(--video-call-primary-dark);
+  color: white;
+  border-color: var(--video-call-primary-dark);
+  width: 52px;
+  height: 52px;
+  font-size: 1.2rem;
+}
+.video-call-room-page-control-btn-complete:hover {
+  background: var(--video-call-primary-color);
+  border-color: var(--video-call-primary-color);
 }
 
 .video-call-room-page-control-btn-muted {
@@ -493,7 +536,7 @@
 }
 
 .video-call-room-page-modal-body {
-  padding: 1.25rem;
+  padding: 1rem 1.25rem 1.25rem; /* SỬA: Giảm padding */
   max-height: 60vh;
   overflow-y: auto;
 }
@@ -580,17 +623,17 @@
 .video-call-room-page-modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.8rem;
-  margin-top: 1.25rem;
+  gap: 0.7rem; /* SỬA: Giảm gap */
+  margin-top: 1rem; /* SỬA: Giảm margin */
   padding-top: 1rem;
   border-top: 1px solid var(--video-call-border);
 }
 
 .video-call-room-page-btn {
-  padding: 0.65rem 1.5rem;
+  padding: 0.6rem 1.25rem; /* SỬA: Giảm padding */
   border: none;
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.85rem; /* SỬA: Giảm font */
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -761,6 +804,38 @@
   margin-top: 0.25rem;
 }
 
+.video-call-room-page-chat-image {
+  max-width: 100%;
+  border-radius: 8px;
+  margin-bottom: 0.25rem;
+  cursor: pointer;
+}
+
+.video-call-room-page-chat-file-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--video-call-bg-light);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  color: var(--video-call-text-primary);
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+.video-call-room-page-chat-file-link:hover {
+  background: var(--video-call-border);
+}
+
+.video-call-room-page-chat-message-own .video-call-room-page-chat-file-link {
+  background: var(--video-call-primary-light);
+  color: var(--video-call-white);
+}
+.video-call-room-page-chat-message-own .video-call-room-page-chat-file-link:hover {
+  background: var(--video-call-primary-dark);
+}
+
 .video-call-room-page-chat-message-own .video-call-room-page-chat-time {
   color: rgba(255, 255, 255, 0.7);
 }
@@ -834,10 +909,10 @@
   cursor: not-allowed;
 }
 
-/* ==================== EMOJI REACTIONS ==================== */
+/* THAY THẾ TOÀN BỘ KHỐI NÀY */
 .video-call-room-page-emoji-panel {
-  position: fixed;
-  bottom: 20px;
+  position: absolute;
+  bottom: 85px; /* Căn lên trên thanh controls (cao ~80px) */
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -847,6 +922,8 @@
   border-radius: 30px;
   z-index: 999;
   backdrop-filter: blur(10px);
+  /* Thêm animation cho mượt */
+  animation: video-call-room-page-pop-up 0.2s ease-out;
 }
 
 .video-call-room-page-emoji-btn {
@@ -1116,3 +1193,190 @@
   text-decoration: underline;
 }
 
+/* THÊM VÀO CUỐI FILE */
+@keyframes video-call-room-page-pop-up {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ====================
+   NOTIFICATION BADGE
+==================== */
+
+/* Sửa lại: Đảm bảo nút control là relative */
+.video-call-room-page-control-btn {
+  position: relative; /* Đảm bảo đã có thuộc tính này */
+  /* ... các thuộc tính khác ... */
+}
+
+/* THÊM MỚI: CSS cho chấm đỏ */
+.video-call-room-page-notification-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--video-call-danger);
+  border-radius: 50%;
+  border: 2px solid var(--video-call-white);
+  pointer-events: none;
+  animation: video-call-room-page-pulse-badge 1.5s infinite;
+}
+
+@keyframes video-call-room-page-pulse-badge {
+  0% { transform: scale(0.9); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(0.9); opacity: 1; }
+}
+
+/* ======================================================== */
+/* ✅ THÊM MỚI: CSS CHO TÍNH NĂNG HẸN GIỜ & FORM GHI CHÚ      */
+/* ======================================================== */
+
+/* 1. Modal cảnh báo 10 phút */
+.video-call-room-page-time-warning-modal {
+  position: fixed;
+  top: 80px; /* Dưới header */
+  left: 50%;
+  transform: translateX(-50%);
+  background: #FFF3E0;
+  color: #E65100;
+  padding: 0.8rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--video-call-warning);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 1001;
+  font-size: 0.9rem;
+  font-weight: 500;
+  animation: video-call-room-page-fade-in 0.3s ease, video-call-room-page-fade-out 0.3s 5s forwards;
+}
+
+.video-call-room-page-time-warning-modal button {
+  background: none;
+  border: none;
+  color: #E65100;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.25rem;
+}
+
+@keyframes video-call-room-page-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
+
+/* 2. Modal Form Ghi chú Bắt buộc (Bác sĩ) */
+.video-call-room-page-summary-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(5px);
+}
+
+.video-call-room-page-summary-modal {
+  background: var(--video-call-white);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 550px; /* Rộng hơn modal thường */
+  max-height: 90vh;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.video-call-room-page-summary-modal-header {
+  padding: 1.25rem;
+  background: var(--video-call-bg-light);
+  border-bottom: 2px solid var(--video-call-border);
+}
+
+.video-call-room-page-summary-modal-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--video-call-text-primary);
+  margin: 0;
+}
+
+.video-call-room-page-summary-modal-header p {
+  font-size: 0.85rem;
+  color: var(--video-call-text-secondary);
+  margin: 0.25rem 0 0 0;
+}
+
+.video-call-room-page-summary-modal-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.video-call-room-page-summary-form-group {
+  margin-bottom: 1rem;
+}
+
+.video-call-room-page-summary-form-group label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--video-call-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.video-call-room-page-summary-form-group input[type="text"],
+.video-call-room-page-summary-form-group textarea {
+  width: 100%;
+  padding: 0.7rem;
+  border: 2px solid var(--video-call-border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: var(--video-call-white);
+  color: var(--video-call-text-primary);
+  transition: all 0.2s ease;
+  box-sizing: border-box; /* Quan trọng */
+}
+
+.video-call-room-page-summary-form-group input[type="text"]:focus,
+.video-call-room-page-summary-form-group textarea:focus {
+  outline: none;
+  border-color: var(--video-call-primary-color);
+  box-shadow: 0 0 0 3px var(--video-call-shadow);
+}
+
+.video-call-room-page-summary-error {
+  background: #FFEBEE;
+  color: var(--video-call-danger);
+  border: 1px solid var(--video-call-danger);
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.video-call-room-page-summary-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  padding: 1.25rem;
+  border-top: 1px solid var(--video-call-border);
+  background: var(--video-call-bg-lighter);
+}
