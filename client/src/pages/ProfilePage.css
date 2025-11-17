@@ -1,0 +1,705 @@
+/* client/src/pages/ProfilePage.css */
+
+/* ... (Toàn bộ CSS từ lần trước, không thay đổi) ... */
+:root {
+  /* Palette: Pastel Green, Medical, Friendly */
+  --profile-page-primary: #66bb6a; /* Friendly medical green */
+  --profile-page-primary-dark: #4caf50;
+  --profile-page-secondary: #81fa8f; /* Soft blue (complements green) */
+  --profile-page-secondary-dark: #29f685;
+  --profile-page-success: #27ae60;
+  --profile-page-success-light: #e0f7e9;
+  --profile-page-success-dark: #1e8e5e;
+  --profile-page-error: #e74c3c;
+  --profile-page-error-light: #fbe9e7;
+  --profile-page-error-dark: #c63c2c;
+  --profile-page-warning: #f39c12;
+  
+  /* Backgrounds & Text */
+  --profile-page-bg: #f7fdfa; /* !!! Nền xanh lá pastel rất nhạt !!! */
+  --profile-page-content-bg: #ffffff; /* Nền nội dung là màu trắng */
+  --profile-page-gray-100: #f1f8f1; /* Light green-gray */
+  --profile-page-gray-200: #e0e0e0;
+  --profile-page-gray-300: #eeeeee;
+  --profile-page-gray-400: #bdbdbd;
+  --profile-page-gray-600: #666;
+  --profile-page-gray-700: #444;
+  --profile-page-gray-800: #333;
+
+  /* Sizing & Shadow (Shrunk) */
+  --profile-page-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --profile-page-shadow-md: 0 3px 6px rgba(0, 0, 0, 0.07);
+  --profile-page-shadow-lg: 0 6px 15px rgba(0, 0, 0, 0.08);
+  --profile-page-radius: 8px; /* Thu nhỏ */
+  --profile-page-radius-sm: 6px; /* Thu nhỏ */
+  --profile-page-transition: all 0.25s ease;
+}
+
+/* Container */
+.profile-page-container {
+  padding: 1.5rem; /* Thu nhỏ */
+  max-width: 1300px;
+  margin: 0 auto;
+  background: var(--profile-page-bg); /* Nền pastel */
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Loading */
+.profile-page-loading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: var(--profile-page-bg);
+  color: var(--profile-page-gray-800);
+}
+
+.profile-page-spinner {
+  width: 40px; /* Thu nhỏ */
+  height: 40px; /* Thu nhỏ */
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--profile-page-primary);
+  border-radius: 50%;
+  animation: profile-page-spin 1s linear infinite;
+}
+
+@keyframes profile-page-spin {
+  to { transform: rotate(360deg); }
+}
+
+.profile-page-loading p {
+  margin-top: 1rem;
+  font-size: 1rem; /* Thu nhỏ */
+  font-weight: 500;
+}
+
+/* Header */
+.profile-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem; /* Thu nhỏ */
+  padding: 1.25rem; /* Thu nhỏ */
+  background: var(--profile-page-content-bg);
+  border-radius: var(--profile-page-radius);
+  box-shadow: var(--profile-page-shadow-md);
+  border-left: 5px solid var(--profile-page-primary); /* Điểm nhấn y tế */
+}
+
+.profile-page-header-content h1 {
+  margin: 0;
+  color: var(--profile-page-gray-800);
+  font-size: 1.5rem; /* Thu nhỏ */
+  font-weight: 600; /* Giảm độ đậm */
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.profile-page-header-icon {
+  color: var(--profile-page-primary);
+  font-size: 1.4rem; /* Thu nhỏ */
+}
+
+.profile-page-header-subtitle {
+  margin: 0.3rem 0 0 0;
+  color: var(--profile-page-gray-600);
+  font-size: 0.9rem; /* Thu nhỏ */
+}
+
+.profile-page-btn-back {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--profile-page-gray-600);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem; /* Thu nhỏ */
+  border-radius: var(--profile-page-radius-sm);
+  cursor: pointer;
+  font-size: 0.9rem; /* Thu nhỏ */
+  font-weight: 500;
+  transition: var(--profile-page-transition);
+  box-shadow: var(--profile-page-shadow-sm);
+}
+
+.profile-page-btn-back:hover {
+  background: var(--profile-page-gray-800);
+  transform: translateY(-2px);
+  box-shadow: var(--profile-page-shadow-md);
+}
+
+/* Xóa CSS cho message cũ */
+/* .profile-page-message { ... } */
+
+/* Content Layout */
+.profile-page-content {
+  display: grid;
+  grid-template-columns: 320px 1fr; /* Thu nhỏ sidebar */
+  gap: 1.5rem; /* Thu nhỏ */
+}
+
+/* Sidebar */
+.profile-page-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Avatar Card */
+.profile-page-avatar-card {
+  background: var(--profile-page-content-bg);
+  padding: 1.5rem; /* Thu nhỏ */
+  border-radius: var(--profile-page-radius);
+  box-shadow: var(--profile-page-shadow-md);
+  text-align: center;
+}
+
+.profile-page-avatar-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+.profile-page-avatar {
+  width: 100px; /* Thu nhỏ */
+  height: 100px; /* Thu nhỏ */
+  margin: 0 auto;
+  background: var(--profile-page-gray-100);
+  border: 4px solid var(--profile-page-content-bg); /* Tạo viền trắng */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--profile-page-shadow-md); /* Shadow nhẹ hơn */
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-page-avatar-icon {
+  font-size: 3rem; /* Thu nhỏ */
+  color: var(--profile-page-primary);
+}
+
+.profile-page-avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+}
+
+.profile-page-avatar-actions {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.profile-page-avatar-btn {
+  width: 32px; /* Thu nhỏ */
+  height: 32px; /* Thu nhỏ */
+  border-radius: 50%;
+  border: 2px solid white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--profile-page-transition);
+  font-size: 0.8rem; /* Thu nhỏ */
+}
+
+.profile-page-avatar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile-page-avatar-btn-upload {
+  background: var(--profile-page-primary);
+  color: white;
+}
+
+.profile-page-avatar-btn-upload:hover:not(:disabled) {
+  background: var(--profile-page-primary-dark);
+  transform: scale(1.1);
+}
+
+.profile-page-avatar-btn-remove {
+  background: var(--profile-page-error);
+  color: white;
+}
+
+.profile-page-avatar-btn-remove:hover:not(:disabled) {
+  background: #c0392b;
+  transform: scale(1.1);
+}
+
+.profile-page-btn-save-avatar {
+  width: 100%;
+  padding: 0.6rem; /* Thu nhỏ */
+  margin-bottom: 1rem;
+  background: var(--profile-page-success);
+  color: white;
+  border: none;
+  border-radius: var(--profile-page-radius-sm);
+  font-weight: 600;
+  font-size: 0.9rem; /* Thu nhỏ */
+  cursor: pointer;
+  transition: var(--profile-page-transition);
+}
+
+.profile-page-btn-save-avatar:hover:not(:disabled) {
+  background: var(--profile-page-success-dark);
+  box-shadow: var(--profile-page-shadow-sm);
+}
+
+.profile-page-btn-save-avatar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-page-user-name {
+  margin: 0 0 0.5rem 0;
+  color: var(--profile-page-gray-800);
+  font-size: 1.25rem; /* Thu nhỏ */
+  font-weight: 600;
+}
+
+.profile-page-user-email {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--profile-page-gray-600);
+  font-size: 0.85rem; /* Thu nhỏ */
+  margin-bottom: 1rem;
+  word-break: break-all;
+}
+
+.profile-page-user-role {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--profile-page-gray-300);
+}
+
+.profile-page-role-icon {
+  color: var(--profile-page-primary);
+  font-size: 1.1rem; /* Thu nhỏ */
+}
+
+/* Badge */
+.profile-page-badge {
+  display: inline-block;
+  padding: 0.3rem 0.8rem; /* Thu nhỏ */
+  border-radius: 20px;
+  font-size: 0.8rem; /* Thu nhỏ */
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: white;
+}
+
+.profile-page-badge-admin {
+  background: #e74c3c;
+  box-shadow: 0 2px 5px rgba(231, 76, 60, 0.3);
+}
+
+.profile-page-badge-staff {
+  background: #3498db;
+  box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3);
+}
+
+.profile-page-badge-doctor {
+  background: var(--profile-page-success);
+  box-shadow: 0 2px 5px rgba(39, 174, 96, 0.3);
+}
+
+.profile-page-badge-patient {
+  background: #95a5a6;
+  box-shadow: 0 2px 5px rgba(149, 165, 166, 0.3);
+}
+
+/* Role Code */
+.profile-page-role-code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.8rem; /* Thu nhỏ */
+  padding: 0.6rem; /* Thu nhỏ */
+  color: white;
+  border-radius: var(--profile-page-radius-sm);
+  font-weight: 600;
+  font-size: 0.9rem; /* Thu nhỏ */
+}
+
+.profile-page-role-code svg {
+  font-size: 1rem;
+}
+
+.profile-page-role-code-doctor {
+  background: var(--profile-page-success);
+}
+
+.profile-page-role-code-patient {
+  background: #95a5a6;
+}
+
+.profile-page-role-code-staff {
+  background: var(--profile-page-primary);
+}
+
+.profile-page-role-code-admin {
+  background: #e74c3c;
+}
+
+/* Status Card */
+.profile-page-status-card {
+  background: var(--profile-page-content-bg);
+  padding: 1.25rem; /* Thu nhỏ */
+  border-radius: var(--profile-page-radius);
+  box-shadow: var(--profile-page-shadow-md);
+}
+
+.profile-page-status-title {
+  margin: 0 0 1rem 0;
+  color: var(--profile-page-gray-800);
+  font-size: 1.1rem; /* Thu nhỏ */
+  font-weight: 600;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--profile-page-primary);
+}
+
+.profile-page-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* Thu nhỏ */
+}
+
+.profile-page-status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem; /* Thu nhỏ */
+  background: var(--profile-page-gray-100);
+  border-radius: var(--profile-page-radius-sm);
+}
+
+.profile-page-status-label {
+  font-weight: 600;
+  color: var(--profile-page-gray-700);
+  font-size: 0.85rem; /* Thu nhỏ */
+}
+
+.profile-page-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem; /* Thu nhỏ */
+  border-radius: 15px;
+  font-size: 0.75rem; /* Thu nhỏ */
+  font-weight: 600;
+}
+
+.profile-page-status-active {
+  background: var(--profile-page-success-light);
+  color: var(--profile-page-success-dark);
+}
+
+.profile-page-status-inactive {
+  background: var(--profile-page-error-light);
+  color: var(--profile-page-error-dark);
+}
+
+.profile-page-status-verified {
+  background: #e0f7fa;
+  color: #004d40;
+}
+
+.profile-page-status-unverified {
+  background: #fff8e1;
+  color: #856404;
+}
+
+/* Main Content */
+.profile-page-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Form Card */
+.profile-page-form-card {
+  background: var(--profile-page-content-bg);
+  border-radius: var(--profile-page-radius);
+  box-shadow: var(--profile-page-shadow-md);
+  overflow: hidden;
+}
+
+.profile-page-card-header {
+  background: var(--profile-page-primary);
+  padding: 1.25rem 1.5rem; /* Thu nhỏ */
+  color: white;
+}
+
+.profile-page-card-header-password {
+  background: var(--profile-page-secondary);
+}
+
+.profile-page-card-header-doctor {
+  background: var(--profile-page-success);
+}
+
+.profile-page-card-header h2 {
+  margin: 0;
+  font-size: 1.2rem; /* Thu nhỏ */
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Form */
+.profile-page-form {
+  padding: 1.5rem; /* Thu nhỏ */
+}
+
+.profile-page-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem; /* Thu nhỏ */
+}
+
+.profile-page-form-group {
+  margin-bottom: 1.25rem; /* Thu nhỏ */
+}
+
+.profile-page-form-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem; /* Thu nhỏ */
+  font-weight: 600;
+  color: var(--profile-page-gray-700);
+  font-size: 0.9rem; /* Thu nhỏ */
+}
+
+.profile-page-form-label svg {
+  color: var(--profile-page-primary);
+  font-size: 0.9rem; /* Thu nhỏ */
+}
+
+.profile-page-form-input,
+.profile-page-form-select {
+  width: 100%;
+  padding: 0.75rem 0.9rem; /* Thu nhỏ */
+  border: 1px solid var(--profile-page-gray-300); /* Mỏng hơn */
+  border-radius: var(--profile-page-radius-sm);
+  font-size: 0.9rem; /* Thu nhỏ */
+  transition: var(--profile-page-transition);
+  background: white;
+}
+
+.profile-page-form-input:focus,
+.profile-page-form-select:focus {
+  outline: none;
+  border-color: var(--profile-page-primary);
+  box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.2);
+}
+
+.profile-page-form-input::placeholder {
+  color: var(--profile-page-gray-400);
+}
+
+/* Textarea */
+.profile-page-form-textarea {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--profile-page-gray-300);
+  border-radius: var(--profile-page-radius-sm);
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: var(--profile-page-transition);
+  resize: vertical;
+  min-height: 90px;
+}
+
+.profile-page-form-textarea:focus {
+  outline: none;
+  border-color: var(--profile-page-primary);
+  box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.2);
+}
+
+.profile-page-form-textarea::placeholder {
+  color: var(--profile-page-gray-400);
+}
+
+/* Submit Button */
+.profile-page-btn-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--profile-page-primary);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem; /* Thu nhỏ */
+  border-radius: var(--profile-page-radius-sm);
+  cursor: pointer;
+  font-size: 0.95rem; /* Thu nhỏ */
+  font-weight: 600;
+  transition: var(--profile-page-transition);
+  box-shadow: var(--profile-page-shadow-sm);
+  margin-top: 0.5rem;
+}
+
+.profile-page-btn-submit:hover {
+  background: var(--profile-page-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--profile-page-shadow-md);
+}
+
+.profile-page-btn-submit:active {
+  transform: translateY(0);
+}
+
+.profile-page-btn-password {
+  background: var(--profile-page-secondary);
+}
+.profile-page-btn-password:hover {
+  background: var(--profile-page-secondary-dark);
+}
+
+.profile-page-btn-doctor {
+  background: var(--profile-page-success);
+}
+
+.profile-page-btn-doctor:hover {
+  background: var(--profile-page-success-dark);
+}
+
+/* Specialty Card */
+.profile-page-specialty-card {
+  background: var(--profile-page-content-bg);
+  padding: 1.25rem; /* Thu nhỏ */
+  border-radius: var(--profile-page-radius);
+  box-shadow: var(--profile-page-shadow-md);
+}
+
+.profile-page-specialty-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem 0;
+  color: var(--profile-page-gray-800);
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--profile-page-success);
+}
+
+.profile-page-specialty-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.profile-page-specialty-name {
+  font-size: 1rem; /* Thu nhỏ */
+  font-weight: 600;
+  color: var(--profile-page-primary);
+  margin: 0;
+}
+
+.profile-page-experience {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem; /* Thu nhỏ */
+  color: var(--profile-page-gray-600);
+  margin: 0;
+}
+
+.profile-page-experience svg {
+  color: var(--profile-page-primary);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .profile-page-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .profile-page-sidebar {
+    grid-template-columns: 1fr 1fr;
+    display: grid;
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-page-container {
+    padding: 1rem;
+  }
+  
+  .profile-page-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+    padding: 1rem;
+  }
+  
+  .profile-page-header-content h1 {
+    font-size: 1.25rem;
+  }
+  
+  .profile-page-sidebar {
+    grid-template-columns: 1fr;
+  }
+  
+  .profile-page-form-row {
+    grid-template-columns: 1fr;
+    gap: 0; /* Loại bỏ gap trên mobile, để group tự xử lý */
+  }
+  
+  .profile-page-btn-back {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* * BƯỚC 12: Thêm CSS cho phần hiển thị lỗi 
+ */
+
+/* Lớp cho text lỗi (màu đỏ, in nghiêng) */
+.profile-page-form-error {
+  color: var(--profile-page-error);
+  font-style: italic;
+  font-size: 0.8rem;
+  margin-top: 0.35rem; /* Khoảng cách với input */
+  display: block; /* Hiển thị như một khối */
+}
+
+/* Lớp cho input bị lỗi (viền đỏ) */
+.profile-page-form-input-error,
+.profile-page-form-select-error {
+  border-color: var(--profile-page-error-dark) !important; /* Viền đỏ, !important để ghi đè */
+}
+
+/* Lớp cho input bị lỗi KHI ĐƯỢC FOCUS (shadow đỏ) */
+.profile-page-form-input-error:focus,
+.profile-page-form-select-error:focus {
+  border-color: var(--profile-page-error-dark) !important;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.2) !important; /* Shadow đỏ nhạt */
+}
+
+/* CSS cho Toastify (ghi đè một chút nếu cần) */
+.Toastify__toast {
+  font-size: 0.9rem;
+  border-radius: var(--profile-page-radius-sm);
+}

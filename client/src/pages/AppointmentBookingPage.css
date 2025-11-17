@@ -1,0 +1,561 @@
+/* client/src/pages/AppointmentBookingPage.css */
+
+:root {
+  --appointment-booking-primary: #a0d9b5; /* Xanh lá pastel (Màu chủ đạo) */
+  --appointment-booking-primary-dark: #81b997;
+  --appointment-booking-primary-light: #e6f7f2;
+  --appointment-booking-text-primary: #1f2937;
+  --appointment-booking-text-secondary: #4b5563;
+  --appointment-booking-border: #e5e7eb;
+  --appointment-booking-background-light: #f9fafb;
+  --appointment-booking-background: #ffffff;
+  --appointment-booking-danger: #f4b6b6;
+  --appointment-booking-radius: 8px;
+  --appointment-booking-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --appointment-booking-transition: all 0.2s ease-in-out;
+  --appointment-booking-danger-text: #b91c1c; 
+  --appointment-booking-danger-border: #fca5a5;
+  --appointment-booking-radius: 8px;
+  --appointment-booking-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --appointment-booking-transition: all 0.2s ease-in-out;
+}
+
+/* ========== BASE ========== */
+.appointment-booking-page {
+  background-color: var(--appointment-booking-background-light);
+  min-height: 100vh;
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.appointment-booking-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.appointment-booking-page-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.appointment-booking-page-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--appointment-booking-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.appointment-booking-page-header p {
+  font-size: 1.1rem;
+  color: var(--appointment-booking-text-secondary);
+}
+
+.appointment-booking-content {
+  background: var(--appointment-booking-background);
+  border-radius: var(--appointment-booking-radius);
+  box-shadow: var(--appointment-booking-shadow-md);
+  overflow: hidden;
+}
+
+.appointment-booking-form-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 2 cột */
+  gap: 2rem;
+  padding: 2rem;
+}
+
+/* Responsive 1 cột */
+@media (max-width: 900px) {
+  .appointment-booking-form-wrapper {
+    grid-template-columns: 1fr;
+  }
+}
+
+.appointment-booking-left-col,
+.appointment-booking-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.appointment-booking-left-col h2,
+.appointment-booking-right-col h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--appointment-booking-text-primary);
+  margin: 0;
+  border-bottom: 1px solid var(--appointment-booking-border);
+  padding-bottom: 1rem;
+}
+
+/* ========== FORM CHUNG ========== */
+.appointment-booking-form-group {
+  display: flex;
+  flex-direction: column;
+}
+.appointment-booking-form-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--appointment-booking-text-primary);
+  margin-bottom: 0.5rem;
+}
+.appointment-booking-form-control {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--appointment-booking-border);
+  border-radius: var(--appointment-booking-radius);
+  font-size: 1rem;
+  transition: var(--appointment-booking-transition);
+  background-color: var(--appointment-booking-background);
+}
+.appointment-booking-form-control:focus {
+  outline: none;
+  border-color: var(--appointment-booking-primary-dark);
+  box-shadow: 0 0 0 3px var(--appointment-booking-primary-light);
+}
+.appointment-booking-form-control:disabled {
+  background-color: var(--appointment-booking-background-light);
+  cursor: not-allowed;
+}
+
+.appointment-booking-info-text {
+  font-size: 0.8rem;
+  color: var(--appointment-booking-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+/* ========== CHỌN NGÀY (Date Tabs) ========== */
+.appointment-booking-date-tabs {
+  display: flex;
+  gap: 0.5rem;
+  background-color: var(--appointment-booking-background-light);
+  border-radius: var(--appointment-booking-radius);
+  padding: 0.5rem;
+}
+
+.appointment-booking-date-tab {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--appointment-booking-background);
+  cursor: pointer;
+  text-align: center;
+  transition: var(--appointment-booking-transition);
+}
+.appointment-booking-date-tab:hover {
+  border-color: var(--appointment-booking-primary-dark);
+}
+.appointment-booking-date-tab.appointment-booking-active {
+  background-color: var(--appointment-booking-primary);
+  color: var(--appointment-booking-text-primary);
+  border-color: var(--appointment-booking-primary-dark);
+}
+.appointment-booking-date-tab span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--appointment-booking-text-secondary);
+}
+.appointment-booking-date-tab strong {
+  font-size: 1rem;
+  color: var(--appointment-booking-text-primary);
+}
+.appointment-booking-date-tab.appointment-booking-active span,
+.appointment-booking-date-tab.appointment-booking-active strong {
+  color: var(--appointment-booking-text-primary);
+}
+
+.appointment-booking-date-picker-btn {
+  padding: 0.5rem;
+  border: 1px solid var(--appointment-booking-border);
+  border-radius: 6px;
+  background: var(--appointment-booking-background);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--appointment-booking-text-secondary);
+}
+
+/* ========== CHỌN GIỜ (Time Slots) ========== */
+.appointment-booking-time-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.appointment-booking-time-period h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--appointment-booking-text-primary);
+  margin: 0 0 0.75rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.appointment-booking-time-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.75rem;
+}
+
+.appointment-booking-time-slot {
+  padding: 0.75rem;
+  background: var(--appointment-booking-background);
+  border: 1px solid var(--appointment-booking-border);
+  border-radius: var(--appointment-booking-radius);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--appointment-booking-text-primary);
+  cursor: pointer;
+  transition: var(--appointment-booking-transition);
+  text-align: center;
+}
+.appointment-booking-time-slot:hover {
+  border-color: var(--appointment-booking-primary-dark);
+  color: var(--appointment-booking-primary-dark);
+}
+.appointment-booking-time-slot.appointment-booking-active {
+  background-color: var(--appointment-booking-primary);
+  border-color: var(--appointment-booking-primary-dark);
+  color: var(--appointment-booking-text-primary);
+}
+.appointment-booking-time-slot:disabled {
+  background-color: var(--appointment-booking-background-light);
+  color: var(--appointment-booking-text-secondary);
+  opacity: 0.6;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+/* ========== CỘT PHẢI (Thông tin KH) ========== */
+.appointment-booking-radio-group {
+  display: flex;
+  gap: 1rem;
+}
+.appointment-booking-radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.appointment-booking-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.appointment-booking-form-group.full-width {
+  grid-column: 1 / -1;
+}
+.appointment-booking-form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+}
+
+.appointment-booking-terms {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--appointment-booking-text-secondary);
+}
+.appointment-booking-terms a {
+  color: var(--appointment-booking-primary-dark);
+  text-decoration: none;
+}
+.appointment-booking-terms a:hover {
+  text-decoration: underline;
+}
+
+/* Nút Submit */
+.appointment-booking-btn-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  border: none;
+  border-radius: var(--appointment-booking-radius);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--appointment-booking-transition);
+  background-color: var(--appointment-booking-primary);
+  color: var(--appointment-booking-text-primary);
+}
+.appointment-booking-btn-confirm:hover {
+  background-color: var(--appointment-booking-primary-dark);
+  color: white;
+}
+.appointment-booking-btn-confirm:disabled {
+  background: var(--appointment-booking-border);
+  cursor: not-allowed;
+}
+
+
+/* ========== MODAL ========== */
+.appointment-booking-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+.appointment-booking-modal-content {
+  background: var(--appointment-booking-background);
+  border-radius: var(--appointment-booking-radius);
+  padding: 2rem;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: var(--appointment-booking-shadow-md);
+}
+.appointment-booking-modal-content h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--appointment-booking-text-primary);
+  margin: 0 0 1.5rem 0;
+}
+.appointment-booking-confirm-details p {
+  font-size: 1rem;
+  color: var(--appointment-booking-text-secondary);
+  margin: 0.75rem 0;
+  line-height: 1.6;
+}
+.appointment-booking-confirm-details strong {
+  color: var(--appointment-booking-text-primary);
+  font-weight: 600;
+}
+.appointment-booking-modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+.appointment-booking-btn-cancel,
+.appointment-booking-btn-payment {
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--appointment-booking-radius);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--appointment-booking-transition);
+  border: none;
+}
+.appointment-booking-btn-cancel {
+  background: var(--appointment-booking-background-light);
+  border: 1px solid var(--appointment-booking-border);
+  color: var(--appointment-booking-text-secondary);
+}
+.appointment-booking-btn-cancel:hover {
+  background: var(--appointment-booking-border);
+}
+.appointment-booking-btn-payment {
+  background-color: var(--appointment-booking-primary);
+  color: var(--appointment-booking-text-primary);
+}
+.appointment-booking-btn-payment:hover {
+  background-color: var(--appointment-booking-primary-dark);
+  color: white;
+}
+.appointment-booking-payment-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.appointment-booking-payment-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: var(--appointment-booking-background);
+  border: 1px solid var(--appointment-booking-border);
+  border-radius: var(--appointment-booking-radius);
+  cursor: pointer;
+  transition: var(--appointment-booking-transition);
+}
+.appointment-booking-payment-option:hover {
+  border-color: var(--appointment-booking-primary-dark);
+  background: var(--appointment-booking-primary-light);
+}
+.appointment-booking-payment-option svg {
+  font-size: 2.5rem;
+  color: var(--appointment-booking-primary-dark);
+}
+.appointment-booking-payment-option span {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--appointment-booking-text-primary);
+}
+.appointment-booking-payment-option small {
+  font-size: 0.85rem;
+  color: var(--appointment-booking-text-secondary);
+}
+
+/* ========== LOADING/EMPTY STATES ========== */
+.appointment-booking-loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  gap: 1rem;
+}
+.appointment-booking-loading-spinner svg {
+  font-size: 2.5rem;
+  color: var(--appointment-booking-primary);
+  animation: appointment-booking-spin 1s linear infinite;
+}
+.appointment-booking-loading-spinner p {
+  font-size: 1rem;
+  color: var(--appointment-booking-text-secondary);
+  font-weight: 500;
+}
+@keyframes appointment-booking-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.appointment-booking-no-data-box {
+  background: var(--appointment-booking-background-light);
+  border: 1px dashed var(--appointment-booking-border);
+  border-radius: var(--appointment-booking-radius);
+  padding: 2rem;
+  text-align: center;
+}
+.appointment-booking-no-data-box svg {
+  font-size: 2rem;
+  color: var(--appointment-booking-primary);
+  margin-bottom: 0.5rem;
+}
+.appointment-booking-no-data-box h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--appointment-booking-text-primary);
+  margin: 0 0 0.5rem 0;
+}
+.appointment-booking-no-data-box p {
+  font-size: 0.9rem;
+  color: var(--appointment-booking-text-secondary);
+  margin: 0;
+}
+
+.appointment-booking-form-control:disabled {
+  background-color: var(--appointment-booking-background-light);
+  cursor: not-allowed;
+}
+
+.appointment-booking-input-error {
+  border-color: var(--appointment-booking-danger-border) !important;
+}
+.appointment-booking-input-error:focus {
+  border-color: var(--appointment-booking-danger-border) !important;
+  box-shadow: 0 0 0 3px var(--appointment-booking-danger) !important;
+}
+
+.appointment-booking-error-text {
+  color: var(--appointment-booking-danger-text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
+/* ========== MỚI: CSS CHO MODAL CẢNH BÁO ========== */
+
+.appointment-booking-modal-content.appointment-booking-warning-modal {
+  max-width: 550px;
+  padding: 0;
+  border-radius: var(--appointment-booking-radius);
+  overflow: hidden;
+}
+
+.appointment-booking-warning-modal .appointment-booking-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  color: white;
+}
+
+.appointment-booking-warning-modal.type-warning .appointment-booking-modal-header {
+  background-color: #f59e0b; /* Vàng */
+}
+.appointment-booking-warning-modal.type-danger .appointment-booking-modal-header {
+  background-color: #ef4444; /* Đỏ */
+}
+
+.appointment-booking-warning-modal .appointment-booking-modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.appointment-booking-modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: white;
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.appointment-booking-modal-close-btn:hover {
+  opacity: 1;
+}
+
+.appointment-booking-warning-modal .appointment-booking-modal-body {
+  padding: 1.5rem;
+}
+
+.appointment-booking-warning-message {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--appointment-booking-text-primary);
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+.appointment-booking-warning-details {
+  font-size: 0.95rem;
+  color: var(--appointment-booking-text-secondary);
+  line-height: 1.6;
+  margin-top: 0;
+}
+
+.appointment-booking-warning-modal .appointment-booking-modal-actions {
+   background-color: var(--appointment-booking-background-light);
+   border-top: 1px solid var(--appointment-booking-border);
+   padding: 1rem 1.5rem;
+}
+
+/* Nút "Tiếp tục" của modal cảnh báo */
+.appointment-booking-btn-payment.btn-warning {
+  background-color: #f59e0b;
+  color: white;
+}
+.appointment-booking-btn-payment.btn-warning:hover {
+  background-color: #d97706;
+}
+.appointment-booking-btn-payment.btn-danger {
+  background-color: #ef4444;
+  color: white;
+}
+.appointment-booking-btn-payment.btn-danger:hover {
+  background-color: #dc2626;
+}

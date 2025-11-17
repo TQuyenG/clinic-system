@@ -1,0 +1,706 @@
+/* client/src/pages/AppointmentManagementPage.css */
+/* Giao diện mới theo style pastel xanh lá */
+
+:root {
+  --admin-appt-primary: #22c55e; /* green-500 */
+  --admin-appt-primary-dark: #16a34a; /* green-600 */
+  --admin-appt-primary-light: #dcfce7; /* green-100 */
+  --admin-appt-primary-bg: #f0fdf4; /* green-50 */
+  --admin-appt-text-primary: #1f2937; /* gray-800 */
+  --admin-appt-text-secondary: #4b5563; /* gray-600 */
+  --admin-appt-border: #e5e7eb; /* gray-200 */
+  --admin-appt-card-bg: #ffffff;
+  --admin-appt-warning: #fef9c3; /* yellow-100 */
+  --admin-appt-warning-text: #854d0e; /* yellow-800 */
+  --admin-appt-danger: #fee2e2; /* red-100 */
+  --admin-appt-danger-text: #991b1b; /* red-800 */
+  --admin-appt-info: #dbeafe; /* blue-100 */
+  --admin-appt-info-text: #1e40af; /* blue-800 */
+  --admin-appt-success: #dcfce7; /* green-100 */
+  --admin-appt-success-text: #065f46; /* green-800 */
+  --admin-appt-secondary: #e5e7eb;
+  --admin-appt-secondary-text: #374151;
+  --admin-appt-radius: 8px;
+  --admin-appt-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --admin-appt-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* Main Container */
+.admin-appt-page-container {
+  min-height: 100vh;
+  background-color: var(--admin-appt-primary-bg);
+  padding: 1.5rem 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem; /* 14px */
+}
+
+.admin-appt-page-wrapper {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Header */
+.admin-appt-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--admin-appt-card-bg);
+  border-radius: var(--admin-appt-radius);
+  box-shadow: var(--admin-appt-shadow);
+  border: 1px solid var(--admin-appt-border);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.admin-appt-page-header-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--admin-appt-text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.admin-appt-page-header-content p {
+  font-size: 0.9rem;
+  color: var(--admin-appt-text-secondary);
+  margin: 0;
+}
+
+.admin-appt-page-header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Stats Grid */
+.admin-appt-page-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-appt-page-stat-card {
+  background: var(--admin-appt-card-bg);
+  padding: 1rem 1.25rem;
+  border-radius: var(--admin-appt-radius);
+  box-shadow: var(--admin-appt-shadow);
+  border: 1px solid var(--admin-appt-border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.admin-appt-page-stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: white;
+  flex-shrink: 0;
+}
+.icon-total { background: var(--admin-appt-primary); }
+.icon-pending { background: #f59e0b; }
+.icon-confirmed { background: #3b82f6; }
+.icon-completed { background: var(--admin-appt-success-text); }
+.icon-cancelled { background: var(--admin-appt-danger-text); }
+
+.admin-appt-page-stat-info {
+  display: flex;
+  flex-direction: column;
+}
+.admin-appt-page-stat-label {
+  font-size: 0.8rem;
+  color: var(--admin-appt-text-secondary);
+  font-weight: 500;
+}
+.admin-appt-page-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--admin-appt-text-primary);
+}
+
+/* Filter Panel */
+.admin-appt-page-filter-panel {
+  background: var(--admin-appt-card-bg);
+  padding: 1.25rem;
+  border-radius: var(--admin-appt-radius);
+  box-shadow: var(--admin-appt-shadow);
+  border: 1px solid var(--admin-appt-border);
+  margin-bottom: 1.5rem;
+}
+
+.admin-appt-page-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-appt-page-filter-group label {
+  display: block;
+  font-weight: 600;
+  color: var(--admin-appt-text-secondary);
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.admin-appt-page-filter-group input,
+.admin-appt-page-filter-group select {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--admin-appt-border);
+  border-radius: var(--admin-appt-radius);
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background: var(--admin-appt-primary-bg);
+}
+.admin-appt-page-filter-group input:focus,
+.admin-appt-page-filter-group select:focus {
+  outline: none;
+  border-color: var(--admin-appt-primary);
+  box-shadow: 0 0 0 3px var(--admin-appt-primary-light);
+  background: var(--admin-appt-card-bg);
+}
+
+.admin-appt-page-search-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.admin-appt-page-search-input svg {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--admin-appt-text-secondary);
+  font-size: 0.875rem;
+}
+.admin-appt-page-search-input input {
+  padding-left: 2.25rem;
+}
+
+.admin-appt-page-filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1rem;
+  border-top: 1px solid var(--admin-appt-border);
+}
+.admin-appt-page-filter-result {
+  font-size: 0.85rem;
+  color: var(--admin-appt-text-secondary);
+  font-weight: 500;
+}
+
+/* Table */
+.admin-appt-page-table-container {
+  background: var(--admin-appt-card-bg);
+  border-radius: var(--admin-appt-radius);
+  box-shadow: var(--admin-appt-shadow-md);
+  overflow: hidden;
+  border: 1px solid var(--admin-appt-border);
+}
+
+.admin-appt-page-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-appt-page-table thead {
+  background: var(--admin-appt-primary-bg);
+  border-bottom: 1px solid var(--admin-appt-primary-light);
+}
+
+.admin-appt-page-table thead th {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--admin-appt-success-text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* BỔ SUNG: Style cho cột Kết quả */
+.admin-appt-page-table thead th.th-result {
+  text-align: center;
+}
+
+.admin-appt-page-table tbody tr {
+  border-bottom: 1px solid var(--admin-appt-border);
+}
+.admin-appt-page-table tbody tr:last-child {
+  border-bottom: none;
+}
+.admin-appt-page-table tbody tr:not(.admin-appt-page-expanded-row):hover {
+  background: var(--admin-appt-primary-bg);
+}
+
+/* BỔ SUNG: Style cho hàng khi mở rộng */
+.admin-appt-page-table tbody tr.row-expanded {
+  background-color: var(--admin-appt-primary-bg);
+  border-bottom: none; /* Hàng chính không có border khi mở */
+}
+.admin-appt-page-table tbody tr.row-expanded + .admin-appt-page-expanded-row {
+  border-bottom: 1px solid var(--admin-appt-border); /* Hàng con có border */
+}
+
+
+.admin-appt-page-table tbody td {
+  padding: 0.875rem 1rem;
+  color: var(--admin-appt-text-secondary);
+  font-size: 0.85rem;
+  vertical-align: top;
+}
+
+.admin-appt-page-table tbody td[data-label="Mã"] {
+  font-weight: 600;
+  color: var(--admin-appt-primary-dark);
+  font-family: 'monospace';
+  font-size: 0.9rem;
+}
+
+/* Patient Info */
+.admin-appt-page-patient-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.admin-appt-page-patient-info strong {
+  color: var(--admin-appt-text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.admin-appt-page-contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+}
+.admin-appt-page-contact-info span {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.admin-appt-page-contact-info svg {
+  font-size: 0.75rem;
+  color: var(--admin-appt-primary);
+  flex-shrink: 0;
+}
+
+/* Datetime Info */
+.admin-appt-page-datetime-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.admin-appt-page-datetime-info span {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.85rem;
+}
+.admin-appt-page-datetime-info svg {
+  color: var(--admin-appt-primary);
+  flex-shrink: 0;
+}
+
+/* Status Badges */
+.admin-appt-page-status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
+.admin-appt-page-status-badge svg { font-size: 0.75rem; }
+.admin-appt-page-status-badge .fa-spin { animation: admin-appt-spin 1s linear infinite; }
+.status-pending { background: var(--admin-appt-warning); color: var(--admin-appt-warning-text); }
+.status-confirmed { background: var(--admin-appt-info); color: var(--admin-appt-info-text); }
+.status-in-progress { background: var(--admin-appt-info); color: var(--admin-appt-info-text); }
+.status-completed { background: var(--admin-appt-success); color: var(--admin-appt-success-text); }
+.status-cancelled { background: var(--admin-appt-danger); color: var(--admin-appt-danger-text); }
+
+/* BỔ SUNG: Style cho ô Kết quả khám */
+.admin-appt-page-result-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.admin-appt-page-result-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--admin-appt-success-text);
+  background-color: var(--admin-appt-success);
+  color: var(--admin-appt-success-text);
+  border-radius: var(--admin-appt-radius);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.admin-appt-page-result-toggle .icon-success {
+  font-size: 0.8rem;
+}
+.admin-appt-page-result-toggle svg:last-child {
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+}
+.admin-appt-page-result-toggle.open svg:last-child {
+  transform: rotate(180deg);
+}
+.admin-appt-page-result-toggle:hover {
+  background-color: var(--admin-appt-primary-dark);
+  color: white;
+  border-color: var(--admin-appt-primary-dark);
+}
+
+.admin-appt-page-result-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  background-color: var(--admin-appt-border);
+  color: var(--admin-appt-text-secondary);
+  border-radius: var(--admin-appt-radius);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.admin-appt-page-result-empty .icon-empty {
+  font-size: 0.8rem;
+}
+
+/* BỔ SUNG: Style cho hàng mở rộng */
+.admin-appt-page-expanded-row td {
+  padding: 0;
+  background-color: #fdfdfd; /* Màu nền hơi khác một chút */
+  border-top: 1px dashed var(--admin-appt-border);
+}
+
+.admin-appt-page-expanded-content {
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 0.85rem;
+}
+.admin-appt-page-expanded-content > strong {
+  font-weight: 600;
+  color: var(--admin-appt-text-primary);
+  border-right: 1px solid var(--admin-appt-border);
+  padding-right: 1.5rem;
+}
+.admin-appt-page-expanded-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.admin-appt-page-expanded-item label {
+  font-size: 0.75rem;
+  color: var(--admin-appt-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.admin-appt-page-expanded-item span {
+  font-weight: 500;
+  color: var(--admin-appt-text-primary);
+}
+
+/* Nút xem mã code */
+.admin-appt-page-btn-reveal-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--admin-appt-warning);
+  color: var(--admin-appt-warning-text);
+  border: 1px solid var(--admin-appt-warning-text);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--admin-appt-radius);
+  cursor: pointer;
+  font-weight: 600;
+  font-family: 'monospace';
+  transition: all 0.2s;
+}
+.admin-appt-page-btn-reveal-code:hover {
+  background-color: var(--admin-appt-warning-text);
+  color: white;
+}
+/* KẾT THÚC BỔ SUNG */
+
+
+/* Action Buttons */
+.admin-appt-page-action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-appt-page-btn-action {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--admin-appt-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+  color: white;
+  text-decoration: none;
+}
+.admin-appt-page-btn-action.btn-view { background: #06b6d4; }
+.admin-appt-page-btn-action.btn-view:hover { background: #0891b2; }
+.admin-appt-page-btn-action.btn-confirm { background: var(--admin-appt-primary); }
+.admin-appt-page-btn-action.btn-confirm:hover { background: var(--admin-appt-primary-dark); }
+.admin-appt-page-btn-action.btn-complete { background: var(--admin-appt-info-text); }
+.admin-appt-page-btn-action.btn-complete:hover { background: #1d4ed8; }
+.admin-appt-page-btn-action.btn-cancel { background: var(--admin-appt-danger-text); }
+.admin-appt-page-btn-action.btn-cancel:hover { background: #b91c1c; }
+
+/* Buttons */
+.admin-appt-page-btn {
+  padding: 0.625rem 1rem;
+  border: none;
+  border-radius: var(--admin-appt-radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.admin-appt-page-btn.btn-primary { background: var(--admin-appt-primary); color: white; }
+.admin-appt-page-btn.btn-primary:hover { background: var(--admin-appt-primary-dark); }
+.admin-appt-page-btn.btn-secondary { background: var(--admin-appt-secondary); color: var(--admin-appt-secondary-text); border: 1px solid var(--admin-appt-border); }
+.admin-appt-page-btn.btn-secondary:hover { background: var(--admin-appt-border); }
+.admin-appt-page-btn.btn-danger { background: var(--admin-appt-danger); color: var(--admin-appt-danger-text); }
+.admin-appt-page-btn.btn-danger:hover { background: #fca5a5; }
+
+/* Modal */
+.admin-appt-page-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: admin-appt-fadeIn 0.2s ease;
+}
+.admin-appt-page-modal-content {
+  background: white;
+  border-radius: var(--admin-appt-radius);
+  box-shadow: var(--admin-appt-shadow-md);
+  width: 90%;
+  max-width: 450px;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: admin-appt-slideUp 0.2s ease;
+}
+.admin-appt-page-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--admin-appt-border);
+}
+.admin-appt-page-modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--admin-appt-text-primary);
+}
+.admin-appt-page-btn-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--admin-appt-text-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+.admin-appt-page-modal-body {
+  padding: 1.25rem;
+}
+.admin-appt-page-appointment-summary {
+  background: var(--admin-appt-primary-bg);
+  padding: 1rem;
+  border-radius: var(--admin-appt-radius);
+  margin-bottom: 1rem;
+}
+.admin-appt-page-appointment-summary p {
+  margin: 0.375rem 0;
+  font-size: 0.85rem;
+  color: var(--admin-appt-text-secondary);
+}
+.admin-appt-page-appointment-summary strong { color: var(--admin-appt-text-primary); }
+.admin-appt-page-confirmation-text {
+  font-size: 0.9rem;
+  color: var(--admin-appt-text-secondary);
+  text-align: center;
+  margin: 1rem 0;
+}
+.admin-appt-page-form-group { margin-bottom: 1rem; }
+.admin-appt-page-form-group label {
+  display: block;
+  font-weight: 600;
+  color: var(--admin-appt-text-secondary);
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+.admin-appt-page-form-group textarea {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--admin-appt-border);
+  border-radius: var(--admin-appt-radius);
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  resize: vertical;
+}
+.admin-appt-page-form-group textarea:focus {
+  outline: none;
+  border-color: var(--admin-appt-primary);
+  box-shadow: 0 0 0 3px var(--admin-appt-primary-light);
+}
+
+.admin-appt-page-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--admin-appt-border);
+  background: var(--admin-appt-primary-bg);
+}
+.admin-appt-page-btn.btn-danger {
+  background-color: var(--admin-appt-danger-text);
+  color: white;
+}
+.admin-appt-page-btn.btn-danger:hover {
+  background-color: #b91c1c;
+}
+
+/* No Data */
+.admin-appt-page-no-data {
+  text-align: center;
+  padding: 2.5rem;
+  color: var(--admin-appt-text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Loading */
+.admin-appt-page-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 350px;
+  font-size: 1rem;
+  color: var(--admin-appt-primary);
+  font-weight: 600;
+  gap: 0.75rem;
+}
+.admin-appt-page-loading svg {
+  animation: admin-appt-spin 1s linear infinite;
+}
+
+/* Animations */
+@keyframes admin-appt-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes admin-appt-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes admin-appt-slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .admin-appt-page-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-appt-page-container {
+    padding: 0 0.75rem;
+  }
+  .admin-appt-page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-appt-page-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Table responsive */
+  .admin-appt-page-table { display: block; }
+  .admin-appt-page-table thead { display: none; }
+  .admin-appt-page-table tbody,
+  .admin-appt-page-table tr,
+  .admin-appt-page-table td { display: block; }
+  .admin-appt-page-table tr {
+    margin-bottom: 1rem;
+    border: 1px solid var(--admin-appt-border);
+    border-radius: var(--admin-appt-radius);
+    padding: 1rem;
+    box-shadow: var(--admin-appt-shadow);
+  }
+  .admin-appt-page-table td {
+    padding: 0.5rem 0;
+    border: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--admin-appt-border);
+  }
+  .admin-appt-page-table td:last-child {
+    border-bottom: none;
+  }
+  .admin-appt-page-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--admin-appt-text-secondary);
+    padding-right: 1rem;
+  }
+  .admin-appt-page-action-buttons {
+    justify-content: flex-end;
+  }
+  
+  /* BỔ SUNG: Ẩn hàng mở rộng trên mobile */
+  .admin-appt-page-expanded-row {
+    display: none;
+  }
+  .admin-appt-page-result-cell {
+    text-align: right;
+  }
+  .admin-appt-page-result-toggle {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .admin-appt-page-result-empty {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-appt-page-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
