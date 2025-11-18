@@ -245,7 +245,7 @@ exports.updateService = async (req, res) => {
     // === CẬP NHẬT ===
     await service.update({
       category_id: category_id !== undefined ? category_id : service.category_id,
-      specialty_id: specialty_id !== undefined ? specialty_id : service.specialty_id,
+      specialty_id: specialty_id !== undefined ? (specialty_id || null) : service.specialty_id,
       name: name !== undefined ? name : service.name,
       price: price !== undefined ? price : service.price,
       duration: duration !== undefined ? duration : service.duration,

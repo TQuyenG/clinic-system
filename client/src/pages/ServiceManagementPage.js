@@ -11,7 +11,6 @@ import {
   FaTrashAlt, 
   FaEye, 
   FaSearch, 
-  FaSort, 
   FaSortUp, 
   FaSortDown, 
   FaCheckSquare, 
@@ -26,7 +25,10 @@ import {
   FaMoneyBillWave,
   FaFilter,
   FaExclamationTriangle,
-  FaUserMd
+  FaUserMd,
+  FaThList,
+  FaToggleOn,
+  FaTag
 } from 'react-icons/fa';
 import './ServiceManagementPage.css';
 
@@ -72,88 +74,49 @@ const ServiceManagementPage = () => {
     calculateStats();
   }, [services]);
 
-  /**
-   * ✅ Fetch data với error logging chi tiết
-   */
   const fetchInitialData = async () => {
-    console.log('[ServiceManagement] Starting to fetch initial data...');
     setLoading(true);
     setError(null);
     
     try {
-      console.log('[ServiceManagement] Fetching categories and services...');
-      
       // Fetch categories
       let categoriesData = [];
       try {
         const catResponse = await serviceCategoryService.getAdminServiceCategories();
-        console.log('[ServiceManagement] Categories response:', catResponse.data);
         
         if (catResponse.data.success) {
           categoriesData = catResponse.data.data;
           setCategories(categoriesData);
-          console.log('[ServiceManagement] ✅ Categories loaded:', categoriesData.length);
         } else {
-          console.warn('[ServiceManagement] ⚠️ Categories response not successful:', catResponse.data);
           throw new Error(catResponse.data.message || 'Không thể tải danh mục.');
         }
       } catch (catError) {
-        console.error('[ServiceManagement] ❌ Error loading categories:', {
-          message: catError.message,
-          response: catError.response?.data,
-          status: catError.response?.status
-        });
         throw new Error(`Lỗi tải danh mục: ${catError.response?.data?.message || catError.message}`);
       }
 
-      // Fetch services - Sử dụng trực tiếp api.get thay vì serviceService
+      // Fetch services
       try {
-        console.log('[ServiceManagement] Calling API: GET /services/admin/all');
         const servResponse = await api.get('/services/admin/all');
-        console.log('[ServiceManagement] Services response:', servResponse.data);
         
         if (servResponse.data.success) {
           const servicesData = servResponse.data.data;
           setServices(servicesData);
-          console.log('[ServiceManagement] ✅ Services loaded:', servicesData.length);
-          
-          // Log chi tiết từng service
-          servicesData.forEach((service, index) => {
-            console.log(`[ServiceManagement] Service ${index + 1}:`, {
-              id: service.id,
-              name: service.name,
-              category: service.category?.name,
-              doctorIds: service.doctor_ids,
-              doctorsCount: service.doctors?.length || 0
-            });
-          });
         } else {
-          console.warn('[ServiceManagement] ⚠️ Services response not successful:', servResponse.data);
           throw new Error(servResponse.data.message || 'Không thể tải dịch vụ.');
         }
       } catch (servError) {
-        console.error('[ServiceManagement] ❌ Error loading services:', {
-          message: servError.message,
-          response: servError.response?.data,
-          status: servError.response?.status,
-          url: servError.config?.url
-        });
         throw new Error(`Lỗi tải dịch vụ: ${servError.response?.data?.message || servError.message}`);
       }
-
-      console.log('[ServiceManagement] ✅ All data loaded successfully');
       
     } catch (err) {
       const errorMessage = err.message || 'Lỗi không xác định';
-      console.error('[ServiceManagement] ❌ FATAL ERROR:', {
-        message: errorMessage,
-        stack: err.stack
-      });
       setError(errorMessage);
-      toast.error(errorMessage);
+      toast.error(errorMessage, {
+        position: 'bottom-right',
+        autoClose: 5000
+      });
     } finally {
       setLoading(false);
-      console.log('[ServiceManagement] Loading completed');
     }
   };
 
@@ -223,24 +186,31 @@ const ServiceManagementPage = () => {
     return filtered;
   }, [services, searchTerm, filters, sortConfig]);
 
-  // Pagination
+  // Paginated Data
+  const paginatedServices = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredServices.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredServices, currentPage, itemsPerPage]);
+
   const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
-  const paginatedServices = filteredServices.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   // Handlers
   const handleSort = (key) => {
-    setSortConfig((prev) => ({
+    setSortConfig(prev => ({
       key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }));
   };
 
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <FaSort />;
+    if (sortConfig.key !== key) return null;
     return sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />;
+  };
+
+  const handleSelectItem = (id) => {
+    setSelectedItems(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
   };
 
   const handleSelectAll = () => {
@@ -251,133 +221,138 @@ const ServiceManagementPage = () => {
     }
   };
 
-  const handleSelectItem = (id) => {
-    setSelectedItems(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
-
-  // ✅ MODAL HANDLERS - ĐÃ CẬP NHẬT
   const handleOpenCreateModal = () => {
-    console.log('[ServiceManagement] Opening create modal');
     setSelectedServiceId(null);
-    setIsModalOpen(true); // ✅ Set isModalOpen = true
+    setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (serviceId) => {
-    console.log('[ServiceManagement] Opening edit modal for service:', serviceId);
-    setSelectedServiceId(serviceId);
-    setIsModalOpen(true); // ✅ Set isModalOpen = true
+  const handleOpenEditModal = (id) => {
+    setSelectedServiceId(id);
+    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
-    console.log('[ServiceManagement] Closing modal');
     setIsModalOpen(false);
     setSelectedServiceId(null);
   };
 
   const handleModalSuccess = () => {
-    console.log('[ServiceManagement] Modal success, reloading data...');
     fetchInitialData();
+    setSelectedItems([]);
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa dịch vụ "${name}"?`)) {
-      return;
-    }
+    if (!window.confirm(`Bạn có chắc muốn xóa dịch vụ "${name}"?`)) return;
 
     try {
       await api.delete(`/services/${id}`);
-      toast.success('Xóa dịch vụ thành công!');
+      toast.success('Xóa dịch vụ thành công!', {
+        position: 'bottom-right'
+      });
       fetchInitialData();
     } catch (error) {
-      console.error('Delete error:', error);
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi xóa dịch vụ');
+      toast.error(error.response?.data?.message || 'Lỗi khi xóa dịch vụ', {
+        position: 'bottom-right'
+      });
     }
   };
 
   const handleBulkDelete = async () => {
-    if (selectedItems.length === 0) {
-      toast.warning('Vui lòng chọn ít nhất một dịch vụ');
-      return;
-    }
-
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedItems.length} dịch vụ đã chọn?`)) {
-      return;
-    }
+    if (!window.confirm(`Bạn có chắc muốn xóa ${selectedItems.length} dịch vụ đã chọn?`)) return;
 
     try {
       await Promise.all(selectedItems.map(id => api.delete(`/services/${id}`)));
-      toast.success(`Đã xóa ${selectedItems.length} dịch vụ thành công!`);
+      toast.success(`Đã xóa ${selectedItems.length} dịch vụ!`, {
+        position: 'bottom-right'
+      });
       setSelectedItems([]);
       fetchInitialData();
     } catch (error) {
-      console.error('Bulk delete error:', error);
-      toast.error('Có lỗi xảy ra khi xóa dịch vụ');
+      toast.error('Lỗi khi xóa dịch vụ', {
+        position: 'bottom-right'
+      });
     }
   };
 
   const handleBulkStatusChange = async (status) => {
-    if (selectedItems.length === 0) {
-      toast.warning('Vui lòng chọn ít nhất một dịch vụ');
-      return;
-    }
-
     try {
       await Promise.all(
-        selectedItems.map(id =>
+        selectedItems.map(id => 
           api.put(`/services/${id}`, { status })
         )
       );
-      toast.success(`Đã cập nhật trạng thái cho ${selectedItems.length} dịch vụ!`);
+      toast.success(`Đã cập nhật trạng thái ${selectedItems.length} dịch vụ!`, {
+        position: 'bottom-right'
+      });
       setSelectedItems([]);
       fetchInitialData();
     } catch (error) {
-      console.error('Bulk status change error:', error);
-      toast.error('Có lỗi xảy ra khi cập nhật trạng thái');
+      toast.error('Lỗi khi cập nhật trạng thái', {
+        position: 'bottom-right'
+      });
     }
   };
 
   const handleExport = () => {
     const csvContent = [
-      ['ID', 'Tên dịch vụ', 'Danh mục', 'Giá', 'Thời gian', 'Trạng thái'].join(','),
-      ...filteredServices.map(s =>
-        [s.id, s.name, s.category?.name || 'N/A', s.price, s.duration, s.status].join(',')
-      )
-    ].join('\n');
+      ['ID', 'Tên', 'Danh mục', 'Giá', 'Thời gian', 'Trạng thái'],
+      ...filteredServices.map(s => [
+        s.id,
+        s.name,
+        s.category?.name || '',
+        s.price,
+        s.duration,
+        s.status
+      ])
+    ].map(row => row.join(',')).join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `services-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `services_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
+
+    toast.success('Xuất dữ liệu thành công!', {
+      position: 'bottom-right'
+    });
   };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
       currency: 'VND'
-    }).format(amount);
+    }).format(amount || 0);
   };
 
+  // Loading State
   if (loading) {
     return (
-      <div className="servicemgmt-loading">
-        <div className="servicemgmt-spinner"></div>
-        <p>Đang tải dữ liệu...</p>
+      <div className="servicemgmt-page">
+        <div className="servicemgmt-loading">
+          <div className="servicemgmt-spinner"></div>
+          <p>Đang tải dữ liệu...</p>
+        </div>
       </div>
     );
   }
 
+  // Error State
   if (error) {
     return (
-      <div className="servicemgmt-error">
-        <FaExclamationTriangle />
-        <h2>Lỗi khi tải dữ liệu</h2>
-        <p>{error}</p>
-        <button onClick={fetchInitialData} className="servicemgmt-btn servicemgmt-btn-primary">
-          <FaRedo /> Thử lại
-        </button>
+      <div className="servicemgmt-page">
+        <div className="servicemgmt-error">
+          <div className="servicemgmt-error-icon">
+            <FaExclamationTriangle />
+          </div>
+          <h2 className="servicemgmt-error-title">Có lỗi xảy ra</h2>
+          <p className="servicemgmt-error-message">{error}</p>
+          <button 
+            onClick={fetchInitialData}
+            className="servicemgmt-btn servicemgmt-btn-primary"
+          >
+            <FaRedo /> Thử lại
+          </button>
+        </div>
       </div>
     );
   }
@@ -388,12 +363,12 @@ const ServiceManagementPage = () => {
         {/* HEADER */}
         <div className="servicemgmt-header">
           <div className="servicemgmt-header-left">
-            <h1>Quản lý Dịch vụ</h1>
+            <h1 className="servicemgmt-title">Quản lý Dịch vụ</h1>
             <p className="servicemgmt-subtitle">
-              Quản lý tất cả dịch vụ y tế của hệ thống
+              Quản lý toàn bộ dịch vụ y tế của phòng khám
             </p>
           </div>
-          <div className="servicemgmt-header-right">
+          <div>
             <button 
               onClick={handleOpenCreateModal}
               className="servicemgmt-btn servicemgmt-btn-primary"
@@ -405,43 +380,43 @@ const ServiceManagementPage = () => {
 
         {/* STATS */}
         <div className="servicemgmt-stats-grid">
-          <div className="servicemgmt-stat-card">
-            <div className="servicemgmt-stat-icon servicemgmt-stat-total">
+          <div className="servicemgmt-stat-card servicemgmt-stat-primary">
+            <div className="servicemgmt-stat-icon">
               <FaChartBar />
             </div>
-            <div className="servicemgmt-stat-info">
-              <span className="servicemgmt-stat-label">Tổng dịch vụ</span>
-              <span className="servicemgmt-stat-value">{stats.total}</span>
+            <div className="servicemgmt-stat-content">
+              <p className="servicemgmt-stat-label">Tổng dịch vụ</p>
+              <h3 className="servicemgmt-stat-value">{stats.total}</h3>
             </div>
           </div>
 
-          <div className="servicemgmt-stat-card">
-            <div className="servicemgmt-stat-icon servicemgmt-stat-active">
+          <div className="servicemgmt-stat-card servicemgmt-stat-success">
+            <div className="servicemgmt-stat-icon">
               <FaCheckCircle />
             </div>
-            <div className="servicemgmt-stat-info">
-              <span className="servicemgmt-stat-label">Đang hoạt động</span>
-              <span className="servicemgmt-stat-value">{stats.active}</span>
+            <div className="servicemgmt-stat-content">
+              <p className="servicemgmt-stat-label">Đang hoạt động</p>
+              <h3 className="servicemgmt-stat-value">{stats.active}</h3>
             </div>
           </div>
 
-          <div className="servicemgmt-stat-card">
-            <div className="servicemgmt-stat-icon servicemgmt-stat-inactive">
+          <div className="servicemgmt-stat-card servicemgmt-stat-warning">
+            <div className="servicemgmt-stat-icon">
               <FaPause />
             </div>
-            <div className="servicemgmt-stat-info">
-              <span className="servicemgmt-stat-label">Tạm ngưng</span>
-              <span className="servicemgmt-stat-value">{stats.inactive}</span>
+            <div className="servicemgmt-stat-content">
+              <p className="servicemgmt-stat-label">Tạm ngưng</p>
+              <h3 className="servicemgmt-stat-value">{stats.inactive}</h3>
             </div>
           </div>
 
-          <div className="servicemgmt-stat-card">
-            <div className="servicemgmt-stat-icon servicemgmt-stat-revenue">
+          <div className="servicemgmt-stat-card servicemgmt-stat-info">
+            <div className="servicemgmt-stat-icon">
               <FaMoneyBillWave />
             </div>
-            <div className="servicemgmt-stat-info">
-              <span className="servicemgmt-stat-label">Tổng giá trị</span>
-              <span className="servicemgmt-stat-value">{formatCurrency(stats.totalRevenue)}</span>
+            <div className="servicemgmt-stat-content">
+              <p className="servicemgmt-stat-label">Tổng giá trị</p>
+              <h3 className="servicemgmt-stat-value">{formatCurrency(stats.totalRevenue)}</h3>
             </div>
           </div>
         </div>
@@ -449,9 +424,10 @@ const ServiceManagementPage = () => {
         {/* FILTERS & SEARCH */}
         <div className="servicemgmt-filters-card">
           <div className="servicemgmt-search-box">
-            <FaSearch />
+            <FaSearch className="servicemgmt-search-icon" />
             <input
               type="text"
+              className="servicemgmt-search-input"
               placeholder="Tìm kiếm dịch vụ..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -464,9 +440,10 @@ const ServiceManagementPage = () => {
           </div>
 
           <div className="servicemgmt-filters">
-            <div className="servicemgmt-filter-group">
-              <FaFilter />
+            <div className="servicemgmt-filter-item">
+              <FaThList className="servicemgmt-filter-icon" />
               <select
+                className="servicemgmt-select"
                 value={filters.category}
                 onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
               >
@@ -477,8 +454,10 @@ const ServiceManagementPage = () => {
               </select>
             </div>
 
-            <div className="servicemgmt-filter-group">
+            <div className="servicemgmt-filter-item">
+              <FaToggleOn className="servicemgmt-filter-icon" />
               <select
+                className="servicemgmt-select"
                 value={filters.status}
                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
               >
@@ -488,8 +467,10 @@ const ServiceManagementPage = () => {
               </select>
             </div>
 
-            <div className="servicemgmt-filter-group">
+            <div className="servicemgmt-filter-item">
+              <FaTag className="servicemgmt-filter-icon" />
               <select
+                className="servicemgmt-select"
                 value={filters.priceRange}
                 onChange={(e) => setFilters(prev => ({ ...prev, priceRange: e.target.value }))}
               >
@@ -499,37 +480,37 @@ const ServiceManagementPage = () => {
                 <option value="high">Trên 2tr</option>
               </select>
             </div>
-
-            {(filters.category || filters.status || filters.priceRange !== 'all') && (
-              <button
-                onClick={() => setFilters({ category: '', status: '', priceRange: 'all' })}
-                className="servicemgmt-clear-filters"
-              >
-                <FaTimes /> Xóa bộ lọc
-              </button>
-            )}
           </div>
-        </div>
 
-        {/* BULK ACTIONS */}
-        {selectedItems.length > 0 && (
-          <div className="servicemgmt-bulk-actions">
-            <span className="servicemgmt-bulk-selected">
-              Đã chọn: <strong>{selectedItems.length}</strong> dịch vụ
-            </span>
-            <div className="servicemgmt-bulk-buttons">
-              <button onClick={() => handleBulkStatusChange('active')}>
-                <FaCheckCircle /> Kích hoạt
-              </button>
-              <button onClick={() => handleBulkStatusChange('inactive')}>
-                <FaEyeSlash /> Tạm ngưng
-              </button>
-              <button onClick={handleBulkDelete} className="servicemgmt-bulk-delete">
-                <FaTrashAlt /> Xóa
-              </button>
+          {/* Bulk Actions */}
+          {selectedItems.length > 0 && (
+            <div className="servicemgmt-bulk-actions">
+              <span className="servicemgmt-bulk-count">
+                Đã chọn {selectedItems.length} dịch vụ
+              </span>
+              <div className="servicemgmt-bulk-actions-wrapper">
+                <button 
+                  onClick={() => handleBulkStatusChange('active')}
+                  className="servicemgmt-bulk-btn servicemgmt-bulk-activate"
+                >
+                  <FaCheckCircle /> Kích hoạt
+                </button>
+                <button 
+                  onClick={() => handleBulkStatusChange('inactive')}
+                  className="servicemgmt-bulk-btn servicemgmt-bulk-deactivate"
+                >
+                  <FaEyeSlash /> Tạm ngưng
+                </button>
+                <button 
+                  onClick={handleBulkDelete}
+                  className="servicemgmt-bulk-btn servicemgmt-bulk-delete"
+                >
+                  <FaTrashAlt /> Xóa
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* TABLE */}
         <div className="servicemgmt-table-card">
@@ -725,7 +706,7 @@ const ServiceManagementPage = () => {
         </div>
       </div>
 
-      {/* MODAL - ✅ UPDATED: Truyền đúng prop isOpen */}
+      {/* MODAL */}
       <ServiceModal
         isOpen={isModalOpen}
         serviceId={selectedServiceId}
