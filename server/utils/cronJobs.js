@@ -648,11 +648,33 @@ const updatePassedAppointments = cron.schedule('0 * * * *', async () => {
     
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const currentDate = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().split(' ')[0];
     
     // Tìm lịch hẹn đã qua mà vẫn ở trạng thái confirmed
     const passedAppointments = await models.Appointment.findAll({
       where: {
-        appointment_time: { [Op.lt]: oneHourAgo },
+        [Op.or]: [
+          // Trường hợp 1: Ngày hẹn đã qua (trước hôm nay)
+          {
+            appointment_date: {
+              [Op.lt]: currentDate
+            }
+          },
+          // Trường hợp 2: Cùng ngày hôm nay nhưng giờ kết thúc đã qua hơn 1 tiếng
+          {
+            [Op.and]: [
+              {
+                appointment_date: currentDate
+              },
+              {
+                appointment_end_time: {
+                  [Op.lt]: currentTime
+                }
+              }
+            ]
+          }
+        ],
         status: 'confirmed'
       }
     });

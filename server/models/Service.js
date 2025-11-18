@@ -62,11 +62,7 @@ module.exports = (sequelize) => {
     image_url: {
       type: DataTypes.STRING(255),
       allowNull: true,
-      validate: {
-        isUrl: { msg: 'URL ảnh không hợp lệ', args: true, bail: true }
-      },
-      set(value) { this.setDataValue('image_url', value || null); },
-      comment: 'URL hình ảnh đại diện cho dịch vụ'
+      comment: 'URL hình ảnh đại diện cho danh mục'
     },
     // MỚI: LƯU MẢNG CODE BÁC SĨ
     doctor_codes: {

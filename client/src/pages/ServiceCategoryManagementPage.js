@@ -79,6 +79,90 @@ const ServiceCategoryManagementPage = () => {
     }
   };
 
+  // ==================== XỬ LÝ UPLOAD ẢNH ====================
+  
+  // Xử lý upload ảnh từ file (được gọi từ nút Upload)
+  const handleImageUpload = async (file) => {
+    console.log('🔵 1. Starting upload...', file?.name);
+    console.log('🔵 1.1. File size:', file?.size);
+    console.log('🔵 1.2. File type:', file?.type);
+    console.log('🔵 1.3. Token:', localStorage.getItem('token') ? 'EXISTS' : 'MISSING');
+    
+    if (!file) {
+      toast.error('Vui lòng chọn file');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const formDataUpload = new FormData();
+      formDataUpload.append('image', file);
+
+      console.log('🔵 2. Sending request to:', 'http://localhost:3001/api/upload/image');
+      const response = await fetch('http://localhost:3001/api/upload/image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formDataUpload
+      });
+
+      console.log('🔵 3. Got response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Response not OK:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('🔵 4. Response data:', data);
+
+      if (data.success) {
+        const uploadedUrl = data.url;
+        console.log('✅ 5. Upload success! URL:', uploadedUrl);
+        
+        // ✅ QUAN TRỌNG: Set image_url vào formData
+        setFormData(prev => {
+          const updated = { ...prev, image_url: uploadedUrl };
+          console.log('✅ 6. Updated formData.image_url:', updated.image_url);
+          return updated;
+        });
+        
+        setImagePreview(uploadedUrl);
+        console.log('✅ 7. Set imagePreview:', uploadedUrl);
+        setSelectedImage(null);
+        toast.success('Upload ảnh thành công!');
+      } else {
+        console.error('❌ Upload failed:', data.message);
+        toast.error(data.message || 'Upload ảnh thất bại');
+      }
+    } catch (error) {
+      console.error('❌ Error during upload:', error);
+      toast.error(`Có lỗi xảy ra: ${error.message}`);
+    } finally {
+      setUploading(false);
+      console.log('🔵 8. Upload process finished');
+    }
+  };
+
+  // Xử lý submit URL ảnh
+  const handleImageUrlSubmit = () => {
+    if (!formData.image_url.trim()) {
+      toast.error('Vui lòng nhập URL ảnh');
+      return;
+    }
+    setImagePreview(formData.image_url);
+    toast.success('Đã thêm URL ảnh');
+  };
+
+  // Xóa ảnh
+  const handleRemoveImage = () => {
+    setImagePreview('');
+    setFormData(prev => ({ ...prev, image_url: '' }));
+    setSelectedImage(null);
+  };
+
   // Lọc và sắp xếp dữ liệu
   const filteredCategories = useMemo(() => {
     let filtered = [...categories];
@@ -198,50 +282,23 @@ const ServiceCategoryManagementPage = () => {
   };
 
   // Xử lý upload ảnh
-  const handleImageUpload = async (file) => {
-    if (!file) return;
-
-    const formDataUpload = new FormData();
-    formDataUpload.append('image', file);
-
-    try {
-      setUploading(true);
-      const response = await fetch('/api/upload/image', {
-        method: 'POST',
-        body: formDataUpload,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setFormData(prev => ({
-          ...prev,
-          image_url: data.imageUrl
-        }));
-        setImagePreview(data.imageUrl);
-        toast.success('Upload ảnh thành công!');
-      } else {
-        throw new Error('Upload failed');
-      }
-    } catch (error) {
-      toast.error('Lỗi khi upload ảnh');
-      console.error(error);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // Xử lý chọn file
-  const handleFileSelect = (e) => {
+  // Xử lý chọn file - TỰ ĐỘNG UPLOAD NGAY
+  const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
         toast.error('Kích thước file không được vượt quá 5MB');
         return;
       }
+      
+      // Hiển thị preview ngay lập tức
       setSelectedImage(file);
       const reader = new FileReader();
       reader.onload = (e) => setImagePreview(e.target.result);
       reader.readAsDataURL(file);
+      
+      // ✅ TỰ ĐỘNG UPLOAD NGAY
+      await handleImageUpload(file);
     }
   };
 
@@ -262,6 +319,11 @@ const ServiceCategoryManagementPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    console.log('📤 === SUBMIT START ===');
+    console.log('📤 formData:', formData);
+    console.log('📤 image_url:', formData.image_url);
+    console.log('📤 isEditMode:', isEditMode);
+
     if (!formData.name.trim()) {
       toast.error('Vui lòng nhập tên danh mục.');
       return;
@@ -273,17 +335,28 @@ const ServiceCategoryManagementPage = () => {
         // Tạo object chứa những trường đã thay đổi
         const changedFields = {};
         Object.keys(formData).forEach(key => {
+          console.log(`🔍 Comparing ${key}:`, {
+            formData: formData[key],
+            currentCategory: currentCategory[key],
+            isDifferent: formData[key] !== currentCategory[key]
+          });
           if (formData[key] !== currentCategory[key]) {
             changedFields[key] = formData[key];
           }
         });
+
+        console.log('📤 currentCategory:', currentCategory);
+        console.log('📤 formData:', formData);
+        console.log('📤 changedFields:', changedFields);
 
         if (Object.keys(changedFields).length === 0) {
           toast.info('Không có thông tin nào được thay đổi.');
           return;
         }
 
+        console.log('📤 Sending UPDATE request...');
         response = await serviceCategoryService.updateServiceCategory(currentCategory.id, changedFields);
+        console.log('📤 UPDATE response:', response.data);
         if (response.data.success) {
           toast.success('Cập nhật danh mục thành công!');
           // Cập nhật lại dữ liệu trong state
@@ -294,7 +367,9 @@ const ServiceCategoryManagementPage = () => {
           ));
         }
       } else {
+        console.log('📤 Sending CREATE request...');
         response = await serviceCategoryService.createServiceCategory(formData);
+        console.log('📤 CREATE response:', response.data);
         if (response.data.success) {
           toast.success('Tạo danh mục mới thành công!');
           // Thêm danh mục mới vào state
@@ -765,17 +840,6 @@ const ServiceCategoryManagementPage = () => {
                           accept="image/*"
                           onChange={handleFileSelect}
                         />
-                        {selectedImage && (
-                          <button
-                            type="button"
-                            className="service-category-mgnt-btn service-category-mgnt-btn-primary"
-                            onClick={() => handleImageUpload(selectedImage)}
-                            disabled={uploading}
-                            style={{ marginTop: '0.75rem' }}
-                          >
-                            {uploading ? 'Đang upload...' : 'Upload ảnh'}
-                          </button>
-                        )}
                       </div>
                     )}
 
