@@ -1,32 +1,17 @@
 // client/src/pages/ProfilePage.js
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-// BƯỚC 1: Import Toastify
+import { useNavigate, Link } from 'react-router-dom';
+// 1. Import 'api' thay vì 'axios'
+import api from '../services/api'; // Giả sử file api.js nằm ở 'src/services/api.js'
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { 
-  FaUser, 
-  FaPhone, 
-  FaMapMarkerAlt, 
-  FaVenusMars, 
-  FaCalendar, 
-  FaEnvelope, 
-  FaUserShield, 
-  FaCheckCircle, 
-  FaTimesCircle,
-  FaLock,
-  FaArrowLeft,
-  FaEdit,
-  FaKey,
-  FaStethoscope,
-  FaBriefcase,
-  FaFileAlt,
-  FaIdCard,
-  FaBuilding,
-  FaShieldAlt,
-  FaCamera,
-  FaTrash
+  FaUser, FaPhone, FaMapMarkerAlt, FaVenusMars, FaCalendar, 
+  FaEnvelope, FaUserShield, FaCheckCircle, FaTimesCircle,
+  FaLock, FaArrowLeft, FaEdit, FaKey,
+  FaBriefcase, FaFileAlt, FaIdCard,
+  FaCamera, FaTrash, FaGraduationCap, FaCertificate, FaAward,
+  FaFlask, FaPlus, FaLink
 } from 'react-icons/fa';
 import './ProfilePage.css';
 
@@ -50,11 +35,54 @@ const ProfilePage = () => {
     specialty_id: '',
     experience_years: '',
     bio: '',
-    certifications: []
+    title: '',
+    position: '',
+    education: [],
+    certifications: [],
+    work_experience: [],
+    research: [],
+    achievements: []
   });
   
-  // State cho thêm chứng chỉ
-  const [newCertification, setNewCertification] = useState('');
+  // States cho form phức tạp
+  const [showEducationForm, setShowEducationForm] = useState(false);
+  const [showCertificationForm, setShowCertificationForm] = useState(false);
+  const [showWorkExpForm, setShowWorkExpForm] = useState(false);
+  const [showResearchForm, setShowResearchForm] = useState(false);
+  const [showAchievementForm, setShowAchievementForm] = useState(false);
+  
+  const [educationForm, setEducationForm] = useState({
+    degree: '',
+    institution: '',
+    year: '',
+    description: ''
+  });
+  
+  const [certificationForm, setCertificationForm] = useState({
+    name: '',
+    link: ''
+  });
+  
+  const [workExpForm, setWorkExpForm] = useState({
+    position: '',
+    hospital: '',
+    department: '',
+    period: '',
+    description: ''
+  });
+  
+  const [researchForm, setResearchForm] = useState({
+    title: '',
+    authors: '',
+    journal: '',
+    year: '',
+    link: ''
+  });
+  
+  const [achievementForm, setAchievementForm] = useState({
+    title: '',
+    link: ''
+  });
   
   // State cho đổi mật khẩu
   const [passwordData, setPasswordData] = useState({
@@ -70,45 +98,46 @@ const ProfilePage = () => {
   
   // State khác
   const [loading, setLoading] = useState(true);
-  // BƯỚC 2: Thêm State cho lỗi (thay thế cho 'message')
   const [errors, setErrors] = useState({});
   
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
-  const token = localStorage.getItem('token');
-  const axiosConfig = {
-    headers: { Authorization: `Bearer ${token}` }
-  };
+  // 2. Bỏ 'token' và 'axiosConfig'. File 'api.js' sẽ tự động xử lý
 
-  // UseEffect chạy khi component mount
+  // UseEffect
   useEffect(() => {
-    if (!token) {
+    // Chỉ cần kiểm tra token, không cần lưu trữ
+    if (!localStorage.getItem('token')) {
       navigate('/login');
       return;
     }
     fetchProfile();
     fetchSpecialties();
-  }, []);
+  }, [navigate]); // Thêm navigate vào dependency array
 
   // Lấy danh sách chuyên khoa
   const fetchSpecialties = async () => {
     try {
-      const res = await axios.get('http://localhost:3001/api/specialties');
+      // 3. Dùng 'api' và đường dẫn tương đối
+      const res = await api.get('/specialties');
       if (res.data.success) {
         setSpecialties(res.data.specialties);
       }
     } catch (error) {
       console.error('Error fetching specialties:', error);
+      // 'api.js' sẽ tự động hiển thị toast lỗi nếu có
     }
   };
 
   // Lấy thông tin profile
   const fetchProfile = async () => {
     try {
-      const profileRes = await axios.get('http://localhost:3001/api/users/profile', axiosConfig);
+      // 4. Dùng 'api' (token được tự động đính kèm)
+      const profileRes = await api.get('/users/profile');
       const userData = profileRes.data.user || profileRes.data;
       
+      console.log('📊 User data:', userData);
       setUser(userData);
       
       if (userData.avatar_url) {
@@ -126,10 +155,8 @@ const ProfilePage = () => {
       await fetchRoleInfo();
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching profile:', error);
-      if (error.response?.status === 401) {
-        navigate('/login');
-      }
+      console.error(' Error fetching profile:', error);
+      // 'api.js' sẽ tự động xử lý lỗi 401 và điều hướng nếu cần
       setLoading(false);
     }
   };
@@ -137,328 +164,394 @@ const ProfilePage = () => {
   // Lấy thông tin role của user
   const fetchRoleInfo = async () => {
     try {
-      const res = await axios.get('http://localhost:3001/api/users/my-role-info', axiosConfig);
+      // 5. Dùng 'api'
+      const res = await api.get('/users/my-role-info');
+      
+      console.log('📊 Role info response:', res.data);
       
       if (res.data.success && res.data.user.roleData) {
         const roleData = res.data.user.roleData;
         setRoleInfo(roleData);
+        
+        console.log('👨‍⚕️ Role data:', roleData);
         
         if (res.data.user.role === 'doctor') {
           setDoctorFormData({
             specialty_id: roleData.specialty_id || '',
             experience_years: roleData.experience_years || '',
             bio: roleData.bio || '',
-            certifications: roleData.certifications || []
+            title: roleData.title || '',
+            position: roleData.position || '',
+            education: Array.isArray(roleData.education) ? roleData.education : [],
+            certifications: Array.isArray(roleData.certifications) ? roleData.certifications : [],
+            work_experience: Array.isArray(roleData.work_experience) ? roleData.work_experience : [],
+            research: Array.isArray(roleData.research) ? roleData.research : [],
+            achievements: Array.isArray(roleData.achievements) ? roleData.achievements : []
+          });
+          
+          console.log(' Doctor form data set:', {
+            education: roleData.education?.length || 0,
+            certifications: roleData.certifications?.length || 0,
+            work_experience: roleData.work_experience?.length || 0,
+            research: roleData.research?.length || 0,
+            achievements: roleData.achievements?.length || 0
           });
         }
       }
-    } catch (error) {
-      console.error('Error fetching role info:', error);
-      // BƯỚC 3: Thay thế showMessage bằng toast.error
-      toast.error('Không thể lấy thông tin chi tiết. Vui lòng thử lại.');
+    } catch (error)
+    {
+      console.error(' Error fetching role info:', error);
+      // Hiển thị toast lỗi cụ thể thay vì toast chung từ 'api.js'
+      toast.error('Không thể lấy thông tin chi tiết chuyên môn. Vui lòng thử lại.');
     }
   };
 
-  // BƯỚC 4: Xóa hàm showMessage
-  // const showMessage = (type, text) => { ... }
-
-  // BƯỚC 5: Cập nhật hàm handle change để xóa lỗi khi gõ
+  // Handle change cho form cơ bản
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    // Xóa lỗi khi người dùng bắt đầu gõ
     if (errors[name]) {
       setErrors({ ...errors, [name]: '' });
     }
   };
 
+  // Handle change cho form bác sĩ
   const handleDoctorChange = (e) => {
-    setDoctorFormData({ ...doctorFormData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setDoctorFormData({ ...doctorFormData, [name]: value });
   };
 
+  // Handle change cho form đổi mật khẩu
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
     setPasswordData({ ...passwordData, [name]: value });
-    // Xóa lỗi khi người dùng bắt đầu gõ
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-    // Nếu gõ vào ô mật khẩu mới, cũng xóa lỗi ở ô xác nhận
-    if (name === 'newPassword' && errors.confirmPassword) {
-      setErrors(prev => ({ ...prev, confirmPassword: '' }));
-    }
   };
 
-  // Xử lý chọn file avatar
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WEBP)');
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Kích thước file không được vượt quá 10MB');
-      return;
-    }
-
-    setAvatarFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setAvatarPreview(reader.result);
+  // Submit form thông tin cơ bản
+  const handleBasicInfoSubmit = async (e) => {
+    e.preventDefault();
+    
+    //  SỬA LỖI DOB: Chuyển chuỗi rỗng thành 'null'
+    const dataToSend = {
+      ...formData,
+      dob: formData.dob || null,
+      gender: formData.gender || null
     };
-    reader.readAsDataURL(file);
-  };
 
-  // Upload avatar
-  const handleUploadAvatar = async () => {
-    if (!avatarFile) {
-      toast.error('Vui lòng chọn ảnh để tải lên');
-      return;
-    }
-
-    setUploadingAvatar(true);
-
+    console.log(' Submitting basic info:', dataToSend);
+    
     try {
-      const formData = new FormData();
-      formData.append('image', avatarFile);
-      if (user.avatar_url) {
-        formData.append('oldImage', user.avatar_url);
-      }
-
-      const uploadRes = await axios.post('http://localhost:3001/api/upload/image', formData, {
-        headers: { ...axiosConfig.headers, 'Content-Type': 'multipart/form-data' }
-      });
-
-      if (uploadRes.data.success) {
-        const avatarUrl = uploadRes.data.url;
-        const updateRes = await axios.put(
-          'http://localhost:3001/api/users/profile',
-          { avatar_url: avatarUrl },
-          axiosConfig
-        );
-
-        if (updateRes.data.success) {
-          toast.success('Cập nhật ảnh đại diện thành công!');
-          setAvatarFile(null);
-          
-          const userFromStorage = JSON.parse(localStorage.getItem('user'));
-          userFromStorage.avatar_url = avatarUrl;
-          localStorage.setItem('user', JSON.stringify(userFromStorage));
-          
-          fetchProfile(); // Refresh profile
-        }
+      // 6. Dùng 'api', đúng đường dẫn, không cần config
+      const res = await api.put(
+        '/users/profile',
+        dataToSend
+      );
+      
+      console.log(' Basic info update response:', res.data);
+      
+      if (res.data.success) {
+        toast.success('Cập nhật thông tin thành công!');
+        await fetchProfile();
       }
     } catch (error) {
-      console.error('Upload avatar error:', error);
-      toast.error(error.response?.data?.message || 'Tải ảnh lên thất bại');
+      console.error(' Error updating profile:', error);
+      // Hiển thị lỗi cụ thể từ server nếu có
+      toast.error(error.response?.data?.message || 'Cập nhật thất bại!');
+    }
+  };
+
+  // Submit form đổi mật khẩu
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('Mật khẩu mới không khớp!');
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 6) {
+      toast.error('Mật khẩu mới phải có ít nhất 6 ký tự!');
+      return;
+    }
+
+    try {
+      // 7. Dùng 'api'
+      const res = await api.put(
+        '/users/profile/change-password',
+        {
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        }
+      );
+      
+      if (res.data.success) {
+        toast.success('Đổi mật khẩu thành công!');
+        setPasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      }
+    } catch (error) {
+      console.error(' Error changing password:', error);
+      toast.error(error.response?.data?.message || 'Đổi mật khẩu thất bại!');
+    }
+  };
+
+  // Submit form thông tin bác sĩ
+  const handleDoctorInfoSubmit = async (e) => {
+    e.preventDefault();
+    console.log(' Submitting doctor info:', doctorFormData);
+    
+    try {
+      // 8. Dùng 'api' và SỬA ĐÚNG ENDPOINT
+      const res = await api.put(
+        '/users/profile', // Bỏ '/update'
+        doctorFormData
+      );
+      
+      console.log(' Doctor info update response:', res.data);
+      
+      if (res.data.success) {
+        toast.success('Cập nhật thông tin chuyên môn thành công!');
+        await fetchRoleInfo();
+      }
+    } catch (error) {
+      console.error(' Error updating doctor info:', error);
+      toast.error(error.response?.data?.message || 'Cập nhật thất bại!');
+    }
+  };
+
+  // Xử lý avatar
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Kích thước ảnh không được vượt quá 5MB!');
+        return;
+      }
+      
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadAvatar = async () => {
+    if (!avatarFile) {
+      toast.error('Vui lòng chọn ảnh trước!');
+      return;
+    }
+
+    const formData = new FormData();
+    // 1. DÙNG KEY 'image' (không phải 'avatar') để khớp với uploadRoutes.js
+    formData.append('image', avatarFile);
+
+    setUploadingAvatar(true);
+    try {
+      // 2. GỌI ĐÚNG ROUTE UPLOAD CÓ SẴN
+      const uploadRes = await api.post(
+        '/upload/image', //
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      // Kiểm tra response từ uploadRoutes.js
+      if (uploadRes.data.success && uploadRes.data.url) {
+        const newAvatarUrl = uploadRes.data.url;
+        
+        // 3. GỌI HÀM UPDATE PROFILE để lưu URL vào CSDL
+        await api.put('/users/profile', {
+          avatar_url: newAvatarUrl //
+        });
+
+        toast.success('Cập nhật ảnh đại diện thành công!');
+        setAvatarFile(null);
+        // Tải lại profile để hiển thị ảnh mới
+        await fetchProfile(); 
+      } else {
+        throw new Error(uploadRes.data.message || 'Upload file thất bại');
+      }
+    } catch (error) {
+      console.error(' Error uploading avatar:', error);
+      toast.error(error.response?.data?.message || error.message || 'Upload ảnh thất bại!');
     } finally {
       setUploadingAvatar(false);
     }
   };
 
-  // Xóa avatar
-  const handleRemoveAvatar = async () => {
+  const removeAvatar = async () => {
     if (!window.confirm('Bạn có chắc muốn xóa ảnh đại diện?')) return;
 
     try {
-      const res = await axios.put(
-        'http://localhost:3001/api/users/profile',
-        { avatar_url: null },
-        axiosConfig
-      );
+      // 1. GỌI HÀM UPDATE PROFILE để set avatar_url = null
+      await api.put('/users/profile', {
+        avatar_url: null //
+      });
 
-      if (res.data.success) {
-        toast.success('Đã xóa ảnh đại diện');
-        setAvatarPreview(null);
-        setAvatarFile(null);
-        
-        const userFromStorage = JSON.parse(localStorage.getItem('user'));
-        userFromStorage.avatar_url = null;
-        localStorage.setItem('user', JSON.stringify(userFromStorage));
-        
-        fetchProfile();
-      }
+      toast.success('Đã xóa ảnh đại diện!');
+      setAvatarPreview(null);
+      setAvatarFile(null);
+      // Tải lại profile để xác nhận
+      await fetchProfile(); 
+      
     } catch (error) {
-      console.error('Remove avatar error:', error);
-      toast.error('Xóa ảnh đại diện thất bại');
+      console.error(' Error removing avatar:', error);
+      toast.error(error.response?.data?.message || 'Xóa ảnh thất bại!');
     }
   };
 
-  // Xử lý thêm chứng chỉ
-  const handleAddCertification = () => {
-    if (!newCertification.trim()) {
-      toast.warning('Vui lòng nhập nội dung chứng chỉ');
+  // ========================================
+  // XỬ LÝ EDUCATION
+  // ========================================
+  const addEducation = () => {
+    if (!educationForm.degree || !educationForm.institution) {
+      toast.error('Vui lòng điền đầy đủ thông tin bắt buộc!');
       return;
     }
+    
+    const newEducation = [...doctorFormData.education, educationForm];
+    console.log('➕ Adding education:', educationForm);
+    console.log('📋 New education array:', newEducation);
+    
     setDoctorFormData({
       ...doctorFormData,
-      certifications: [...doctorFormData.certifications, newCertification.trim()]
+      education: newEducation
     });
-    setNewCertification('');
-    toast.success('Đã thêm chứng chỉ');
+    
+    setEducationForm({ degree: '', institution: '', year: '', description: '' });
+    setShowEducationForm(false);
+    toast.success('Đã thêm học vấn! Nhớ click "Cập nhật thông tin chuyên môn" để lưu.');
   };
 
-  // Xử lý xóa chứng chỉ
-  const handleRemoveCertification = (index) => {
+  const removeEducation = (index) => {
+    const newEducation = doctorFormData.education.filter((_, i) => i !== index);
+    console.log('🗑️ Removing education at index:', index);
+    setDoctorFormData({ ...doctorFormData, education: newEducation });
+    toast.info('Đã xóa học vấn! Nhớ click "Cập nhật thông tin chuyên môn" để lưu.');
+  };
+
+  // ========================================
+  // XỬ LÝ CERTIFICATIONS
+  // ========================================
+  const addCertification = () => {
+    if (!certificationForm.name.trim()) {
+      toast.error('Vui lòng nhập tên chứng chỉ!');
+      return;
+    }
+    
+    const newCertifications = [...doctorFormData.certifications, certificationForm];
+    console.log('➕ Adding certification:', certificationForm);
+    
     setDoctorFormData({
       ...doctorFormData,
-      certifications: doctorFormData.certifications.filter((_, i) => i !== index)
+      certifications: newCertifications
     });
-    toast.success('Đã xóa chứng chỉ');
+    
+    setCertificationForm({ name: '', link: '' });
+    setShowCertificationForm(false);
+    toast.success('Đã thêm chứng chỉ! Nhớ click "Cập nhật thông tin chuyên môn" để lưu.');
   };
 
-  // Cập nhật thông tin cơ bản
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    setErrors({}); // Xóa lỗi cũ
-    
-    // BƯỚC 6: Thêm logic xác thực phía client (ví dụ cho SĐT)
-    const newErrors = {};
-    const phoneRegex = /^(0[3|5|7|8|9])+([0-9]{8})\b$/;
-    if (formData.phone && !phoneRegex.test(formData.phone)) {
-      newErrors.phone = 'Số điện thoại không hợp lệ (10 số, bắt đầu 03/05/07/08/09)';
-    }
-    // ... (Thêm các validation khác như họ tên không được trống...)
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors); // Hiển thị lỗi
-      return; // Dừng lại
-    }
-
-    try {
-      const updateData = {
-        full_name: formData.full_name || null,
-        phone: formData.phone || null,
-        address: formData.address || null,
-        gender: formData.gender || null,
-        dob: formData.dob && formData.dob !== 'Invalid date' ? formData.dob : null
-      };
-
-      const res = await axios.put(
-        'http://localhost:3001/api/users/profile',
-        updateData,
-        axiosConfig
-      );
-
-      if (res.data.success) {
-        toast.success('Cập nhật thông tin thành công!');
-        
-        const userFromStorage = JSON.parse(localStorage.getItem('user'));
-        userFromStorage.full_name = updateData.full_name;
-        localStorage.setItem('user', JSON.stringify(userFromStorage));
-        
-        fetchProfile();
-      }
-    } catch (error) {
-      console.error('Update profile error:', error);
-      toast.error(error.response?.data?.message || 'Cập nhật thất bại');
-    }
+  const removeCertification = (index) => {
+    const newCertifications = doctorFormData.certifications.filter((_, i) => i !== index);
+    console.log('🗑️ Removing certification at index:', index);
+    setDoctorFormData({ ...doctorFormData, certifications: newCertifications });
+    toast.info('Đã xóa chứng chỉ! Nhớ click "Cập nhật thông tin chuyên môn" để lưu.');
   };
 
-  // Cập nhật thông tin bác sĩ
-  const handleUpdateDoctorInfo = async (e) => {
-    e.preventDefault();
-    // (Tương tự, bạn có thể thêm validation cho form bác sĩ ở đây)
-    
-    try {
-      const updateData = {
-        full_name: formData.full_name || null,
-        phone: formData.phone || null,
-        address: formData.address || null,
-        gender: formData.gender || null,
-        dob: formData.dob && formData.dob !== 'Invalid date' ? formData.dob : null,
-        specialty_id: doctorFormData.specialty_id || null,
-        experience_years: doctorFormData.experience_years ? parseInt(doctorFormData.experience_years) : null,
-        bio: doctorFormData.bio || null,
-        certifications: doctorFormData.certifications || []
-      };
-
-      const res = await axios.put(
-        'http://localhost:3001/api/users/profile',
-        updateData,
-        axiosConfig
-      );
-
-      if (res.data.success) {
-        toast.success('Cập nhật thông tin bác sĩ thành công!');
-        fetchProfile();
-      }
-    } catch (error) {
-      console.error('Update doctor info error:', error);
-      toast.error(error.response?.data?.message || 'Cập nhật thông tin bác sĩ thất bại');
-    }
-  };
-
-  // Đổi mật khẩu
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
-    setErrors({}); // Xóa lỗi cũ
-    
-    // BƯỚC 7: Xử lý lỗi inline cho form mật khẩu
-    if (!passwordData.currentPassword) {
-      setErrors(prev => ({ ...prev, currentPassword: 'Vui lòng nhập mật khẩu hiện tại' }));
+  // ========================================
+  // XỬ LÝ WORK EXPERIENCE
+  // ========================================
+  const addWorkExp = () => {
+    if (!workExpForm.position || !workExpForm.hospital) {
+      toast.error('Vui lòng điền đầy đủ thông tin bắt buộc!');
       return;
     }
     
-    if (passwordData.newPassword.length < 6) {
-      setErrors(prev => ({ ...prev, newPassword: 'Mật khẩu phải có ít nhất 6 ký tự' }));
-      return;
-    }
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setErrors(prev => ({ ...prev, confirmPassword: 'Mật khẩu mới không khớp' }));
-      return;
-    }
-
-    try {
-      const res = await axios.put(
-        'http://localhost:3001/api/users/change-password',
-        {
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword
-        },
-        axiosConfig
-      );
-
-      if (res.data.success) {
-        toast.success('Đổi mật khẩu thành công!');
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      }
-    } catch (error) {
-      console.error('Change password error:', error);
-      // BƯỚC 8: Gán lỗi từ server vào đúng trường
-      const errorMsg = error.response?.data?.message || 'Đổi mật khẩu thất bại';
-      if (errorMsg.includes('Mật khẩu hiện tại không đúng')) {
-        setErrors({ currentPassword: 'Mật khẩu hiện tại không đúng' });
-      } else {
-        toast.error(errorMsg);
-      }
-    }
+    const newWorkExp = [...doctorFormData.work_experience, workExpForm];
+    console.log('➕ Adding work experience:', workExpForm);
+    
+    setDoctorFormData({
+      ...doctorFormData,
+      work_experience: newWorkExp
+    });
+    
+    setWorkExpForm({ position: '', hospital: '', department: '', period: '', description: '' });
+    setShowWorkExpForm(false);
+    toast.success('Đã thêm kinh nghiệm! Nhớ click "Cập nhật thông tin chuyên môn" để lưu.');
   };
 
-  // Hàm helper (Không thay đổi)
-  const getRoleLabel = (role) => {
-    const roles = {
-      admin: 'Quản trị viên',
-      staff: 'Nhân viên',
-      doctor: 'Bác sĩ',
-      patient: 'Bệnh nhân'
-    };
-    return roles[role] || role;
+  const removeWorkExp = (index) => {
+    const newWorkExp = doctorFormData.work_experience.filter((_, i) => i !== index);
+    console.log('🗑️ Removing work experience at index:', index);
+    setDoctorFormData({ ...doctorFormData, work_experience: newWorkExp });
+    toast.info('Đã xóa kinh nghiệm! Nhớ click "Cập nhật thông tin chuyên môn" để lưu.');
   };
 
-  // Hàm helper (Không thay đổi)
-  const getGenderLabel = (gender) => {
-    const genders = {
-      male: 'Nam',
-      female: 'Nữ',
-      other: 'Khác'
-    };
-    return genders[gender] || 'Chưa cập nhật';
+  // ========================================
+  // XỬ LÝ RESEARCH
+  // ========================================
+  const addResearch = () => {
+    if (!researchForm.title.trim()) {
+      toast.error('Vui lòng nhập tiêu đề nghiên cứu!');
+      return;
+    }
+    
+    const newResearch = [...doctorFormData.research, researchForm];
+    console.log('➕ Adding research:', researchForm);
+    
+    setDoctorFormData({
+      ...doctorFormData,
+      research: newResearch
+    });
+    
+    setResearchForm({ title: '', authors: '', journal: '', year: '', link: '' });
+    setShowResearchForm(false);
+    toast.success('Đã thêm nghiên cứu! Nhớ click "Cập nhật thông tin chuyên môn" để lưu.');
+  };
+
+  const removeResearch = (index) => {
+    const newResearch = doctorFormData.research.filter((_, i) => i !== index);
+    console.log('🗑️ Removing research at index:', index);
+    setDoctorFormData({ ...doctorFormData, research: newResearch });
+    toast.info('Đã xóa nghiên cứu! Nhớ click "Cập nhật thông tin chuyên môn" để lưu.');
+  };
+
+  // ========================================
+  // XỬ LÝ ACHIEVEMENTS
+  // ========================================
+  const addAchievement = () => {
+    if (!achievementForm.title.trim()) {
+      toast.error('Vui lòng nhập tên thành tích!');
+      return;
+    }
+    
+    const newAchievements = [...doctorFormData.achievements, achievementForm];
+    console.log('➕ Adding achievement:', achievementForm);
+    
+    setDoctorFormData({
+      ...doctorFormData,
+      achievements: newAchievements
+    });
+    
+    setAchievementForm({ title: '', link: '' });
+    setShowAchievementForm(false);
+    toast.success('Đã thêm thành tích! Nhớ click "Cập nhật thông tin chuyên môn" để lưu.');
+  };
+
+  const removeAchievement = (index) => {
+    const newAchievements = doctorFormData.achievements.filter((_, i) => i !== index);
+    console.log('🗑️ Removing achievement at index:', index);
+    setDoctorFormData({ ...doctorFormData, achievements: newAchievements });
+    toast.info('Đã xóa thành tích! Nhớ click "Cập nhật thông tin chuyên môn" để lưu.');
   };
 
   // Loading state
@@ -471,12 +564,19 @@ const ProfilePage = () => {
     );
   }
 
-  // Main render
+  if (!user) {
+    return (
+      <div className="profile-page-loading">
+        <p>Không tìm thấy thông tin người dùng</p>
+      </div>
+    );
+  }
+
   return (
     <div className="profile-page-container">
-      {/* BƯỚC 9: Thêm ToastContainer ở đây */}
-      <ToastContainer
-        position="top-right"
+      {/* Toast ở góc dưới bên phải */}
+      <ToastContainer 
+        position="bottom-right" 
         autoClose={3000}
         hideProgressBar={false}
         newestOnTop={false}
@@ -485,152 +585,94 @@ const ProfilePage = () => {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme="light"
       />
 
       {/* Header */}
       <div className="profile-page-header">
-        <div className="profile-page-header-content">
-          <h1><FaUser className="profile-page-header-icon" /> Thông tin tài khoản</h1>
-          <p className="profile-page-header-subtitle">Quản lý thông tin cá nhân và bảo mật</p>
-        </div>
-        <button onClick={() => navigate('/dashboard')} className="profile-page-btn-back">
+        <button onClick={() => navigate(-1)} className="profile-page-btn-back">
           <FaArrowLeft /> Quay lại
         </button>
+        <h1 className="profile-page-title">
+          <FaUser /> Thông tin cá nhân
+        </h1>
       </div>
 
-      {/* BƯỚC 10: Xóa khối message cũ */}
-      {/* {message.text && ( ... )} */}
-
+      {/* Content Layout */}
       <div className="profile-page-content">
-        {/* Sidebar */}
-        <div className="profile-page-sidebar">
-          {/* Avatar Card */}
-          <div className="profile-page-avatar-card">
-            <div className="profile-page-avatar-wrapper">
-              <div className="profile-page-avatar">
-                {avatarPreview ? (
-                  <img src={avatarPreview} alt="Avatar" className="profile-page-avatar-image" />
-                ) : (
-                  <FaUser className="profile-page-avatar-icon" />
-                )}
-              </div>
-              <div className="profile-page-avatar-actions">
-                <button 
-                  className="profile-page-avatar-btn profile-page-avatar-btn-upload"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingAvatar}
-                  title="Chọn ảnh"
-                >
-                  <FaCamera />
-                </button>
-                {(avatarPreview || user?.avatar_url) && (
-                  <button 
-                    className="profile-page-avatar-btn profile-page-avatar-btn-remove"
-                    onClick={handleRemoveAvatar}
-                    disabled={uploadingAvatar}
-                    title="Xóa ảnh"
-                  >
-                    <FaTrash />
-                  </button>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                style={{ display: 'none' }}
-              />
+        {/* Avatar Card */}
+        <div className="profile-page-avatar-card">
+          <div className="profile-page-avatar-wrapper">
+            <div className="profile-page-avatar">
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Avatar" />
+              ) : (
+                <FaUser className="profile-page-avatar-placeholder" size={60} />
+              )}
             </div>
 
-            {avatarFile && (
-              <button 
-                className="profile-page-btn-save-avatar"
-                onClick={handleUploadAvatar}
-                disabled={uploadingAvatar}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleAvatarChange}
+              accept="image/*"
+              style={{ display: 'none' }}
+            />
+
+            {!avatarFile ? (
+              <button
+                onClick={() => fileInputRef.current.click()}
+                className="profile-page-btn-change-avatar"
               >
-                {uploadingAvatar ? 'Đang tải lên...' : 'Lưu ảnh đại diện'}
+                <FaCamera /> Chọn ảnh mới
+              </button>
+            ) : (
+              <button
+                onClick={uploadAvatar}
+                disabled={uploadingAvatar}
+                className="profile-page-btn-upload"
+              >
+                <FaCheckCircle /> {uploadingAvatar ? 'Đang tải...' : 'Upload ảnh'}
               </button>
             )}
 
-            <h2 className="profile-page-user-name">{user?.full_name || 'Chưa cập nhật'}</h2>
-            <p className="profile-page-user-email">
-              <FaEnvelope /> {user?.email}
-            </p>
-            <div className="profile-page-user-role">
-              <FaUserShield className="profile-page-role-icon" />
-              <span className={`profile-page-badge profile-page-badge-${user?.role}`}>
-                {getRoleLabel(user?.role)}
-              </span>
-            </div>
-            
-            {roleInfo && roleInfo.code && (
-              <div className={`profile-page-role-code profile-page-role-code-${user?.role}`}>
-                {user?.role === 'doctor' && <><FaStethoscope /> Mã BS: {roleInfo.code}</>}
-                {user?.role === 'patient' && <><FaIdCard /> Mã BN: {roleInfo.code}</>}
-                {user?.role === 'staff' && <><FaBuilding /> Mã NV: {roleInfo.code}</>}
-                {user?.role === 'admin' && <><FaShieldAlt /> Mã QTV: {roleInfo.code}</>}
-              </div>
+            {user.avatar_url && !avatarFile && (
+              <button onClick={removeAvatar} className="profile-page-btn-remove-avatar">
+                <FaTrash /> Xóa ảnh
+              </button>
             )}
           </div>
 
-          {/* Trạng thái tài khoản */}
-          <div className="profile-page-status-card">
-            <h3 className="profile-page-status-title">Trạng thái tài khoản</h3>
-            <div className="profile-page-status-list">
-              <div className="profile-page-status-item">
-                <span className="profile-page-status-label">Hoạt động:</span>
-                <span className={`profile-page-status-badge ${user?.is_active ? 'profile-page-status-active' : 'profile-page-status-inactive'}`}>
-                  {user?.is_active ? <><FaCheckCircle /> Đang hoạt động</> : <><FaTimesCircle /> Bị khóa</>}
-                </span>
-              </div>
-              <div className="profile-page-status-item">
-                <span className="profile-page-status-label">Xác thực:</span>
-                <span className={`profile-page-status-badge ${user?.is_verified ? 'profile-page-status-verified' : 'profile-page-status-unverified'}`}>
-                  {user?.is_verified ? <><FaCheckCircle /> Đã xác thực</> : <><FaTimesCircle /> Chưa xác thực</>}
-                </span>
-              </div>
+          <div className="profile-page-user-basic">
+            <h2>{user.full_name || user.username}</h2>
+            <span className="profile-page-user-email">{user.email}</span>
+            <div className={`profile-page-role-badge profile-page-role-${user.role}`}>
+              {user.role === 'admin' && 'Quản trị viên'}
+              {user.role === 'doctor' && 'Bác sĩ'}
+              {user.role ==="staff" && 'Nhân viên'}
+              {user.role === 'patient' && 'Bệnh nhân'}
             </div>
+            {user.is_verified ? (
+              <p className="profile-page-verified">
+                <FaCheckCircle /> Đã xác thực
+              </p>
+            ) : (
+              <p className="profile-page-not-verified">
+                <FaTimesCircle /> Chưa xác thực
+              </p>
+            )}
           </div>
-
-          {/* ... (Các card sidebar khác không đổi) ... */}
-          {user?.role === 'doctor' && roleInfo?.Specialty && (
-            <div className="profile-page-specialty-card">
-              <h3 className="profile-page-specialty-title">
-                <FaStethoscope /> Chuyên khoa
-              </h3>
-              <div className="profile-page-specialty-info">
-                <p className="profile-page-specialty-name">{roleInfo.Specialty.name}</p>
-                {roleInfo.experience_years && (
-                  <p className="profile-page-experience">
-                    <FaBriefcase /> {roleInfo.experience_years} năm kinh nghiệm
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-          {user?.role === 'staff' && roleInfo?.department && (
-            <div className="profile-page-specialty-card">
-              <h3 className="profile-page-specialty-title">
-                <FaBuilding /> Phòng ban
-              </h3>
-              <div className="profile-page-specialty-info">
-                <p className="profile-page-specialty-name">{roleInfo.department}</p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Main Content */}
-        <div className="profile-page-main">
-          {/* Form cập nhật thông tin cơ bản */}
-          <div className="profile-page-form-card">
-            <div className="profile-page-card-header">
-              <h2><FaEdit /> Cập nhật thông tin cá nhân</h2>
-            </div>
-            <form onSubmit={handleUpdateProfile} className="profile-page-form">
-              <div className="profile-page-form-row">
+        <div className="profile-page-main-content">
+          {/* Grid 2 cột: Thông tin cá nhân & Đổi mật khẩu */}
+          <div className="profile-page-main-forms">
+            {/* Form Thông tin cá nhân */}
+            <div className="profile-page-form-card">
+              <div className="profile-page-card-header">
+                <h2><FaEdit /> Thông tin cá nhân</h2>
+              </div>
+              <form onSubmit={handleBasicInfoSubmit} className="profile-page-form">
                 <div className="profile-page-form-group">
                   <label className="profile-page-form-label">
                     <FaUser /> Họ và tên
@@ -640,60 +682,42 @@ const ProfilePage = () => {
                     name="full_name"
                     value={formData.full_name}
                     onChange={handleChange}
-                    placeholder="Nguyễn Văn A"
-                    // BƯỚC 11: Thêm class lỗi và hiển thị lỗi
-                    className={`profile-page-form-input ${errors.full_name ? 'profile-page-form-input-error' : ''}`}
+                    placeholder="Nhập họ và tên đầy đủ (VD: Nguyễn Văn An)"
+                    className="profile-page-form-input"
                   />
-                  {errors.full_name && <small className="profile-page-form-error">{errors.full_name}</small>}
                 </div>
 
-                <div className="profile-page-form-group">
-                  <label className="profile-page-form-label">
-                    <FaPhone /> Số điện thoại
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    placeholder="0901234567"
-                    className={`profile-page-form-input ${errors.phone ? 'profile-page-form-input-error' : ''}`}
-                  />
-                  {errors.phone && <small className="profile-page-form-error">{errors.phone}</small>}
-                </div>
-              </div>
+                <div className="profile-page-form-row">
+                  <div className="profile-page-form-group">
+                    <label className="profile-page-form-label">
+                      <FaPhone /> Số điện thoại
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      placeholder="Số điện thoại (VD: 0912345678)"
+                      className="profile-page-form-input"
+                    />
+                  </div>
 
-              <div className="profile-page-form-group">
-                <label className="profile-page-form-label">
-                  <FaMapMarkerAlt /> Địa chỉ
-                </label>
-                <input
-                  type="text"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  placeholder="123 Đường ABC, Quận XYZ"
-                  className={`profile-page-form-input ${errors.address ? 'profile-page-form-input-error' : ''}`}
-                />
-                {errors.address && <small className="profile-page-form-error">{errors.address}</small>}
-              </div>
-
-              <div className="profile-page-form-row">
-                <div className="profile-page-form-group">
-                  <label className="profile-page-form-label">
-                    <FaVenusMars /> Giới tính
-                  </label>
-                  <select 
-                    name="gender" 
-                    value={formData.gender} 
-                    onChange={handleChange}
-                    className="profile-page-form-select"
-                  >
-                    <option value="">Chọn giới tính</option>
-                    <option value="male">Nam</option>
-                    <option value="female">Nữ</option>
-                    <option value="other">Khác</option>
-                  </select>
+                  <div className="profile-page-form-group">
+                    <label className="profile-page-form-label">
+                      <FaVenusMars /> Giới tính
+                    </label>
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleChange}
+                      className="profile-page-form-select"
+                    >
+                      <option value="">-- Chọn giới tính --</option>
+                      <option value="male">Nam</option>
+                      <option value="female">Nữ</option>
+                      <option value="other">Khác</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="profile-page-form-group">
@@ -708,185 +732,48 @@ const ProfilePage = () => {
                     className="profile-page-form-input"
                   />
                 </div>
-              </div>
-
-              <button type="submit" className="profile-page-btn-submit">
-                <FaCheckCircle /> Cập nhật thông tin
-              </button>
-            </form>
-          </div>
-
-          {/* Form thông tin bác sĩ (chỉ hiển thị khi role là doctor) */}
-          {user?.role === 'doctor' && (
-            <div className="profile-page-form-card">
-              <div className="profile-page-card-header profile-page-card-header-doctor">
-                <h2><FaStethoscope /> Thông tin chuyên môn</h2>
-              </div>
-              <form onSubmit={handleUpdateDoctorInfo} className="profile-page-form">
-                <div className="profile-page-form-row">
-                  <div className="profile-page-form-group">
-                    <label className="profile-page-form-label">
-                      <FaStethoscope /> Chuyên khoa
-                    </label>
-                    <select 
-                      name="specialty_id" 
-                      value={doctorFormData.specialty_id} 
-                      onChange={handleDoctorChange}
-                      className="profile-page-form-select"
-                    >
-                      <option value="">Chọn chuyên khoa</option>
-                      {specialties.map(specialty => (
-                        <option key={specialty.id} value={specialty.id}>
-                          {specialty.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="profile-page-form-group">
-                    <label className="profile-page-form-label">
-                      <FaBriefcase /> Số năm kinh nghiệm
-                    </label>
-                    <input
-                      type="number"
-                      name="experience_years"
-                      value={doctorFormData.experience_years}
-                      onChange={handleDoctorChange}
-                      placeholder="Ví dụ: 5"
-                      min="0"
-                      className="profile-page-form-input"
-                    />
-                  </div>
-                </div>
 
                 <div className="profile-page-form-group">
                   <label className="profile-page-form-label">
-                    <FaFileAlt /> Tiểu sử / Giới thiệu
+                    <FaMapMarkerAlt /> Địa chỉ
                   </label>
                   <textarea
-                    name="bio"
-                    value={doctorFormData.bio}
-                    onChange={handleDoctorChange}
-                    placeholder="Mô tả ngắn về bản thân, kinh nghiệm làm việc..."
-                    rows="4"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    placeholder="Địa chỉ chi tiết (VD: 123 Lê Lợi, Phường Bến Thành, Quận 1, TP.HCM)"
+                    rows="3"
                     className="profile-page-form-textarea"
                   />
                 </div>
 
-                {/* Quản lý chứng chỉ */}
-                <div className="profile-page-form-group">
-                  <label className="profile-page-form-label">
-                    <FaIdCard /> Chứng chỉ & Bằng cấp
-                  </label>
-                  
-                  {/* Danh sách chứng chỉ hiện tại */}
-                  {doctorFormData.certifications.length > 0 && (
-                    <div className="profile-page-certifications-list">
-                      {doctorFormData.certifications.map((cert, index) => (
-                        <div key={index} className="profile-page-certification-item">
-                          <span className="profile-page-certification-text">{cert}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCertification(index)}
-                            className="profile-page-certification-remove"
-                            title="Xóa chứng chỉ"
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Form thêm chứng chỉ mới */}
-                  <div className="profile-page-certification-add">
-                    <input
-                      type="text"
-                      value={newCertification}
-                      onChange={(e) => setNewCertification(e.target.value)}
-                      placeholder="Nhập chứng chỉ mới (Ví dụ: Bác sĩ Đa khoa - Đại học Y Hà Nội 2010)"
-                      className="profile-page-form-input"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddCertification();
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddCertification}
-                      className="profile-page-btn-add-certification"
-                    >
-                      <FaCheckCircle /> Thêm
-                    </button>
-                  </div>
-                </div>
-
-                <button type="submit" className="profile-page-btn-submit profile-page-btn-doctor">
-                  <FaCheckCircle /> Cập nhật thông tin chuyên môn
+                <button type="submit" className="profile-page-btn-submit">
+                  <FaCheckCircle /> Cập nhật thông tin
                 </button>
               </form>
             </div>
-          )}
 
-          {/* Form đổi mật khẩu */}
-          <div className="profile-page-form-card">
-            <div className="profile-page-card-header profile-page-card-header-password">
-              <h2><FaKey /> Đổi mật khẩu</h2>
-            </div>
-
-            {/* Khối quên mật khẩu (Giữ nguyên) */}
-            <div style={{ 
-              marginBottom: '1rem', 
-              padding: '0.875rem', 
-              background: '#e0f7e9', 
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span style={{ fontSize: '0.9rem', color: '#666' }}>
-                Quên mật khẩu hiện tại?
-              </span>
-              <button
-                type="button"
-                onClick={() => navigate('/dat-lai-mat-khau')}
-                style={{
-                  background: 'linear-gradient(135deg, #66bb6a, #4caf50)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '6px',
-                  fontSize: '0.9rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-              >
-                Đặt lại mật khẩu
-              </button>
-            </div>
-
-            <form onSubmit={handleChangePassword} className="profile-page-form">
-              <div className="profile-page-form-group">
-                <label className="profile-page-form-label">
-                  <FaLock /> Mật khẩu hiện tại
-                </label>
-                <input
-                  type="password"
-                  name="currentPassword"
-                  value={passwordData.currentPassword}
-                  onChange={handlePasswordChange}
-                  placeholder="Nhập mật khẩu hiện tại"
-                  className={`profile-page-form-input ${errors.currentPassword ? 'profile-page-form-input-error' : ''}`}
-                  required
-                />
-                {errors.currentPassword && <small className="profile-page-form-error">{errors.currentPassword}</small>}
+            {/* Form Đổi mật khẩu */}
+            <div className="profile-page-form-card">
+              <div className="profile-page-card-header profile-page-card-header-password">
+                <h2><FaLock /> Đổi mật khẩu</h2>
               </div>
+              <form onSubmit={handlePasswordSubmit} className="profile-page-form">
+                <div className="profile-page-form-group">
+                  <label className="profile-page-form-label">
+                    <FaKey /> Mật khẩu hiện tại
+                  </label>
+                  <input
+                    type="password"
+                    name="currentPassword"
+                    value={passwordData.currentPassword}
+                    onChange={handlePasswordChange}
+                    placeholder="Nhập mật khẩu hiện tại"
+                    className="profile-page-form-input"
+                    required
+                  />
+                </div>
 
-              <div className="profile-page-form-row">
                 <div className="profile-page-form-group">
                   <label className="profile-page-form-label">
                     <FaLock /> Mật khẩu mới
@@ -896,16 +783,15 @@ const ProfilePage = () => {
                     name="newPassword"
                     value={passwordData.newPassword}
                     onChange={handlePasswordChange}
-                    placeholder="Ít nhất 6 ký tự"
-                    className={`profile-page-form-input ${errors.newPassword ? 'profile-page-form-input-error' : ''}`}
+                    placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                    className="profile-page-form-input"
                     required
                   />
-                  {errors.newPassword && <small className="profile-page-form-error">{errors.newPassword}</small>}
                 </div>
 
                 <div className="profile-page-form-group">
                   <label className="profile-page-form-label">
-                    <FaLock /> Xác nhận mật khẩu
+                    <FaLock /> Xác nhận mật khẩu mới
                   </label>
                   <input
                     type="password"
@@ -913,20 +799,505 @@ const ProfilePage = () => {
                     value={passwordData.confirmPassword}
                     onChange={handlePasswordChange}
                     placeholder="Nhập lại mật khẩu mới"
-                    className={`profile-page-form-input ${errors.confirmPassword ? 'profile-page-form-input-error' : ''}`}
+                    className="profile-page-form-input"
                     required
                   />
-                  {errors.confirmPassword && <small className="profile-page-form-error">{errors.confirmPassword}</small>}
+                </div>
+
+                <button type="submit" className="profile-page-btn-submit">
+                  <FaCheckCircle /> Đổi mật khẩu
+                </button>
+
+                {/* Link quên mật khẩu */}
+                <div className="profile-page-forgot-password">
+                  <Link to="/quen-mat-khau" className="profile-page-forgot-link">
+                    Quên mật khẩu?
+                  </Link>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Form thông tin bác sĩ (nếu là doctor) */}
+      {user.role === 'doctor' && roleInfo && (
+        <div className="profile-page-doctor-container">
+          <div className="profile-page-form-card">
+            <div className="profile-page-card-header profile-page-card-header-doctor">
+              <h2><FaIdCard /> Thông tin chuyên môn</h2>
+            </div>
+
+            <form onSubmit={handleDoctorInfoSubmit} className="profile-page-form">
+              {/* SECTION 1: Thông tin cơ bản */}
+              <div className="profile-page-doctor-section">
+                <h3 className="profile-page-section-title">
+                  <FaIdCard /> Thông tin cơ bản
+                </h3>
+
+                <div className="profile-page-form-row">
+                  <div className="profile-page-form-group">
+                    <label className="profile-page-form-label">
+                      <FaGraduationCap /> Học hàm, học vị
+                    </label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={doctorFormData.title}
+                      onChange={handleDoctorChange}
+                      placeholder="VD: Giáo sư, Tiến sĩ, Thạc sĩ, Bác sĩ Chuyên khoa II"
+                      className="profile-page-form-input"
+                    />
+                  </div>
+
+                  <div className="profile-page-form-group">
+                    <label className="profile-page-form-label">
+                      <FaBriefcase /> Chức vụ
+                    </label>
+                    <input
+                      type="text"
+                      name="position"
+                      value={doctorFormData.position}
+                      onChange={handleDoctorChange}
+                      placeholder="VD: Trưởng khoa Tim mạch, Phó Giám đốc Bệnh viện"
+                      className="profile-page-form-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="profile-page-form-row">
+                  <div className="profile-page-form-group">
+                    <label className="profile-page-form-label">
+                      <FaIdCard /> Chuyên khoa
+                    </label>
+                    <select
+                      name="specialty_id"
+                      value={doctorFormData.specialty_id}
+                      onChange={handleDoctorChange}
+                      className="profile-page-form-select"
+                    >
+                      <option value="">-- Chọn chuyên khoa --</option>
+                      {specialties.map(spec => (
+                        <option key={spec.id} value={spec.id}>
+                          {spec.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="profile-page-form-group">
+                    <label className="profile-page-form-label">
+                      <FaCalendar /> Số năm kinh nghiệm
+                    </label>
+                    <input
+                      type="number"
+                      name="experience_years"
+                      value={doctorFormData.experience_years}
+                      onChange={handleDoctorChange}
+                      placeholder="Nhập số năm (VD: 15)"
+                      min="0"
+                      className="profile-page-form-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="profile-page-form-group">
+                  <label className="profile-page-form-label">
+                    <FaFileAlt /> Giới thiệu bản thân
+                  </label>
+                  <textarea
+                    name="bio"
+                    value={doctorFormData.bio}
+                    onChange={handleDoctorChange}
+                    placeholder="Giới thiệu ngắn về bản thân, chuyên môn và kinh nghiệm (VD: Tôi có hơn 15 năm kinh nghiệm...)"
+                    rows="4"
+                    className="profile-page-form-textarea"
+                  />
                 </div>
               </div>
 
-              <button type="submit" className="profile-page-btn-submit profile-page-btn-password">
-                <FaKey /> Đổi mật khẩu
+              {/* SECTION 2: Học vấn */}
+              <div className="profile-page-doctor-section">
+                <h3 className="profile-page-section-title">
+                  <FaGraduationCap /> Học vấn & Đào tạo
+                </h3>
+
+                {doctorFormData.education.length > 0 && doctorFormData.education.map((edu, index) => (
+                  <div key={index} className="profile-page-list-item">
+                    <div className="profile-page-list-content">
+                      <strong>{edu.degree}</strong>
+                      <p className="profile-page-list-desc">{edu.institution}</p>
+                      {edu.year && <span className="profile-page-list-year">Năm: {edu.year}</span>}
+                      {edu.description && <p className="profile-page-list-desc">{edu.description}</p>}
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => removeEducation(index)} 
+                      className="profile-page-btn-remove-item"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                ))}
+
+                {!showEducationForm ? (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowEducationForm(true)} 
+                    className="profile-page-btn-add"
+                  >
+                    <FaPlus /> Thêm học vấn
+                  </button>
+                ) : (
+                  <div className="profile-page-add-form">
+                    <input
+                      type="text"
+                      value={educationForm.degree}
+                      onChange={(e) => setEducationForm({...educationForm, degree: e.target.value})}
+                      placeholder="Bằng cấp * (VD: Bác sĩ Đa khoa, Thạc sĩ Y học)"
+                      className="profile-page-form-input"
+                    />
+                    <input
+                      type="text"
+                      value={educationForm.institution}
+                      onChange={(e) => setEducationForm({...educationForm, institution: e.target.value})}
+                      placeholder="Trường/Cơ sở đào tạo * (VD: Đại học Y Dược TP.HCM)"
+                      className="profile-page-form-input"
+                    />
+                    <div className="profile-page-form-row">
+                      <input
+                        type="text"
+                        value={educationForm.year}
+                        onChange={(e) => setEducationForm({...educationForm, year: e.target.value})}
+                        placeholder="Năm tốt nghiệp (VD: 2010)"
+                        className="profile-page-form-input"
+                      />
+                      <input
+                        type="text"
+                        value={educationForm.description}
+                        onChange={(e) => setEducationForm({...educationForm, description: e.target.value})}
+                        placeholder="Mô tả thêm (tùy chọn)"
+                        className="profile-page-form-input"
+                      />
+                    </div>
+                    <div className="profile-page-form-actions">
+                      <button type="button" onClick={addEducation} className="profile-page-btn-save">
+                        <FaCheckCircle /> Lưu
+                      </button>
+                      <button type="button" onClick={() => setShowEducationForm(false)} className="profile-page-btn-cancel">
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 3: Chứng chỉ */}
+              <div className="profile-page-doctor-section">
+                <h3 className="profile-page-section-title">
+                  <FaCertificate /> Chứng chỉ & Bằng cấp
+                </h3>
+
+                {doctorFormData.certifications.length > 0 && doctorFormData.certifications.map((cert, index) => (
+                  <div key={index} className="profile-page-list-item">
+                    <div className="profile-page-list-content">
+                      <strong>{cert.name}</strong>
+                      {cert.link && (
+                        <a href={cert.link} target="_blank" rel="noopener noreferrer" className="profile-page-list-link">
+                          <FaLink /> Xem chứng chỉ
+                        </a>
+                      )}
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => removeCertification(index)} 
+                      className="profile-page-btn-remove-item"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                ))}
+
+                {!showCertificationForm ? (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowCertificationForm(true)} 
+                    className="profile-page-btn-add"
+                  >
+                    <FaPlus /> Thêm chứng chỉ
+                  </button>
+                ) : (
+                  <div className="profile-page-add-form">
+                    <input
+                      type="text"
+                      value={certificationForm.name}
+                      onChange={(e) => setCertificationForm({...certificationForm, name: e.target.value})}
+                      placeholder="Tên chứng chỉ * (VD: Chứng chỉ Nội soi Tiêu hóa)"
+                      className="profile-page-form-input"
+                    />
+                    <input
+                      type="url"
+                      value={certificationForm.link}
+                      onChange={(e) => setCertificationForm({...certificationForm, link: e.target.value})}
+                      placeholder="Link xem chứng chỉ (tùy chọn) - VD: https://drive.google.com/..."
+                      className="profile-page-form-input"
+                    />
+                    <div className="profile-page-form-actions">
+                      <button type="button" onClick={addCertification} className="profile-page-btn-save">
+                        <FaCheckCircle /> Lưu
+                      </button>
+                      <button type="button" onClick={() => setShowCertificationForm(false)} className="profile-page-btn-cancel">
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 4: Kinh nghiệm làm việc */}
+              <div className="profile-page-doctor-section">
+                <h3 className="profile-page-section-title">
+                  <FaBriefcase /> Kinh nghiệm làm việc
+                </h3>
+
+                {doctorFormData.work_experience.length > 0 && doctorFormData.work_experience.map((work, index) => (
+                  <div key={index} className="profile-page-list-item">
+                    <div className="profile-page-list-content">
+                      <strong>{work.position} - {work.hospital}</strong>
+                      {work.department && <p className="profile-page-list-desc">Khoa: {work.department}</p>}
+                      {work.period && <p className="profile-page-list-period">Thời gian: {work.period}</p>}
+                      {work.description && <p className="profile-page-list-desc">{work.description}</p>}
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => removeWorkExp(index)} 
+                      className="profile-page-btn-remove-item"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                ))}
+
+                {!showWorkExpForm ? (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowWorkExpForm(true)} 
+                    className="profile-page-btn-add"
+                  >
+                    <FaPlus /> Thêm kinh nghiệm
+                  </button>
+                ) : (
+                  <div className="profile-page-add-form">
+                    <div className="profile-page-form-row">
+                      <input
+                        type="text"
+                        value={workExpForm.position}
+                        onChange={(e) => setWorkExpForm({...workExpForm, position: e.target.value})}
+                        placeholder="Vị trí * (VD: Bác sĩ điều trị)"
+                        className="profile-page-form-input"
+                      />
+                      <input
+                        type="text"
+                        value={workExpForm.hospital}
+                        onChange={(e) => setWorkExpForm({...workExpForm, hospital: e.target.value})}
+                        placeholder="Bệnh viện/Cơ sở * (VD: Bệnh viện Chợ Rẫy)"
+                        className="profile-page-form-input"
+                      />
+                    </div>
+                    <div className="profile-page-form-row">
+                      <input
+                        type="text"
+                        value={workExpForm.department}
+                        onChange={(e) => setWorkExpForm({...workExpForm, department: e.target.value})}
+                        placeholder="Khoa/Phòng (VD: Khoa Tim mạch)"
+                        className="profile-page-form-input"
+                      />
+                      <input
+                        type="text"
+                        value={workExpForm.period}
+                        onChange={(e) => setWorkExpForm({...workExpForm, period: e.target.value})}
+                        placeholder="Thời gian (VD: 2010 - 2015)"
+                        className="profile-page-form-input"
+                      />
+                    </div>
+                    <textarea
+                      value={workExpForm.description}
+                      onChange={(e) => setWorkExpForm({...workExpForm, description: e.target.value})}
+                      placeholder="Mô tả công việc (tùy chọn)"
+                      rows="2"
+                      className="profile-page-form-textarea"
+                    />
+                    <div className="profile-page-form-actions">
+                      <button type="button" onClick={addWorkExp} className="profile-page-btn-save">
+                        <FaCheckCircle /> Lưu
+                      </button>
+                      <button type="button" onClick={() => setShowWorkExpForm(false)} className="profile-page-btn-cancel">
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 5: Nghiên cứu */}
+              <div className="profile-page-doctor-section">
+                <h3 className="profile-page-section-title">
+                  <FaFlask /> Nghiên cứu & Công bố khoa học
+                </h3>
+
+                {doctorFormData.research.length > 0 && doctorFormData.research.map((res, index) => (
+                  <div key={index} className="profile-page-list-item">
+                    <div className="profile-page-list-content">
+                      <strong>{res.title}</strong>
+                      {res.authors && <p className="profile-page-list-authors">Tác giả: {res.authors}</p>}
+                      {res.journal && <p className="profile-page-list-journal">{res.journal}</p>}
+                      {res.year && <span className="profile-page-list-year">Năm: {res.year}</span>}
+                      {res.link && (
+                        <a href={res.link} target="_blank" rel="noopener noreferrer" className="profile-page-list-link">
+                          <FaLink /> Xem chi tiết
+                        </a>
+                      )}
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => removeResearch(index)} 
+                      className="profile-page-btn-remove-item"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                ))}
+
+                {!showResearchForm ? (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowResearchForm(true)} 
+                    className="profile-page-btn-add"
+                  >
+                    <FaPlus /> Thêm nghiên cứu
+                  </button>
+                ) : (
+                  <div className="profile-page-add-form">
+                    <input
+                      type="text"
+                      value={researchForm.title}
+                      onChange={(e) => setResearchForm({...researchForm, title: e.target.value})}
+                      placeholder="Tiêu đề nghiên cứu * (VD: Ứng dụng AI trong chẩn đoán)"
+                      className="profile-page-form-input"
+                    />
+                    <div className="profile-page-form-row">
+                      <input
+                        type="text"
+                        value={researchForm.authors}
+                        onChange={(e) => setResearchForm({...researchForm, authors: e.target.value})}
+                        placeholder="Tác giả (VD: Nguyễn Văn A, Trần Thị B)"
+                        className="profile-page-form-input"
+                      />
+                      <input
+                        type="text"
+                        value={researchForm.journal}
+                        onChange={(e) => setResearchForm({...researchForm, journal: e.target.value})}
+                        placeholder="Tạp chí/Hội nghị"
+                        className="profile-page-form-input"
+                      />
+                    </div>
+                    <div className="profile-page-form-row">
+                      <input
+                        type="text"
+                        value={researchForm.year}
+                        onChange={(e) => setResearchForm({...researchForm, year: e.target.value})}
+                        placeholder="Năm xuất bản (VD: 2023)"
+                        className="profile-page-form-input"
+                      />
+                      <input
+                        type="url"
+                        value={researchForm.link}
+                        onChange={(e) => setResearchForm({...researchForm, link: e.target.value})}
+                        placeholder="Link bài báo (tùy chọn) - VD: https://..."
+                        className="profile-page-form-input"
+                      />
+                    </div>
+                    <div className="profile-page-form-actions">
+                      <button type="button" onClick={addResearch} className="profile-page-btn-save">
+                        <FaCheckCircle /> Lưu
+                      </button>
+                      <button type="button" onClick={() => setShowResearchForm(false)} className="profile-page-btn-cancel">
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 6: Thành tích */}
+              <div className="profile-page-doctor-section">
+                <h3 className="profile-page-section-title">
+                  <FaAward /> Thành tích & Giải thưởng
+                </h3>
+
+                {doctorFormData.achievements.length > 0 && doctorFormData.achievements.map((achievement, index) => (
+                  <div key={index} className="profile-page-list-item">
+                    <div className="profile-page-list-content">
+                      <strong>{achievement.title || achievement}</strong>
+                      {achievement.link && (
+                        <a href={achievement.link} target="_blank" rel="noopener noreferrer" className="profile-page-list-link">
+                          <FaLink /> Xem chi tiết
+                        </a>
+                      )}
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => removeAchievement(index)} 
+                      className="profile-page-btn-remove-item"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                ))}
+
+                {!showAchievementForm ? (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowAchievementForm(true)} 
+                    className="profile-page-btn-add"
+                  >
+                    <FaPlus /> Thêm thành tích
+                  </button>
+                ) : (
+                  <div className="profile-page-add-form">
+                    <input
+                      type="text"
+                      value={achievementForm.title}
+                      onChange={(e) => setAchievementForm({...achievementForm, title: e.target.value})}
+                      placeholder="Tên thành tích * (VD: Bác sĩ trẻ xuất sắc 2023)"
+                      className="profile-page-form-input"
+                    />
+                    <input
+                      type="url"
+                      value={achievementForm.link}
+                      onChange={(e) => setAchievementForm({...achievementForm, link: e.target.value})}
+                      placeholder="Link thông tin (tùy chọn) - VD: https://..."
+                      className="profile-page-form-input"
+                    />
+                    <div className="profile-page-form-actions">
+                      <button type="button" onClick={addAchievement} className="profile-page-btn-save">
+                        <FaCheckCircle /> Lưu
+                      </button>
+                      <button type="button" onClick={() => setShowAchievementForm(false)} className="profile-page-btn-cancel">
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button type="submit" className="profile-page-btn-submit profile-page-btn-doctor">
+                <FaCheckCircle /> Cập nhật thông tin chuyên môn
               </button>
             </form>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -3,45 +3,140 @@ const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   const Doctor = sequelize.define('Doctor', {
-    id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
-    user_id: { type: DataTypes.BIGINT, unique: true, allowNull: false },
-    username: { type: DataTypes.STRING(50), unique: false, allowNull: false },
-    code: { type: DataTypes.STRING(10), unique: true, allowNull: false },
-    specialty_id: { type: DataTypes.BIGINT, allowNull: true },
-    experience_years: { type: DataTypes.INTEGER, allowNull: true },
-    certifications_json: { type: DataTypes.JSON, allowNull: true },
-    bio: { type: DataTypes.TEXT, allowNull: true },
-    assigned_staff_id: { 
+    id: { 
+      type: DataTypes.BIGINT, 
+      primaryKey: true, 
+      autoIncrement: true 
+    },
+    user_id: { 
+      type: DataTypes.BIGINT, 
+      unique: true, 
+      allowNull: false 
+    },
+    username: { 
+      type: DataTypes.STRING(50), 
+      unique: false, 
+      allowNull: false 
+    },
+    code: { 
+      type: DataTypes.STRING(10), 
+      unique: true, 
+      allowNull: false 
+    },
+    
+    // =============================================
+    // THÔNG TIN CHUYÊN MÔN CƠ BẢN
+    // =============================================
+    specialty_id: { 
       type: DataTypes.BIGINT, 
       allowNull: true,
-      comment: 'Staff quản lý bác sĩ này'
+      comment: 'Chuyên khoa chính'
+    },
+    experience_years: { 
+      type: DataTypes.INTEGER, 
+      allowNull: true,
+      comment: 'Số năm kinh nghiệm'
+    },
+    bio: { 
+      type: DataTypes.TEXT, 
+      allowNull: true,
+      comment: 'Tiểu sử / Giới thiệu ngắn'
+    },
+    
+    // =============================================
+    // THÔNG TIN CÁ NHÂN - String đơn giản
+    // =============================================
+    title: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      comment: 'Học hàm, học vị (VD: Giáo sư, Tiến sĩ, Thạc sĩ)'
+    },
+    
+    position: {
+      type: DataTypes.STRING(200),
+      allowNull: true,
+      comment: 'Chức vụ hiện tại'
+    },
+    
+    // =============================================
+    // DANH SÁCH - JSON Arrays (Simple strings)
+    // =============================================
+    specializations: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+      comment: 'Lĩnh vực chuyên sâu - Array of strings'
+    },
+    
+    // =============================================
+    // CẤU TRÚC PHỨC TẠP - JSON Objects/Arrays
+    // =============================================
+    
+    // Education: Array of objects
+    education: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+      comment: 'Học vấn - Array of {degree, institution, year, description}'
+    },
+    
+    // Certifications: Array of objects with link
+    certifications: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+      comment: 'Chứng chỉ - Array of {name, link}'
+    },
+    
+    // Work Experience: Array of objects
+    work_experience: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+      comment: 'Kinh nghiệm làm việc - Array of {position, hospital, department, period, description}'
+    },
+    
+    // Research: Array of objects with link
+    research: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+      comment: 'Nghiên cứu - Array of {title, authors, journal, year, link}'
+    },
+    
+    // Achievements: Array of objects with link
+    achievements: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+      comment: 'Thành tích - Array of {title, link}'
+    },
+    
+    // =============================================
+    // QUẢN LÝ NHÂN SỰ & LỊCH
+    // =============================================
+    assigned_staff_id: { 
+      type: DataTypes.BIGINT, 
+      allowNull: true
     },
     work_status: {
       type: DataTypes.ENUM('active', 'on_leave', 'inactive'),
       defaultValue: 'active',
-      allowNull: false,
-      comment: 'Trạng thái làm việc hiện tại'
+      allowNull: false
     },
-    
-    // =============================================
-    // === BỔ SUNG CHO LỊCH LINH HOẠT ===
-    // =============================================
     schedule_preference_type: {
       type: DataTypes.ENUM('fixed', 'flexible'),
       allowNull: false,
-      defaultValue: 'fixed',
-      comment: 'Loại lịch làm việc: Cố định hoặc Linh hoạt'
+      defaultValue: 'fixed'
     },
     current_schedule_id: {
       type: DataTypes.BIGINT,
       allowNull: true,
       references: {
-        model: 'schedules', // Tham chiếu đến chính bảng schedule
+        model: 'schedules',
         key: 'id'
-      },
-      comment: 'ID của bản ghi đăng ký (flexible_registration) đang active'
+      }
     },
-    // =============================================
     
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
@@ -52,7 +147,8 @@ module.exports = (sequelize) => {
     indexes: [
       { fields: ['username'] },
       { fields: ['assigned_staff_id'] },
-      { fields: ['schedule_preference_type'] } // Index mới
+      { fields: ['title'] },
+      { fields: ['position'] }
     ]
   });
 
@@ -64,34 +160,23 @@ module.exports = (sequelize) => {
     Doctor.hasMany(models.Consultation, { foreignKey: 'doctor_id' });
     Doctor.hasMany(models.MedicalRecord, { foreignKey: 'doctor_id' });
     Doctor.hasMany(models.Discount, { foreignKey: 'doctor_id' });
-    
-    // Association mới
-    Doctor.belongsTo(models.Schedule, { 
-      foreignKey: 'current_schedule_id', 
-      as: 'activeScheduleRegistration' 
-    });
+    Doctor.belongsTo(models.Schedule, { foreignKey: 'current_schedule_id', as: 'activeScheduleRegistration' });
   };
 
-  // Hooks giữ nguyên
   Doctor.addHook('beforeValidate', async (doctor, options) => {
     try {
-      // (MỚI) Thêm dòng này
-      if (!doctor.user_id) {
-        // Đây là một lệnh update (như đổi lịch) không truyền user_id,
-        // bỏ qua hook này.
-        return;
-      }
+      if (!doctor.user_id) return;
+      
       const user = await sequelize.models.User.findOne({
         where: { id: doctor.user_id },
         transaction: options.transaction
       });
-      if (!user) {
-        throw new Error(`Không tìm thấy User với user_id: ${doctor.user_id}`);
-      }
+      
+      if (!user) throw new Error(`Không tìm thấy User với user_id: ${doctor.user_id}`);
+      
       doctor.username = user.username;
       
       if (!doctor.code) {
-        // Sửa logic tạo code: Tìm code lớn nhất
         const lastDoctor = await Doctor.findOne({
           attributes: ['code'],
           order: [['id', 'DESC']],
@@ -102,19 +187,25 @@ module.exports = (sequelize) => {
         let nextNumber = 1;
         if (lastDoctor && lastDoctor.code) {
           const match = lastDoctor.code.match(/DR(\d+)/);
-          if (match) {
-            nextNumber = parseInt(match[1]) + 1;
-          }
+          if (match) nextNumber = parseInt(match[1]) + 1;
         }
         doctor.code = `DR${String(nextNumber).padStart(5, '0')}`;
       }
+      
+      // Đảm bảo JSON fields có giá trị mặc định
+      if (!doctor.specializations) doctor.specializations = [];
+      if (!doctor.achievements) doctor.achievements = [];
+      if (!doctor.education) doctor.education = [];
+      if (!doctor.certifications) doctor.certifications = [];
+      if (!doctor.work_experience) doctor.work_experience = [];
+      if (!doctor.research) doctor.research = [];
+      
     } catch (error) {
       console.error('ERROR trong hook beforeValidate cho Doctor:', error.message);
       throw error;
     }
   });
 
-  // Instance method (giữ nguyên)
   Doctor.prototype.isOnLeave = async function(date) {
     const LeaveRequest = sequelize.models.LeaveRequest;
     if (!LeaveRequest) return false;
@@ -133,6 +224,6 @@ module.exports = (sequelize) => {
     return !!leave;
   };
 
-  console.log('SUCCESS: Model Doctor đã được định nghĩa (cập nhật).');
+  console.log('logo.png Model Doctor đã được định nghĩa.');
   return Doctor;
 };

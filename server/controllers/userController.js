@@ -728,10 +728,9 @@ exports.getMyRoleInfo = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Query lại user với raw: true
     const user = await models.User.findByPk(userId, {
       attributes: { exclude: ['password_hash', 'reset_token', 'verification_token'] },
-      raw: true  //  QUAN TRỌNG: Trả về plain object
+      raw: true
     });
 
     if (!user) {
@@ -749,15 +748,17 @@ exports.getMyRoleInfo = async (req, res) => {
     } else if (user.role === 'doctor') {
       roleData = await models.Doctor.findOne({ 
         where: { user_id: userId },
-        include: [{ model: models.Specialty,
+        include: [{ 
+          model: models.Specialty,
           as: 'specialty',
-          required: false }]
+          required: false 
+        }]
       });
     } else if (user.role === 'admin') {
       roleData = await models.Admin.findOne({ where: { user_id: userId } });
     }
 
-    const userData = { ...user }; // Sao chép từ req.user (plain object)
+    const userData = { ...user };
     userData.roleData = roleData;
 
     res.status(200).json({ success: true, user: userData });
@@ -766,21 +767,35 @@ exports.getMyRoleInfo = async (req, res) => {
     res.status(500).json({ success: false, message: 'Lỗi khi lấy thông tin role', error: error.message });
   }
 };
+
 // Cập nhật thông tin profile của chính mình (bao gồm cả thông tin doctor)
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
     const { 
+      // Thông tin User cơ bản
       full_name, 
       phone, 
       address, 
       gender, 
       dob, 
       avatar_url,
-      // Các trường dành cho doctor
+      
+      // Thông tin Doctor - Cơ bản
       specialty_id,
       experience_years,
-      bio
+      bio,
+      
+      // Thông tin Doctor - Profile mở rộng
+      title,
+      position,
+      // BỎ: consultation_fee, languages, hospital_affiliations, memberships
+      specializations,
+      achievements,
+      education,
+      certifications,
+      work_experience,
+      research
     } = req.body;
 
     const user = await models.User.findByPk(userId);
@@ -788,7 +803,7 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
     }
 
-    // Cập nhật thông tin cơ bản
+    // Cập nhật thông tin cơ bản User
     if (full_name !== undefined) user.full_name = full_name;
     if (phone !== undefined) user.phone = phone;
     if (address !== undefined) user.address = address;
@@ -798,17 +813,34 @@ exports.updateProfile = async (req, res) => {
 
     await user.save();
 
-    // Nếu là bác sĩ - Cho phép cập nhật thông tin chuyên môn
+    // Nếu là bác sĩ - Cập nhật thông tin chuyên môn
     if (user.role === 'doctor') {
       const doctor = await models.Doctor.findOne({ where: { user_id: userId } });
       
       if (doctor) {
+        // Cập nhật các trường cơ bản
         if (specialty_id !== undefined) doctor.specialty_id = specialty_id;
         if (experience_years !== undefined) doctor.experience_years = experience_years;
         if (bio !== undefined) doctor.bio = bio;
         
+        // Cập nhật profile mở rộng - String
+        if (title !== undefined) doctor.title = title;
+        if (position !== undefined) doctor.position = position;
+        // BỎ: consultation_fee
+        
+        // Cập nhật profile mở rộng - JSON Arrays
+        // BỎ: languages, hospital_affiliations, memberships
+        if (specializations !== undefined) doctor.specializations = specializations;
+        if (achievements !== undefined) doctor.achievements = achievements;
+        
+        // Cập nhật profile mở rộng - JSON Objects/Arrays
+        if (education !== undefined) doctor.education = education;
+        if (certifications !== undefined) doctor.certifications = certifications;
+        if (work_experience !== undefined) doctor.work_experience = work_experience;
+        if (research !== undefined) doctor.research = research;
+        
         await doctor.save();
-        console.log(`Đã cập nhật thông tin bác sĩ cho user ${userId}`);
+        console.log(`✅ Đã cập nhật thông tin bác sĩ cho user ${userId}`);
       }
     }
 
