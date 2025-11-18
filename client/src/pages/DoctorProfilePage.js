@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
 import { 
-  FaPhone, FaEnvelope, FaCalendarAlt, FaArrowLeft, FaMale, FaFemale
+  FaPhone, FaEnvelope, FaCalendarAlt, FaArrowLeft,
+  FaGraduationCap, FaBriefcase, FaAward, FaFlask, FaCertificate, FaLink,
+  FaMapMarkerAlt, FaStethoscope, FaUserMd
 } from 'react-icons/fa';
 import './DoctorProfilePage.css';
 
@@ -12,8 +14,8 @@ const DoctorProfilePage = () => {
   const navigate = useNavigate();
   const [doctor, setDoctor] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  const API_BASE_URL = 'http://localhost:3001';
+  
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
   useEffect(() => {
     fetchDoctorProfile();
@@ -22,8 +24,7 @@ const DoctorProfilePage = () => {
   const fetchDoctorProfile = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/api/users/doctors/${code}`);
-      
+      const response = await axios.get(`${API_BASE_URL}/users/doctors/${code}`);
       if (response.data.success) {
         setDoctor(response.data.doctor);
       }
@@ -39,184 +40,248 @@ const DoctorProfilePage = () => {
 
   const breadcrumbItems = doctor ? [
     { label: 'Trang chủ', url: '/' },
-    { label: 'Bác sĩ', url: '/bac-si' },
+    { label: 'Đội ngũ bác sĩ', url: '/bac-si' },
     { label: doctor.full_name, url: null }
   ] : [];
 
-  const getGenderIcon = (gender) => {
-    if (gender === 'male') return <FaMale />;
-    if (gender === 'female') return <FaFemale />;
-    return null;
-  };
-
-  const getGenderText = (gender) => {
-    if (gender === 'male') return 'Nam';
-    if (gender === 'female') return 'Nữ';
-    return 'Không xác định';
-  };
-
-  if (loading) {
-    return (
-      <div className="doctor-profile-page">
-        <div className="doctor-profile-page__loading">
-          <div className="doctor-profile-page__spinner"></div>
-          <p className="doctor-profile-page__loading-text">Đang tải thông tin bác sĩ...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!doctor) {
-    return null;
-  }
+  if (loading) return (
+    <div className="doctor-profile-page-loading">
+      <div className="doctor-profile-page-spinner"></div>
+      <p>Đang tải thông tin...</p>
+    </div>
+  );
+  
+  if (!doctor) return null;
 
   return (
-    <div className="doctor-profile-page">
-      <Breadcrumb items={breadcrumbItems} />
-
-      <button onClick={() => navigate('/bac-si')} className="doctor-profile-page__btn-back">
-        <FaArrowLeft /> Quay lại danh sách
-      </button>
-
-      <div className="doctor-profile-page__container">
-        {/* SIDEBAR - Ảnh, Liên hệ, Nút đặt lịch */}
-        <aside className="doctor-profile-page__sidebar">
-          <div className="doctor-profile-page__avatar-section">
-            <div className="doctor-profile-page__avatar-large">
-              <img
-                src={doctor.avatar_url}
-                alt={doctor.full_name}
-                onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/300?text=Doctor';
-                }}
-              />
-            </div>
-
-            <div className="doctor-profile-page__name-section">
-              <h1>
-                {doctor.full_name}
-                {doctor.gender && (
-                  <span className="doctor-profile-page__gender-badge">
-                    {getGenderIcon(doctor.gender)}
-                  </span>
-                )}
-              </h1>
-              <span className="doctor-profile-page__code">Mã: {doctor.code}</span>
-            </div>
-          </div>
-
-          <div className="doctor-profile-page__contact-info">
-            {doctor.email && (
-              <div className="doctor-profile-page__contact-item">
-                <FaEnvelope />
-                <div className="doctor-profile-page__contact-text">
-                  <div className="doctor-profile-page__contact-label">Email</div>
-                  <div className="doctor-profile-page__contact-value">
-                    <a href={`mailto:${doctor.email}`}>{doctor.email}</a>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {doctor.phone && (
-              <div className="doctor-profile-page__contact-item">
-                <FaPhone />
-                <div className="doctor-profile-page__contact-text">
-                  <div className="doctor-profile-page__contact-label">Số điện thoại</div>
-                  <div className="doctor-profile-page__contact-value">
-                    <a href={`tel:${doctor.phone}`}>{doctor.phone}</a>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <button className="doctor-profile-page__btn-book">
-            <FaCalendarAlt />
-            Đặt lịch khám
+    <div className="doctor-profile-page-wrapper">
+      <div className="doctor-profile-page-container">
+        <div className="doctor-profile-page-top-nav">
+          <Breadcrumb items={breadcrumbItems} />
+          <button onClick={() => navigate('/bac-si')} className="doctor-profile-page-btn-back">
+            <FaArrowLeft /> Quay lại
           </button>
-        </aside>
+        </div>
 
-        {/* MAIN CONTENT - Profile chi tiết */}
-        <main className="doctor-profile-page__main">
-          {/* Header */}
-          <div className="doctor-profile-page__header">
-            <div className="doctor-profile-page__header-top">
-              <div className="doctor-profile-page__header-info">
-                <h2>{doctor.full_name}</h2>
-                <div className="doctor-profile-page__header-meta">
-                  {doctor.specialty?.name && `${doctor.specialty.name}`}
-                  {doctor.experience_years > 0 && ` • ${doctor.experience_years} năm kinh nghiệm`}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Thông tin cơ bản */}
-          <div className="doctor-profile-page__info-section">
-            <h3 className="doctor-profile-page__section-title">Thông tin cơ bản</h3>
-            <div className="doctor-profile-page__info-grid">
-              <div className="doctor-profile-page__info-item">
-                <div className="doctor-profile-page__info-label">Giới tính:</div>
-                <div className="doctor-profile-page__info-value">
-                  {getGenderText(doctor.gender)}
-                </div>
+        <div className="doctor-profile-page-layout">
+          {/* LEFT SIDEBAR */}
+          <aside className="doctor-profile-page-sidebar">
+            <div className="doctor-profile-page-sidebar-card">
+              <div className="doctor-profile-page-avatar-wrapper">
+                <img 
+                  src={doctor.avatar_url} 
+                  alt={doctor.full_name} 
+                  onError={(e) => e.target.src = 'https://via.placeholder.com/300?text=Doctor'} 
+                />
+                {doctor.experience_years > 0 && (
+                  <div className="doctor-profile-page-exp-badge">
+                    <span className="doctor-profile-page-exp-number">{doctor.experience_years}+</span>
+                    <span className="doctor-profile-page-exp-text">Năm</span>
+                  </div>
+                )}
               </div>
 
-              {doctor.specialty && (
-                <div className="doctor-profile-page__info-item">
-                  <div className="doctor-profile-page__info-label">Chuyên khoa:</div>
-                  <div className="doctor-profile-page__info-value">
-                    {doctor.specialty.name}
+              <div className="doctor-profile-page-main-info">
+                <div className="doctor-profile-page-title-upper">
+                  {doctor.title || 'Bác sĩ'}
+                </div>
+                <h1 className="doctor-profile-page-name-main">
+                  {doctor.full_name}
+                </h1>
+                
+                <div className="doctor-profile-page-badges">
+                  <span className="doctor-profile-page-badge doctor-profile-page-code-badge">Mã: {doctor.code}</span>
+                </div>
+
+                {doctor.specialty?.name && (
+                  <div className="doctor-profile-page-specialty-tag">
+                    <FaStethoscope /> {doctor.specialty.name}
+                  </div>
+                )}
+              </div>
+
+              <div className="doctor-profile-page-contact-list">
+                {/* EMAIL */}
+                {doctor.email && (
+                  <div className="doctor-profile-page-contact-item">
+                    <div className="doctor-profile-page-contact-icon"><FaEnvelope /></div>
+                    <div className="doctor-profile-page-contact-detail">
+                      <span className="doctor-profile-page-label">Email</span>
+                      <a href={`mailto:${doctor.email}`} className="doctor-profile-page-value">{doctor.email}</a>
+                    </div>
+                  </div>
+                )}
+
+                {/* SỐ ĐIỆN THOẠI */}
+                {doctor.phone && (
+                  <div className="doctor-profile-page-contact-item">
+                    <div className="doctor-profile-page-contact-icon"><FaPhone /></div>
+                    <div className="doctor-profile-page-contact-detail">
+                      <span className="doctor-profile-page-label">Số điện thoại</span>
+                      <a href={`tel:${doctor.phone}`} className="doctor-profile-page-value">{doctor.phone}</a>
+                    </div>
+                  </div>
+                )}
+
+                {/* CHỨC VỤ */}
+                {doctor.position && (
+                  <div className="doctor-profile-page-contact-item">
+                    <div className="doctor-profile-page-contact-icon"><FaUserMd /></div>
+                    <div className="doctor-profile-page-contact-detail">
+                      <span className="doctor-profile-page-label">Chức vụ</span>
+                      <span className="doctor-profile-page-value">{doctor.position}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button className="doctor-profile-page-btn-book">
+                <FaCalendarAlt /> Đặt lịch khám
+              </button>
+            </div>
+          </aside>
+
+          {/* RIGHT MAIN CONTENT */}
+          <main className="doctor-profile-page-content">
+            
+            {/* 1. GIỚI THIỆU */}
+            <section className="doctor-profile-page-content-card">
+              <div className="doctor-profile-page-card-header">
+                <h2 className="doctor-profile-page-card-title"><FaUserMd /> Giới thiệu</h2>
+              </div>
+              <div className="doctor-profile-page-card-body">
+                <p className="doctor-profile-page-bio-text">
+                  {doctor.bio || `Bác sĩ ${doctor.full_name} là một chuyên gia trong lĩnh vực ${doctor.specialty?.name || 'y khoa'}, luôn tận tâm với nghề và hết lòng vì người bệnh.`}
+                </p>
+              </div>
+            </section>
+
+            {/* 2. QUÁ TRÌNH ĐÀO TẠO (TIMELINE) */}
+            {doctor.education && doctor.education.length > 0 && (
+              <section className="doctor-profile-page-content-card">
+                <div className="doctor-profile-page-card-header">
+                  <h2 className="doctor-profile-page-card-title"><FaGraduationCap /> Quá trình đào tạo</h2>
+                </div>
+                <div className="doctor-profile-page-card-body">
+                  <div className="doctor-profile-page-timeline">
+                    {doctor.education.map((edu, index) => (
+                      <div key={index} className="doctor-profile-page-timeline-item">
+                        <div className="doctor-profile-page-timeline-marker"></div>
+                        <div className="doctor-profile-page-timeline-content">
+                          <span className="doctor-profile-page-timeline-year">{edu.year}</span>
+                          <h3 className="doctor-profile-page-timeline-title">{edu.degree}</h3>
+                          <p className="doctor-profile-page-timeline-subtitle">{edu.institution}</p>
+                          {edu.description && <p className="doctor-profile-page-timeline-desc">{edu.description}</p>}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )}
+              </section>
+            )}
 
-              {doctor.experience_years > 0 && (
-                <div className="doctor-profile-page__info-item">
-                  <div className="doctor-profile-page__info-label">Kinh nghiệm:</div>
-                  <div className="doctor-profile-page__info-value">
-                    {doctor.experience_years} năm
+            {/* 3. KINH NGHIỆM LÀM VIỆC (TIMELINE) */}
+            {doctor.work_experience && doctor.work_experience.length > 0 && (
+              <section className="doctor-profile-page-content-card">
+                <div className="doctor-profile-page-card-header">
+                  <h2 className="doctor-profile-page-card-title"><FaBriefcase /> Kinh nghiệm làm việc</h2>
+                </div>
+                <div className="doctor-profile-page-card-body">
+                  <div className="doctor-profile-page-timeline">
+                    {doctor.work_experience.map((work, index) => (
+                      <div key={index} className="doctor-profile-page-timeline-item">
+                        <div className="doctor-profile-page-timeline-marker work"></div>
+                        <div className="doctor-profile-page-timeline-content">
+                          <span className="doctor-profile-page-timeline-year">{work.period}</span>
+                          <h3 className="doctor-profile-page-timeline-title">{work.position}</h3>
+                          <p className="doctor-profile-page-timeline-subtitle">
+                            <FaMapMarkerAlt style={{marginRight: '4px'}}/>
+                            {work.hospital} {work.department ? `- ${work.department}` : ''}
+                          </p>
+                          {work.description && <p className="doctor-profile-page-timeline-desc">{work.description}</p>}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
+              </section>
+            )}
 
-          {/* Giới thiệu */}
-          {doctor.bio && (
-            <div className="doctor-profile-page__content-section">
-              <h3 className="doctor-profile-page__content-title">Giới thiệu</h3>
-              <p className="doctor-profile-page__content-text">{doctor.bio}</p>
-            </div>
-          )}
+            {/* 4. GRID: CHỨNG CHỈ & THÀNH TÍCH */}
+            {(doctor.certifications?.length > 0 || doctor.achievements?.length > 0) && (
+              <div className="doctor-profile-page-grid-two-cols">
+                {/* CHỨNG CHỈ */}
+                {doctor.certifications?.length > 0 && (
+                  <section className="doctor-profile-page-content-card h-full">
+                    <div className="doctor-profile-page-card-header">
+                      <h2 className="doctor-profile-page-card-title"><FaCertificate /> Chứng chỉ</h2>
+                    </div>
+                    <div className="doctor-profile-page-card-body">
+                      <ul className="doctor-profile-page-compact-list">
+                        {doctor.certifications.map((cert, index) => (
+                          <li key={index}>
+                            <span className="doctor-profile-page-list-bullet"></span>
+                            <span className="doctor-profile-page-list-text">{cert.name}</span>
+                            {cert.link && <a href={cert.link} target="_blank" rel="noreferrer" className="doctor-profile-page-link-btn"><FaLink /></a>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </section>
+                )}
 
-          {/* Quá trình đào tạo */}
-          {doctor.certifications && doctor.certifications.length > 0 && (
-            <div className="doctor-profile-page__content-section">
-              <h3 className="doctor-profile-page__content-title">Quá trình đào tạo</h3>
-              <ul className="doctor-profile-page__list">
-                {doctor.certifications.map((cert, index) => (
-                  <li key={index} className="doctor-profile-page__list-item">
-                    {cert}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+                {/* THÀNH TÍCH */}
+                {doctor.achievements?.length > 0 && (
+                  <section className="doctor-profile-page-content-card h-full">
+                    <div className="doctor-profile-page-card-header">
+                      <h2 className="doctor-profile-page-card-title"><FaAward /> Thành tích</h2>
+                    </div>
+                    <div className="doctor-profile-page-card-body">
+                      <ul className="doctor-profile-page-compact-list gold">
+                        {doctor.achievements.map((ach, index) => (
+                          <li key={index}>
+                            <span className="doctor-profile-page-list-icon-mini"><FaAward /></span>
+                            <span className="doctor-profile-page-list-text">{ach.title}</span>
+                            {ach.link && <a href={ach.link} target="_blank" rel="noreferrer" className="doctor-profile-page-link-btn"><FaLink /></a>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </section>
+                )}
+              </div>
+            )}
 
-          {/* Kinh nghiệm làm việc */}
-          {doctor.experience_years > 0 && (
-            <div className="doctor-profile-page__content-section">
-              <h3 className="doctor-profile-page__content-title">Kinh nghiệm làm việc</h3>
-              <ul className="doctor-profile-page__list">
-                <li className="doctor-profile-page__list-item">
-                  {doctor.experience_years} năm kinh nghiệm trong lĩnh vực {doctor.specialty?.name || 'y khoa'}
-                </li>
-              </ul>
-            </div>
-          )}
-        </main>
+            {/* 5. NGHIÊN CỨU */}
+            {doctor.research && doctor.research.length > 0 && (
+              <section className="doctor-profile-page-content-card">
+                <div className="doctor-profile-page-card-header">
+                  <h2 className="doctor-profile-page-card-title"><FaFlask /> Nghiên cứu khoa học</h2>
+                </div>
+                <div className="doctor-profile-page-card-body">
+                  <div className="doctor-profile-page-research-list">
+                    {doctor.research.map((res, index) => (
+                      <div key={index} className="doctor-profile-page-research-item">
+                        <div className="doctor-profile-page-research-icon"><FaFlask /></div>
+                        <div className="doctor-profile-page-research-info">
+                          <h4>{res.title}</h4>
+                          <p>
+                            <span className="res-journal">{res.journal}</span>
+                            <span className="res-separator">•</span>
+                            <span className="res-year">{res.year}</span>
+                          </p>
+                          {res.authors && <p className="res-authors">TG: {res.authors}</p>}
+                        </div>
+                        {res.link && <a href={res.link} target="_blank" rel="noreferrer" className="doctor-profile-page-research-link">Xem</a>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
+
+          </main>
+        </div>
       </div>
     </div>
   );

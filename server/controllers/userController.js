@@ -694,32 +694,108 @@ exports.resetPasswordWithToken = async (req, res) => {
 // ============================================
 
 // Lấy thông tin profile của chính mình
-// Lấy thông tin profile của chính mình
 exports.getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    
-    //  Query lại user với raw: true để tránh trigger hooks
     const user = await models.User.findByPk(userId, {
       attributes: { exclude: ['password_hash', 'reset_token', 'verification_token'] },
-      raw: true  //  QUAN TRỌNG: Trả về plain object
+      raw: true
     });
 
-    if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Người dùng không tồn tại' 
-      });
-    }
-
+    if (!user) return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
     res.status(200).json({ success: true, user });
   } catch (error) {
-    console.error('ERROR trong getProfile:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Lỗi khi lấy thông tin người dùng', 
-      error: error.message 
+    res.status(500).json({ success: false, message: 'Lỗi server', error: error.message });
+  }
+};
+
+// Lấy thông tin role (quan trọng để fill form)
+exports.getMyRoleInfo = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await models.User.findByPk(userId, {
+      attributes: { exclude: ['password_hash'] },
+      raw: true
     });
+
+    if (!user) return res.status(404).json({ success: false, message: 'User không tồn tại' });
+
+    let roleData = null;
+    if (user.role === 'doctor') {
+      roleData = await models.Doctor.findOne({ 
+        where: { user_id: userId },
+        include: [{ model: models.Specialty, as: 'specialty', required: false }]
+      });
+    } else if (user.role === 'patient') {
+      roleData = await models.Patient.findOne({ where: { user_id: userId } });
+    } else if (user.role === 'staff') {
+      roleData = await models.Staff.findOne({ where: { user_id: userId } });
+    } else if (user.role === 'admin') {
+      roleData = await models.Admin.findOne({ where: { user_id: userId } });
+    }
+
+    const userData = { ...user };
+    userData.roleData = roleData; // Sequelize tự parse JSON fields thành object/array
+
+    res.status(200).json({ success: true, user: userData });
+  } catch (error) {
+    console.error('ERROR getMyRoleInfo:', error);
+    res.status(500).json({ success: false, message: 'Lỗi lấy thông tin role', error: error.message });
+  }
+};
+
+// Cập nhật profile (Fix logic lưu JSON)
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { 
+      full_name, phone, address, gender, dob, avatar_url, // User basic
+      specialty_id, experience_years, bio, title, position, // Doctor basic
+      education, certifications, work_experience, research, achievements // Doctor JSON arrays
+    } = req.body;
+
+    const user = await models.User.findByPk(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User không tồn tại' });
+
+    // 1. Cập nhật bảng User
+    if (full_name !== undefined) user.full_name = full_name;
+    if (phone !== undefined) user.phone = phone;
+    if (address !== undefined) user.address = address;
+    if (gender !== undefined) user.gender = gender;
+    if (dob !== undefined) user.dob = dob;
+    if (avatar_url !== undefined) user.avatar_url = avatar_url;
+    await user.save();
+
+    // 2. Cập nhật bảng Doctor (nếu là bác sĩ)
+    if (user.role === 'doctor') {
+      const doctor = await models.Doctor.findOne({ where: { user_id: userId } });
+      if (doctor) {
+        // Basic fields
+        if (specialty_id !== undefined) doctor.specialty_id = specialty_id;
+        if (experience_years !== undefined) doctor.experience_years = experience_years;
+        if (bio !== undefined) doctor.bio = bio;
+        if (title !== undefined) doctor.title = title;
+        if (position !== undefined) doctor.position = position;
+        
+        // JSON Fields - Sequelize tự động stringify khi lưu nếu model định nghĩa là DataTypes.JSON
+        if (education !== undefined) doctor.education = education;
+        if (certifications !== undefined) doctor.certifications = certifications;
+        if (work_experience !== undefined) doctor.work_experience = work_experience;
+        if (research !== undefined) doctor.research = research;
+        if (achievements !== undefined) doctor.achievements = achievements;
+
+        await doctor.save();
+      }
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Cập nhật thông tin thành công', 
+      user: { ...user.toJSON() } 
+    });
+  } catch (error) {
+    console.error('ERROR updateProfile:', error);
+    res.status(500).json({ success: false, message: 'Lỗi cập nhật', error: error.message });
   }
 };
 
@@ -1335,8 +1411,8 @@ exports.getDoctors = async (req, res) => {
           gender: user.gender,
           avatar_url: user.avatar_url || 'https://via.placeholder.com/400?text=Doctor',
           specialty_id: doctor.specialty_id,
-          specialty_name: doctor.Specialty?.name || 'Chưa phân chuyên khoa',
-          specialty_slug: doctor.Specialty?.slug,
+          specialty_name: doctor.specialty?.name || 'Chưa phân chuyên khoa',
+          specialty_slug: doctor.specialty?.slug,
           experience_years: doctor.experience_years || 0,
           bio: doctor.bio
         };
@@ -1423,8 +1499,8 @@ exports.getAllDoctorsPublic = async (req, res) => {
         gender: user.gender,
         avatar_url: user.avatar_url || 'https://via.placeholder.com/400?text=Doctor',
         specialty_id: doctor?.specialty_id,
-        specialty_name: doctor?.Specialty?.name || 'Chưa phân chuyên khoa',
-        specialty_slug: doctor?.Specialty?.slug,
+        specialty_name: doctor?.specialty?.name || 'Chưa phân chuyên khoa',
+        specialty_slug: doctor?.specialty?.slug,
         experience_years: doctor?.experience_years || 0,
         bio: doctor?.bio
       };
@@ -1450,7 +1526,7 @@ exports.getAllDoctorsPublic = async (req, res) => {
   }
 };
 
-// Lấy chi tiết bác sĩ theo code
+// Lấy chi tiết bác sĩ theo CODE (Fix: Mapping đúng tên trường)
 exports.getDoctorByCode = async (req, res) => {
   try {
     const { code } = req.params;
@@ -1469,15 +1545,11 @@ exports.getDoctorByCode = async (req, res) => {
       ]
     });
 
-    if (!doctor) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy bác sĩ'
-      });
-    }
+    if (!doctor) return res.status(404).json({ success: false, message: 'Không tìm thấy bác sĩ' });
 
-    const user = doctor.user;  // SỬA: lowercase 'user'
+    const user = doctor.user;
 
+    // ✅ MAPPING ĐẦY ĐỦ DỮ LIỆU
     const formattedDoctor = {
       id: user.id,
       code: doctor.code,
@@ -1487,24 +1559,27 @@ exports.getDoctorByCode = async (req, res) => {
       avatar_url: user.avatar_url || 'https://via.placeholder.com/400?text=Doctor',
       gender: user.gender,
       dob: user.dob,
-      specialty: doctor.specialty,  // SỬA: lowercase 'specialty'
+      
+      // Doctor Basic Info
+      specialty: doctor.specialty,
       experience_years: doctor.experience_years || 0,
       bio: doctor.bio,
-      certifications: doctor.certifications_json
+      title: doctor.title,       // Thêm chức danh
+      position: doctor.position, // Thêm chức vụ
+
+      // Doctor Detailed Info (JSON Arrays)
+      education: doctor.education || [],
+      certifications: doctor.certifications || [], // Sửa lỗi: không dùng certifications_json
+      work_experience: doctor.work_experience || [],
+      research: doctor.research || [],
+      achievements: doctor.achievements || []
     };
 
-    res.status(200).json({
-      success: true,
-      doctor: formattedDoctor
-    });
+    res.status(200).json({ success: true, doctor: formattedDoctor });
 
   } catch (error) {
-    console.error('ERROR trong getDoctorByCode:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi khi lấy thông tin bác sĩ',
-      error: error.message
-    });
+    console.error('ERROR getDoctorByCode:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server', error: error.message });
   }
 };
 

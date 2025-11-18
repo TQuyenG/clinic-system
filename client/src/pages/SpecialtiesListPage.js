@@ -32,7 +32,7 @@ const SpecialtiesListPage = () => {
   const fetchSpecialties = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:3001/api/specialties');
+      const response = await axios.get(`${API_BASE_URL}/api/specialties`);
       
       if (response.data.success) {
         setSpecialties(response.data.specialties || []);
@@ -40,40 +40,53 @@ const SpecialtiesListPage = () => {
       }
     } catch (error) {
       console.error('Error fetching specialties:', error);
+      setSpecialties([]);
+      setFilteredSpecialties([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getSpecialtyIcon = () => <FaStethoscope />;
+  const handleClearSearch = () => {
+    setSearch('');
+  };
 
   if (loading) {
     return (
-      <div className="loading-state">
-        <div className="spinner"></div>
-        <p>Đang tải danh sách chuyên khoa...</p>
+      <div className="specialties-list-page">
+        <div className="specialties-list-page__loading">
+          <div className="specialties-list-page__spinner"></div>
+          <p className="specialties-list-page__loading-text">Đang tải danh sách chuyên khoa...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="specialties-list-page">
-      <div className="page-header">
-        <h1>Các Chuyên Khoa</h1>
-        <p className="subtitle">Đa dạng chuyên khoa với đội ngũ bác sĩ chuyên môn cao</p>
+      <div className="specialties-list-page__header">
+        <h1 className="specialties-list-page__title">Các Chuyên Khoa</h1>
+        <p className="specialties-list-page__subtitle">Đa dạng chuyên khoa với đội ngũ bác sĩ chuyên môn cao</p>
       </div>
 
-      <div className="search-section">
-        <div className="search-box">
-          <FaSearch className="search-icon" />
+      <div className="specialties-list-page__search">
+        <div className="specialties-list-page__search-header">
+          <h3 className="specialties-list-page__search-title">
+            <FaSearch /> Tìm kiếm chuyên khoa
+          </h3>
+        </div>
+
+        <div className="specialties-list-page__search-box">
+          <FaSearch className="specialties-list-page__search-icon" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm kiếm chuyên khoa..."
+            className="specialties-list-page__search-input"
           />
           {search && (
-            <button className="clear-btn" onClick={() => setSearch('')}>
+            <button className="specialties-list-page__btn-clear" onClick={handleClearSearch}>
               <FaTimes />
             </button>
           )}
@@ -81,30 +94,32 @@ const SpecialtiesListPage = () => {
       </div>
 
       {filteredSpecialties.length === 0 ? (
-        <div className="empty-state">
-          <FaStethoscope size={64} color="#94a3b8" />
-          <h3>Không tìm thấy chuyên khoa nào</h3>
-          <p>Thử thay đổi từ khóa tìm kiếm</p>
+        <div className="specialties-list-page__empty">
+          <FaStethoscope size={48} color="#cbd5e1" />
+          <h3 className="specialties-list-page__empty-title">Không tìm thấy chuyên khoa nào</h3>
+          <p className="specialties-list-page__empty-text">Thử thay đổi từ khóa tìm kiếm</p>
         </div>
       ) : (
-        <div className="specialties-grid">
+        <div className="specialties-list-page__grid">
           {filteredSpecialties.map(specialty => (
             <div
               key={specialty.id}
-              className="specialty-card"
+              className="specialties-list-page__card"
               onClick={() => navigate(`/chuyen-khoa/${specialty.slug}`)}
             >
-              <div className="specialty-icon">
-                {getSpecialtyIcon()}
+              <div className="specialties-list-page__icon">
+                <FaStethoscope />
               </div>
-              <h3>{specialty.name}</h3>
-              <p className="specialty-description">
-                {specialty.description || 'Chuyên khoa chất lượng cao'}
+              
+              <h3 className="specialties-list-page__name">{specialty.name}</h3>
+              
+              <p className="specialties-list-page__description">
+                {specialty.description || 'Chuyên khoa chất lượng cao với đội ngũ bác sĩ giàu kinh nghiệm'}
               </p>
-              <div className="specialty-stats">
-                <span>
-                  <FaUsers /> {specialty.doctorCount || 0} bác sĩ
-                </span>
+              
+              <div className="specialties-list-page__stats">
+                <FaUsers />
+                <span>{specialty.doctorCount || 0} bác sĩ</span>
               </div>
             </div>
           ))}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
-import { FaStethoscope, FaAward, FaUser } from 'react-icons/fa';
+import { FaStethoscope, FaAward, FaUser, FaArrowLeft, FaEye } from 'react-icons/fa';
 import './SpecialtyDetailPage.css';
 
 const SpecialtyDetailPage = () => {
@@ -21,13 +21,9 @@ const SpecialtyDetailPage = () => {
   const fetchSpecialtyDetail = async () => {
     try {
       setLoading(true);
-      console.log('Fetching specialty with slug:', slug);
-      
-      // SỬA: Đổi từ categories sang specialties
       const response = await axios.get(`${API_BASE_URL}/api/specialties/slug/${slug}`);
       
       if (response.data.success) {
-        // Backend trả về specialty và doctors riêng biệt
         setSpecialty(response.data.specialty);
         setDoctors(response.data.doctors || []);
       }
@@ -49,9 +45,11 @@ const SpecialtyDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="loading-state">
-        <div className="spinner"></div>
-        <p>Đang tải thông tin chuyên khoa...</p>
+      <div className="specialty-detail-page">
+        <div className="specialty-detail-page__loading">
+          <div className="specialty-detail-page__spinner"></div>
+          <p className="specialty-detail-page__loading-text">Đang tải thông tin chuyên khoa...</p>
+        </div>
       </div>
     );
   }
@@ -64,35 +62,49 @@ const SpecialtyDetailPage = () => {
     <div className="specialty-detail-page">
       <Breadcrumb items={breadcrumbItems} />
 
-      <div className="specialty-header">
-        <div className="specialty-icon-large">
+      <button onClick={() => navigate('/chuyen-khoa')} className="specialty-detail-page__btn-back">
+        <FaArrowLeft /> Quay lại danh sách
+      </button>
+
+      {/* SPECIALTY HEADER */}
+      <div className="specialty-detail-page__header">
+        <div className="specialty-detail-page__icon-large">
           <FaStethoscope />
         </div>
-        <div className="specialty-info">
-          <h1>{specialty.name}</h1>
-          {specialty.description && <p>{specialty.description}</p>}
-          <div className="specialty-meta">
-            <span><FaUser /> {specialty.doctor_count || doctors.length} bác sĩ</span>
+        
+        <div className="specialty-detail-page__info">
+          <h1 className="specialty-detail-page__name">{specialty.name}</h1>
+          
+          {specialty.description && (
+            <p className="specialty-detail-page__description">{specialty.description}</p>
+          )}
+          
+          <div className="specialty-detail-page__meta">
+            <FaUser />
+            <span>{specialty.doctor_count || doctors.length} bác sĩ</span>
           </div>
         </div>
       </div>
 
-      <div className="doctors-section">
-        <h2>Đội ngũ bác sĩ chuyên khoa</h2>
+      {/* DOCTORS SECTION */}
+      <div className="specialty-detail-page__doctors-section">
+        <h2 className="specialty-detail-page__doctors-title">Đội ngũ bác sĩ chuyên khoa</h2>
 
         {doctors.length === 0 ? (
-          <div className="empty-state">
-            <p>Chưa có bác sĩ nào trong chuyên khoa này</p>
+          <div className="specialty-detail-page__empty">
+            <FaStethoscope size={48} color="#cbd5e1" />
+            <h3 className="specialty-detail-page__empty-title">Chưa có bác sĩ nào</h3>
+            <p className="specialty-detail-page__empty-text">Chuyên khoa này chưa có bác sĩ</p>
           </div>
         ) : (
-          <div className="doctors-grid">
+          <div className="specialty-detail-page__doctors-grid">
             {doctors.map(doctor => (
               <div
                 key={doctor.id}
-                className="doctor-card"
+                className="specialty-detail-page__doctor-card"
                 onClick={() => navigate(`/bac-si/${doctor.code}`)}
               >
-                <div className="doctor-avatar">
+                <div className="specialty-detail-page__doctor-avatar">
                   <img
                     src={doctor.avatar_url}
                     alt={doctor.full_name}
@@ -101,18 +113,31 @@ const SpecialtyDetailPage = () => {
                     }}
                   />
                 </div>
-                <div className="doctor-info">
-                  <h3>{doctor.full_name}</h3>
-                  <p className="doctor-code">Mã BS: {doctor.code}</p>
+
+                <div className="specialty-detail-page__doctor-info">
+                  <h3 className="specialty-detail-page__doctor-name">{doctor.full_name}</h3>
+                  <span className="specialty-detail-page__doctor-code">Mã BS: {doctor.code}</span>
+                  
                   {doctor.experience_years > 0 && (
-                    <p className="doctor-experience">
-                      <FaAward /> {doctor.experience_years} năm kinh nghiệm
-                    </p>
+                    <div className="specialty-detail-page__doctor-experience">
+                      <FaAward />
+                      <span>{doctor.experience_years} năm kinh nghiệm</span>
+                    </div>
                   )}
+                  
                   {doctor.bio && (
-                    <p className="doctor-bio">{doctor.bio.substring(0, 100)}...</p>
+                    <p className="specialty-detail-page__doctor-bio">{doctor.bio}</p>
                   )}
-                  <button className="btn-view-profile">Xem hồ sơ</button>
+
+                  <button 
+                    className="specialty-detail-page__btn-view"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/bac-si/${doctor.code}`);
+                    }}
+                  >
+                    <FaEye /> Xem hồ sơ
+                  </button>
                 </div>
               </div>
             ))}
