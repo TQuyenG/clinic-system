@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
 import { 
-  FaUserMd, FaAward, FaStethoscope, FaPhone, FaEnvelope, 
-  FaCalendarAlt, FaArrowLeft, FaCertificate, FaMale, FaFemale
+  FaPhone, FaEnvelope, FaCalendarAlt, FaArrowLeft, FaMale, FaFemale
 } from 'react-icons/fa';
 import './DoctorProfilePage.css';
 
@@ -23,9 +22,6 @@ const DoctorProfilePage = () => {
   const fetchDoctorProfile = async () => {
     try {
       setLoading(true);
-      console.log('Fetching doctor with code:', code);
-      
-      // SỬA: Sử dụng endpoint đúng theo userController
       const response = await axios.get(`${API_BASE_URL}/api/users/doctors/${code}`);
       
       if (response.data.success) {
@@ -53,11 +49,19 @@ const DoctorProfilePage = () => {
     return null;
   };
 
+  const getGenderText = (gender) => {
+    if (gender === 'male') return 'Nam';
+    if (gender === 'female') return 'Nữ';
+    return 'Không xác định';
+  };
+
   if (loading) {
     return (
-      <div className="loading-state">
-        <div className="spinner"></div>
-        <p>Đang tải thông tin bác sĩ...</p>
+      <div className="doctor-profile-page">
+        <div className="doctor-profile-page__loading">
+          <div className="doctor-profile-page__spinner"></div>
+          <p className="doctor-profile-page__loading-text">Đang tải thông tin bác sĩ...</p>
+        </div>
       </div>
     );
   }
@@ -70,95 +74,149 @@ const DoctorProfilePage = () => {
     <div className="doctor-profile-page">
       <Breadcrumb items={breadcrumbItems} />
 
-      <button onClick={() => navigate('/bac-si')} className="btn-back">
-        <FaArrowLeft /> Quay lại
+      <button onClick={() => navigate('/bac-si')} className="doctor-profile-page__btn-back">
+        <FaArrowLeft /> Quay lại danh sách
       </button>
 
-      <div className="profile-container">
-        <div className="profile-header">
-          <div className="doctor-avatar-large">
-            <img
-              src={doctor.avatar_url}
-              alt={doctor.full_name}
-              onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/300?text=Doctor';
-              }}
-            />
+      <div className="doctor-profile-page__container">
+        {/* SIDEBAR - Ảnh, Liên hệ, Nút đặt lịch */}
+        <aside className="doctor-profile-page__sidebar">
+          <div className="doctor-profile-page__avatar-section">
+            <div className="doctor-profile-page__avatar-large">
+              <img
+                src={doctor.avatar_url}
+                alt={doctor.full_name}
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/300?text=Doctor';
+                }}
+              />
+            </div>
+
+            <div className="doctor-profile-page__name-section">
+              <h1>
+                {doctor.full_name}
+                {doctor.gender && (
+                  <span className="doctor-profile-page__gender-badge">
+                    {getGenderIcon(doctor.gender)}
+                  </span>
+                )}
+              </h1>
+              <span className="doctor-profile-page__code">Mã: {doctor.code}</span>
+            </div>
           </div>
 
-          <div className="doctor-details">
-            <div className="doctor-title">
-              <h1>{doctor.full_name}</h1>
-              {doctor.gender && (
-                <span className="gender-badge">{getGenderIcon(doctor.gender)}</span>
-              )}
-            </div>
-            
-            <p className="doctor-code">Mã bác sĩ: {doctor.code}</p>
-
-            {doctor.specialty && (
-              <div className="specialty-info">
-                <FaStethoscope />
-                <span>{doctor.specialty.name}</span>
+          <div className="doctor-profile-page__contact-info">
+            {doctor.email && (
+              <div className="doctor-profile-page__contact-item">
+                <FaEnvelope />
+                <div className="doctor-profile-page__contact-text">
+                  <div className="doctor-profile-page__contact-label">Email</div>
+                  <div className="doctor-profile-page__contact-value">
+                    <a href={`mailto:${doctor.email}`}>{doctor.email}</a>
+                  </div>
+                </div>
               </div>
             )}
 
-            {doctor.experience_years > 0 && (
-              <div className="experience-info">
-                <FaAward />
-                <span>{doctor.experience_years} năm kinh nghiệm</span>
+            {doctor.phone && (
+              <div className="doctor-profile-page__contact-item">
+                <FaPhone />
+                <div className="doctor-profile-page__contact-text">
+                  <div className="doctor-profile-page__contact-label">Số điện thoại</div>
+                  <div className="doctor-profile-page__contact-value">
+                    <a href={`tel:${doctor.phone}`}>{doctor.phone}</a>
+                  </div>
+                </div>
               </div>
             )}
+          </div>
 
-            <div className="contact-info">
-              {doctor.email && (
-                <div className="contact-item">
-                  <FaEnvelope />
-                  <a href={`mailto:${doctor.email}`}>{doctor.email}</a>
+          <button className="doctor-profile-page__btn-book">
+            <FaCalendarAlt />
+            Đặt lịch khám
+          </button>
+        </aside>
+
+        {/* MAIN CONTENT - Profile chi tiết */}
+        <main className="doctor-profile-page__main">
+          {/* Header */}
+          <div className="doctor-profile-page__header">
+            <div className="doctor-profile-page__header-top">
+              <div className="doctor-profile-page__header-info">
+                <h2>{doctor.full_name}</h2>
+                <div className="doctor-profile-page__header-meta">
+                  {doctor.specialty?.name && `${doctor.specialty.name}`}
+                  {doctor.experience_years > 0 && ` • ${doctor.experience_years} năm kinh nghiệm`}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Thông tin cơ bản */}
+          <div className="doctor-profile-page__info-section">
+            <h3 className="doctor-profile-page__section-title">Thông tin cơ bản</h3>
+            <div className="doctor-profile-page__info-grid">
+              <div className="doctor-profile-page__info-item">
+                <div className="doctor-profile-page__info-label">Giới tính:</div>
+                <div className="doctor-profile-page__info-value">
+                  {getGenderText(doctor.gender)}
+                </div>
+              </div>
+
+              {doctor.specialty && (
+                <div className="doctor-profile-page__info-item">
+                  <div className="doctor-profile-page__info-label">Chuyên khoa:</div>
+                  <div className="doctor-profile-page__info-value">
+                    {doctor.specialty.name}
+                  </div>
                 </div>
               )}
-              {doctor.phone && (
-                <div className="contact-item">
-                  <FaPhone />
-                  <a href={`tel:${doctor.phone}`}>{doctor.phone}</a>
+
+              {doctor.experience_years > 0 && (
+                <div className="doctor-profile-page__info-item">
+                  <div className="doctor-profile-page__info-label">Kinh nghiệm:</div>
+                  <div className="doctor-profile-page__info-value">
+                    {doctor.experience_years} năm
+                  </div>
                 </div>
               )}
             </div>
-
-            <button className="btn-book-appointment">
-              <FaCalendarAlt /> Đặt lịch khám với bác sĩ
-            </button>
           </div>
-        </div>
 
-        <div className="profile-content">
+          {/* Giới thiệu */}
           {doctor.bio && (
-            <div className="profile-section">
-              <h2>Tiểu sử</h2>
-              <p>{doctor.bio}</p>
+            <div className="doctor-profile-page__content-section">
+              <h3 className="doctor-profile-page__content-title">Giới thiệu</h3>
+              <p className="doctor-profile-page__content-text">{doctor.bio}</p>
             </div>
           )}
 
-          {doctor.specialty?.description && (
-            <div className="profile-section">
-              <h2>Về chuyên khoa {doctor.specialty.name}</h2>
-              <p>{doctor.specialty.description}</p>
-            </div>
-          )}
-
+          {/* Quá trình đào tạo */}
           {doctor.certifications && doctor.certifications.length > 0 && (
-            <div className="profile-section">
-              <h2>
-                <FaCertificate /> Chứng chỉ & Bằng cấp
-              </h2>
-              <ul className="certifications-list">
+            <div className="doctor-profile-page__content-section">
+              <h3 className="doctor-profile-page__content-title">Quá trình đào tạo</h3>
+              <ul className="doctor-profile-page__list">
                 {doctor.certifications.map((cert, index) => (
-                  <li key={index}>{cert}</li>
+                  <li key={index} className="doctor-profile-page__list-item">
+                    {cert}
+                  </li>
                 ))}
               </ul>
             </div>
           )}
-        </div>
+
+          {/* Kinh nghiệm làm việc */}
+          {doctor.experience_years > 0 && (
+            <div className="doctor-profile-page__content-section">
+              <h3 className="doctor-profile-page__content-title">Kinh nghiệm làm việc</h3>
+              <ul className="doctor-profile-page__list">
+                <li className="doctor-profile-page__list-item">
+                  {doctor.experience_years} năm kinh nghiệm trong lĩnh vực {doctor.specialty?.name || 'y khoa'}
+                </li>
+              </ul>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

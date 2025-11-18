@@ -703,3 +703,97 @@
   font-size: 0.9rem;
   border-radius: var(--profile-page-radius-sm);
 }
+/* ===== CERTIFICATIONS MANAGEMENT ===== */
+.profile-page-certifications-list {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profile-page-certification-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border-left: 3px solid #10b981;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.profile-page-certification-item:hover {
+  background: #ecfdf5;
+  transform: translateX(3px);
+}
+
+.profile-page-certification-text {
+  flex: 1;
+  font-size: 0.875rem;
+  color: #334155;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.profile-page-certification-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+
+.profile-page-certification-remove:hover {
+  background: #fee2e2;
+  transform: scale(1.1);
+}
+
+.profile-page-certification-add {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.profile-page-certification-add .profile-page-form-input {
+  flex: 1;
+}
+
+.profile-page-btn-add-certification {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.profile-page-btn-add-certification:hover {
+  background: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+@media (max-width: 768px) {
+  .profile-page-certification-add {
+    flex-direction: column;
+  }
+  
+  .profile-page-btn-add-certification {
+    width: 100%;
+    justify-content: center;
+  }
+}

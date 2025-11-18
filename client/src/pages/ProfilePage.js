@@ -49,8 +49,12 @@ const ProfilePage = () => {
   const [doctorFormData, setDoctorFormData] = useState({
     specialty_id: '',
     experience_years: '',
-    bio: ''
+    bio: '',
+    certifications: []
   });
+  
+  // State cho thêm chứng chỉ
+  const [newCertification, setNewCertification] = useState('');
   
   // State cho đổi mật khẩu
   const [passwordData, setPasswordData] = useState({
@@ -143,7 +147,8 @@ const ProfilePage = () => {
           setDoctorFormData({
             specialty_id: roleData.specialty_id || '',
             experience_years: roleData.experience_years || '',
-            bio: roleData.bio || ''
+            bio: roleData.bio || '',
+            certifications: roleData.certifications || []
           });
         }
       }
@@ -283,6 +288,29 @@ const ProfilePage = () => {
     }
   };
 
+  // Xử lý thêm chứng chỉ
+  const handleAddCertification = () => {
+    if (!newCertification.trim()) {
+      toast.warning('Vui lòng nhập nội dung chứng chỉ');
+      return;
+    }
+    setDoctorFormData({
+      ...doctorFormData,
+      certifications: [...doctorFormData.certifications, newCertification.trim()]
+    });
+    setNewCertification('');
+    toast.success('Đã thêm chứng chỉ');
+  };
+
+  // Xử lý xóa chứng chỉ
+  const handleRemoveCertification = (index) => {
+    setDoctorFormData({
+      ...doctorFormData,
+      certifications: doctorFormData.certifications.filter((_, i) => i !== index)
+    });
+    toast.success('Đã xóa chứng chỉ');
+  };
+
   // Cập nhật thông tin cơ bản
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -345,7 +373,8 @@ const ProfilePage = () => {
         dob: formData.dob && formData.dob !== 'Invalid date' ? formData.dob : null,
         specialty_id: doctorFormData.specialty_id || null,
         experience_years: doctorFormData.experience_years ? parseInt(doctorFormData.experience_years) : null,
-        bio: doctorFormData.bio || null
+        bio: doctorFormData.bio || null,
+        certifications: doctorFormData.certifications || []
       };
 
       const res = await axios.put(
@@ -742,6 +771,56 @@ const ProfilePage = () => {
                     rows="4"
                     className="profile-page-form-textarea"
                   />
+                </div>
+
+                {/* Quản lý chứng chỉ */}
+                <div className="profile-page-form-group">
+                  <label className="profile-page-form-label">
+                    <FaIdCard /> Chứng chỉ & Bằng cấp
+                  </label>
+                  
+                  {/* Danh sách chứng chỉ hiện tại */}
+                  {doctorFormData.certifications.length > 0 && (
+                    <div className="profile-page-certifications-list">
+                      {doctorFormData.certifications.map((cert, index) => (
+                        <div key={index} className="profile-page-certification-item">
+                          <span className="profile-page-certification-text">{cert}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCertification(index)}
+                            className="profile-page-certification-remove"
+                            title="Xóa chứng chỉ"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Form thêm chứng chỉ mới */}
+                  <div className="profile-page-certification-add">
+                    <input
+                      type="text"
+                      value={newCertification}
+                      onChange={(e) => setNewCertification(e.target.value)}
+                      placeholder="Nhập chứng chỉ mới (Ví dụ: Bác sĩ Đa khoa - Đại học Y Hà Nội 2010)"
+                      className="profile-page-form-input"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCertification();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCertification}
+                      className="profile-page-btn-add-certification"
+                    >
+                      <FaCheckCircle /> Thêm
+                    </button>
+                  </div>
                 </div>
 
                 <button type="submit" className="profile-page-btn-submit profile-page-btn-doctor">
