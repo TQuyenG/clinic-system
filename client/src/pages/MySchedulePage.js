@@ -593,7 +593,11 @@ const MySchedulePage = () => {
                   <ScheduleTableView
                     schedules={filteredCalendarData.schedules}
                     overtimeSchedules={filteredCalendarData.overtime_schedules}
+                    leaves={filteredCalendarData.leaves}
+                    appointments={filteredCalendarData.appointments}
+                    eventTypeFilters={eventTypeFilters}
                     viewMode={viewMode}
+                    currentDate={currentDate}
                     month={currentDate.getMonth() + 1}
                     year={currentDate.getFullYear()}
                     workShiftConfig={workShiftConfig}

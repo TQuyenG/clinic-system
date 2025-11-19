@@ -1,15 +1,33 @@
 /* client/src/components/schedule/ScheduleTableView.css */
-/* File CSS MỚI cho Chế độ xem Bảng */
+/* File CSS cho Chế độ xem Bảng - Phân biệt Lịch Cố định và Linh hoạt */
 
 :root {
-  --color-primary: #a0d9b5;
-  --color-primary-dark: #81b997;
-  --color-primary-light: #e6f7f2;
-  --color-warning: #fde68a;
-  --color-warning-dark: #f6d057;
+  /* Lịch làm việc cố định - Xanh lá */
+  --color-schedule-fixed: #a0d9b5;
+  --color-schedule-fixed-border: #81b997;
+  --color-schedule-fixed-text: #1e5a3b;
+  --color-schedule-fixed-light: #e6f7f2;
+  
+  /* Lịch linh hoạt - Xanh dương */
+  --color-schedule-flexible: #dbeafe;
+  --color-schedule-flexible-border: #93c5fd;
+  --color-schedule-flexible-text: #1e40af;
+  
+  /* Tăng ca - Tím */
+  --color-overtime: #ddd6fe;
+  --color-overtime-border: #a78bfa;
+  --color-overtime-text: #5b21b6;
+  
+  /* Lịch hẹn - Đỏ/Hồng */
   --color-appointment: #fecaca;
   --color-appointment-border: #f87171;
   --color-appointment-text: #991b1b;
+  
+  /* Nghỉ phép - Vàng */
+  --color-leave: #fde68a;
+  --color-leave-border: #f6d057;
+  --color-leave-text: #a16207;
+  
   --color-text-primary: #1f2937;
   --color-text-secondary: #4b5563;
   --color-border: #e5e7eb;
@@ -53,12 +71,18 @@
   text-transform: uppercase;
   font-size: 0.85rem;
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 .schedule-table-view__table tbody tr:hover {
   background-color: var(--color-background-light);
 }
 
+.schedule-table-view__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Loading & Empty State */
 .schedule-table-view__loading,
 .schedule-table-view__empty-state {
   padding: 3rem;
@@ -76,56 +100,203 @@
   color: var(--color-text-secondary);
 }
 
-/* Cột Nhân viên */
-.schedule-table-view__user-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+/* Cột Ngày */
+.schedule-table-view__date-cell {
   font-weight: 600;
   color: var(--color-text-primary);
+  min-width: 100px;
+}
+
+.schedule-table-view__date-cell strong {
+  font-size: 1.1rem;
+}
+
+.schedule-table-view__date-cell span {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+/* Cột Thứ */
+.schedule-table-view__day-cell {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  min-width: 80px;
+}
+
+/* Các cột dữ liệu lịch */
+.schedule-table-view__data-cell {
   min-width: 200px;
 }
-.schedule-table-view__user-cell img {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-}
 
-/* Cột Chi tiết */
-.schedule-table-view__details-cell {
+.schedule-table-view__no-data {
   color: var(--color-text-secondary);
-  max-width: 300px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-style: italic;
 }
 
-/* Badge Trạng thái */
-.schedule-table-view__badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
+/* Container chứa các time badges */
+.schedule-table-view__time-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Time Badge - Style chung */
+.schedule-table-view__time-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border: 1px solid transparent;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid;
+  white-space: nowrap;
+  transition: all 0.2s ease-in-out;
 }
 
-.schedule-table-view__badge--schedules {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary-dark);
-  border-color: var(--color-primary);
+.schedule-table-view__time-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
-.schedule-table-view__badge--leaves {
-  background-color: var(--color-warning);
-  color: #a16207;
-  border-color: var(--color-warning-dark);
+
+/* ✅ Lịch làm việc CỐ ĐỊNH - Xanh lá */
+.schedule-table-view__time-badge--schedule-fixed {
+  background-color: var(--color-schedule-fixed-light);
+  color: var(--color-schedule-fixed-text);
+  border-color: var(--color-schedule-fixed-border);
 }
-.schedule-table-view__badge--appointments {
+
+/* ✅ Lịch làm việc LINH HOẠT - Xanh dương */
+.schedule-table-view__time-badge--schedule-flexible {
+  background-color: var(--color-schedule-flexible);
+  color: var(--color-schedule-flexible-text);
+  border-color: var(--color-schedule-flexible-border);
+}
+
+/* Tăng ca - Tím */
+.schedule-table-view__time-badge--overtime {
+  background-color: var(--color-overtime);
+  color: var(--color-overtime-text);
+  border-color: var(--color-overtime-border);
+}
+
+/* Lịch hẹn - Đỏ/Hồng */
+.schedule-table-view__time-badge--appointment {
   background-color: var(--color-appointment);
   color: var(--color-appointment-text);
   border-color: var(--color-appointment-border);
+}
+
+/* Lịch nghỉ - Vàng */
+.schedule-table-view__time-badge--leave {
+  background-color: var(--color-leave);
+  color: var(--color-leave-text);
+  border-color: var(--color-leave-border);
+}
+
+/* Icon trong badge */
+.schedule-table-view__time-badge svg {
+  font-size: 0.9rem;
+}
+
+/* ========== LEGEND (Chú thích màu) ========== */
+.schedule-table-view__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  background-color: var(--color-background-light);
+  border-top: 1px solid var(--color-border);
+  justify-content: center;
+}
+
+.schedule-table-view__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.schedule-table-view__legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid;
+  flex-shrink: 0;
+}
+
+/* ✅ Màu legend cho lịch cố định - Xanh lá */
+.schedule-table-view__legend-color--schedule-fixed {
+  background-color: var(--color-schedule-fixed-light);
+  border-color: var(--color-schedule-fixed-border);
+}
+
+/* ✅ Màu legend cho lịch linh hoạt - Xanh dương */
+.schedule-table-view__legend-color--schedule-flexible {
+  background-color: var(--color-schedule-flexible);
+  border-color: var(--color-schedule-flexible-border);
+}
+
+/* Màu legend cho tăng ca */
+.schedule-table-view__legend-color--overtime {
+  background-color: var(--color-overtime);
+  border-color: var(--color-overtime-border);
+}
+
+/* Màu legend cho lịch hẹn */
+.schedule-table-view__legend-color--appointment {
+  background-color: var(--color-appointment);
+  border-color: var(--color-appointment-border);
+}
+
+/* Màu legend cho nghỉ phép */
+.schedule-table-view__legend-color--leave {
+  background-color: var(--color-leave);
+  border-color: var(--color-leave-border);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .schedule-table-view__table {
+    min-width: 600px;
+  }
+  
+  .schedule-table-view__table th,
+  .schedule-table-view__table td {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .schedule-table-view__legend {
+    gap: 1rem;
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .schedule-table-view__table th,
+  .schedule-table-view__table td {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  
+  .schedule-table-view__time-badge {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  
+  .schedule-table-view__legend {
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+  
+  .schedule-table-view__legend-item {
+    font-size: 0.85rem;
+  }
+  
+  .schedule-table-view__legend-color {
+    width: 14px;
+    height: 14px;
+  }
 }

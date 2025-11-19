@@ -21,7 +21,6 @@ import FacilitiesPage from './pages/FacilitiesPage';
 import EquipmentPage from './pages/EquipmentPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
-// ✅ SỬA: Import trang tra cứu
 import LookupResultPage from './pages/LookupResultPage'; 
 
 // Articles & Forum
@@ -32,7 +31,7 @@ import ArticleOrCategoryPage from './pages/ArticleOrCategoryPage';
 import SavedArticlesPage from './pages/SavedArticlesPage';
 import CategoryArticlesPage from './pages/CategoryArticlesPage';
 import ArticleReviewPage from './pages/ArticleReviewPage';
-import HealthForumPage from './pages/HealthForumPage'; // (Public)
+import HealthForumPage from './pages/HealthForumPage';
 import ForumPage from './pages/ForumPage';
 import QuestionDetailPage from './pages/QuestionDetailPage';
 
@@ -52,7 +51,7 @@ import NotificationsPage from './pages/NotificationsPage';
 
 // Appointments & Medical Records
 import AppointmentBookingPage from './pages/AppointmentBookingPage';
-import MyAppointmentsPage from './pages/MyAppointmentsPage'; // (Trang dùng chung)
+import MyAppointmentsPage from './pages/MyAppointmentsPage';
 import AppointmentDetailPage from './pages/AppointmentDetailPage';
 import MedicalRecordFormPage from './pages/MedicalRecordFormPage';
 import MedicalRecordViewPage from './pages/MedicalRecordViewPage';
@@ -83,7 +82,6 @@ import SystemSettingsPage from './pages/SystemSettingsPage';
 import StaffManagementPage from './pages/StaffManagementPage';
 import ServiceManagementPage from './pages/ServiceManagementPage';
 import ServiceCategoryManagementPage from './pages/ServiceCategoryManagementPage';
-import ServiceForm from './components/service/ServiceForm';
 import AppointmentManagementPage from './pages/AppointmentManagementPage';
 import ConsultationSystemManagementPage from './pages/ConsultationSystemManagementPage';
 import ConsultationRealtimeManagementPage from './pages/ConsultationRealtimeManagementPage';
@@ -91,6 +89,11 @@ import ConsultationPackageManagementPage from './pages/ConsultationPackageManage
 import ForumManagementPage from './pages/ForumManagementPage';
 import ReportManagementPage from './pages/ReportManagementPage';
 
+
+// Toast
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import './utils/css/toast.css'; // Custom toast styles
 
 // CSS
 import './App.css';
@@ -248,8 +251,6 @@ function App() {
             <Route path="/quan-ly-he-thong" element={<ProtectedRoute requiredRole="admin"><SystemSettingsPage /></ProtectedRoute>} />
             <Route path="/quan-ly-danh-muc-dich-vu" element={<ProtectedRoute requiredRole="admin"><ServiceCategoryManagementPage /></ProtectedRoute>} />
             <Route path="/quan-ly-dich-vu" element={<ProtectedRoute requiredRole="admin"><ServiceManagementPage /></ProtectedRoute>} />
-            <Route path="/quan-ly-dich-vu/new" element={<ProtectedRoute requiredRole="admin"><ServiceForm /></ProtectedRoute>} />
-            <Route path="/quan-ly-dich-vu/edit/:id" element={<ProtectedRoute requiredRole="admin"><ServiceForm /></ProtectedRoute>} />
             <Route path="/quan-ly-lich-lam-viec" element={<ProtectedRoute requiredRole={['admin', 'staff']}><ScheduleManagementPage /></ProtectedRoute>} />
             <Route path="/quan-ly-lich-hen" element={<ProtectedRoute requiredRole={['admin', 'staff']}><AppointmentManagementPage /></ProtectedRoute>} />
             <Route path="/quan-ly-dien-dan" element={<ProtectedRoute requiredRole="admin"><ForumManagementPage /></ProtectedRoute>} />
@@ -267,6 +268,20 @@ function App() {
             <Route path="*" element={<Navigate to="/404" replace />} />
           </Routes>
         </MainLayout>
+        
+        {/* Toast Container - Hiển thị thông báo góc dưới bên phải */}
+        <ToastContainer
+          position="bottom-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={true}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
       </AuthProvider>
     </Router>
   );

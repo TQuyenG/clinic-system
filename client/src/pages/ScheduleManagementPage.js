@@ -801,7 +801,7 @@ const ScheduleManagementPage = () => {
             </button>
             <h3>
               {(viewMode === 'week' || calendarDisplayMode === 'table')
-                ? `Tuần từ ${formatDateISO(getWeekRange(currentDate).start)}`
+                ? ` ${formatDateISO(getWeekRange(currentDate).start)}`
                 : currentDate.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })
               }
             </h3>
@@ -894,7 +894,7 @@ const ScheduleManagementPage = () => {
               </span>
             )}
           </button>
-          {user.role === 'admin' && (
+          {/* {user.role === 'admin' && (
              <button
                 className="schedule-management-page__button schedule-management-page__button--primary"
                 style={{marginLeft: 'auto', alignSelf: 'center'}}
@@ -902,7 +902,7 @@ const ScheduleManagementPage = () => {
               >
                 <FaClock /> Đăng ký Tăng ca
               </button>
-          )}
+          )} */}
         </div>
 
         {/* TAB 1: CONFIG (Giữ nguyên) */}
