@@ -22,9 +22,9 @@ const ProfilePage = () => {
     full_name: '', phone: '', address: '', gender: '', dob: ''
   });
   
-  // Form thông tin bác sĩ
+  // Form thông tin bác sĩ - Bổ sung 'workplace'
   const [doctorFormData, setDoctorFormData] = useState({
-    specialty_id: '', experience_years: '', bio: '', title: '', position: '',
+    specialty_id: '', experience_years: '', bio: '', title: '', position: '', workplace: '',
     education: [], certifications: [], work_experience: [], research: [], achievements: []
   });
 
@@ -35,7 +35,7 @@ const ProfilePage = () => {
   const [showResearchForm, setShowResearchForm] = useState(false);
   const [showAchievementForm, setShowAchievementForm] = useState(false);
 
-  // States Edit Mode
+  // States Edit Mode (Lưu index của item đang sửa, -1 là thêm mới)
   const [editEduIndex, setEditEduIndex] = useState(-1);
   const [editCertIndex, setEditCertIndex] = useState(-1);
   const [editWorkIndex, setEditWorkIndex] = useState(-1);
@@ -111,6 +111,7 @@ const ProfilePage = () => {
             bio: roleData.bio || '',
             title: roleData.title || '',
             position: roleData.position || '',
+            workplace: roleData.workplace || '', // Đảm bảo lấy workplace
             education: Array.isArray(roleData.education) ? roleData.education : [],
             certifications: Array.isArray(roleData.certifications) ? roleData.certifications : [],
             work_experience: Array.isArray(roleData.work_experience) ? roleData.work_experience : [],
@@ -358,6 +359,10 @@ const ProfilePage = () => {
                   <div className="profile-page-form-group">
                     <label className="profile-page-form-label">Chức vụ</label>
                     <input type="text" name="position" value={doctorFormData.position} onChange={handleDoctorChange} placeholder="VD: Trưởng khoa" className="profile-page-form-input" />
+                  </div>
+                  <div className="profile-page-form-group">
+                    <label className="profile-page-form-label">Nơi công tác</label>
+                    <input type="text" name="workplace" value={doctorFormData.workplace} onChange={handleDoctorChange} placeholder="VD: Bệnh viện Chợ Rẫy" className="profile-page-form-input" />
                   </div>
                   <div className="profile-page-form-group">
                     <label className="profile-page-form-label">Chuyên khoa</label>

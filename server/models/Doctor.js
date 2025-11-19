@@ -57,6 +57,12 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Chức vụ hiện tại'
     },
+
+    workplace: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: 'Nơi công tác hiện tại (Bệnh viện/Phòng khám)'
+    },
     
     // =============================================
     // DANH SÁCH - JSON Arrays (Simple strings)

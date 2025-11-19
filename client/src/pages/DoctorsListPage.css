@@ -150,12 +150,20 @@
   background: white;
   border-radius: 12px;
   padding: 1.25rem;
-  cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.doctors-list-page__card-inner {
+  display: flex;
   gap: 1rem;
   align-items: flex-start;
+  width: 100%;
+  cursor: pointer;
+  margin-bottom: 1rem;
 }
 
 .doctors-list-page__card:hover {
@@ -168,11 +176,11 @@
 }
 
 .doctors-list-page__avatar {
-  width: 120px;
+  width: 100px;
   height: 140px;
   border-radius: 8px;
   overflow: hidden;
-  border: 2px solid #e5e7eb;
+  border: 1px solid #e2e8f0;
 }
 
 .doctors-list-page__avatar img {
@@ -184,62 +192,94 @@
 .doctors-list-page__info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .doctors-list-page__name {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: #0066cc;
-  margin: 0 0 0.375rem 0;
+  color: #1e293b;
+  margin: 0;
   transition: color 0.3s;
 }
 
-.doctors-list-page__card:hover .doctors-list-page__name {
-  color: #10b981;
+.doctors-list-page__title-row {
+  margin-bottom: 0.25rem;
 }
 
-.doctors-list-page__rating {
+.doctors-list-page__honor {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-right: 0.5rem;
+}
+
+/* Kinh nghiệm: Nhạt và nhỏ */
+.doctors-list-page__exp {
+  font-size: 0.75rem;
+  color: #94a3b8; /* Gray-400 */
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  margin-bottom: 0.625rem;
+  margin-bottom: 0.75rem;
+  font-weight: 500;
 }
 
-.doctors-list-page__rating svg {
-  color: #fbbf24;
-  font-size: 0.875rem;
+.doctors-list-page__exp svg {
+  color: #cbd5e1; /* Icon nhạt */
 }
 
-.doctors-list-page__rating-text {
-  font-size: 0.8125rem;
-  color: #374151;
-  font-weight: 600;
-  margin-left: 0.25rem;
-}
-
-.doctors-list-page__detail {
+/* Danh sách chi tiết */
+.doctors-list-page__details-list {
   display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.8125rem;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.doctors-list-page__detail-item {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.detail-label {
   color: #64748b;
-  line-height: 1.5;
+  font-weight: 500;
+  min-width: 90px;
 }
 
-.doctors-list-page__detail svg {
-  color: #0066cc;
-  font-size: 0.875rem;
-  margin-top: 0.125rem;
-  flex-shrink: 0;
+.detail-text {
+  color: #334155;
+  font-weight: 500;
 }
 
-.doctors-list-page__detail-text {
-  flex: 1;
+.detail-text.highlight {
+  font-weight: 600;
+}
+
+.detail-link {
+  color: #0284c7;
+  font-weight: 600;
+  text-decoration: none;
+}
+.detail-link:hover {
+  text-decoration: underline;
+}
+
+/* Action Button */
+.doctors-list-page__actions {
+  width: 100%;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
 }
 
 .doctors-list-page__btn-book {
-  display: inline-flex;
+  width: 100%;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
@@ -248,11 +288,10 @@
   color: white;
   border: none;
   border-radius: 6px;
-  font-size: 0.8125rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
-  margin-top: 0.75rem;
 }
 
 .doctors-list-page__btn-book:hover {
@@ -390,14 +429,18 @@
     gap: 1rem;
   }
 
-  .doctors-list-page__card {
+  .doctors-list-page__card-inner {
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
 
-  .doctors-list-page__detail {
-    justify-content: center;
+  .doctors-list-page__info {
+    align-items: center;
+  }
+  
+  .doctors-list-page__details-list {
+      align-items: center;
   }
 
   .doctors-list-page__pagination {

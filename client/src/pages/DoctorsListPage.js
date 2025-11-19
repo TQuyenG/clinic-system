@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { FaSearch, FaTimes, FaFilter, FaUserMd, FaStar, FaStethoscope, FaHospital, FaCalendarAlt, FaBriefcase } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaFilter, FaUserMd, FaStethoscope, FaHospital, FaCalendarAlt, FaBriefcase, FaClock } from 'react-icons/fa';
 import './DoctorsListPage.css';
 
 const DoctorsListPage = () => {
@@ -17,63 +17,33 @@ const DoctorsListPage = () => {
     limit: 12
   });
   const [pagination, setPagination] = useState({});
-
-  // Dùng biến môi trường
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
-  useEffect(() => {
-    fetchSpecialties();
-  }, []);
-
-  useEffect(() => {
-    fetchDoctors();
-  }, [filters]);
+  useEffect(() => { fetchSpecialties(); }, []);
+  useEffect(() => { fetchDoctors(); }, [filters]);
 
   const fetchSpecialties = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/specialties`); // Bỏ /api nếu API_BASE_URL đã có
-      if (response.data.success) {
-        setSpecialties(response.data.specialties || []);
-      }
-    } catch (error) {
-      console.error('Error fetching specialties:', error);
-    }
+      const response = await axios.get(`${API_BASE_URL}/specialties`);
+      if (response.data.success) setSpecialties(response.data.specialties || []);
+    } catch (error) { console.error('Error fetching specialties:', error); }
   };
 
   const fetchDoctors = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams(
-        Object.entries(filters).filter(([_, v]) => v !== '')
-      ).toString();
-
+      const params = new URLSearchParams(Object.entries(filters).filter(([_, v]) => v !== '')).toString();
       const response = await axios.get(`${API_BASE_URL}/users/doctors/public?${params}`);
-
       if (response.data.success) {
         setDoctors(response.data.doctors || []);
         setPagination(response.data.pagination || {});
       }
-    } catch (error) {
-      console.error('Error fetching doctors:', error);
-      setDoctors([]);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { setDoctors([]); } finally { setLoading(false); }
   };
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value, page: 1 }));
-  };
-
-  const clearFilters = () => {
-    setFilters({ specialty_id: '', min_experience: '', search: '', page: 1, limit: 12 });
-  };
-
-  const handlePageChange = (newPage) => {
-    setFilters(prev => ({ ...prev, page: newPage }));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const handleFilterChange = (e) => setFilters(prev => ({ ...prev, [e.target.name]: e.target.value, page: 1 }));
+  const clearFilters = () => setFilters({ specialty_id: '', min_experience: '', search: '', page: 1, limit: 12 });
+  const handlePageChange = (newPage) => { setFilters(prev => ({ ...prev, page: newPage })); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   if (loading && filters.page === 1) {
     return (
@@ -106,7 +76,7 @@ const DoctorsListPage = () => {
             <label className="doctors-list-page__filter-label">Tìm kiếm</label>
             <div className="doctors-list-page__search-box">
               <FaSearch className="doctors-list-page__search-icon" />
-              <input type="text" name="search" value={filters.search} onChange={handleFilterChange} placeholder="Tìm theo tên..." className="doctors-list-page__filter-input" />
+              <input type="text" name="search" value={filters.search} onChange={handleFilterChange} placeholder="Tên bác sĩ..." className="doctors-list-page__filter-input" />
             </div>
           </div>
 
@@ -122,9 +92,9 @@ const DoctorsListPage = () => {
             <label className="doctors-list-page__filter-label">Kinh nghiệm tối thiểu</label>
             <select name="min_experience" value={filters.min_experience} onChange={handleFilterChange} className="doctors-list-page__filter-select">
               <option value="">Tất cả</option>
-              <option value="3">Từ 3 năm</option>
-              <option value="5">Từ 5 năm</option>
-              <option value="10">Từ 10 năm</option>
+              <option value="5">Trên 5 năm</option>
+              <option value="10">Trên 10 năm</option>
+              <option value="20">Trên 20 năm</option>
             </select>
           </div>
         </div>
@@ -133,55 +103,67 @@ const DoctorsListPage = () => {
       {doctors.length === 0 ? (
         <div className="doctors-list-page__empty">
           <FaUserMd size={48} color="#cbd5e1" />
-          <h3 className="doctors-list-page__empty-title">Không tìm thấy bác sĩ nào</h3>
-          <p className="doctors-list-page__empty-text">Thử thay đổi bộ lọc hoặc tìm kiếm với từ khóa khác</p>
+          <h3 className="doctors-list-page__empty-title">Không tìm thấy kết quả</h3>
+          <p className="doctors-list-page__empty-text">Vui lòng thử lại với từ khóa khác</p>
         </div>
       ) : (
         <>
           <div className="doctors-list-page__grid">
             {doctors.map(doctor => (
-              <div key={doctor.id} className="doctors-list-page__card" onClick={() => navigate(`/bac-si/${doctor.code}`)}>
-                <div className="doctors-list-page__avatar-wrapper">
-                  <div className="doctors-list-page__avatar">
-                    <img src={doctor.avatar_url} alt={doctor.full_name} onError={(e) => { e.target.src = 'https://via.placeholder.com/200?text=Doctor'; }} />
+              <div key={doctor.id} className="doctors-list-page__card">
+                <div className="doctors-list-page__card-inner" onClick={() => navigate(`/bac-si/${doctor.code}`)}>
+                  <div className="doctors-list-page__avatar-wrapper">
+                    <img src={doctor.avatar_url} alt={doctor.full_name} className="doctors-list-page__avatar" onError={(e) => { e.target.src = 'https://via.placeholder.com/200?text=Doctor'; }} />
+                  </div>
+
+                  <div className="doctors-list-page__info">
+                    {/* Tên và Học vị */}
+                    <h3 className="doctors-list-page__name">
+                      {doctor.title ? `${doctor.title}. ` : ''}{doctor.full_name}
+                    </h3>
+
+                    {/* Kinh nghiệm (Nhạt & Nhỏ) */}
+                    {doctor.experience_years > 0 && (
+                      <div className="doctors-list-page__exp">
+                        <FaClock /> {doctor.experience_years} năm kinh nghiệm
+                      </div>
+                    )}
+
+                    <div className="doctors-list-page__details-list">
+                      {/* Chuyên khoa (Link) */}
+                      <div className="doctors-list-page__detail-item">
+                        <span className="detail-label">Chuyên khoa:</span>
+                        {doctor.specialty_slug ? (
+                          <Link to={`/chuyen-khoa/${doctor.specialty_slug}`} className="detail-link" onClick={(e) => e.stopPropagation()}>
+                            {doctor.specialty_name}
+                          </Link>
+                        ) : (
+                          <span className="detail-text">{doctor.specialty_name}</span>
+                        )}
+                      </div>
+
+                      {/* Chức vụ */}
+                      {doctor.position && (
+                        <div className="doctors-list-page__detail-item">
+                          <span className="detail-label">Chức vụ:</span>
+                          <span className="detail-text">{doctor.position}</span>
+                        </div>
+                      )}
+
+                      {/* Nơi công tác */}
+                      {doctor.workplace && (
+                        <div className="doctors-list-page__detail-item">
+                          <span className="detail-label">Nơi công tác:</span>
+                          <span className="detail-text highlight">{doctor.workplace}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-
-                <div className="doctors-list-page__info">
-                  {/* Hiển thị Học vị nếu có */}
-                  <div className="doctors-list-page__title-row">
-                    {doctor.title && <span className="doctors-list-page__honor">{doctor.title}</span>}
-                  </div>
-                  <h3 className="doctors-list-page__name">{doctor.full_name}</h3>
-                  
-                  <div className="doctors-list-page__rating">
-                    {[...Array(5)].map((_, i) => <FaStar key={i} />)}
-                    <span className="doctors-list-page__rating-text">5.0</span>
-                  </div>
-
-                  {/* CHUYÊN KHOA */}
-                  <div className="doctors-list-page__detail">
-                    <FaStethoscope />
-                    <span className="doctors-list-page__detail-text font-bold">
-                      {doctor.specialty_name || 'Chưa cập nhật chuyên khoa'}
-                    </span>
-                  </div>
-
-                  {/* CHỨC VỤ HOẶC KINH NGHIỆM */}
-                  <div className="doctors-list-page__detail">
-                    <FaBriefcase />
-                    <span className="doctors-list-page__detail-text">
-                      {doctor.position || `${doctor.experience_years} năm kinh nghiệm`}
-                    </span>
-                  </div>
-
-                  <div className="doctors-list-page__detail">
-                    <FaHospital />
-                    <span className="doctors-list-page__detail-text">Bệnh viện Y học cổ truyền</span>
-                  </div>
-
-                  <button className="doctors-list-page__btn-book">
-                    <FaCalendarAlt /> Đăng ký khám
+                
+                <div className="doctors-list-page__actions">
+                  <button className="doctors-list-page__btn-book" onClick={() => navigate(`/bac-si/${doctor.code}`)}>
+                    <FaCalendarAlt /> Đặt lịch khám
                   </button>
                 </div>
               </div>

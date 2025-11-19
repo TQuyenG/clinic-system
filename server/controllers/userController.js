@@ -750,7 +750,7 @@ exports.updateProfile = async (req, res) => {
     const userId = req.user.id;
     const { 
       full_name, phone, address, gender, dob, avatar_url, // User basic
-      specialty_id, experience_years, bio, title, position, // Doctor basic
+      specialty_id, experience_years, bio, title, position, workplace, // Doctor basic
       education, certifications, work_experience, research, achievements // Doctor JSON arrays
     } = req.body;
 
@@ -776,6 +776,7 @@ exports.updateProfile = async (req, res) => {
         if (bio !== undefined) doctor.bio = bio;
         if (title !== undefined) doctor.title = title;
         if (position !== undefined) doctor.position = position;
+        if (workplace !== undefined) doctor.workplace = workplace;
         
         // JSON Fields - Sequelize tự động stringify khi lưu nếu model định nghĩa là DataTypes.JSON
         if (education !== undefined) doctor.education = education;
@@ -865,7 +866,7 @@ exports.updateProfile = async (req, res) => {
       // Thông tin Doctor - Profile mở rộng
       title,
       position,
-      // BỎ: consultation_fee, languages, hospital_affiliations, memberships
+      workplace,
       specializations,
       achievements,
       education,
@@ -902,7 +903,7 @@ exports.updateProfile = async (req, res) => {
         // Cập nhật profile mở rộng - String
         if (title !== undefined) doctor.title = title;
         if (position !== undefined) doctor.position = position;
-        // BỎ: consultation_fee
+        if (workplace !== undefined) doctor.workplace = workplace;
         
         // Cập nhật profile mở rộng - JSON Arrays
         // BỎ: languages, hospital_affiliations, memberships
@@ -1414,7 +1415,10 @@ exports.getDoctors = async (req, res) => {
           specialty_name: doctor.specialty?.name || 'Chưa phân chuyên khoa',
           specialty_slug: doctor.specialty?.slug,
           experience_years: doctor.experience_years || 0,
-          bio: doctor.bio
+          bio: doctor.bio,
+          title: doctor.title,
+          position: doctor.position,
+          workplace: doctor.workplace
         };
       })
       .filter(d => d !== null);
@@ -1502,7 +1506,10 @@ exports.getAllDoctorsPublic = async (req, res) => {
         specialty_name: doctor?.specialty?.name || 'Chưa phân chuyên khoa',
         specialty_slug: doctor?.specialty?.slug,
         experience_years: doctor?.experience_years || 0,
-        bio: doctor?.bio
+        bio: doctor?.bio,
+        title: doctor?.title, 
+        position: doctor?.position, 
+        workplace: doctor?.workplace
       };
     });
 
@@ -1566,6 +1573,7 @@ exports.getDoctorByCode = async (req, res) => {
       bio: doctor.bio,
       title: doctor.title,       // Thêm chức danh
       position: doctor.position, // Thêm chức vụ
+      workplace: doctor.workplace, // Thêm nơi làm việc
 
       // Doctor Detailed Info (JSON Arrays)
       education: doctor.education || [],
