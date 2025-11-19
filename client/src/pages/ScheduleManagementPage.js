@@ -45,7 +45,8 @@ import {
   FaArchive, 
   FaExclamationCircle, 
   FaCheckCircle, 
-  FaTimesCircle 
+  FaTimesCircle,
+  FaInfoCircle 
 } from 'react-icons/fa';
 import { MdOutlineErrorOutline } from "react-icons/md";
 
@@ -475,6 +476,91 @@ const ScheduleManagementPage = () => {
     });
   }, [pendingOvertimes, overtimeSearch, userTypeFilter]); 
 
+  // ✅ NEW: Filter data by user for table view
+  const filterDataByUser = (userId) => {
+    return {
+      schedules: filteredData.schedules.filter(s => s.user_id === userId),
+      overtime_schedules: filteredData.overtime_schedules.filter(o => o.user_id === userId),
+      leaves: filteredData.leaves.filter(l => l.user_id === userId),
+      appointments: filteredData.appointments.filter(a => a.doctor_id === userId)
+    };
+  };
+
+  // ✅ NEW: Render table view content
+  const renderTableViewContent = () => {
+    if (selectedUsers.length === 0) {
+      return (
+        <div className="schedule-management-page__empty-state">
+          <FaUsers style={{ fontSize: '3rem', color: 'var(--color-text-secondary)' }} />
+          <h3>Chưa chọn user nào</h3>
+          <p>Vui lòng chọn bác sĩ hoặc nhân viên từ danh sách bên trên để xem chi tiết lịch làm việc</p>
+          <small>💡 Bạn có thể chọn nhiều users để so sánh lịch của họ</small>
+        </div>
+      );
+    }
+    
+    // Hiển thị bảng cho từng user
+    return (
+      <div className="schedule-management-page__multi-user-table-view">
+        {selectedUsers.map((selectedUser, index) => {
+          const userId = selectedUser.value || selectedUser.id;
+          const userData = filterDataByUser(userId);
+          const userInfo = allUsers.find(u => u.id === userId);
+          
+          return (
+            <div key={userId} className="schedule-management-page__user-table-section">
+              <div className="schedule-management-page__user-table-header">
+                <div className="schedule-management-page__user-info">
+                  <img 
+                    src={userInfo?.avatar_url || 'https://placehold.co/40x40/EBF4FF/76A9FA?text=U'} 
+                    alt={userInfo?.full_name || 'User'}
+                    className="schedule-management-page__user-avatar"
+                  />
+                  <div>
+                    <h3>{userInfo?.label || userInfo?.full_name || 'Unknown User'}</h3>
+                    <span className="schedule-management-page__user-role">
+                      {userInfo?.userType === 'doctor' ? 'Bác sĩ' : 'Nhân viên'}
+                    </span>
+                  </div>
+                </div>
+                <div className="schedule-management-page__user-stats">
+                  <span className="stat-item">
+                    <FaBusinessTime /> {userData.schedules.length} ca làm
+                  </span>
+                  <span className="stat-item">
+                    <FaClock /> {userData.overtime_schedules.length} tăng ca
+                  </span>
+                  <span className="stat-item">
+                    <FaUserClock /> {userData.appointments.length} lịch hẹn
+                  </span>
+                  <span className="stat-item">
+                    <FaExclamationTriangle /> {userData.leaves.length} nghỉ phép
+                  </span>
+                </div>
+              </div>
+              
+              <ScheduleTableView
+                schedules={userData.schedules}
+                overtimeSchedules={userData.overtime_schedules}
+                leaves={userData.leaves}
+                appointments={userData.appointments}
+                eventTypeFilters={eventTypeFilters}
+                viewMode="week"
+                currentDate={currentDate}
+                workShiftConfig={workShiftConfig.filter(s => s?.is_active)}
+                loading={false}
+              />
+              
+              {index < selectedUsers.length - 1 && (
+                <div className="schedule-management-page__user-separator"></div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
 
   // ========== HANDLERS ==========
   
@@ -709,6 +795,10 @@ const ScheduleManagementPage = () => {
         <span>{label}</span>
       </div>
     );
+
+    // Check if table view is available
+    const canShowTableView = selectedUsers.length > 0;
+    const hasWarning = selectedUsers.length > 5;
     
     return (
     <>
@@ -742,7 +832,16 @@ const ScheduleManagementPage = () => {
             > <FaCalendarAlt /> Lịch </button>
             <button
               className={`schedule-management-page__switch-btn ${calendarDisplayMode === 'table' ? 'active' : ''}`}
-              onClick={() => setCalendarDisplayMode('table')}
+              onClick={() => {
+                if (!canShowTableView) {
+                  toast.info('Vui lòng chọn ít nhất 1 user để xem bảng chi tiết', {
+                    icon: <FaInfoCircle />
+                  });
+                  return;
+                }
+                setCalendarDisplayMode('table');
+              }}
+              disabled={!canShowTableView}
             > <FaList /> Bảng </button>
           </div>
           {calendarDisplayMode === 'calendar' && (
@@ -791,6 +890,13 @@ const ScheduleManagementPage = () => {
         </div>
       )}
 
+      {/* Warning khi chọn quá nhiều users trong table view */}
+      {hasWarning && calendarDisplayMode === 'table' && (
+        <div className="schedule-management-page__warning-message">
+          <FaInfoCircle /> Bạn đang chọn {selectedUsers.length} users. Để xem bảng tốt nhất, nên chọn tối đa 5 users.
+        </div>
+      )}
+
       {/* Hiển thị lịch (Giữ nguyên) */}
       { (user.role === 'admin' || selectedUsers.length > 0) ? (
         <>
@@ -801,7 +907,7 @@ const ScheduleManagementPage = () => {
             </button>
             <h3>
               {(viewMode === 'week' || calendarDisplayMode === 'table')
-                ? ` ${formatDateISO(getWeekRange(currentDate).start)}`
+                ? `Tuần: ${formatDateISO(getWeekRange(currentDate).start)} - ${formatDateISO(getWeekRange(currentDate).end)}`
                 : currentDate.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })
               }
             </h3>
@@ -834,20 +940,17 @@ const ScheduleManagementPage = () => {
               />
             ) : (
               // Chế độ Bảng
-              <ScheduleTableView
-                schedules={filteredData.schedules}
-                overtimeSchedules={filteredData.overtime_schedules} 
-                leaveRequests={filteredData.leaves}
-                appointments={filteredData.appointments}
-                loading={loading.schedules}
-              />
+              renderTableViewContent()
             )
           )}
         </>
       ) : (
          <div className="schedule-management-page__empty-state">
            <MdOutlineErrorOutline />
-           <p>Vui lòng chọn {activeTab === 'doctor-schedule' ? 'bác sĩ' : 'nhân viên'} để xem lịch (Admin có thể xem tất cả).</p>
+           <p>Vui lòng chọn {activeTab === 'doctor-schedule' ? 'bác sĩ' : 'nhân viên'} để xem lịch</p>
+           {user.role === 'admin' && (
+             <small>(Admin có thể chọn nhiều users để so sánh lịch)</small>
+           )}
          </div>
       )}
     </>

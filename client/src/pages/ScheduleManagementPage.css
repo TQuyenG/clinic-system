@@ -791,3 +791,138 @@
   gap: 1rem;
   flex-wrap: wrap;
 }
+
+/* ========== WARNING MESSAGE ========== */
+.schedule-management-page__warning-message {
+  padding: 0.75rem 1rem;
+  background-color: var(--color-warning);
+  border: 1px solid var(--color-warning-dark);
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.schedule-management-page__warning-message svg {
+  flex-shrink: 0;
+}
+
+/* ========== ✅ NEW: MULTI-USER TABLE VIEW ========== */
+.schedule-management-page__multi-user-table-view {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.schedule-management-page__user-table-section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  background-color: var(--color-background);
+  box-shadow: var(--shadow-sm);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.schedule-management-page__user-table-header {
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, #ffffff 100%);
+  border-bottom: 2px solid var(--color-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.schedule-management-page__user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.schedule-management-page__user-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.schedule-management-page__user-info h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.schedule-management-page__user-role {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.schedule-management-page__user-stats {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.schedule-management-page__user-stats .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-background);
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+}
+
+.schedule-management-page__user-stats .stat-item svg {
+  font-size: 0.95rem;
+  color: var(--color-primary-dark);
+}
+
+.schedule-management-page__user-separator {
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--color-border) 20%,
+    var(--color-border) 80%,
+    transparent 100%
+  );
+  margin: 2rem 0;
+}
+
+/* ========== ANIMATIONS ========== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fix button disabled */
+.schedule-management-page__switch-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  background-color: #f3f4f6 !important;
+  color: #9ca3af !important;
+}
+
+/* Fix toast z-index */
+.Toastify__toast-container {
+  z-index: 99999 !important;
+}
