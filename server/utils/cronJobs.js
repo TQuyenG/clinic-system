@@ -11,7 +11,7 @@ try {
   const db = require('../config/db');
   models = db.models;
 } catch (error) {
-  console.log('⚠️  Database not configured for cron jobs');
+  console.log('  Database not configured for cron jobs');
   models = null;
 }
 
@@ -27,7 +27,7 @@ const sendAppointmentReminders = cron.schedule('0 * * * *', async () => {
   if (!models) return;
   
   try {
-    console.log('🔄 [CRON] Checking appointment reminders...');
+    console.log(' [CRON] Checking appointment reminders...');
     
     // Tìm lịch hẹn trong vòng 24-25 giờ tới (để tránh gửi trùng)
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -88,14 +88,14 @@ const sendAppointmentReminders = cron.schedule('0 * * * *', async () => {
         
         remindersSent++;
       } catch (error) {
-        console.error(`❌ Error sending reminder for appointment ${appointment.code}:`, error);
+        console.error(` Error sending reminder for appointment ${appointment.code}:`, error);
       }
     }
 
-    console.log(`✅ [CRON] Sent ${remindersSent} appointment reminders`);
+    console.log(` [CRON] Sent ${remindersSent} appointment reminders`);
 
   } catch (error) {
-    console.error('❌ [CRON] Error in appointment reminders:', error);
+    console.error(' [CRON] Error in appointment reminders:', error);
   }
 }, {
   scheduled: false // Start manually
@@ -109,7 +109,7 @@ const sendConsultationReminders = cron.schedule('* * * * *', async () => {
   if (!models) return;
     try {
     const now = new Date();
-    // ✅ SỬA LOGIC: Chỉ tìm các cuộc hẹn bắt đầu sau 4-5 phút nữa
+    //  SỬA LOGIC: Chỉ tìm các cuộc hẹn bắt đầu sau 4-5 phút nữa
     // (Để cron job 1 phút chỉ chạy 1 lần cho mỗi cuộc hẹn)
     const fourMinutesFromNow = new Date(now.getTime() + 4 * 60000);
     const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60000);
@@ -139,7 +139,7 @@ const sendConsultationReminders = cron.schedule('* * * * *', async () => {
     });
 
     if (consultations.length > 0) {
-      console.log(`🔄 [CRON] Sending ${consultations.length} consultation reminders...`);
+      console.log(` [CRON] Sending ${consultations.length} consultation reminders...`);
     }
 
     for (const consultation of consultations) {
@@ -188,8 +188,8 @@ const sendConsultationReminders = cron.schedule('* * * * *', async () => {
           // 3. Thông báo (chuông) cho Bác sĩ
           await models.Notification.create({
             user_id: consultation.doctor_id,
-            type: 'appointment', // ✅ SỬA: Dùng giá trị có trong ENUM
-            message: `📹 Sắp đến giờ Video Call với BN ${consultation.patient.full_name || 'bệnh nhân'} sau 5 phút.`, // ✅ SỬA: Thêm fallback cho null
+            type: 'appointment', //  SỬA: Dùng giá trị có trong ENUM
+            message: ` Sắp đến giờ Video Call với BN ${consultation.patient.full_name || 'bệnh nhân'} sau 5 phút.`, //  SỬA: Thêm fallback cho null
             link: `/bac-si/tu-van`,
             is_read: false
           });
@@ -198,7 +198,7 @@ const sendConsultationReminders = cron.schedule('* * * * *', async () => {
           await models.Notification.create({
             user_id: consultation.patient_id,
             type: 'consultation_reminder',
-            title: '📹 Sắp đến giờ Video Call',
+            title: ' Sắp đến giờ Video Call',
             message: `Bạn có lịch Video Call với BS ${consultation.doctor.full_name} sau 5 phút.`,
             content: `Bạn có lịch Video Call với BS ${consultation.doctor.full_name} sau 5 phút.`,
             link: videoLink
@@ -255,7 +255,7 @@ const sendConsultationReminders = cron.schedule('* * * * *', async () => {
           await models.Notification.create({
             user_id: consultation.doctor_id,
             type: 'consultation_reminder',
-            title: '⏰ Sắp đến giờ tư vấn',
+            title: ' Sắp đến giờ tư vấn',
             message: `Bạn có lịch tư vấn với BN ${consultation.patient.full_name} sau 5 phút.`,
             content: `Bạn có lịch tư vấn với BN ${consultation.patient.full_name} sau 5 phút.`,
             link: `/bac-si/tu-van`
@@ -265,7 +265,7 @@ const sendConsultationReminders = cron.schedule('* * * * *', async () => {
           await models.Notification.create({
             user_id: consultation.patient_id,
             type: 'consultation_reminder',
-            title: '⏰ Sắp đến giờ tư vấn',
+            title: ' Sắp đến giờ tư vấn',
             message: `Bạn có lịch tư vấn với BS ${consultation.doctor.full_name} sau 5 phút.`,
             content: `Bạn có lịch tư vấn với BS ${consultation.doctor.full_name} sau 5 phút.`,
             link: chatLink
@@ -280,12 +280,12 @@ const sendConsultationReminders = cron.schedule('* * * * *', async () => {
         }
 
       } catch (err) {
-        console.error(`❌ [CRON] Error processing consultation ${consultation.id}:`, err);
+        console.error(` [CRON] Error processing consultation ${consultation.id}:`, err);
       }
     }
 
   } catch (error) {
-    console.error('❌ [CRON] Error in consultation reminders:', error);
+    console.error(' [CRON] Error in consultation reminders:', error);
   }
 }, {
   scheduled: true // Tự động chạy
@@ -304,7 +304,7 @@ const autoCompleteConsultations = cron.schedule('*/15 * * * *', async () => {
   if (!models) return;
 
   try {
-    console.log('🔄 [CRON] Checking for stuck "in_progress" consultations...');
+    console.log(' [CRON] Checking for stuck "in_progress" consultations...');
     
     // Định nghĩa thời gian ân hạn (grace period)
     // Ví dụ: Bác sĩ có 60 phút 'thêm' sau khi hết giờ dự kiến
@@ -353,11 +353,11 @@ const autoCompleteConsultations = cron.schedule('*/15 * * * *', async () => {
     }
     
     if (completedCount > 0) {
-      console.log(`✅ [CRON] Auto-completed ${completedCount} stuck consultations.`);
+      console.log(` [CRON] Auto-completed ${completedCount} stuck consultations.`);
     }
 
   } catch (error) {
-        console.error('❌ [CRON] Error in auto-completing consultations:', error);
+        console.error(' [CRON] Error in auto-completing consultations:', error);
       }
     } // <-- THÊM DẤU NGOẶC NHỌN NÀY ĐỂ ĐÓNG async () => { ... }
     , {
@@ -378,7 +378,7 @@ const autoExpirePendingConsultations = cron.schedule('*/5 * * * *', async () => 
 
   try {
     const now = new Date();
-    console.log('🔄 [CRON] Checking for expired pending consultations...');
+    console.log(' [CRON] Checking for expired pending consultations...');
 
     const expiredConsultations = await models.Consultation.findAll({
       where: {
@@ -425,11 +425,11 @@ const autoExpirePendingConsultations = cron.schedule('*/5 * * * *', async () => 
     }
 
     if (expiredCount > 0) {
-      console.log(`✅ [CRON] Auto-expired ${expiredCount} pending consultations.`);
+      console.log(` [CRON] Auto-expired ${expiredCount} pending consultations.`);
     }
 
   } catch (error) {
-    console.error('❌ [CRON] Error in auto-expiring consultations:', error);
+    console.error(' [CRON] Error in auto-expiring consultations:', error);
   }
 }, {
   scheduled: true // Tự động chạy
@@ -449,7 +449,7 @@ const cancelUnpaidAppointments = cron.schedule('*/30 * * * *', async () => {
   if (!models) return;
   
   try {
-    console.log('🔄 [CRON] Checking unpaid appointments...');
+    console.log(' [CRON] Checking unpaid appointments...');
     
     // Tìm lịch hẹn chưa thanh toán quá hạn
     const expiredDate = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24h ago
@@ -457,8 +457,8 @@ const cancelUnpaidAppointments = cron.schedule('*/30 * * * *', async () => {
     const expiredAppointments = await models.Appointment.findAll({
   where: {
     status: 'pending',
-    // ✅ BỎ điều kiện payment_method vì column không tồn tại
-    created_at: { [Op.lt]: expiredDate },
+    //  BỎ điều kiện payment_method vì column không tồn tại
+    createdAt: { [Op.lt]: expiredDate },
     payment_hold_until: { [Op.lt]: new Date() }
   },
       include: [
@@ -507,14 +507,14 @@ const cancelUnpaidAppointments = cron.schedule('*/30 * * * *', async () => {
 
         cancelledCount++;
       } catch (error) {
-        console.error(`❌ Error cancelling appointment ${appointment.code}:`, error);
+        console.error(` Error cancelling appointment ${appointment.code}:`, error);
       }
     }
 
-    console.log(`✅ [CRON] Cancelled ${cancelledCount} unpaid appointments`);
+    console.log(` [CRON] Cancelled ${cancelledCount} unpaid appointments`);
 
   } catch (error) {
-    console.error('❌ [CRON] Error in cancel unpaid appointments:', error);
+    console.error(' [CRON] Error in cancel unpaid appointments:', error);
   }
 }, {
   scheduled: false
@@ -532,7 +532,7 @@ const cleanupOldNotifications = cron.schedule('0 2 * * *', async () => {
   if (!models) return;
   
   try {
-    console.log('🔄 [CRON] Cleaning up old notifications...');
+    console.log(' [CRON] Cleaning up old notifications...');
     
     const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
     
@@ -543,10 +543,10 @@ const cleanupOldNotifications = cron.schedule('0 2 * * *', async () => {
       }
     });
 
-    console.log(`✅ [CRON] Cleaned up ${deletedCount} old notifications`);
+    console.log(` [CRON] Cleaned up ${deletedCount} old notifications`);
 
   } catch (error) {
-    console.error('❌ [CRON] Error in cleanup notifications:', error);
+    console.error(' [CRON] Error in cleanup notifications:', error);
   }
 }, {
   scheduled: false
@@ -560,7 +560,7 @@ const cleanupOldFiles = cron.schedule('0 3 * * 0', async () => {
   if (!models) return;
   
   try {
-    console.log('🔄 [CRON] Cleaning up old files...');
+    console.log(' [CRON] Cleaning up old files...');
     
     const fs = require('fs').promises;
     const path = require('path');
@@ -569,10 +569,10 @@ const cleanupOldFiles = cron.schedule('0 3 * * 0', async () => {
     // Logic dọn dẹp file có thể implement sau
     // Cần kiểm tra file nào không được reference trong database
     
-    console.log('✅ [CRON] File cleanup completed');
+    console.log(' [CRON] File cleanup completed');
 
   } catch (error) {
-    console.error('❌ [CRON] Error in file cleanup:', error);
+    console.error(' [CRON] Error in file cleanup:', error);
   }
 }, {
   scheduled: false
@@ -590,7 +590,7 @@ const systemHealthCheck = cron.schedule('0 8 * * *', async () => {
   if (!models) return;
   
   try {
-    console.log('🔄 [CRON] Running system health check...');
+    console.log(' [CRON] Running system health check...');
     
     // Thống kê cơ bản
     const stats = {
@@ -605,7 +605,7 @@ const systemHealthCheck = cron.schedule('0 8 * * *', async () => {
     };
 
     // Log thống kê
-    console.log('📊 [SYSTEM STATS]:', stats);
+    console.log(' [SYSTEM STATS]:', stats);
 
     // Kiểm tra cảnh báo
     const warnings = [];
@@ -619,14 +619,14 @@ const systemHealthCheck = cron.schedule('0 8 * * *', async () => {
     }
 
     if (warnings.length > 0) {
-      console.log('⚠️  [SYSTEM WARNINGS]:', warnings);
+      console.log('  [SYSTEM WARNINGS]:', warnings);
       // Có thể gửi email cảnh báo cho admin
     }
 
-    console.log('✅ [CRON] System health check completed');
+    console.log(' [CRON] System health check completed');
 
   } catch (error) {
-    console.error('❌ [CRON] Error in system health check:', error);
+    console.error(' [CRON] Error in system health check:', error);
   }
 }, {
   scheduled: false
@@ -644,7 +644,7 @@ const updatePassedAppointments = cron.schedule('0 * * * *', async () => {
   if (!models) return;
   
   try {
-    console.log('🔄 [CRON] Updating passed appointments...');
+    console.log(' [CRON] Updating passed appointments...');
     
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
@@ -691,14 +691,14 @@ const updatePassedAppointments = cron.schedule('0 * * * *', async () => {
         
         updatedCount++;
       } catch (error) {
-        console.error(`❌ Error updating appointment ${appointment.code}:`, error);
+        console.error(` Error updating appointment ${appointment.code}:`, error);
       }
     }
 
-    console.log(`✅ [CRON] Updated ${updatedCount} passed appointments`);
+    console.log(` [CRON] Updated ${updatedCount} passed appointments`);
 
   } catch (error) {
-    console.error('❌ [CRON] Error in update passed appointments:', error);
+    console.error(' [CRON] Error in update passed appointments:', error);
   }
 }, {
   scheduled: false
@@ -716,7 +716,7 @@ const sendReviewReminders = cron.schedule('0 18 * * *', async () => {
   if (!models) return;
   
   try {
-    console.log('🔄 [CRON] Sending review reminders...');
+    console.log(' [CRON] Sending review reminders...');
     
     // Tìm lịch hẹn hoàn thành 1-2 ngày trước, chưa có review
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
@@ -777,14 +777,14 @@ const sendReviewReminders = cron.schedule('0 18 * * *', async () => {
         
         remindersSent++;
       } catch (error) {
-        console.error(`❌ Error sending review reminder for appointment ${appointment.code}:`, error);
+        console.error(` Error sending review reminder for appointment ${appointment.code}:`, error);
       }
     }
 
-    console.log(`✅ [CRON] Sent ${remindersSent} review reminders`);
+    console.log(` [CRON] Sent ${remindersSent} review reminders`);
 
   } catch (error) {
-    console.error('❌ [CRON] Error in review reminders:', error);
+    console.error(' [CRON] Error in review reminders:', error);
   }
 }, {
   scheduled: false
@@ -811,7 +811,7 @@ const startAllCronJobs = () => {
   updatePassedAppointments.start();
   sendReviewReminders.start();
   
-  console.log('✅ All cron jobs started successfully');
+  console.log(' All cron jobs started successfully');
 };
 
 /**
@@ -831,7 +831,7 @@ const stopAllCronJobs = () => {
   updatePassedAppointments.stop();
   sendReviewReminders.stop();
   
-  console.log('✅ All cron jobs stopped');
+  console.log(' All cron jobs stopped');
 };
 
 /**
