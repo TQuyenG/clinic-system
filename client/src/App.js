@@ -13,6 +13,7 @@ import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import OAuthCallback from './pages/OAuthCallback';
 
 // Public & General
 import HomePage from './pages/HomePage';
@@ -143,6 +144,7 @@ function App() {
             <Route path="/quen-mat-khau" element={<ForgotPasswordPage />} />
             <Route path="/reset-password-verify" element={<ResetPasswordPage />} />
             <Route path="/xac-thuc-dat-lai-mat-khau" element={<ResetPasswordPage />} />
+            <Route path="/auth/callback" element={<OAuthCallback />} />
 
             {/* ========== 2. PUBLIC & GENERAL ========== */}
             <Route path="/" element={<HomePage />} />

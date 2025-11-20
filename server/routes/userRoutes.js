@@ -1,8 +1,45 @@
-// server/routes/userRoutes.js - ĐÃ SỬA: THÊM GET /by-role
+// server/routes/userRoutes.js - CẬP NHẬT: Thêm OAuth routes
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { authenticateToken, authorize } = require('../middleware/authMiddleware');
+const passport = require('../config/passportConfig');
+
+// ============================================
+// ✅ OAUTH ROUTES - GOOGLE (PUBLIC)
+// ============================================
+router.get('/auth/google',
+  passport.authenticate('google', { 
+    scope: ['profile', 'email'],
+    session: false  // Không dùng session, dùng JWT
+  })
+);
+
+router.get('/auth/google/callback',
+  passport.authenticate('google', { 
+    failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?error=google_auth_failed`,
+    session: false
+  }),
+  userController.handleOAuthCallback  // ⭐ Xử lý trong controller
+);
+
+// ============================================
+// ✅ OAUTH ROUTES - FACEBOOK (PUBLIC)
+// ============================================
+router.get('/auth/facebook',
+  passport.authenticate('facebook', { 
+    scope: ['email'],
+    session: false
+  })
+);
+
+router.get('/auth/facebook/callback',
+  passport.authenticate('facebook', { 
+    failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?error=facebook_auth_failed`,
+    session: false
+  }),
+  userController.handleOAuthCallback  // ⭐ Xử lý trong controller
+);
 
 // ============================================
 // ROUTES CÔNG KHAI - Không cần đăng nhập
@@ -15,19 +52,12 @@ router.post('/login', userController.login);
 router.post('/resend-verification', userController.resendVerification);
 router.post('/request-manual-verification', userController.requestManualVerification);
 
-// // Quên mật khẩu, đặt lại mật khẩu qua OTP
-// router.post('/forgot-password', userController.forgotPassword);
-// router.post('/verify-otp', userController.verifyOTP);
-// router.post('/reset-password', userController.resetPassword);
-
-// **MỚI: Routes cho reset password**
+// Reset password routes
 router.post('/request-password-reset', userController.requestPasswordReset);
 router.get('/verify-reset-token', userController.verifyResetToken);
 router.post('/reset-password-with-token', userController.resetPasswordWithToken);
 
-
 // Routes công khai cho bác sĩ
-// LƯU Ý: Phải đặt TRƯỚC các routes động /:userId
 router.get('/doctors/public', userController.getAllDoctorsPublic);
 router.get('/doctors/:code', userController.getDoctorByCode);
 router.get('/doctors', userController.getDoctors);
@@ -41,7 +71,7 @@ router.get('/profile', authenticateToken, userController.getProfile);
 router.put('/profile', authenticateToken, userController.updateProfile);
 router.put('/change-password', authenticateToken, userController.changePassword);
 
-// Lấy thông tin role của chính mình (bao gồm code và specialty cho doctor)
+// Lấy thông tin role của chính mình
 router.get('/my-role-info', authenticateToken, userController.getMyRoleInfo);
 
 // ============================================
@@ -53,7 +83,7 @@ router.get('/stats', authenticateToken, authorize('admin'), userController.getUs
 router.get('/search', authenticateToken, authorize('admin'), userController.searchUsers);
 router.get('/all', authenticateToken, authorize('admin'), userController.getAllUsers);
 
-// ✅ THÊM: Lấy users theo role (cho ScheduleForm)
+// Lấy users theo role
 router.get('/by-role', 
   authenticateToken, 
   authorize('admin'),
@@ -61,8 +91,6 @@ router.get('/by-role',
 );
 
 // Quản lý user cụ thể
-// LƯU Ý: Các routes có pattern cụ thể phải đặt TRƯỚC routes động /:userId
-
 router.put('/:userId/reset-password-admin', 
   authenticateToken, 
   authorize('admin'), 
@@ -83,8 +111,6 @@ router.put('/:userId/toggle-status',
 
 // Routes động với /:userId - PHẢI ĐẶT CUỐI CÙNG
 router.get('/:userId', authenticateToken, userController.getUserById);
-// Hoặc nếu muốn giới hạn:
-// router.get('/:userId', authenticateToken, authorize('admin', 'patient', 'doctor'), userController.getUserById);
 router.put('/:userId', authenticateToken, authorize('admin'), userController.updateUser);
 router.delete('/:userId', authenticateToken, authorize('admin'), userController.deleteUser);
 
@@ -92,18 +118,23 @@ router.delete('/:userId', authenticateToken, authorize('admin'), userController.
 // Debug log - Hiển thị các routes đã đăng ký
 // ============================================
 console.log('\n========== USER ROUTES REGISTERED ==========');
-console.log('PUBLIC ROUTES:');
+console.log('OAUTH ROUTES:');
+console.log('  GET    /api/users/auth/google');
+console.log('  GET    /api/users/auth/google/callback');
+console.log('  GET    /api/users/auth/facebook');
+console.log('  GET    /api/users/auth/facebook/callback');
+console.log('\nPUBLIC ROUTES:');
 console.log('  POST   /api/users/register');
 console.log('  GET    /api/users/verify-email');
 console.log('  POST   /api/users/login');
-console.log('  POST   /api/users/forgot-password');
-console.log('  POST   /api/users/verify-otp');
-console.log('  POST   /api/users/reset-password');
+console.log('  POST   /api/users/resend-verification');
+console.log('  POST   /api/users/request-manual-verification');
+console.log('  POST   /api/users/request-password-reset');
+console.log('  GET    /api/users/verify-reset-token');
+console.log('  POST   /api/users/reset-password-with-token');
 console.log('  GET    /api/users/doctors');
 console.log('  GET    /api/users/doctors/public');
 console.log('  GET    /api/users/doctors/:code');
-console.log('  POST   /api/users/resend-verification');
-console.log('  POST   /api/users/request-manual-verification');
 console.log('\nAUTHENTICATED ROUTES:');
 console.log('  GET    /api/users/profile');
 console.log('  PUT    /api/users/profile');
@@ -113,6 +144,7 @@ console.log('\nADMIN ROUTES:');
 console.log('  GET    /api/users/stats');
 console.log('  GET    /api/users/search');
 console.log('  GET    /api/users/all');
+console.log('  GET    /api/users/by-role');
 console.log('  PUT    /api/users/:userId/reset-password-admin');
 console.log('  PUT    /api/users/:userId/toggle-verification');
 console.log('  PUT    /api/users/:userId/toggle-status');

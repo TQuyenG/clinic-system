@@ -1,4 +1,4 @@
-// server/models/User.js
+// server/models/User.js - CẬP NHẬT: Thêm OAuth fields
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -21,13 +21,28 @@ module.exports = (sequelize) => {
     reset_expires: { type: DataTypes.DATE, allowNull: true },
     last_login: { type: DataTypes.DATE, allowNull: true },
     is_active: { type: DataTypes.BOOLEAN, defaultValue: false },
+    
+    // ✅ OAUTH FIELDS - THÊM MỚI CHO GOOGLE + FACEBOOK
+    google_id: { type: DataTypes.STRING(255), allowNull: true, unique: true },
+    facebook_id: { type: DataTypes.STRING(255), allowNull: true, unique: true },
+    oauth_provider: { 
+      type: DataTypes.ENUM('local', 'google', 'facebook'), 
+      defaultValue: 'local',
+      allowNull: true 
+    },
+    
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
     tableName: 'users',
     timestamps: true,
     underscored: true,
-    indexes: [{ fields: ['email'] }, { fields: ['username'] }]
+    indexes: [
+      { fields: ['email'] }, 
+      { fields: ['username'] },
+      { fields: ['google_id'] },    // ✅ Index cho OAuth
+      { fields: ['facebook_id'] }   // ✅ Index cho OAuth
+    ]
   });
 
   User.associate = (models) => {
@@ -183,7 +198,7 @@ module.exports = (sequelize) => {
     }
   });
 
-  console.log('SUCCESS: Model User đã được định nghĩa.');
+  console.log('SUCCESS: Model User đã được định nghĩa với OAuth support.');
 
   return User;
 };

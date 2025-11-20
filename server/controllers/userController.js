@@ -1746,3 +1746,74 @@ exports.getStats = async (req, res) => {
     });
   }
 };
+
+// server/controllers/userController.js - THÊM PHẦN NÀY VÀO FILE CŨ
+
+// ============================================
+// ✅ OAUTH CALLBACK HANDLER - THÊM MỚI
+// ============================================
+/**
+ * Xử lý OAuth callback từ Google/Facebook
+ * Được gọi sau khi Passport authenticate thành công
+ */
+exports.handleOAuthCallback = async (req, res) => {
+  try {
+    const user = req.user;  // Passport đã gán user vào req
+    
+    if (!user) {
+      console.error('❌ [OAuth Callback] User không tồn tại trong req');
+      return res.redirect(
+        `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?error=auth_failed`
+      );
+    }
+
+    console.log('✅ [OAuth Callback] User authenticated:', user.email);
+
+    // Tạo JWT token
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        email: user.email, 
+        role: user.role 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Chuẩn bị user data để gửi về frontend
+    const userData = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      full_name: user.full_name,
+      role: user.role,
+      avatar_url: user.avatar_url,
+      is_verified: user.is_verified,
+      is_active: user.is_active,
+      oauth_provider: user.oauth_provider
+    };
+
+    // Redirect về frontend với token và user data
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    const redirectUrl = `${clientUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify(userData))}`;
+    
+    console.log('🔄 [OAuth Callback] Redirecting to:', redirectUrl);
+    res.redirect(redirectUrl);
+
+  } catch (error) {
+    console.error('❌ [OAuth Callback] Error:', error);
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    res.redirect(`${clientUrl}/login?error=auth_failed`);
+  }
+};
+
+// ============================================
+// GHI CHÚ: COPY ĐOẠN CODE TRÊN VÀO FILE userController.js CŨ
+// ============================================
+/*
+ * Vị trí đề xuất: Thêm vào CUỐI file, trước module.exports
+ * 
+ * Hoặc nếu đã có exports.register, exports.login, etc.
+ * thì thêm exports.handleOAuthCallback vào cùng danh sách
+ */
