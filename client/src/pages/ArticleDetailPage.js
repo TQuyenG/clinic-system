@@ -5,7 +5,7 @@ import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
 import { 
   FaCalendar, FaUser, FaEye, FaThumbsUp, FaShareAlt, 
-  FaBookmark, FaArrowLeft, FaTag, FaLink, FaFlag, FaRedo,
+  FaBookmark, FaArrowLeft, FaTag, FaLink, FaFlag, FaRedo, // Giữ FaRedo trong import icons, nhưng không dùng
   FaTimes, FaExclamationTriangle, FaPaperPlane, FaSpinner
 } from 'react-icons/fa';
 import './ArticleDetailPage.css';
@@ -238,33 +238,7 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
     }
   };
 
-  const handleRequestEdit = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('Vui lòng đăng nhập');
-      navigate('/login');
-      return;
-    }
-
-    const reason = prompt('Nhập lý do yêu cầu chỉnh sửa (max 500 ký tự):');
-    if (!reason) return;
-
-    try {
-      const response = await axios.post(
-        `${API_BASE_URL}/api/articles/${article.id}/request-edit`,
-        { reason: reason.substring(0, 500) },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (response.data.success) {
-        alert('Đã gửi yêu cầu chỉnh sửa đến admin');
-        navigate('/quan-ly-bai-viet');
-      }
-    } catch (error) {
-      console.error('Lỗi khi yêu cầu chỉnh sửa:', error);
-      alert('Lỗi: ' + (error.response?.data?.message || error.message));
-    }
-  };
+  // ❌ ĐÃ XÓA HÀM handleRequestEdit
 
   const handleSubmitReport = async (e) => {
     e.preventDefault();
@@ -496,6 +470,7 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
                 <FaFlag /> Báo cáo
               </button>
 
+              {/* ❌ ĐÃ XÓA NÚT YÊU CẦU SỬA:
               {isAuthor && isApproved && (
                 <button 
                   onClick={handleRequestEdit}
@@ -504,6 +479,7 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
                   <FaRedo /> Yêu cầu sửa
                 </button>
               )}
+              */}
 
               <div className="detail-article-stats">
                 <span><FaShareAlt /> {stats.shares || 0}</span>

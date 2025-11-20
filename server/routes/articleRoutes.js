@@ -96,7 +96,8 @@ router.post('/:id/unhide',
   articleController.unhideArticle
 );
 
-// --- REQUEST EDIT (STAFF/DOCTOR) ---
+// ❌ BỎ 2 ROUTES NÀY - Không còn sử dụng flow yêu cầu chỉnh sửa
+/*
 router.post('/:id/request-edit', 
   authenticateToken, 
   roleMiddleware(['staff', 'doctor']), 
@@ -108,7 +109,9 @@ router.post('/:id/respond-edit',
   roleMiddleware(['admin']), 
   articleController.respondToEditRequest
 );
+*/
 
+// --- RESUBMIT (STAFF/DOCTOR) ---
 router.post('/:id/resubmit', 
   authenticateToken, 
   roleMiddleware(['staff', 'doctor']), 
@@ -123,7 +126,6 @@ router.post('/:id/duplicate',
 );
 
 // --- CRUD OPERATIONS (với :id) ---
-// GET /:id - Lấy chi tiết bài viết theo ID
 router.get('/:id', 
   authenticateToken, 
   articleController.getArticleById
@@ -141,17 +143,14 @@ router.delete('/:id',
 );
 
 // ===== ROUTE ĐỘNG /:categoryType/:slug - ĐẶT CUỐI CÙNG =====
-// Route này phải đặt SAU TẤT CẢ routes có :id
 router.get('/:categoryType/:slug', articleController.getByTypeAndSlug);
 
 // ===== ROUTE MẶC ĐỊNH =====
-// GET / - Lấy danh sách bài viết (với filters)
 router.get('/', 
   authenticateToken, 
   articleController.getArticles
 );
 
-// ===== POST / - Tạo bài viết mới =====
 router.post('/', 
   authenticateToken, 
   roleMiddleware(['staff', 'doctor', 'admin']), 

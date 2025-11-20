@@ -24,6 +24,27 @@ const ArticleManagementPage = () => {
   // ============================================
   // QUẢN LÝ STATE
   // ============================================
+
+  // ============================================
+//  HÀM LẤY ẢNH BÌA TỪ CONTENT (THÊM MỚI)
+// ============================================
+/**
+ * Lấy URL ảnh đầu tiên từ HTML content
+ * @param {string} html - Nội dung HTML
+ * @returns {string|null} - URL ảnh hoặc null
+ */
+const getFirstImage = (html) => {
+  if (!html) return null;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const img = doc.querySelector('img');
+    return img ? img.src : null;
+  } catch (error) {
+    console.error('Error parsing HTML for image:', error);
+    return null;
+  }
+};
   
   // State người dùng hiện tại
   const [user, setUser] = useState({});
@@ -456,139 +477,111 @@ const fetchArticles = async () => {
   // ============================================
 
   /**
-   * Hàm kiểm tra quyền hiển thị button
-   * @param {string} action - Tên action: 'edit', 'delete', 'hide', 'approve', 'reject', 'history', 'duplicate', 'request_edit', 'request_rewrite', 'approve_edit'
-   * @param {object} article - Bài viết
-   * @param {object} user - User hiện tại
-   * @returns {boolean} - true nếu được phép hiển thị
-   */
-  const canShowButton = (action, article, user) => {
-    const isAuthor = article.author_id === user.id;
-    const isAdmin = user.role === 'admin';
-    const status = article.status;
+ * Hàm kiểm tra quyền hiển thị button
+ * @param {string} action - Tên action: 'edit', 'delete', 'hide', 'approve', 'reject', 'history', 'duplicate', 'request_rewrite'
+ * @param {object} article - Bài viết
+ * @param {object} user - User hiện tại
+ * @returns {boolean} - true nếu được phép hiển thị
+ */
+/**
+ * Hàm kiểm tra quyền hiển thị button
+ * @param {string} action - Tên action: 'edit', 'delete', 'hide', 'approve', 'reject', 'history', 'duplicate', 'request_rewrite'
+ * @param {object} article - Bài viết
+ * @param {object} user - User hiện tại
+ * @returns {boolean} - true nếu được phép hiển thị
+ */
+const canShowButton = (action, article, user) => {
+  const isAuthor = article.author_id === user.id;
+  const isAdmin = user.role === 'admin';
+  const status = article.status;
 
-    switch (action) {
-      // ===== EDIT BUTTON =====
-      case 'edit':
-        if (isAdmin) {
-          // Admin: Có thể edit tất cả bài viết (trừ draft của người khác - nhưng không thấy nên không cần check)
-          return true;
-        } else {
-          // Staff/Doctor: Chỉ edit được draft, rejected, request_edit của mình
-          return isAuthor && ['draft', 'rejected', 'request_edit'].includes(status);
-        }
-
-      // ===== DELETE BUTTON =====
-      case 'delete':
-        if (isAdmin) {
-          // Admin: Có thể xóa tất cả (trừ draft của người khác)
-          return true;
-        } else {
-          // Staff/Doctor: Chỉ xóa được draft của mình
-          return isAuthor && status === 'draft';
-        }
-
-      // ===== HIDE/SHOW BUTTON =====
-      case 'hide':
-        // Chỉ admin mới có quyền ẩn/hiện bài viết
-        return isAdmin;
-
-      // ===== APPROVE BUTTON (trong review) =====
-      case 'approve':
-        // Chỉ admin mới có quyền phê duyệt
-        // Hiển thị với bài viết pending hoặc rejected
-        return isAdmin && ['pending', 'rejected'].includes(status);
-
-      // ===== REJECT BUTTON (trong review) =====
-      case 'reject':
-        // Chỉ admin mới có quyền từ chối
-        // Hiển thị với bài viết pending
-        return isAdmin && status === 'pending';
-
-      // ===== HISTORY BUTTON =====
-      case 'history':
-        // Tất cả role đều có thể xem lịch sử phê duyệt
+  switch (action) {
+    // ===== EDIT BUTTON (THAY ĐỔI) =====
+    case 'edit':
+      if (isAdmin) {
+        // Admin: Được edit TẤT CẢ bài viết (mọi trạng thái)
         return true;
+      } else {
+        // Staff/Doctor (Tác giả): Được edit TẤT CẢ bài viết của mình (mọi trạng thái)
+        return isAuthor;
+      }
 
-      // ===== DUPLICATE BUTTON =====
-      case 'duplicate':
-        // Tất cả role đều có thể nhân bản
+    // ===== DELETE BUTTON (Giữ nguyên) =====
+    case 'delete':
+      if (isAdmin) {
         return true;
+      } else {
+        return isAuthor && status === 'draft';
+      }
 
-      // ===== REQUEST EDIT BUTTON =====
-      case 'request_edit':
-        // Staff/Doctor: Gửi yêu cầu chỉnh sửa khi bài viết đã approved
-        // Admin: Không cần (admin edit trực tiếp)
-        return !isAdmin && isAuthor && status === 'approved';
+    // ===== HIDE/SHOW BUTTON (Giữ nguyên) =====
+    case 'hide':
+      return isAdmin;
 
-      // ===== REQUEST REWRITE BUTTON =====
-      case 'request_rewrite':
-        // Admin: Yêu cầu viết lại bài viết đã ẩn
-        return isAdmin && status === 'hidden';
+    // ===== APPROVE BUTTON (Giữ nguyên) =====
+    case 'approve':
+      return isAdmin && status === 'pending'; 
 
-      // ===== APPROVE EDIT REQUEST BUTTON =====
-      case 'approve_edit':
-        // Admin: Đồng ý cho chỉnh sửa khi có request_edit
-        return isAdmin && status === 'request_edit';
+    // ===== REJECT BUTTON (Giữ nguyên) =====
+    case 'reject':
+      return isAdmin && status === 'pending'; 
+      
+    // ===== HISTORY BUTTON (Giữ nguyên) =====
+    case 'history':
+      return true;
 
-      // ===== REJECT EDIT REQUEST BUTTON =====
-      case 'reject_edit':
-        // Admin: Từ chối yêu cầu chỉnh sửa
-        return isAdmin && status === 'request_edit';
+    // ===== DUPLICATE BUTTON (Giữ nguyên) =====
+    case 'duplicate':
+      return true;
 
-      default:
-        return false;
-    }
-  };
+    // ===== REQUEST REWRITE BUTTON (Giữ nguyên) =====
+    case 'request_rewrite':
+      return isAdmin && status === 'hidden';
+
+    default:
+      return false;
+  }
+};
 
   /**
-   * Hàm lấy tooltip cho button
-   */
-  const getButtonTooltip = (action, article) => {
-    const status = article.status;
-    
-    switch (action) {
-      case 'edit':
-        if (status === 'approved') return 'Chỉnh sửa bài viết';
-        if (status === 'draft') return 'Chỉnh sửa nháp';
-        if (status === 'rejected') return 'Chỉnh sửa và gửi lại';
-        if (status === 'request_edit') return 'Chỉnh sửa bài viết';
-        return 'Chỉnh sửa';
-        
-      case 'delete':
-        return 'Xóa bài viết';
-        
-      case 'hide':
-        return status === 'hidden' ? 'Hiện bài viết' : 'Ẩn bài viết';
-        
-      case 'approve':
-        return 'Phê duyệt';
-        
-      case 'reject':
-        return 'Từ chối';
-        
-      case 'history':
-        return 'Xem lịch sử phê duyệt';
-        
-      case 'duplicate':
-        return 'Nhân bản bài viết';
-        
-      case 'request_edit':
-        return 'Yêu cầu chỉnh sửa';
-        
-      case 'request_rewrite':
-        return 'Yêu cầu viết lại';
-        
-      case 'approve_edit':
-        return 'Đồng ý cho chỉnh sửa';
-        
-      case 'reject_edit':
-        return 'Từ chối yêu cầu';
-        
-      default:
-        return '';
-    }
-  };
+ * Hàm lấy tooltip cho button
+ */
+const getButtonTooltip = (action, article) => {
+  const status = article.status;
+  
+  switch (action) {
+    case 'edit':
+      if (status === 'approved') return 'Chỉnh sửa bài viết';
+      if (status === 'draft') return 'Chỉnh sửa nháp';
+      if (status === 'rejected') return 'Chỉnh sửa và gửi lại';
+      if (status === 'request_rewrite') return 'Chỉnh sửa theo yêu cầu';
+      return 'Chỉnh sửa';
+      
+    case 'delete':
+      return 'Xóa bài viết';
+      
+    case 'hide':
+      return status === 'hidden' ? 'Hiện bài viết' : 'Ẩn bài viết';
+      
+    case 'approve':
+      return 'Phê duyệt';
+      
+    case 'reject':
+      return 'Từ chối';
+      
+    case 'history':
+      return 'Xem lịch sử phê duyệt';
+      
+    case 'duplicate':
+      return 'Nhân bản bài viết';
+      
+    case 'request_rewrite':
+      return 'Yêu cầu viết lại';
+      
+    default:
+      return '';
+  }
+};
 
   // ============================================
   // XỬ LÝ BỘ LỌC VÀ TÌM KIẾM
@@ -1404,29 +1397,25 @@ const handleEditArticle = async (article) => {
   const isAdmin = user.role === 'admin';
   const status = article.status;
 
-  // ✅ ADMIN sửa bài đã duyệt → Hiện popup cảnh báo
+  // 1. ADMIN sửa bài đã duyệt (approved) → Hiện popup cảnh báo
   if (isAdmin && status === 'approved') {
     setEditingApprovedArticle(article);
     setShowAdminEditWarning(true);
     return;
   }
 
-  // ADMIN: Edit trực tiếp các bài khác
+  // 2. ADMIN: Edit trực tiếp các bài khác
   if (isAdmin) {
     openEditModal(article);
     return;
   }
 
-  // STAFF/DOCTOR: Kiểm tra điều kiện
+  // 3. STAFF/DOCTOR (Tác giả): Edit trực tiếp bài của mình (MỌI TRẠNG THÁI)
+  // Logic kiểm tra quyền đã nằm trong canShowButton và đã được gọi ở component render.
   if (isAuthor) {
-    if (['draft', 'rejected', 'request_edit'].includes(status)) {
-      openEditModal(article);
-    } else if (status === 'approved') {
-      showToast('Bài viết đã được phê duyệt. Vui lòng gửi yêu cầu chỉnh sửa.', 'warning');
-    } else {
-      showToast('Bạn không có quyền chỉnh sửa bài viết này', 'error');
-    }
+    openEditModal(article);
   } else {
+    // Trường hợp này không nên xảy ra nếu canShowButton được kiểm tra
     showToast('Bạn không có quyền chỉnh sửa bài viết này', 'error');
   }
 };
@@ -1963,7 +1952,7 @@ const handleRejectArticle = async (article) => {
               ) : (
                 articles.map(article => (
                   <tr key={article.id}>
-                    {/* Title - Thêm link */}
+                    {/* CỘT TIÊU ĐỀ - GIỮ NGUYÊN NHƯ CŨ */}
                     <td className="col-fixed col-title">
                       <div className="article-title-cell">
                         {getCategoryIcon(article.category?.category_type)}
@@ -1985,6 +1974,8 @@ const handleRejectArticle = async (article) => {
                         )}
                       </div>
                     </td>
+                    
+                    {/* CỘT TAGS */}
                     {visibleColumns.tags && (
                       <td className="col-scrollable">
                         <div className="tags-cell">
@@ -1998,6 +1989,8 @@ const handleRejectArticle = async (article) => {
                         </div>
                       </td>
                     )}
+                    
+                    {/* CỘT DANH MỤC */}
                     {visibleColumns.category && (
                       <td className="col-scrollable">
                         <span className="category-badge">
@@ -2005,6 +1998,8 @@ const handleRejectArticle = async (article) => {
                         </span>
                       </td>
                     )}
+                    
+                    {/* CỘT TRẠNG THÁI */}
                     {visibleColumns.status && (
                       <td className="col-scrollable">
                         <span className={`article-mgmt-status-badge ${getStatusClass(article.status)}`}>
@@ -2012,6 +2007,8 @@ const handleRejectArticle = async (article) => {
                         </span>
                       </td>
                     )}
+                    
+                    {/* CỘT TÁC GIẢ */}
                     {visibleColumns.author && (
                       <td className="col-scrollable">
                         <div className="author-cell">
@@ -2020,11 +2017,15 @@ const handleRejectArticle = async (article) => {
                         </div>
                       </td>
                     )}
+                    
+                    {/* CỘT NGÀY TẠO */}
                     {visibleColumns.created_at && (
                       <td className="col-scrollable">
                         {new Date(article.created_at).toLocaleDateString('vi-VN')}
                       </td>
                     )}
+                    
+                    {/* CỘT LƯỢT XEM */}
                     {visibleColumns.views && (
                       <td className="col-scrollable">
                         <div className="views-cell">
@@ -2032,6 +2033,8 @@ const handleRejectArticle = async (article) => {
                         </div>
                       </td>
                     )}
+                    
+                    {/* CỘT THÀNH PHẦN (Thuốc) */}
                     {visibleColumns.composition && (
                       <td className="col-scrollable">
                         {article.medicine?.composition ? (
@@ -2041,6 +2044,8 @@ const handleRejectArticle = async (article) => {
                         ) : '-'}
                       </td>
                     )}
+                    
+                    {/* CỘT CÔNG DỤNG (Thuốc) */}
                     {visibleColumns.uses && (
                       <td className="col-scrollable">
                         {article.medicine?.uses ? (
@@ -2050,11 +2055,15 @@ const handleRejectArticle = async (article) => {
                         ) : '-'}
                       </td>
                     )}
+                    
+                    {/* CỘT NHÀ SẢN XUẤT (Thuốc) */}
                     {visibleColumns.manufacturer && (
                       <td className="col-scrollable">
                         {article.medicine?.manufacturer || '-'}
                       </td>
                     )}
+                    
+                    {/* CỘT TRIỆU CHỨNG (Bệnh lý) */}
                     {visibleColumns.symptoms && (
                       <td className="col-scrollable">
                         {article.disease?.symptoms ? (
@@ -2064,6 +2073,8 @@ const handleRejectArticle = async (article) => {
                         ) : '-'}
                       </td>
                     )}
+                    
+                    {/* CỘT ĐIỀU TRỊ (Bệnh lý) */}
                     {visibleColumns.treatments && (
                       <td className="col-scrollable">
                         {article.disease?.treatments ? (
@@ -2073,29 +2084,8 @@ const handleRejectArticle = async (article) => {
                         ) : '-'}
                       </td>
                     )}
-                    {/* Actions - BỎ btn-view, thêm màu icon */}
-                    {/* // ============================================
-                    // GHI CHÚ LOGIC:
-                    // ============================================
-                    // 
-                    // ADMIN:
-                    // - Draft: Edit, Delete, Duplicate, History
-                    // - Pending: Edit, Approve, Reject, Hide, Delete, Duplicate, History
-                    // - Approved: Edit, Hide, Delete, Duplicate, History
-                    // - Rejected: Edit, Approve, Delete, Duplicate, History
-                    // - Hidden: Edit, Delete, Request Rewrite, Duplicate, History
-                    // - Request Edit: Edit, Approve Edit, Reject Edit, Delete, Duplicate, History
-                    //
-                    // STAFF/DOCTOR:
-                    // - Draft (của mình): Edit, Delete, Duplicate, History
-                    // - Pending (của mình): Duplicate, History (chờ admin)
-                    // - Approved (của mình): Request Edit, Duplicate, History
-                    // - Rejected (của mình): Edit, Delete, Duplicate, History
-                    // - Hidden (của mình): Không thấy
-                    // - Request Edit (của mình): Edit, Duplicate, History (chờ admin approve)
-                    //
-                    // ============================================ */}
-                    {/* Actions Column */}
+                    
+                    {/*  CỘT THAO TÁC - BỎ 3 NÚT request_edit */}
                     <td className="col-fixed col-actions">
                       <div className="action-buttons">
                         
@@ -2132,42 +2122,9 @@ const handleRejectArticle = async (article) => {
                           </button>
                         )}
 
-                        {/* APPROVE EDIT REQUEST (Admin only - request_edit status) */}
-                        {canShowButton('approve_edit', article, user) && (
-                          <button
-                            className="article-mgmt-btn-action article-mgmt-btn-approve-edit"
-                            onClick={() => handleApproveEditRequest(article.id)}
-                            title={getButtonTooltip('approve_edit', article)}
-                          >
-                            <FaCheckCircle />
-                          </button>
-                        )}
-
-                        {/* REJECT EDIT REQUEST (Admin only - request_edit status) */}
-                        {canShowButton('reject_edit', article, user) && (
-                          <button
-                            onClick={() => {
-                              setArticleToReject(article);
-                              setRejectReason('');
-                              setShowRejectPopup(true);
-                            }}
-                            className="article-mgmt-btn-reject"
-                            title="Từ chối yêu cầu chỉnh sửa"
-                          >
-                            <FaBan /> Từ chối
-                          </button>
-                        )}
-
-                        {/* REQUEST EDIT BUTTON (Staff/Doctor - approved) */}
-                        {canShowButton('request_edit', article, user) && (
-                          <button
-                            className="article-mgmt-btn-action article-mgmt-btn-request-edit"
-                            onClick={() => handleRequestEdit(article)}
-                            title={getButtonTooltip('request_edit', article)}
-                          >
-                            <FaRedo />
-                          </button>
-                        )}
+                        {/* ❌ BỎ: APPROVE EDIT REQUEST - Đã xóa */}
+                        {/* ❌ BỎ: REJECT EDIT REQUEST - Đã xóa */}
+                        {/* ❌ BỎ: REQUEST EDIT BUTTON - Đã xóa */}
 
                         {/* REQUEST REWRITE BUTTON (Admin - hidden) */}
                         {canShowButton('request_rewrite', article, user) && (
@@ -2505,7 +2462,7 @@ const handleRejectArticle = async (article) => {
                           onReady={(editor) => {
                             const toolbarContainer = document.querySelector('#toolbar-container');
                             if (toolbarContainer && editor.ui.view.toolbar.element) {
-                              // ✅ XÓA SẠCH trước khi thêm mới
+                              //  XÓA SẠCH trước khi thêm mới
                               while (toolbarContainer.firstChild) {
                                 toolbarContainer.removeChild(toolbarContainer.firstChild);
                               }

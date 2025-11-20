@@ -762,7 +762,7 @@ exports.createArticle = async (req, res) => {
         await notifyAllAdmins(
           'article',
           `${req.user.full_name} đã gửi bài viết mới "${title}" chờ phê duyệt`,
-          `/articles/review/${newArticle.id}`
+          `/phe-duyet-bai-viet/${newArticle.id}`
         );
       }
     } else {
@@ -787,7 +787,10 @@ exports.createArticle = async (req, res) => {
 /**
  * PUT /api/articles/:id
  * Cập nhật bài viết
- * Quyền: Admin (mọi lúc), Staff/Doctor (chỉ khi draft, request_edit, request_rewrite)
+ * Quyền: 
+ * - Admin: Được sửa mọi lúc
+ * - Staff/Doctor: Được sửa bài của mình mọi lúc. 
+ * - Logic mới: Khi tác giả sửa bài không phải draft, status sẽ chuyển về 'pending'.
  */
 exports.updateArticle = async (req, res) => {
   const t = await sequelize.transaction();
@@ -797,10 +800,9 @@ exports.updateArticle = async (req, res) => {
       title, content, category_id, tags_json, source,
       name, composition, uses, side_effects, manufacturer, image_url,
       symptoms, treatments, description,
-      isDraft = false 
+      isDraft = false // true: Lưu nháp; false: Gửi phê duyệt
     } = req.body;
 
-    // Log để debug giá trị isDraft
     console.log('DEBUG: updateArticle - isDraft:', isDraft, 'Body:', req.body);
 
     const article = await Article.findByPk(id, {
@@ -823,19 +825,12 @@ exports.updateArticle = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Bạn không có quyền chỉnh sửa bài viết này' });
     }
 
-    // Không cho update nếu đã duyệt mà chưa request edit (TRỪ ADMIN)
-    if (req.user.role !== 'admin' && article.status === 'approved' && !['request_edit', 'request_rewrite'].includes(article.status)) {
-      await t.rollback();
-      return res.status(403).json({ success: false, message: 'Bài viết đã duyệt, vui lòng yêu cầu chỉnh sửa trước' });
-    }
-
-    // Không cho update nếu đã từ chối hoặc ẩn (trừ admin)
-    if (['rejected', 'hidden'].includes(article.status) && req.user.role !== 'admin') {
-      await t.rollback();
-      return res.status(403).json({ success: false, message: 'Bài viết đã bị từ chối hoặc ẩn, không thể chỉnh sửa' });
-    }
+    // === LOGIC MỚI: BỎ CHECK TRẠNG THÁI CHO TÁC GIẢ ===
+    // (Không cần đoạn if (req.user.role !== 'admin') { ... allowedStatuses ... })
 
     const previousStatus = article.status;
+    let newStatus = previousStatus;
+    let action = null;
 
     // Cập nhật fields chung
     const updatedArticle = await article.update({
@@ -862,7 +857,6 @@ exports.updateArticle = async (req, res) => {
         }, { transaction: t });
         await updatedArticle.update({ entity_type: 'medicine', entity_id: medicine.id }, { transaction: t });
       }
-      // ✅ UPDATE ĐẦY ĐỦ TẤT CẢ FIELDS
       await medicine.update({
         name: name || title,
         composition,
@@ -883,7 +877,6 @@ exports.updateArticle = async (req, res) => {
         }, { transaction: t });
         await updatedArticle.update({ entity_type: 'disease', entity_id: disease.id }, { transaction: t });
       }
-      // ✅ UPDATE ĐẦY ĐỦ TẤT CẢ FIELDS
       await disease.update({
         name: name || title,
         symptoms,
@@ -897,27 +890,33 @@ exports.updateArticle = async (req, res) => {
 
     // Xử lý status và history
     const { isAdminDirectPublish } = req.body;
-    let action = null;
     
     if (isDraft) {
-      // Log để debug trạng thái khi lưu nháp
-      console.log('DEBUG: updateArticle - Lưu nháp, previousStatus:', previousStatus);
+      // 1. LƯU NHÁP (isDraft = true)
       
-      if (previousStatus === 'request_rewrite') {
-        // Giữ nguyên status = 'request_rewrite', không tạo history, không gửi thông báo
-        console.log('DEBUG: Giữ nguyên request_rewrite, không gửi thông báo');
+      if (req.user.role === 'admin') {
+        // Admin: Lưu nháp (draft) hoặc giữ nguyên status nếu không phải draft
+        newStatus = previousStatus === 'draft' ? 'draft' : previousStatus;
       } else {
-        // Các trạng thái khác: Set về 'draft', không tạo history, không gửi thông báo
-        updatedArticle.status = 'draft';
-        console.log('DEBUG: Set status = draft, không gửi thông báo');
+        // Tác giả: 
+        if (['draft', 'rejected', 'request_rewrite'].includes(previousStatus)) {
+          // Chỉ chuyển về draft khi từ các trạng thái có thể edit an toàn
+          newStatus = 'draft'; 
+        } else {
+          // Giữ nguyên trạng thái (approved/pending/hidden) để không mất trạng thái 
+          // cho đến khi tác giả gửi lại (isDraft=false)
+          newStatus = previousStatus;
+        }
       }
-    } else {
-      // Không phải draft
+      
+      updatedArticle.status = newStatus;
+      
+    } else { // 2. GỬI PHÊ DUYỆT (isDraft = false)
+      
       if (isAdminDirectPublish && req.user.role === 'admin') {
-        // Admin publish trực tiếp
-        updatedArticle.status = 'approved';
+        // Admin: Cập nhật và đăng trực tiếp
+        newStatus = 'approved';
         action = 'approve';
-        console.log('DEBUG: Admin publish trực tiếp, action:', action);
 
         await createReviewHistory(
           updatedArticle.id,
@@ -926,33 +925,36 @@ exports.updateArticle = async (req, res) => {
           action,
           'Admin cập nhật và đăng trực tiếp',
           previousStatus,
-          'approved',
+          newStatus,
           null,
           t
         );
       } else {
-        // Gửi phê duyệt: Set 'pending', tạo history, gửi thông báo
-        updatedArticle.status = 'pending';
-        action = previousStatus === 'draft' ? 'submit' : 'resubmit';
-        console.log('DEBUG: Gửi phê duyệt, action:', action);
+        // Tác giả gửi phê duyệt, hoặc Admin gửi cho admin khác duyệt
+        // Trạng thái mới luôn là 'pending'
+        newStatus = 'pending';
+        
+        // Action: submit (nếu từ draft) hoặc resubmit (nếu từ trạng thái khác)
+        action = previousStatus === 'draft' ? 'submit' : 'resubmit'; 
+        
+        updatedArticle.status = newStatus;
 
         await createReviewHistory(
           updatedArticle.id,
           req.user.id,
           updatedArticle.author_id,
           action,
-          null,
+          'Gửi lại sau khi chỉnh sửa',
           previousStatus,
-          'pending',
+          newStatus,
           null,
           t
         );
 
-        // Gửi thông báo cho tất cả admin
         await notifyAllAdmins(
           'article',
           `${req.user.full_name} đã ${action === 'submit' ? 'gửi' : 'gửi lại'} bài viết "${title}" chờ phê duyệt`,
-          `/articles/review/${id}`
+          `/phe-duyet-bai-viet/${id}`
         );
       }
     }
@@ -1164,7 +1166,7 @@ exports.reviewArticle = async (req, res) => {
       article.author_id,
       'article',
       `Bài viết "${article.title}" ${actionMessages[action]}. ${reason ? `Lý do: ${reason}` : ''}`,
-      `/articles/review/${id}`
+      `/phe-duyet-bai-viet/${id}`
     );
 
     res.json({ success: true, message: 'Đã xử lý phê duyệt', article });
@@ -1220,7 +1222,7 @@ exports.hideArticle = async (req, res) => {
       article.author_id,
       'article',
       `Admin đã ẩn bài viết "${article.title}". Lý do: ${reason}`,
-      `/articles/review/${id}`
+      `/phe-duyet-bai-viet/${id}`
     );
 
     res.json({ 
@@ -1279,7 +1281,7 @@ exports.unhideArticle = async (req, res) => {
       article.author_id,
       'article',
       `Admin đã hiện lại bài viết "${article.title}"`,
-      `/articles/review/${id}`
+      `/phe-duyet-bai-viet/${id}`
     );
 
     res.json({ 
@@ -1294,132 +1296,132 @@ exports.unhideArticle = async (req, res) => {
   }
 };
 
-// ==================== REQUEST EDIT (Staff/Doctor) ====================
+// // ==================== REQUEST EDIT (Staff/Doctor) ====================
 
-/**
- * POST /api/articles/:id/request-edit
- * Yêu cầu chỉnh sửa bài đã duyệt (Staff/Doctor only)
- * Body: { reason: string }
- */
-exports.requestEditArticle = async (req, res) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const { id } = req.params;
-    const { reason } = req.body;
+// /**
+//  * POST /api/articles/:id/request-edit
+//  * Yêu cầu chỉnh sửa bài đã duyệt (Staff/Doctor only)
+//  * Body: { reason: string }
+//  */
+// exports.requestEditArticle = async (req, res) => {
+//   const transaction = await sequelize.transaction();
+//   try {
+//     const { id } = req.params;
+//     const { reason } = req.body;
 
-    if (!reason) {
-      return res.status(400).json({ success: false, message: 'Vui lòng nhập lý do yêu cầu chỉnh sửa' });
-    }
+//     if (!reason) {
+//       return res.status(400).json({ success: false, message: 'Vui lòng nhập lý do yêu cầu chỉnh sửa' });
+//     }
 
-    const article = await Article.findByPk(id, { transaction });
-    if (!article) {
-      await transaction.rollback();
-      return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
-    }
+//     const article = await Article.findByPk(id, { transaction });
+//     if (!article) {
+//       await transaction.rollback();
+//       return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
+//     }
 
-    // Check quyền
-    if (article.author_id !== req.user.id) {
-      await transaction.rollback();
-      return res.status(403).json({ success: false, message: 'Bạn không có quyền yêu cầu chỉnh sửa bài viết này' });
-    }
+//     // Check quyền
+//     if (article.author_id !== req.user.id) {
+//       await transaction.rollback();
+//       return res.status(403).json({ success: false, message: 'Bạn không có quyền yêu cầu chỉnh sửa bài viết này' });
+//     }
 
-    if (article.status !== 'approved') {
-      await transaction.rollback();
-      return res.status(400).json({ success: false, message: 'Chỉ có thể yêu cầu chỉnh sửa bài viết đã duyệt' });
-    }
+//     if (article.status !== 'approved') {
+//       await transaction.rollback();
+//       return res.status(400).json({ success: false, message: 'Chỉ có thể yêu cầu chỉnh sửa bài viết đã duyệt' });
+//     }
 
-    const prevStatus = article.status;
+//     const prevStatus = article.status;
 
-    await article.update({
-      status: 'request_edit',
-      edit_request_reason: reason
-    }, { transaction });
+//     await article.update({
+//       status: 'request_edit',
+//       edit_request_reason: reason
+//     }, { transaction });
 
-    await createReviewHistory(
-      article.id,
-      req.user.id,
-      req.user.id,
-      'request_edit',
-      reason,
-      prevStatus,
-      'request_edit',
-      null,
-      transaction
-    );
+//     await createReviewHistory(
+//       article.id,
+//       req.user.id,
+//       req.user.id,
+//       'request_edit',
+//       reason,
+//       prevStatus,
+//       'request_edit',
+//       null,
+//       transaction
+//     );
 
-    await transaction.commit();
+//     await transaction.commit();
 
-    await notifyAllAdmins(
-      'article',
-      `${req.user.full_name} yêu cầu chỉnh sửa bài viết "${article.title}". Lý do: ${reason}`,
-      `/articles/review/${id}`
-    );
+//     await notifyAllAdmins(
+//       'article',
+//       `${req.user.full_name} yêu cầu chỉnh sửa bài viết "${article.title}". Lý do: ${reason}`,
+//       `/phe-duyet-bai-viet/${id}`
+//     );
 
-    res.json({ success: true, message: 'Yêu cầu chỉnh sửa đã được gửi' });
-  } catch (error) {
-    await transaction.rollback();
-    console.error('Error requesting edit:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+//     res.json({ success: true, message: 'Yêu cầu chỉnh sửa đã được gửi' });
+//   } catch (error) {
+//     await transaction.rollback();
+//     console.error('Error requesting edit:', error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 
-/**
- * POST /api/articles/:id/respond-edit
- * Admin phản hồi yêu cầu chỉnh sửa (Admin only)
- * Body: { allow: boolean, reason?: string }
- */
-exports.respondToEditRequest = async (req, res) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const { id } = req.params;
-    const { allow, reason } = req.body;
+// /**
+//  * POST /api/articles/:id/respond-edit
+//  * Admin phản hồi yêu cầu chỉnh sửa (Admin only)
+//  * Body: { allow: boolean, reason?: string }
+//  */
+// exports.respondToEditRequest = async (req, res) => {
+//   const transaction = await sequelize.transaction();
+//   try {
+//     const { id } = req.params;
+//     const { allow, reason } = req.body;
 
-    const article = await Article.findByPk(id, { transaction });
-    if (!article) {
-      await transaction.rollback();
-      return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
-    }
+//     const article = await Article.findByPk(id, { transaction });
+//     if (!article) {
+//       await transaction.rollback();
+//       return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
+//     }
 
-    const prevStatus = article.status;
-    const newStatus = allow ? 'request_rewrite' : 'approved';
+//     const prevStatus = article.status;
+//     const newStatus = allow ? 'request_rewrite' : 'approved';
 
-    await article.update({ 
-      status: newStatus,
-      edit_request_reason: null
-    }, { transaction });
+//     await article.update({ 
+//       status: newStatus,
+//       edit_request_reason: null
+//     }, { transaction });
 
-    await createReviewHistory(
-      article.id,
-      req.user.id,
-      article.author_id,
-      allow ? 'allow_edit' : 'deny_edit',
-      reason,
-      prevStatus,
-      newStatus,
-      null,
-      transaction
-    );
+//     await createReviewHistory(
+//       article.id,
+//       req.user.id,
+//       article.author_id,
+//       allow ? 'allow_edit' : 'deny_edit',
+//       reason,
+//       prevStatus,
+//       newStatus,
+//       null,
+//       transaction
+//     );
 
-    await transaction.commit();
+//     await transaction.commit();
 
-    await createNotification(
-      article.author_id,
-      'article',
-      `Admin đã ${allow ? 'cho phép' : 'từ chối'} yêu cầu chỉnh sửa bài viết "${article.title}". ${reason ? `Lý do: ${reason}` : ''}`,
-      `/articles/review/${id}`
-    );
+//     await createNotification(
+//       article.author_id,
+//       'article',
+//       `Admin đã ${allow ? 'cho phép' : 'từ chối'} yêu cầu chỉnh sửa bài viết "${article.title}". ${reason ? `Lý do: ${reason}` : ''}`,
+//       `/phe-duyet-bai-viet/${id}`
+//     );
 
-    res.json({ 
-      success: true, 
-      message: allow ? 'Đã cho phép chỉnh sửa' : 'Đã từ chối yêu cầu',
-      article 
-    });
-  } catch (error) {
-    await transaction.rollback();
-    console.error('Error responding to edit request:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+//     res.json({ 
+//       success: true, 
+//       message: allow ? 'Đã cho phép chỉnh sửa' : 'Đã từ chối yêu cầu',
+//       article 
+//     });
+//   } catch (error) {
+//     await transaction.rollback();
+//     console.error('Error responding to edit request:', error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 
 /**
  * POST /api/articles/:id/resubmit
@@ -1466,7 +1468,7 @@ exports.resubmitArticle = async (req, res) => {
     await notifyAllAdmins(
       'article',
       `${req.user.full_name} đã gửi lại bài viết "${article.title}" sau khi chỉnh sửa.`,
-      `/articles/review/${id}`
+      `/phe-duyet-bai-viet/${id}`
     );
 
     res.json({ success: true, message: 'Đã gửi lại bài viết để phê duyệt' });
@@ -1794,7 +1796,7 @@ exports.addCommentToArticle = async (req, res) => {
       await notifyAllAdmins(
         'article',
         `${req.user.full_name} đã comment trong bài viết "${article.title}"`,
-        `/articles/review/${id}`
+        `/phe-duyet-bai-viet/${id}`
       );
     }
 

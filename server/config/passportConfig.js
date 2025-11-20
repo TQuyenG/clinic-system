@@ -1,5 +1,5 @@
 // server/config/passportConfig.js
-// ✅ PASSPORT OAUTH CONFIGURATION - GOOGLE + FACEBOOK ONLY
+//  PASSPORT OAUTH CONFIGURATION - GOOGLE + FACEBOOK ONLY
 
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
@@ -26,18 +26,18 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        console.log('🔵 [Google OAuth] Profile ID:', profile.id);
-        console.log('🔵 [Google OAuth] Email:', profile.emails?.[0]?.value);
+        console.log(' [Google OAuth] Profile ID:', profile.id);
+        console.log(' [Google OAuth] Email:', profile.emails?.[0]?.value);
 
         const email = profile.emails?.[0]?.value;
         if (!email) {
-          console.error('❌ [Google OAuth] Email không được cung cấp');
+          console.error(' [Google OAuth] Email không được cung cấp');
           return done(new Error('Email không được cung cấp bởi Google'), null);
         }
 
         const googleId = profile.id;
 
-        // 🔍 Tìm user theo email
+        //  Tìm user theo email
         let user = await models.User.findOne({ 
           where: { email },
           include: [
@@ -47,8 +47,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         });
 
         if (user) {
-          // ✅ User đã tồn tại - cập nhật google_id nếu chưa có
-          console.log('✅ [Google OAuth] User đã tồn tại:', email);
+          //  User đã tồn tại - cập nhật google_id nếu chưa có
+          console.log(' [Google OAuth] User đã tồn tại:', email);
           
           if (!user.google_id) {
             user.google_id = googleId;
@@ -57,7 +57,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             user.is_active = true;
             user.last_login = new Date();
             await user.save();
-            console.log('✅ [Google OAuth] Đã cập nhật google_id cho user');
+            console.log(' [Google OAuth] Đã cập nhật google_id cho user');
           } else {
             // Chỉ update last_login
             user.last_login = new Date();
@@ -67,8 +67,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           return done(null, user);
         }
 
-        // ✅ User chưa tồn tại - Tạo mới
-        console.log('📝 [Google OAuth] Tạo user mới:', email);
+        //  User chưa tồn tại - Tạo mới
+        console.log(' [Google OAuth] Tạo user mới:', email);
 
         // Tạo random password (user không cần biết)
         const randomPassword = crypto.randomBytes(32).toString('hex');
@@ -83,23 +83,23 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           role: 'patient',  // Mặc định là patient
           google_id: googleId,
           oauth_provider: 'google',
-          is_verified: true,  // ⭐ OAuth đã verify email
-          is_active: true,    // ⭐ Kích hoạt luôn
+          is_verified: true,  //  OAuth đã verify email
+          is_active: true,    //  Kích hoạt luôn
           last_login: new Date()
         });
 
-        console.log('✅ [Google OAuth] Tạo user mới thành công:', email);
+        console.log(' [Google OAuth] Tạo user mới thành công:', email);
         return done(null, user);
 
       } catch (error) {
-        console.error('❌ [Google OAuth] Lỗi:', error);
+        console.error(' [Google OAuth] Lỗi:', error);
         return done(error, null);
       }
     }
   ));
-  console.log('✅ Google OAuth Strategy initialized');
+  console.log(' Google OAuth Strategy initialized');
 } else {
-  console.log('⚠️  Google OAuth KHÔNG được cấu hình (thiếu CLIENT_ID hoặc CLIENT_SECRET)');
+  console.log('  Google OAuth KHÔNG được cấu hình (thiếu CLIENT_ID hoặc CLIENT_SECRET)');
 }
 
 // ============================================
@@ -114,18 +114,18 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        console.log('🔵 [Facebook OAuth] Profile ID:', profile.id);
-        console.log('🔵 [Facebook OAuth] Emails:', profile.emails);
+        console.log(' [Facebook OAuth] Profile ID:', profile.id);
+        console.log(' [Facebook OAuth] Emails:', profile.emails);
 
         const email = profile.emails?.[0]?.value;
         if (!email) {
-          console.error('❌ [Facebook OAuth] Email không được cung cấp');
+          console.error(' [Facebook OAuth] Email không được cung cấp');
           return done(new Error('Email không được cung cấp bởi Facebook'), null);
         }
 
         const facebookId = profile.id;
 
-        // 🔍 Tìm user theo email
+        //  Tìm user theo email
         let user = await models.User.findOne({ 
           where: { email },
           include: [
@@ -135,8 +135,8 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
         });
 
         if (user) {
-          // ✅ User đã tồn tại
-          console.log('✅ [Facebook OAuth] User đã tồn tại:', email);
+          //  User đã tồn tại
+          console.log(' [Facebook OAuth] User đã tồn tại:', email);
           
           if (!user.facebook_id) {
             user.facebook_id = facebookId;
@@ -145,7 +145,7 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
             user.is_active = true;
             user.last_login = new Date();
             await user.save();
-            console.log('✅ [Facebook OAuth] Đã cập nhật facebook_id cho user');
+            console.log(' [Facebook OAuth] Đã cập nhật facebook_id cho user');
           } else {
             user.last_login = new Date();
             await user.save();
@@ -154,8 +154,8 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
           return done(null, user);
         }
 
-        // ✅ User chưa tồn tại - Tạo mới
-        console.log('📝 [Facebook OAuth] Tạo user mới:', email);
+        //  User chưa tồn tại - Tạo mới
+        console.log(' [Facebook OAuth] Tạo user mới:', email);
 
         const randomPassword = crypto.randomBytes(32).toString('hex');
         const hashedPassword = await bcrypt.hash(randomPassword, 10);
@@ -169,23 +169,23 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
           role: 'patient',
           facebook_id: facebookId,
           oauth_provider: 'facebook',
-          is_verified: true,  // ⭐ OAuth đã verify
-          is_active: true,    // ⭐ Kích hoạt luôn
+          is_verified: true,  //  OAuth đã verify
+          is_active: true,    //  Kích hoạt luôn
           last_login: new Date()
         });
 
-        console.log('✅ [Facebook OAuth] Tạo user mới thành công:', email);
+        console.log(' [Facebook OAuth] Tạo user mới thành công:', email);
         return done(null, user);
 
       } catch (error) {
-        console.error('❌ [Facebook OAuth] Lỗi:', error);
+        console.error(' [Facebook OAuth] Lỗi:', error);
         return done(error, null);
       }
     }
   ));
-  console.log('✅ Facebook OAuth Strategy initialized');
+  console.log(' Facebook OAuth Strategy initialized');
 } else {
-  console.log('⚠️  Facebook OAuth KHÔNG được cấu hình (thiếu APP_ID hoặc APP_SECRET)');
+  console.log('  Facebook OAuth KHÔNG được cấu hình (thiếu APP_ID hoặc APP_SECRET)');
 }
 
 // ============================================
@@ -204,6 +204,6 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-console.log('✅ Passport configuration completed');
+console.log(' Passport configuration completed');
 
 module.exports = passport;
