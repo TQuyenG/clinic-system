@@ -652,10 +652,7 @@ exports.suggestTags = async (req, res) => {
 /**
  * POST /api/articles
  * Tạo bài viết mới
- * Params: 
- * - saveAsDraft: true = lưu nháp, false = gửi phê duyệt
  */
-// Hàm createArticle đã sửa (đồng bộ logic lưu nháp)
 exports.createArticle = async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -682,7 +679,7 @@ exports.createArticle = async (req, res) => {
 
   const slug = slugify(title, { lower: true, strict: true });
 
-  const { isAdminDirectPublish } = req.body; // ← THÊM
+  const { isAdminDirectPublish } = req.body;
 
   // Xác định status dựa trên isDraft và isAdminDirectPublish
   let articleStatus = 'draft';
@@ -714,7 +711,9 @@ exports.createArticle = async (req, res) => {
       side_effects,
       image_url,
       manufacturer,
-      description
+      description,
+      // ✅ THÊM category_id
+      category_id: category_id 
     }, { transaction: t });
     await newArticle.update({ entity_type: 'medicine', entity_id: entity.id }, { transaction: t });
   } else if (category.category_type === 'benh_ly') {
@@ -723,7 +722,9 @@ exports.createArticle = async (req, res) => {
       symptoms,
       treatments,
       description,
-      image_url
+      image_url,
+      // ✅ THÊM category_id
+      category_id: category_id 
     }, { transaction: t });
     await newArticle.update({ entity_type: 'disease', entity_id: entity.id }, { transaction: t });
   }
@@ -787,10 +788,6 @@ exports.createArticle = async (req, res) => {
 /**
  * PUT /api/articles/:id
  * Cập nhật bài viết
- * Quyền: 
- * - Admin: Được sửa mọi lúc
- * - Staff/Doctor: Được sửa bài của mình mọi lúc. 
- * - Logic mới: Khi tác giả sửa bài không phải draft, status sẽ chuyển về 'pending'.
  */
 exports.updateArticle = async (req, res) => {
   const t = await sequelize.transaction();
@@ -826,7 +823,6 @@ exports.updateArticle = async (req, res) => {
     }
 
     // === LOGIC MỚI: BỎ CHECK TRẠNG THÁI CHO TÁC GIẢ ===
-    // (Không cần đoạn if (req.user.role !== 'admin') { ... allowedStatuses ... })
 
     const previousStatus = article.status;
     let newStatus = previousStatus;
@@ -853,7 +849,9 @@ exports.updateArticle = async (req, res) => {
       }
       if (!medicine) {
         medicine = await Medicine.create({
-          name: name || title
+          name: name || title,
+          // ✅ THÊM category_id
+          category_id: category_id 
         }, { transaction: t });
         await updatedArticle.update({ entity_type: 'medicine', entity_id: medicine.id }, { transaction: t });
       }
@@ -864,7 +862,9 @@ exports.updateArticle = async (req, res) => {
         side_effects,
         image_url,
         manufacturer,
-        description
+        description,
+        // ✅ CẬP NHẬT category_id
+        category_id: category_id 
       }, { transaction: t });
     } else if (categoryType === 'benh_ly') {
       let disease = article.disease;
@@ -873,7 +873,9 @@ exports.updateArticle = async (req, res) => {
       }
       if (!disease) {
         disease = await Disease.create({
-          name: name || title
+          name: name || title,
+          // ✅ THÊM category_id
+          category_id: category_id 
         }, { transaction: t });
         await updatedArticle.update({ entity_type: 'disease', entity_id: disease.id }, { transaction: t });
       }
@@ -882,7 +884,9 @@ exports.updateArticle = async (req, res) => {
         symptoms,
         treatments,
         description,
-        image_url
+        image_url,
+        // ✅ CẬP NHẬT category_id
+        category_id: category_id 
       }, { transaction: t });
     } else {
       await updatedArticle.update({ entity_type: 'article', entity_id: null }, { transaction: t });
@@ -895,16 +899,11 @@ exports.updateArticle = async (req, res) => {
       // 1. LƯU NHÁP (isDraft = true)
       
       if (req.user.role === 'admin') {
-        // Admin: Lưu nháp (draft) hoặc giữ nguyên status nếu không phải draft
         newStatus = previousStatus === 'draft' ? 'draft' : previousStatus;
       } else {
-        // Tác giả: 
         if (['draft', 'rejected', 'request_rewrite'].includes(previousStatus)) {
-          // Chỉ chuyển về draft khi từ các trạng thái có thể edit an toàn
           newStatus = 'draft'; 
         } else {
-          // Giữ nguyên trạng thái (approved/pending/hidden) để không mất trạng thái 
-          // cho đến khi tác giả gửi lại (isDraft=false)
           newStatus = previousStatus;
         }
       }
@@ -914,7 +913,6 @@ exports.updateArticle = async (req, res) => {
     } else { // 2. GỬI PHÊ DUYỆT (isDraft = false)
       
       if (isAdminDirectPublish && req.user.role === 'admin') {
-        // Admin: Cập nhật và đăng trực tiếp
         newStatus = 'approved';
         action = 'approve';
 
@@ -930,11 +928,7 @@ exports.updateArticle = async (req, res) => {
           t
         );
       } else {
-        // Tác giả gửi phê duyệt, hoặc Admin gửi cho admin khác duyệt
-        // Trạng thái mới luôn là 'pending'
         newStatus = 'pending';
-        
-        // Action: submit (nếu từ draft) hoặc resubmit (nếu từ trạng thái khác)
         action = previousStatus === 'draft' ? 'submit' : 'resubmit'; 
         
         updatedArticle.status = newStatus;
