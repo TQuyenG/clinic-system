@@ -93,6 +93,7 @@ const AppointmentBookingPage = () => {
   const getNextThreeDays = () => {
     const days = [];
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset về đầu ngày để so sánh chính xác
     for (let i = 0; i < 3; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
@@ -195,12 +196,15 @@ const AppointmentBookingPage = () => {
         return;
       }
       
-      // Kiểm tra ngày hợp lệ (Backend đã làm, nhưng frontend làm thêm cho chắc)
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate()); // Cho phép đặt ngày hôm nay
-      tomorrow.setHours(0, 0, 0, 0);
-      if (new Date(formData.date) < tomorrow) {
+      // Kiểm tra ngày hợp lệ - không cho phép chọn ngày quá khứ
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selectedDate = new Date(formData.date);
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < today) {
         setAvailableSlots({ morning: [], afternoon: [], evening: [] });
+        toast.error('Không thể chọn ngày trong quá khứ. Vui lòng chọn ngày hôm nay hoặc sau đó.');
         return;
       }
 
@@ -217,7 +221,7 @@ const AppointmentBookingPage = () => {
         if (response.data.success) {
           const grouped = response.data.data.grouped || { morning: [], afternoon: [], evening: [] };
           
-          // MỚI: Lọc bổ sung các slot đã qua giờ ở frontend
+          // Lọc các slot đã qua giờ ở frontend - CHỈ hiển thị giờ hiện tại và tương lai
           const now = new Date();
           const isToday = (formData.date === formatDateISO(now));
           
@@ -227,7 +231,8 @@ const AppointmentBookingPage = () => {
                 return slots.map(slot => {
                   const [slotHour, slotMin] = slot.time.split(':').map(Number);
                   const slotMinutes = slotHour * 60 + slotMin;
-                  if (slotMinutes < currentMinutes && slot.status === 'available') {
+                  // Đánh dấu slot đã qua giờ là không khả dụng
+                  if (slotMinutes <= currentMinutes && slot.status === 'available') {
                      return { ...slot, status: 'unavailable', reason: 'Đã qua giờ' };
                   }
                   return slot;
@@ -302,16 +307,18 @@ const AppointmentBookingPage = () => {
   };
 
   const handleTimeSelect = (timeSlot) => {
-    // Backend đã lọc (isToday && slotStart < currentMinutes)
-    // Frontend lọc lại lần nữa để đảm bảo
+    // Kiểm tra chặt chẽ - CHỈ cho phép chọn thời gian hiện tại và tương lai
     const now = new Date();
     const isToday = (formData.date === formatDateISO(now));
+    
     if (isToday) {
        const currentMinutes = now.getHours() * 60 + now.getMinutes();
        const [slotHour, slotMin] = timeSlot.time.split(':').map(Number);
        const slotMinutes = slotHour * 60 + slotMin;
-       if (slotMinutes < currentMinutes) {
-          toast.warn('Đã qua giờ. Vui lòng chọn giờ khác.');
+       
+       // Không cho phép chọn giờ đã qua hoặc đang qua
+       if (slotMinutes <= currentMinutes) {
+          toast.warn('Không thể chọn giờ trong quá khứ. Vui lòng chọn giờ sau.');
           return;
        }
     }
