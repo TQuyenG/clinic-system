@@ -2037,7 +2037,7 @@ const handleRejectArticle = async (article) => {
                     {/* CỘT THÀNH PHẦN (Thuốc) */}
                     {visibleColumns.composition && (
                       <td className="col-scrollable">
-                        {article.medicine?.composition ? (
+                        {article.entity_type === 'medicine' && article.medicine?.composition ? (
                           <span title={article.medicine.composition}>
                             {article.medicine.composition.substring(0, 50)}...
                           </span>
@@ -2048,7 +2048,7 @@ const handleRejectArticle = async (article) => {
                     {/* CỘT CÔNG DỤNG (Thuốc) */}
                     {visibleColumns.uses && (
                       <td className="col-scrollable">
-                        {article.medicine?.uses ? (
+                        {article.entity_type === 'medicine' && article.medicine?.uses ? (
                           <span title={article.medicine.uses}>
                             {article.medicine.uses.substring(0, 50)}...
                           </span>
@@ -2059,14 +2059,14 @@ const handleRejectArticle = async (article) => {
                     {/* CỘT NHÀ SẢN XUẤT (Thuốc) */}
                     {visibleColumns.manufacturer && (
                       <td className="col-scrollable">
-                        {article.medicine?.manufacturer || '-'}
+                        {article.entity_type === 'medicine' ? article.medicine?.manufacturer || '-' : '-'}
                       </td>
                     )}
                     
                     {/* CỘT TRIỆU CHỨNG (Bệnh lý) */}
                     {visibleColumns.symptoms && (
                       <td className="col-scrollable">
-                        {article.disease?.symptoms ? (
+                        {article.entity_type === 'disease' && article.disease?.symptoms ? (
                           <span title={article.disease.symptoms}>
                             {article.disease.symptoms.substring(0, 50)}...
                           </span>
@@ -2077,7 +2077,7 @@ const handleRejectArticle = async (article) => {
                     {/* CỘT ĐIỀU TRỊ (Bệnh lý) */}
                     {visibleColumns.treatments && (
                       <td className="col-scrollable">
-                        {article.disease?.treatments ? (
+                        {article.entity_type === 'disease' && article.disease?.treatments ? (
                           <span title={article.disease.treatments}>
                             {article.disease.treatments.substring(0, 50)}...
                           </span>

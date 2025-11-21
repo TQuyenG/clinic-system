@@ -558,11 +558,12 @@
   box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
 }
 
+/* Trong phần TABLE - FIXED COLUMNS WITH SCROLLABLE MIDDLE */
 .col-actions {
   right: 0;
-  width: 140px;
-  min-width: 180px;
-  max-width: 180px;
+  width: 150px;       /* Đã điều chỉnh */
+  min-width: 150px;   /* Đã điều chỉnh */
+  max-width: 150px;   /* Đã điều chỉnh */
   box-shadow: -4px 0 8px rgba(0, 0, 0, 0.05);
 }
 
@@ -708,13 +709,13 @@
   color: var(--primary-dark);
 }
 
-/* Action buttons - MÀU SẮC RIÊNG */
+/* Trong phần Action buttons - MÀU SẮC RIÊNG */
 .action-buttons {
   display: flex;
   gap: 0.375rem;
   flex-wrap: wrap;
   justify-content: flex-end;
-  max-width: 180px;
+  max-width: 140px; /* Đã điều chỉnh từ 180px xuống 140px */
 }
 
 .article-mgmt-btn-action {
@@ -2177,9 +2178,9 @@
   }
 
   .col-actions {
-    width: 150px;
-    min-width: 150px;
-    max-width: 150px;
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
   }
 }
 
@@ -2254,11 +2255,15 @@
   }
 
   .action-buttons {
-    flex-direction: column;
+    flex-direction: row; 
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 120px;
   }
 
   .article-mgmt-btn-action {
-    width: 100%;
+    width: 28px; /* Thu nhỏ hơn trên mobile */
+    height: 28px;
   }
 
   .article-mgmt-form-overlay {
