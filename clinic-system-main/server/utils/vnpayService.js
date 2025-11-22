@@ -4,6 +4,7 @@
 const crypto = require('crypto');
 const querystring = require('qs');
 const moment = require('moment');
+const https = require('https');
 
 class VNPayService {
   constructor() {
@@ -189,11 +190,15 @@ class VNPayService {
    * @param {Object} data - Transaction data
    * @returns {Object} - Transaction status
    */
+  /**
+   * Gửi yêu cầu truy vấn trạng thái giao dịch lên VNPay
+   * Dùng cho Admin đối soát
+   */
   async queryTransaction(data) {
     try {
       const {
         orderId,
-        transactionDate,
+        transactionDate, // Format: YYYYMMDDHHmmss (Lấy từ payment.created_at)
         ipAddr = '127.0.0.1'
       } = data;
 
@@ -204,29 +209,88 @@ class VNPayService {
         vnp_Command: 'querydr',
         vnp_TmnCode: this.tmnCode,
         vnp_TxnRef: orderId,
-        vnp_OrderInfo: `Truy vấn giao dịch ${orderId}`,
-        vnp_TransactionDate: transactionDate,
+        vnp_OrderInfo: `Truy van giao dich ${orderId}`,
+        vnp_TransactionDate: transactionDate, 
         vnp_CreateDate: createDate,
         vnp_IpAddr: ipAddr
       };
 
+      // Sort và tạo checksum
       vnpParams = this.sortObject(vnpParams);
       const signData = querystring.stringify(vnpParams, { encode: false });
       const hmac = crypto.createHmac('sha512', this.hashSecret);
       const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
       vnpParams['vnp_SecureHash'] = signed;
 
-      console.log('✅ VNPay query transaction:', orderId);
+      const queryUrl = 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction'; // URL API Truy vấn (Sandbox)
       
-      return {
-        success: true,
-        data: vnpParams
-      };
+      console.log('⏳ Sending Query request to VNPay:', orderId);
+
+      // Gọi hàm gửi request (được định nghĩa bên dưới)
+      const response = await this.sendRequest(queryUrl, vnpParams);
+      
+      console.log('✅ VNPay Query Response:', response);
+
+      if (response.vnp_ResponseCode === '00') {
+        return {
+            success: true,
+            isPaid: response.vnp_TransactionStatus === '00', // 00: Đã thanh toán
+            message: this.getResponseMessage(response.vnp_ResponseCode),
+            data: response
+        };
+      } else {
+          return {
+              success: false,
+              message: this.getResponseMessage(response.vnp_ResponseCode) || 'Lỗi truy vấn',
+              data: response
+          };
+      }
 
     } catch (error) {
       console.error('❌ Error querying VNPay transaction:', error);
-      throw error;
+      return { success: false, message: error.message };
     }
+  }
+
+  /**
+   * Helper: Gửi POST Request bằng https native (không cần cài axios)
+   */
+  sendRequest(urlStr, data) {
+    return new Promise((resolve, reject) => {
+        const url = new URL(urlStr);
+        const postData = JSON.stringify(data);
+
+        const options = {
+            hostname: url.hostname,
+            port: 443,
+            path: url.pathname,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let responseBody = '';
+            res.setEncoding('utf8');
+            res.on('data', (chunk) => { responseBody += chunk; });
+            res.on('end', () => {
+                try {
+                    resolve(JSON.parse(responseBody));
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+
+        req.on('error', (e) => {
+            reject(e);
+        });
+
+        req.write(postData);
+        req.end();
+    });
   }
 
   /**

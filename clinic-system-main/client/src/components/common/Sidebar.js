@@ -27,7 +27,9 @@ import {
   FaComments,
   FaVideo,
   FaClock,
-  FaChartLine
+  FaChartLine,
+  FaMoneyBillWave, // <--- THÊM MỚI
+  FaCreditCard     // <--- THÊM MỚI
 } from 'react-icons/fa';
 import './Sidebar.css';
 
@@ -40,6 +42,7 @@ const Sidebar = ({ onToggle }) => {
   // Dropdown states
   const [isServiceMenuOpen, setServiceMenuOpen] = useState(false);
   const [isConsultationMenuOpen, setConsultationMenuOpen] = useState(false);
+  const [isPaymentMenuOpen, setPaymentMenuOpen] = useState(false); // <--- THÊM MỚI
   
   const location = useLocation();
 
@@ -92,6 +95,11 @@ const Sidebar = ({ onToggle }) => {
     if (location.pathname.startsWith('/quan-ly-dich-vu') || location.pathname.startsWith('/quan-ly-danh-muc-dich-vu')) {
       setServiceMenuOpen(true);
     }
+    // --- THÊM MỚI TỪ ĐÂY ---
+    if (location.pathname.startsWith('/quan-ly-thanh-toan')) {
+      setPaymentMenuOpen(true);
+    }
+    // --- KẾT THÚC THÊM MỚI ---
   }, [location.pathname]);
 
   const toggleSidebar = () => {
@@ -388,10 +396,54 @@ const Sidebar = ({ onToggle }) => {
                       >
                         <span>•</span> Cấu hình hệ thống
                       </Link>
+
+                      
                     </div>
                   )}
                 </div>
               )}
+
+              {/* --- THÊM MỚI: Dropdown Quản lý Thanh toán (ADMIN) --- */}
+              {!collapsed && (
+                <div className="sidebar-menu-group">
+                  <button
+                    className={`menu-group-toggle ${isPaymentMenuOpen ? 'open' : ''}`}
+                    onClick={() => setPaymentMenuOpen(!isPaymentMenuOpen)}
+                  >
+                    <div className="menu-group-title">
+                      <FaMoneyBillWave />
+                      <span>Quản lý Tài chính</span>
+                    </div>
+                    <FaChevronDown className={`chevron-icon ${isPaymentMenuOpen ? 'rotated' : ''}`} />
+                  </button>
+                  {isPaymentMenuOpen && (
+                    <div className="submenu">
+                      <Link
+                        to="/quan-ly-thanh-toan/giao-dich"
+                        className={location.pathname === '/quan-ly-thanh-toan/giao-dich' ? 'active' : ''}
+                        onClick={closeSidebar}
+                      >
+                        <span>•</span> Giao dịch & Đối soát
+                      </Link>
+                      <Link
+                        to="/thong-ke" // Link này đã có sẵn route Thống kê
+                        className={location.pathname === '/thong-ke' ? 'active' : ''}
+                        onClick={closeSidebar}
+                      >
+                        <span>•</span> Thống kê Doanh thu
+                      </Link>
+                      <Link
+                        to="/quan-ly-thanh-toan/cau-hinh"
+                        className={location.pathname === '/quan-ly-thanh-toan/cau-hinh' ? 'active' : ''}
+                        onClick={closeSidebar}
+                      >
+                        <span>•</span> Cấu hình Tài khoản
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* --- KẾT THÚC PHẦN THÊM MỚI --- */}
               
               <Link 
                 to="/quan-ly-dien-dan" 

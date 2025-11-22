@@ -1,47 +1,90 @@
-// client/src/services/paymentService.js - HOÀN CHỈNH
+// client/src/services/paymentService.js
 import api from './api';
 
 const paymentService = {
-  /**
-   * Tạo thanh toán mới
-   */
+  // ========== PHẦN USER (GIỮ NGUYÊN) ==========
+  
   createPayment: (data) => {
     return api.post('/payments', data);
   },
 
-  /**
-   * Lấy thanh toán của lịch hẹn
-   */
+  createConsultationPayment: (data) => {
+    return api.post('/payments/consultation', data);
+  },
+
   getPaymentByAppointment: (appointmentId) => {
     return api.get(`/payments/appointment/${appointmentId}`);
   },
 
-  /**
-   * Lấy danh sách thanh toán của tôi
-   */
   getMyPayments: () => {
     return api.get('/payments/my-payments');
   },
 
+  requestRefund: (data) => {
+    return api.post('/payments/refund', data);
+  },
+
+  // ========== PHẦN ADMIN & STAFF (CẬP NHẬT MỚI) ==========
+
   /**
-   * Admin/Staff: Lấy tất cả thanh toán
+   * Lấy danh sách tất cả thanh toán (có lọc)
    */
   getAllPayments: (params = {}) => {
     return api.get('/payments/all', { params });
   },
 
   /**
-   * Admin/Staff: Xác nhận thanh toán
+   * Xác nhận thanh toán (khi khách trả tiền mặt/chuyển khoản)
    */
   confirmPayment: (id, transactionId) => {
     return api.put(`/payments/${id}/confirm`, { transaction_id: transactionId });
   },
 
   /**
-   * Admin/Staff: Từ chối thanh toán
+   * Từ chối thanh toán
    */
   rejectPayment: (id, reason) => {
     return api.put(`/payments/${id}/reject`, { reason });
+  },
+
+  // --- CÁC HÀM MỚI DÀNH CHO QUẢN TRỊ HỆ THỐNG ---
+
+  /**
+   * Lấy cấu hình thanh toán (Bank info, VNPay Keys)
+   */
+  getPaymentConfig: () => {
+    return api.get('/payments/config');
+  },
+
+  /**
+   * Cập nhật cấu hình thanh toán
+   */
+  updatePaymentConfig: (data) => {
+    return api.put('/payments/config', data);
+  },
+
+  /**
+   * Đối soát: Gọi sang VNPay kiểm tra trạng thái thực tế
+   */
+  checkTransactionStatus: (id) => {
+    return api.get(`/payments/${id}/check-status`);
+  },
+
+  /**
+   * Duyệt thủ công (Dùng cho chuyển khoản ngân hàng)
+   * @param {string} id - Payment ID
+   * @param {object} data - { status: 'paid'|'failed', admin_note, provider_ref }
+   */
+  verifyManualPayment: (id, data) => {
+    return api.put(`/payments/${id}/verify-manual`, data);
+  },
+
+  /**
+   * Lấy dữ liệu thống kê doanh thu
+   * @param {object} params - { type: 'monthly', year: 2025 }
+   */
+  getRevenueStatistics: (params) => {
+    return api.get('/payments/statistics/revenue', { params });
   }
 };
 

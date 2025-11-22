@@ -29,6 +29,11 @@ const appointmentService = {
     return api.get(`/appointments/${code}`);
   },
 
+  // 👇👇👇 THÊM ĐOẠN NÀY VÀO 👇👇👇
+  getAppointmentById: (id) => {
+    return api.get(`/appointments/${id}`);
+  },
+
   /**
    * Cập nhật lịch hẹn (Hàm này có thể không được dùng, nhưng giữ lại)
    */

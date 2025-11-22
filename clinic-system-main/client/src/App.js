@@ -60,6 +60,8 @@ import MyMedicalRecordsPage from './pages/MyMedicalRecordsPage';
 
 // Payment
 import PaymentPage from './pages/PaymentPage';
+import PaymentManagementPage from './pages/PaymentManagementPage';
+import PaymentSettingsPage from './pages/PaymentSettingsPage'; // Import cái đã tạo ở bước trước
 
 // Consultation (Tư vấn)
 import ConsultationHomePage from './pages/ConsultationHomePage';
@@ -261,6 +263,12 @@ function App() {
             {/* THÊM: Route cho Quản lý gói dịch vụ */}
             <Route path="/admin/tu-van/packages" element={<ProtectedRoute requiredRole="admin"><ConsultationPackageManagementPage /></ProtectedRoute>} />
             <Route path="/tu-van/chatbot" element={<ProtectedRoute requiredRole={['patient', 'doctor', 'admin']}><ConsultationSystemManagementPage /></ProtectedRoute>} />
+
+            {/* --- QUẢN LÝ THANH TOÁN --- */}
+            <Route path="/quan-ly-thanh-toan/giao-dich" element={<ProtectedRoute requiredRole={['admin', 'staff']}><PaymentManagementPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-thanh-toan/cau-hinh" element={<ProtectedRoute requiredRole="admin"><PaymentSettingsPage /></ProtectedRoute>} />
+
+            <Route path="/quan-ly-thanh-toan/cau-hinh" element={<ProtectedRoute requiredRole="admin"><PaymentSettingsPage /></ProtectedRoute>} />
 
             {/* ========== 404 - NOT FOUND ========== */}
             <Route path="/404" element={<div style={{ textAlign: 'center', padding: '50px' }}><h1>404 - Không tìm thấy trang</h1><p>Trang bạn đang tìm kiếm không tồn tại</p><a href="/">Về trang chủ</a></div>} />

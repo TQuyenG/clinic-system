@@ -1,0 +1,13 @@
+/* client/src/pages/StatisticsPage.css */
+.statistic-card-total {
+    background: linear-gradient(45deg, #4e54c8, #8f94fb);
+}
+
+.statistic-card-today {
+    background: linear-gradient(45deg, #11998e, #38ef7d);
+}
+
+.statistics-container {
+    background-color: #f8f9fa;
+    min-height: 100vh;
+}

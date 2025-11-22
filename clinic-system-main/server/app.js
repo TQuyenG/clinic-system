@@ -71,6 +71,13 @@ app.use('/api/work-shifts', workShiftRoutes);
 app.use('/api/leave-requests', leaveRequestRoutes);
 app.use('/api/calendar', calendarRoutes); // Giữ lại từ file 2
 app.use('/api/staff', staffRoutes);
+// ✅ Log tất cả requests đến /api/payments
+app.use('/api/payments', (req, res, next) => {
+  console.log(`📨 [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  console.log('📦 Body:', JSON.stringify(req.body, null, 2));
+  next();
+});
+
 app.use('/api/payments', paymentRoutes);
 app.use('/api/settings', systemRoutes);
 app.use('/api/forum', forumRoutes);
@@ -582,22 +589,25 @@ async function startServer() {
         console.log('ℹ️ Database đã có dữ liệu, bỏ qua seed.');
       }
     } else {
-      console.log('Đang đồng bộ normal: Tạo bảng nếu chưa tồn tại...');
-      await sequelize.sync({ logging: console.log });
-      console.log('SUCCESS: Tất cả bảng đã được tạo hoặc đã tồn tại.');
+      console.log('🔄 Đang đồng bộ Database (Chế độ Tự động Cập nhật)...');
+      
+      // === QUAN TRỌNG: Sửa 'logging' thành 'alter: true' để tự động thêm cột thiếu ===
+      await sequelize.sync({ alter: true, logging: false }); 
+      // =============================================================================
 
-      const userCount = await models.User.count();
-      console.log(`Số lượng user hiện tại: ${userCount}`);
+      console.log('✅ SUCCESS: Cấu trúc bảng đã được cập nhật (đã thêm các cột còn thiếu).');
 
-      if (userCount === 0) {
-        console.log(' Database trống! Đang thêm dữ liệu mẫu...');
-        await seedData();
-        console.log('SUCCESS: Dữ liệu mẫu đã được thêm.');
-      } else {
-        console.log('ℹ️ Database đã có dữ liệu, bỏ qua seed.');
-      }
-    }
+      const userCount = await models.User.count();
+      console.log(`Số lượng user hiện tại: ${userCount}`);
 
+      if (userCount === 0) {
+        console.log('📦 Database trống! Đang thêm dữ liệu mẫu...');
+        await seedData();
+        console.log('✅ SUCCESS: Dữ liệu mẫu đã được thêm.');
+      } else {
+        console.log('ℹ️ Database đã có dữ liệu, bỏ qua bước seed.');
+      }
+    }
     server.listen(PORT, () => {
       console.log(`SUCCESS: Server đang chạy trên cổng ${PORT}`);
       

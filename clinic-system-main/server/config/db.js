@@ -4,6 +4,8 @@ const path = require('path');
 const mysql = require('mysql2/promise');
 const { Sequelize } = require('sequelize');
 const bcrypt = require('bcrypt');
+const { getDefaultSystemSettings } = require('./defaultSystemSettings');
+
 
 require('dotenv').config({ 
   path: path.join(__dirname, '../../.env') 
@@ -507,12 +509,6 @@ async function seedData() {
     ], { transaction });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng system_settings.');
 
-    // [ĐÃ XÓA] BƯỚC 12: ConsultationPricing
-    // [ĐÃ XÓA] BƯỚC 13: Consultations
-    // [ĐÃ XÓA] BƯỚC 14: ChatMessages
-    // [ĐÃ XÓA] BƯỚC 15: ConsultationFeedback
-    // [ĐÃ XÓA] BƯỚC 16: Notifications
-
     // ==================== BƯỚC 17: SystemSetting cho Consultation ====================
     console.log('17. Thêm SystemSetting cho Consultation...');
 
@@ -554,6 +550,25 @@ async function seedData() {
 
     console.log('SUCCESS: Thêm SystemSetting cho consultation.');
 
+    // ==================== BƯỚC 18: Seed SystemSettings cho các trang ====================
+    console.log('18. Seed SystemSettings cho các trang...');
+    
+    const defaultSettings = getDefaultSystemSettings();
+    
+    for (const setting of defaultSettings) {
+      await models.SystemSetting.create({
+        setting_key: setting.setting_key,
+        value_json: setting.value_json,
+        updated_by: admins[0].user_id,
+        created_at: new Date(),
+        updated_at: new Date()
+      }, { transaction });
+      
+      console.log('Seed setting: ${setting.setting_key}');
+    }
+    
+    console.log('SUCCESS: Đã seed 8 SystemSettings cho các trang.');
+
     await transaction.commit();
     console.log('SUCCESS: Transaction commit thành công. Dữ liệu đã được ghi vào DB.');
     
@@ -569,7 +584,7 @@ async function seedData() {
     console.log('   2 ArticleReviewHistory');
     console.log('   2 ArticleComments');
     console.log('   2 SystemSettings');
-    console.log('   1 SystemSetting (consultation config)');
+    console.log('   8 SystemSetting (consultation config)');
     
   } catch (error) {
     await transaction.rollback();
@@ -588,4 +603,4 @@ async function seedData() {
   }
 }
 
-module.exports = { sequelize, models, initializeDatabase, seedData };
+module.exports = { sequelize, models, initializeDatabase, seedData, getDefaultSystemSettings };

@@ -1,0 +1,77 @@
+/* client/src/pages/PaymentManagementPage.css */
+.payment-management-container {
+  padding: 20px;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.payment-filter-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.payment-table-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+/* Badge trạng thái */
+.badge-status {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.badge-status.paid {
+  background-color: #d1e7dd;
+  color: #0f5132;
+  border: 1px solid #badbcc;
+}
+
+.badge-status.pending {
+  background-color: #fff3cd;
+  color: #664d03;
+  border: 1px solid #ffecb5;
+}
+
+.badge-status.failed {
+  background-color: #f8d7da;
+  color: #842029;
+  border: 1px solid #f5c2c7;
+}
+
+.badge-status.refunded {
+  background-color: #e2e3e5;
+  color: #41464b;
+  border: 1px solid #d3d6d8;
+}
+
+/* Badge phương thức */
+.badge-method {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-method.vnpay { color: #005ba6; background: #e6f0f9; }
+.badge-method.momo { color: #a50064; background: #fbe6f2; }
+.badge-method.bank_transfer { color: #198754; background: #e8f5e9; }
+.badge-method.cash { color: #fd7e14; background: #fff4e6; }
+
+.btn-check-status {
+  background-color: #6f42c1;
+  color: white;
+  border: none;
+}
+.btn-check-status:hover {
+  background-color: #59359a;
+  color: white;
+}

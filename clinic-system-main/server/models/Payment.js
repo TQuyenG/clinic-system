@@ -1,4 +1,8 @@
-// server/models/Payment.js - FIXED EXPORT
+// server/models/Payment.js
+// PHIÊN BẢN CHUẨN HÓA:
+// 1. Cho phép appointment_id và consultation_id là NULL (để linh hoạt)
+// 2. Chuyển method sang STRING để tránh lỗi ENUM khi thêm phương thức mới
+
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -10,33 +14,40 @@ module.exports = (sequelize) => {
     },
     
     code: { 
-      type: DataTypes.STRING(20), 
+      type: DataTypes.STRING(50), 
       unique: true,
-      comment: 'Mã thanh toán: PY20241020-0001'
+      comment: 'Mã thanh toán'
     },
     
+    // ✅ CHO PHÉP NULL (Để thanh toán Tư vấn thì cái này null)
     appointment_id: { 
       type: DataTypes.BIGINT, 
-      allowNull: false,
-      comment: 'ID lịch hẹn'
+      allowNull: true, 
+      comment: 'ID lịch hẹn (nếu có)'
+    },
+
+    // ✅ CHO PHÉP NULL (Để thanh toán Lịch hẹn thì cái này null)
+    consultation_id: { 
+      type: DataTypes.BIGINT, 
+      allowNull: true, 
+      comment: 'ID buổi tư vấn (nếu có)'
     },
     
     user_id: { 
       type: DataTypes.BIGINT,
       allowNull: false,
-      comment: 'ID người thanh toán (patient)'
+      comment: 'ID người thanh toán'
     },
     
     amount: { 
-      type: DataTypes.DECIMAL(10, 2), 
+      type: DataTypes.DECIMAL(15, 2), 
       allowNull: false,
       comment: 'Số tiền thanh toán'
     },
     
     discount_id: { 
       type: DataTypes.BIGINT,
-      allowNull: true,
-      comment: 'ID mã giảm giá (nếu có)'
+      allowNull: true
     },
     
     status: { 
@@ -45,102 +56,77 @@ module.exports = (sequelize) => {
       comment: 'Trạng thái thanh toán'
     },
     
-    // ✅ FIX: THÊM 'cash' VÀ 'bank_transfer' VÀO ENUM
     method: { 
-      type: DataTypes.ENUM('cash', 'bank_transfer', 'momo', 'zalopay', 'vnpay', 'qr'), 
+      type: DataTypes.STRING(50), // Dùng String thay vì ENUM để linh hoạt hơn
       allowNull: false,
-      comment: 'Phương thức thanh toán'
+      comment: 'bank_transfer, cash, vnpay, momo...'
     },
     
     transaction_id: { 
       type: DataTypes.STRING(255),
       allowNull: true,
-      comment: 'Mã giao dịch từ cổng thanh toán'
+      comment: 'Mã giao dịch (SePay, VNPay...)'
+    },
+
+    provider_ref: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: 'Mã tham chiếu gốc (Nội dung CK)'
+    },
+
+    admin_note: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+
+    raw_response: {
+      type: DataTypes.TEXT,
+      allowNull: true
     },
     
     payment_info: {
       type: DataTypes.TEXT,
-      allowNull: true,
-      comment: 'Thông tin thanh toán dạng JSON string'
+      allowNull: true
     },
     
     proof_image_url: {
       type: DataTypes.TEXT,
-      allowNull: true,
-      comment: 'URL ảnh chứng từ (cho bank_transfer)'
-    },
-    
-    created_at: { 
-      type: DataTypes.DATE, 
-      defaultValue: DataTypes.NOW 
-    },
-    
-    updated_at: { 
-      type: DataTypes.DATE, 
-      defaultValue: DataTypes.NOW 
+      allowNull: true
     }
+
   }, {
     tableName: 'payments',
     timestamps: true,
-    underscored: true,
-    indexes: [
-      { fields: ['code'] },
-      { fields: ['appointment_id'] },
-      { fields: ['user_id'] },
-      { fields: ['status'] }
-    ]
+    underscored: true
   });
 
   Payment.associate = (models) => {
+    // Quan hệ với Appointment (có thể null)
     Payment.belongsTo(models.Appointment, { 
       foreignKey: 'appointment_id',
       as: 'Appointment'
+    });
+    
+    // Quan hệ với Consultation (có thể null)
+    Payment.belongsTo(models.Consultation, { 
+      foreignKey: 'consultation_id',
+      as: 'Consultation'
     });
     
     Payment.belongsTo(models.User, { 
       foreignKey: 'user_id',
       as: 'User'
     });
-    
-    if (models.Discount) {
-      Payment.belongsTo(models.Discount, { 
-        foreignKey: 'discount_id',
-        as: 'Discount',
-        required: false
-      });
-    }
   };
 
-  // Hook: Tạo mã thanh toán tự động
+  // Hook tự động tạo mã PY...
   Payment.addHook('beforeCreate', async (payment) => {
-    try {
-      const today = new Date();
-      const dateStr = today.toISOString().slice(5, 10).replace('-', ''); // MMDD
-      
-      const startOfDay = new Date(today);
-      startOfDay.setHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date(today);
-      endOfDay.setHours(23, 59, 59, 999);
-      
-      const { Op } = require('sequelize');
-      const count = await Payment.count({
-        where: {
-          created_at: {
-            [Op.gte]: startOfDay,
-            [Op.lt]: endOfDay
-          }
-        }
-      });
-      
-      payment.code = `PY2025${dateStr}-${String(count + 1).padStart(4, '0')}`;
-      console.log(`✅ Tạo mã ${payment.code} cho thanh toán mới.`);
-    } catch (error) {
-      console.error('❌ Lỗi tạo mã thanh toán:', error.message);
-      throw error;
+    if (!payment.code) {
+        const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+        const random = Math.floor(1000 + Math.random() * 9000);
+        payment.code = `PY${dateStr}${random}`;
     }
   });
 
-  console.log('✅ Model Payment đã được định nghĩa.');
   return Payment;
 };
