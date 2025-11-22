@@ -1,33 +1,37 @@
 // client/src/components/common/Sidebar.js
-// PHIÊN BẢN HOÀN CHỈNH:
-// 1. Sửa lỗi link "Quản lý nhân viên" của Admin
-// 2. Xóa link "Lịch của tôi" bị trùng lặp của Staff
+// PHIÊN BẢN CẬP NHẬT:
+// 1. Tất cả class có prefix sidebar- để tránh trùng lặp
+// 2. Sidebar luôn hiện trên mọi kích thước màn hình
+// 3. Collapsed chỉ thu nhỏ còn icon (không ẩn)
+// 4. Tooltip hiện tên khi hover trong trạng thái collapsed
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   FaTachometerAlt, 
-  FaUser, 
+  FaUserCircle, 
   FaUsers, 
   FaStethoscope, 
-  FaList, 
+  FaThList, 
   FaNewspaper, 
   FaCalendarCheck, 
   FaCalendarAlt, 
   FaBookmark, 
-  FaChartBar, 
-  FaHistory, 
+  FaChartPie, 
   FaCalendarPlus, 
-  FaFileMedical, 
+  FaFileMedicalAlt, 
   FaChevronLeft, 
   FaChevronRight,
-  FaCog,
-  FaHandHoldingMedical,
+  FaCogs,
   FaChevronDown,
-  FaComments,
-  FaVideo,
-  FaClock,
-  FaChartLine
+  FaCommentDots,
+  FaUserTie,
+  FaClipboardList,
+  FaBriefcaseMedical,
+  FaNotesMedical,
+  FaRegComments,
+  FaHeadset,
+  FaMoneyBillWave
 } from 'react-icons/fa';
 import './Sidebar.css';
 
@@ -40,11 +44,11 @@ const Sidebar = ({ onToggle }) => {
   // Dropdown states
   const [isServiceMenuOpen, setServiceMenuOpen] = useState(false);
   const [isConsultationMenuOpen, setConsultationMenuOpen] = useState(false);
+  const [isPaymentMenuOpen, setPaymentMenuOpen] = useState(false);
   
   const location = useLocation();
 
   useEffect(() => {
-    // Lấy thông tin user từ localStorage
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
@@ -55,19 +59,19 @@ const Sidebar = ({ onToggle }) => {
       }
     }
 
-    // Xử lý resize
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
+      const width = window.innerWidth;
+      const mobile = width < 768;
+      
       setIsMobile(mobile);
+      
+      // Mobile: tự động collapsed nhưng vẫn hiện icon
       if (mobile) {
         setCollapsed(true);
-      } else {
-        setCollapsed(false);
+        onToggle(true);
       }
-      onToggle(mobile ? true : false);
     };
 
-    // Xử lý scroll
     const handleScroll = () => {
       const headerHeight = 38;
       setIsScrolled(window.scrollY > headerHeight);
@@ -75,6 +79,7 @@ const Sidebar = ({ onToggle }) => {
 
     window.addEventListener('resize', handleResize);
     window.addEventListener('scroll', handleScroll);
+    
     handleResize();
     handleScroll();
 
@@ -86,424 +91,390 @@ const Sidebar = ({ onToggle }) => {
 
   // Auto-open menu nếu đang ở trang con
   useEffect(() => {
-    if (location.pathname.startsWith('/admin/tu-van')) {
+    if (location.pathname.startsWith('/admin/tu-van') || location.pathname.startsWith('/bac-si/tu-van')) {
       setConsultationMenuOpen(true);
     }
     if (location.pathname.startsWith('/quan-ly-dich-vu') || location.pathname.startsWith('/quan-ly-danh-muc-dich-vu')) {
       setServiceMenuOpen(true);
     }
+    if (location.pathname.startsWith('/quan-ly-thanh-toan')) {
+      setPaymentMenuOpen(true);
+    }
   }, [location.pathname]);
 
   const toggleSidebar = () => {
-    setCollapsed(!collapsed);
-    onToggle(!collapsed);
+    const newCollapsed = !collapsed;
+    setCollapsed(newCollapsed);
+    onToggle(newCollapsed);
   };
 
-  const closeSidebar = () => {
-    if (isMobile) {
-      setCollapsed(true);
-      onToggle(true);
-    }
+  // Component cho menu item với tooltip
+  const MenuItem = ({ to, icon: Icon, label, isActive }) => (
+    <Link 
+      to={to} 
+      className={`sidebar-link ${isActive ? 'sidebar-active' : ''}`}
+      title={collapsed ? label : ''}
+    >
+      <Icon />
+      <span className="sidebar-menu-label">{label}</span>
+    </Link>
+  );
+
+  // Component cho dropdown menu
+  const MenuDropdown = ({ icon: Icon, label, isOpen, onToggle: onDropdownToggle, children }) => {
+    const handleClick = () => {
+      if (!collapsed) {
+        onDropdownToggle();
+      }
+    };
+
+    return (
+      <div className="sidebar-menu-group">
+        <button
+          className={`sidebar-menu-toggle ${isOpen && !collapsed ? 'sidebar-open' : ''}`}
+          onClick={handleClick}
+          title={collapsed ? label : ''}
+        >
+          <div className="sidebar-menu-title">
+            <Icon />
+            <span className="sidebar-menu-label">{label}</span>
+          </div>
+          {!collapsed && <FaChevronDown className={`sidebar-chevron-icon ${isOpen ? 'sidebar-rotated' : ''}`} />}
+        </button>
+        {isOpen && !collapsed && (
+          <div className="sidebar-submenu">
+            {children}
+          </div>
+        )}
+      </div>
+    );
   };
 
-  // Nếu không có user, không hiển thị sidebar
   if (!user) {
     return null;
   }
 
   return (
-    <>
-      {/* Overlay cho mobile */}
-      {isMobile && !collapsed && (
-        <div className="sidebar-overlay" onClick={closeSidebar}></div>
-      )}
+    <div className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} ${isMobile ? 'sidebar-mobile' : ''} ${isScrolled ? 'sidebar-scrolled' : ''}`}>
+      {/* Toggle button - nằm giữa cạnh phải */}
+      <button 
+        className="sidebar-toggle-btn" 
+        onClick={toggleSidebar} 
+        title={collapsed ? 'Mở menu' : 'Đóng menu'}
+      >
+        {collapsed ? <FaChevronRight /> : <FaChevronLeft />}
+      </button>
       
-      <div className={`sidebar ${collapsed ? 'collapsed' : ''} ${isMobile ? 'mobile' : ''} ${isScrolled ? 'scrolled' : ''}`}>
-        {/* Toggle button */}
-        <button className="toggle-btn" onClick={toggleSidebar}>
-          {collapsed ? <FaChevronRight /> : <FaChevronLeft />}
-        </button>
-        
-        <nav>
+      {/* Wrapper cho scroll */}
+      <div className="sidebar-scroll-wrapper">
+        <nav className="sidebar-nav">
           {/* ==================== MENU CHUNG ==================== */}
-          <Link 
+          <MenuItem 
             to="/dashboard" 
-            className={location.pathname === '/dashboard' ? 'active' : ''} 
-            onClick={closeSidebar}
-          >
-            <FaTachometerAlt />
-            {!collapsed && <span>Tổng quan</span>}
-          </Link>
+            icon={FaTachometerAlt} 
+            label="Tổng quan"
+            isActive={location.pathname === '/dashboard'}
+          />
           
-          <Link 
+          <MenuItem 
             to="/ho-so-nguoi-dung" 
-            className={location.pathname === '/ho-so-nguoi-dung' ? 'active' : ''} 
-            onClick={closeSidebar}
-          >
-            <FaUser />
-            {!collapsed && <span>Tài khoản</span>}
-          </Link>
+            icon={FaUserCircle} 
+            label="Tài khoản"
+            isActive={location.pathname === '/ho-so-nguoi-dung'}
+          />
 
           {/* ==================== MENU PATIENT ==================== */}
           {user.role === 'patient' && (
             <>
-              <Link 
+              <MenuItem 
                 to="/dat-lich-hen" 
-                className={location.pathname === '/dat-lich-hen' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaCalendarPlus />
-                {!collapsed && <span>Đặt lịch hẹn</span>}
-              </Link>
+                icon={FaCalendarPlus} 
+                label="Đặt lịch hẹn"
+                isActive={location.pathname === '/dat-lich-hen'}
+              />
               
-              <Link 
+              <MenuItem 
                 to="/lich-hen-cua-toi" 
-                className={location.pathname === '/lich-hen-cua-toi' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaCalendarAlt />
-                {!collapsed && <span>Lịch hẹn của tôi</span>}
-              </Link>
+                icon={FaCalendarAlt} 
+                label="Lịch hẹn của tôi"
+                isActive={location.pathname === '/lich-hen-cua-toi'}
+              />
               
-              {/* SỬA: "Tư vấn trực tuyến" giờ sẽ trỏ đến trang Lịch sử */}
-              <Link 
-                to="/tu-van/lich-su"
-                className={location.pathname.startsWith('/tu-van/lich-su') ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaComments />
-                {!collapsed && <span>Tư vấn trực tuyến</span>}
-              </Link>
+              <MenuItem 
+                to="/tu-van/lich-su" 
+                icon={FaHeadset} 
+                label="Tư vấn trực tuyến"
+                isActive={location.pathname.startsWith('/tu-van/lich-su')}
+              />
               
-              {/* XÓA: Đã xóa khối <Link> của "Lịch sử tư vấn" */}
+              <MenuItem 
+                to="/ho-so-y-te" 
+                icon={FaFileMedicalAlt} 
+                label="Hồ sơ y tế"
+                isActive={location.pathname === '/ho-so-y-te'}
+              />
               
-              <Link 
-                to="/ho-so-y-te"
-                className={location.pathname === '/ho-so-y-te' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaFileMedical />
-                {!collapsed && <span>Hồ sơ y tế</span>}
-              </Link>
-              
-              <Link 
+              <MenuItem 
                 to="/bai-viet-da-luu" 
-                className={location.pathname === '/bai-viet-da-luu' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaBookmark />
-                {!collapsed && <span>Bài viết đã lưu</span>}
-              </Link>
+                icon={FaBookmark} 
+                label="Bài viết đã lưu"
+                isActive={location.pathname === '/bai-viet-da-luu'}
+              />
             </>
           )}
 
           {/* ==================== MENU DOCTOR ==================== */}
           {user.role === 'doctor' && (
             <>
-              <Link 
+              <MenuItem 
                 to="/lich-hen-cua-toi" 
-                className={location.pathname === '/lich-hen-cua-toi' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaCalendarAlt />
-                {!collapsed && <span>Lịch hẹn của tôi</span>}
-              </Link>
+                icon={FaCalendarAlt} 
+                label="Lịch hẹn của tôi"
+                isActive={location.pathname === '/lich-hen-cua-toi'}
+              />
               
-              <Link 
+              <MenuItem 
                 to="/lich-cua-toi" 
-                className={location.pathname === '/lich-cua-toi' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaCalendarCheck />
-                {!collapsed && <span>Lịch của tôi</span>}
-              </Link>
+                icon={FaCalendarCheck} 
+                label="Lịch của tôi"
+                isActive={location.pathname === '/lich-cua-toi'}
+              />
               
               {/* Dropdown: Quản lý Tư Vấn (DOCTOR) */}
-              {!collapsed && (
-                <div className="sidebar-menu-group">
-                  <button
-                    className={`menu-group-toggle ${isConsultationMenuOpen ? 'open' : ''}`}
-                    onClick={() => setConsultationMenuOpen(!isConsultationMenuOpen)}
-                  >
-                    <div className="menu-group-title">
-                      <FaComments />
-                      <span>Quản lý Tư vấn</span>
-                    </div>
-                    <FaChevronDown className={`chevron-icon ${isConsultationMenuOpen ? 'rotated' : ''}`} />
-                  </button>
-                  {isConsultationMenuOpen && (
-                    <div className="submenu">
-                      {/* SỬA: Đổi tên và giữ nguyên link cho "chat" */}
-                      <Link
-                        to="/bac-si/tu-van"
-                        className={location.pathname === '/bac-si/tu-van' ? 'active' : ''}
-                        onClick={closeSidebar}
-                      >
-                        <span>•</span> Quản lý chat realtime
-                      </Link>
-                      
-                      {/* THÊM: Link mới cho "video call" */}
-                      <Link
-                        to="/bac-si/tu-van/video"
-                        className={location.pathname === '/bac-si/tu-van/video' ? 'active' : ''}
-                        onClick={closeSidebar}
-                      >
-                        <span>•</span> Quản lý tư vấn video call
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}       
-              <Link 
+              <MenuDropdown
+                icon={FaCommentDots}
+                label="Quản lý Tư vấn"
+                isOpen={isConsultationMenuOpen}
+                onToggle={() => setConsultationMenuOpen(!isConsultationMenuOpen)}
+              >
+                <Link
+                  to="/bac-si/tu-van"
+                  className={`sidebar-submenu-link ${location.pathname === '/bac-si/tu-van' ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Quản lý chat realtime
+                </Link>
+                <Link
+                  to="/bac-si/tu-van/video"
+                  className={`sidebar-submenu-link ${location.pathname === '/bac-si/tu-van/video' ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Quản lý tư vấn video call
+                </Link>
+              </MenuDropdown>
+
+              <MenuItem 
                 to="/quan-ly-bai-viet" 
-                className={location.pathname === '/quan-ly-bai-viet' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaNewspaper />
-                {!collapsed && <span>Quản lý bài viết</span>}
-              </Link>
+                icon={FaNewspaper} 
+                label="Quản lý bài viết"
+                isActive={location.pathname === '/quan-ly-bai-viet'}
+              />
               
-              <Link 
+              <MenuItem 
                 to="/bai-viet-da-luu" 
-                className={location.pathname === '/bai-viet-da-luu' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaBookmark />
-                {!collapsed && <span>Bài viết đã lưu</span>}
-              </Link>
+                icon={FaBookmark} 
+                label="Bài viết đã lưu"
+                isActive={location.pathname === '/bai-viet-da-luu'}
+              />
             </>
           )}
 
           {/* ==================== MENU STAFF ==================== */}
           {user.role === 'staff' && (
             <>
-              <Link 
+              <MenuItem 
                 to="/lich-cua-toi" 
-                className={location.pathname === '/lich-cua-toi' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaCalendarCheck />
-                {!collapsed && <span>Lịch của tôi</span>}
-              </Link>
+                icon={FaCalendarCheck} 
+                label="Lịch của tôi"
+                isActive={location.pathname === '/lich-cua-toi'}
+              />
               
-              <Link 
+              <MenuItem 
                 to="/quan-ly-lich-hen" 
-                className={location.pathname === '/quan-ly-lich-hen' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaCalendarAlt />
-                {!collapsed && <span>Quản lý lịch hẹn</span>}
-              </Link>
+                icon={FaClipboardList} 
+                label="Quản lý lịch hẹn"
+                isActive={location.pathname === '/quan-ly-lich-hen'}
+              />
               
-              <Link 
+              <MenuItem 
                 to="/quan-ly-bai-viet" 
-                className={location.pathname === '/quan-ly-bai-viet' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaNewspaper />
-                {!collapsed && <span>Quản lý bài viết</span>}
-              </Link>
+                icon={FaNewspaper} 
+                label="Quản lý bài viết"
+                isActive={location.pathname === '/quan-ly-bai-viet'}
+              />
               
-              <Link 
+              <MenuItem 
                 to="/bai-viet-da-luu" 
-                className={location.pathname === '/bai-viet-da-luu' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaBookmark />
-                {!collapsed && <span>Bài viết đã lưu</span>}
-              </Link>
+                icon={FaBookmark} 
+                label="Bài viết đã lưu"
+                isActive={location.pathname === '/bai-viet-da-luu'}
+              />
             </>
           )}
 
           {/* ==================== MENU ADMIN ==================== */}
           {user.role === 'admin' && (
             <>
-              <Link 
+              <MenuItem 
                 to="/thong-ke" 
-                className={location.pathname === '/thong-ke' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaChartBar />
-                {!collapsed && <span>Thống kê</span>}
-              </Link>
+                icon={FaChartPie} 
+                label="Thống kê"
+                isActive={location.pathname === '/thong-ke'}
+              />
               
-              <Link 
+              <MenuItem 
                 to="/quan-ly-lich-hen" 
-                className={location.pathname === '/quan-ly-lich-hen' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaCalendarAlt />
-                {!collapsed && <span>Quản lý lịch hẹn</span>}
-              </Link>
+                icon={FaClipboardList} 
+                label="Quản lý lịch hẹn"
+                isActive={location.pathname === '/quan-ly-lich-hen'}
+              />
 
-              <Link 
+              <MenuItem 
                 to="/quan-ly-lich-lam-viec" 
-                className={location.pathname === '/quan-ly-lich-lam-viec' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaCalendarCheck />
-                {!collapsed && <span>Quản lý lịch làm việc</span>}
-              </Link>
+                icon={FaCalendarCheck} 
+                label="Quản lý lịch làm việc"
+                isActive={location.pathname === '/quan-ly-lich-lam-viec'}
+              />
 
               {/* Dropdown: Quản lý Tư vấn (ADMIN) */}
-              {!collapsed && (
-                <div className="sidebar-menu-group">
-                  <button
-                    className={`menu-group-toggle ${isConsultationMenuOpen ? 'open' : ''}`}
-                    onClick={() => setConsultationMenuOpen(!isConsultationMenuOpen)}
-                  >
-                    <div className="menu-group-title">
-                      <FaComments />
-                      <span>Quản lý Tư vấn</span>
-                    </div>
-                    <FaChevronDown className={`chevron-icon ${isConsultationMenuOpen ? 'rotated' : ''}`} />
-                  </button>
-                  {isConsultationMenuOpen && (
-                    <div className="submenu">
-                      <Link
-                        to="/admin/tu-van/realtime"
-                        className={location.pathname === '/admin/tu-van/realtime' ? 'active' : ''}
-                        onClick={closeSidebar}
-                      >
-                        <span>•</span> Quản lý Realtime
-                      </Link>
-                      <Link
-                        to="/admin/tu-van/realtime?type=video" // <-- THÊM: Link mới lọc theo video
-                        className={location.pathname === '/admin/tu-van/realtime' && location.search.includes('video') ? 'active' : ''}
-                        onClick={closeSidebar}
-                      >
-                        <span>•</span> Quản lý tư vấn video call
-                      </Link>
-                      <Link
-                        to="/admin/tu-van/packages"
-                        className={location.pathname === '/admin/tu-van/packages' ? 'active' : ''}
-                        onClick={closeSidebar}
-                      >
-                        <span>•</span> Quản lý gói dịch vụ
-                      </Link>
-                      <Link
-                        to="/admin/tu-van/cau-hinh"
-                        className={location.pathname === '/admin/tu-van/cau-hinh' ? 'active' : ''}
-                        onClick={closeSidebar}
-                      >
-                        <span>•</span> Cấu hình hệ thống
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              <Link 
-                to="/quan-ly-dien-dan" 
-                className={location.pathname === '/quan-ly-dien-dan' ? 'active' : ''} 
-                onClick={closeSidebar}
+              <MenuDropdown
+                icon={FaRegComments}
+                label="Quản lý Tư vấn"
+                isOpen={isConsultationMenuOpen}
+                onToggle={() => setConsultationMenuOpen(!isConsultationMenuOpen)}
               >
-                <FaComments />
-                {!collapsed && <span>Quản lý diễn đàn</span>}
-              </Link>
+                <Link
+                  to="/admin/tu-van/realtime"
+                  className={`sidebar-submenu-link ${location.pathname === '/admin/tu-van/realtime' ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Quản lý Realtime
+                </Link>
+                <Link
+                  to="/admin/tu-van/realtime?type=video"
+                  className={`sidebar-submenu-link ${location.pathname === '/admin/tu-van/realtime' && location.search.includes('video') ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Quản lý tư vấn video call
+                </Link>
+                <Link
+                  to="/admin/tu-van/packages"
+                  className={`sidebar-submenu-link ${location.pathname === '/admin/tu-van/packages' ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Quản lý gói dịch vụ
+                </Link>
+                <Link
+                  to="/admin/tu-van/cau-hinh"
+                  className={`sidebar-submenu-link ${location.pathname === '/admin/tu-van/cau-hinh' ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Cấu hình hệ thống
+                </Link>
+              </MenuDropdown>
 
-              <Link 
+              {/* Dropdown: Quản lý Tài chính (ADMIN) */}
+              <MenuDropdown
+                icon={FaMoneyBillWave}
+                label="Quản lý Tài chính"
+                isOpen={isPaymentMenuOpen}
+                onToggle={() => setPaymentMenuOpen(!isPaymentMenuOpen)}
+              >
+                <Link
+                  to="/quan-ly-thanh-toan/giao-dich"
+                  className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/giao-dich' ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Giao dịch & Đối soát
+                </Link>
+                <Link
+                  to="/thong-ke"
+                  className={`sidebar-submenu-link ${location.pathname === '/thong-ke' ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Thống kê Doanh thu
+                </Link>
+                <Link
+                  to="/quan-ly-thanh-toan/cau-hinh"
+                  className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/cau-hinh' ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Cấu hình Tài khoản
+                </Link>
+              </MenuDropdown>
+              
+              <MenuItem 
+                to="/quan-ly-dien-dan" 
+                icon={FaCommentDots} 
+                label="Quản lý diễn đàn"
+                isActive={location.pathname === '/quan-ly-dien-dan'}
+              />
+
+              <MenuItem 
                 to="/quan-ly-nguoi-dung" 
-                className={location.pathname === '/quan-ly-nguoi-dung' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaUsers />
-                {!collapsed && <span>Quản lý người dùng</span>}
-              </Link>
+                icon={FaUsers} 
+                label="Quản lý người dùng"
+                isActive={location.pathname === '/quan-ly-nguoi-dung'}
+              />
               
-              {/* SỬA: Sửa link và class check cho Quản lý nhân viên */}
-              <Link 
+              <MenuItem 
                 to="/quan-ly-nhan-vien" 
-                className={location.pathname === '/quan-ly-nhan-vien' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaUsers />
-                {!collapsed && <span>Quản lý nhân viên</span>}
-              </Link>
+                icon={FaUserTie} 
+                label="Quản lý nhân viên"
+                isActive={location.pathname === '/quan-ly-nhan-vien'}
+              />
               
-              <Link 
+              <MenuItem 
                 to="/quan-ly-chuyen-khoa" 
-                className={location.pathname === '/quan-ly-chuyen-khoa' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaStethoscope />
-                {!collapsed && <span>Quản lý chuyên khoa</span>}
-              </Link>
+                icon={FaStethoscope} 
+                label="Quản lý chuyên khoa"
+                isActive={location.pathname === '/quan-ly-chuyen-khoa'}
+              />
               
               {/* Dropdown: Quản lý Dịch vụ */}
-              {!collapsed && (
-                <div className="sidebar-menu-group">
-                  <button
-                    className={`menu-group-toggle ${isServiceMenuOpen ? 'open' : ''}`}
-                    onClick={() => setServiceMenuOpen(!isServiceMenuOpen)}
-                  >
-                    <div className="menu-group-title">
-                      <FaHandHoldingMedical />
-                      <span>Quản lý Dịch vụ</span>
-                    </div>
-                    <FaChevronDown className={`chevron-icon ${isServiceMenuOpen ? 'rotated' : ''}`} />
-                  </button>
-                  {isServiceMenuOpen && (
-                    <div className="submenu">
-                      <Link
-                        to="/quan-ly-danh-muc-dich-vu"
-                        className={location.pathname.startsWith('/quan-ly-danh-muc-dich-vu') ? 'active' : ''}
-                        onClick={closeSidebar}
-                      >
-                        <span>•</span> Danh mục Dịch vụ
-                      </Link>
-                      <Link
-                        to="/quan-ly-dich-vu"
-                        className={location.pathname.startsWith('/quan-ly-dich-vu') ? 'active' : ''}
-                        onClick={closeSidebar}
-                      >
-                        <span>•</span> Dịch vụ
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}
+              <MenuDropdown
+                icon={FaBriefcaseMedical}
+                label="Quản lý Dịch vụ"
+                isOpen={isServiceMenuOpen}
+                onToggle={() => setServiceMenuOpen(!isServiceMenuOpen)}
+              >
+                <Link
+                  to="/quan-ly-danh-muc-dich-vu"
+                  className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-danh-muc-dich-vu') ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Danh mục Dịch vụ
+                </Link>
+                <Link
+                  to="/quan-ly-dich-vu"
+                  className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}
+                >
+                  <span className="sidebar-submenu-dot">•</span> Dịch vụ
+                </Link>
+              </MenuDropdown>
               
-              <Link 
+              <MenuItem 
                 to="/quan-ly-bai-viet" 
-                className={location.pathname === '/quan-ly-bai-viet' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaNewspaper />
-                {!collapsed && <span>Quản lý bài viết</span>}
-              </Link>
+                icon={FaNotesMedical} 
+                label="Quản lý bài viết"
+                isActive={location.pathname === '/quan-ly-bai-viet'}
+              />
 
-              <Link 
+              <MenuItem 
                 to="/quan-ly-danh-muc" 
-                className={location.pathname === '/quan-ly-danh-muc' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaList />
-                {!collapsed && <span>Quản lý danh mục</span>}
-              </Link>
+                icon={FaThList} 
+                label="Quản lý danh mục"
+                isActive={location.pathname === '/quan-ly-danh-muc'}
+              />
               
-              <Link 
+              <MenuItem 
                 to="/quan-ly-he-thong" 
-                className={location.pathname === '/quan-ly-he-thong' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaCog />
-                {!collapsed && <span>Quản lý hệ thống</span>}
-              </Link>
+                icon={FaCogs} 
+                label="Quản lý hệ thống"
+                isActive={location.pathname === '/quan-ly-he-thong'}
+              />
               
-              <Link 
+              <MenuItem 
                 to="/bai-viet-da-luu" 
-                className={location.pathname === '/bai-viet-da-luu' ? 'active' : ''} 
-                onClick={closeSidebar}
-              >
-                <FaBookmark />
-                {!collapsed && <span>Bài viết đã lưu</span>}
-              </Link>
+                icon={FaBookmark} 
+                label="Bài viết đã lưu"
+                isActive={location.pathname === '/bai-viet-da-luu'}
+              />
             </>
           )}
         </nav>
       </div>
-    </>
+    </div>
   );
 };
 
