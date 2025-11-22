@@ -3,7 +3,7 @@
 .header-component {
   background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
   color: white;
-  padding: 12px 0;
+  padding: 10px 0;
   font-size: 14px;
   box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
   position: relative;
@@ -22,9 +22,8 @@
 
 .header-component__info {
   display: flex;
-  gap: 30px;
+  gap: 24px;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .header-component__item {
@@ -34,6 +33,7 @@
   transition: all 0.3s ease;
   padding: 4px 8px;
   border-radius: 4px;
+  white-space: nowrap;
 }
 
 .header-component__item:hover {
@@ -54,23 +54,24 @@
 
 .header-component__welcome {
   overflow: hidden;
-  max-width: 450px;
+  max-width: 400px;
   position: relative;
   padding: 6px 16px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   backdrop-filter: blur(10px);
+  flex-shrink: 0;
 }
 
 .header-component__welcome-text {
   display: inline-block;
   white-space: nowrap;
-  animation: scroll-left 20s linear infinite;
+  animation: header-scroll-left 20s linear infinite;
   font-weight: 600;
   letter-spacing: 0.5px;
 }
 
-@keyframes scroll-left {
+@keyframes header-scroll-left {
   0% {
     transform: translateX(100%);
   }
@@ -83,93 +84,44 @@
   animation-play-state: paused;
 }
 
-/* Responsive Design */
-@media (max-width: 992px) {
+/* ============================================
+   RESPONSIVE - Ẩn header khi màn hình nhỏ
+   ============================================ */
+
+/* Tablet - thu gọn một chút */
+@media (max-width: 1024px) {
   .header-component {
-    padding: 10px 0;
+    padding: 8px 0;
     font-size: 13px;
   }
 
   .header-component__info {
-    gap: 20px;
+    gap: 16px;
   }
 
   .header-component__welcome {
     max-width: 300px;
   }
+
+  .header-component__item {
+    padding: 3px 6px;
+  }
 }
 
-@media (max-width: 768px) {
-  .header-component {
-    padding: 10px 0;
-    font-size: 12px;
+/* Tablet nhỏ - ẩn welcome text */
+@media (max-width: 900px) {
+  .header-component__welcome {
+    display: none;
   }
 
   .header-component__container {
-    flex-direction: column;
-    gap: 12px;
-    padding: 0 15px;
-  }
-
-  .header-component__info {
-    width: 100%;
     justify-content: center;
-    gap: 15px;
-    flex-wrap: wrap;
-  }
-
-  .header-component__item {
-    padding: 4px 6px;
-  }
-
-  .header-component__icon {
-    font-size: 12px;
-  }
-
-  .header-component__text {
-    font-size: 11px;
-  }
-
-  .header-component__welcome {
-    width: 100%;
-    max-width: 100%;
   }
 }
 
-@media (max-width: 480px) {
+/* Mobile - ẨN HOÀN TOÀN HEADER */
+@media (max-width: 768px) {
   .header-component {
-    padding: 8px 0;
-  }
-
-  .header-component__info {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .header-component__item {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .header-component__welcome {
-    padding: 5px 12px;
-  }
-
-  .header-component__welcome-text {
-    font-size: 11px;
-  }
-}
-
-@media (max-width: 360px) {
-  .header-component__info {
-    gap: 6px;
-  }
-
-  .header-component__item {
-    font-size: 11px;
-  }
-
-  .header-component__icon {
-    font-size: 11px;
+    display: none;
   }
 }

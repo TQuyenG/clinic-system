@@ -11,7 +11,7 @@
   left: 0;
   right: 0;
   height: 70px;
-  z-index: 1000;
+  z-index: 1000; /* Cao hơn menu sidebar */
   border-bottom: 1px solid #e5e7eb;
 }
 
@@ -66,6 +66,15 @@
   flex: 1;
   justify-content: center;
   max-width: 900px;
+}
+
+/* ============================================
+   SEARCH CONTAINER
+   ============================================ */
+.navbar-search-container {
+  flex: 1 1 auto;
+  max-width: 500px;
+  min-width: 0;
 }
 
 /* ============================================
@@ -721,110 +730,186 @@
 }
 
 /* ============================================
-   RESPONSIVE - MOBILE
+   RESPONSIVE - MOBILE (max-width: 768px)
    ============================================ */
 @media (max-width: 768px) {
   .navbar-main {
-    height: 60px;
+    height: 56px;
   }
 
   .navbar-container {
-    padding: 0 15px;
-    gap: 10px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  /* Logo - chỉ hiện ảnh, ẩn text */
+  .navbar-logo {
+    order: 1;
+    flex-shrink: 0;
+  }
+
+  .navbar-logo img,
+  .navbar-logo-img {
+    height: 32px;
+    margin-right: 0;
+  }
+
+  .navbar-logo span,
+  .navbar-logo-text {
+    display: none !important;
   }
 
   /* Mobile menu button */
   .navbar-mobile-menu-btn {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     order: 2;
+    width: 36px;
+    height: 36px;
+    font-size: 1.125rem;
+    flex-shrink: 0;
   }
 
-  /* Logo */
-  .navbar-logo {
-    order: 1;
+  /* Search - thu nhỏ và co giãn */
+  .navbar-search-container {
+    order: 3;
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+    padding: 0;
   }
 
-  .navbar-logo img {
-    height: 35px;
+  .navbar-search {
+    width: 100%;
   }
 
-  .navbar-logo span {
-    font-size: 1.1rem;
+  .navbar-search form,
+  .navbar-search-bar {
+    height: 36px;
+    padding: 0 10px;
+  }
+
+  .navbar-search input {
+    font-size: 13px;
+    padding: 0 8px;
+  }
+
+  .navbar-search input::placeholder {
+    font-size: 12px;
+  }
+
+  .navbar-search svg {
+    font-size: 14px;
   }
 
   /* Right section */
   .navbar-right {
-    order: 3;
-    gap: 10px;
+    order: 4;
+    gap: 6px;
+    flex-shrink: 0;
   }
 
-  /* Center section - Mobile menu */
+  .navbar-user-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .navbar-user-avatar,
+  .navbar-user-avatar-placeholder {
+    font-size: 13px;
+  }
+
+  /* ========== MOBILE MENU SIDEBAR ========== */
   .navbar-center {
     display: none;
     position: fixed;
-    top: 60px;
+    top: 56px; /* Ngay dưới navbar */
     left: 0;
-    right: 0;
-    height: calc(100vh - 60px);
+    width: 220px;
+    max-width: 70vw;
+    height: calc(100vh - 56px);
+    min-height: calc(100vh - 56px);
     background: white;
     flex-direction: column;
+    justify-content: flex-start; /* Căn lên trên đầu */
+    align-items: flex-start;
+    align-content: flex-start;
     padding: 0;
     gap: 0;
     overflow-y: auto;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    z-index: 999;
-    max-width: none;
+    overflow-x: hidden;
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.15);
+    z-index: 998;
+    border-right: 1px solid #eee;
   }
 
   .navbar-center.active {
     display: flex;
   }
 
-  /* Search container trong mobile */
-  .navbar-search-container {
-    width: 100%;
-    padding: 15px;
-    border-bottom: 1px solid #F1F8F4;
+  /* Ẩn search trong mobile menu */
+  .navbar-center .navbar-search-container {
+    display: none;
   }
 
-  .navbar-search-bar {
-    padding: 10px 15px;
-  }
-
-  /* Navigation menu trong mobile */
+  /* ========== NAVIGATION MENU MOBILE ========== */
   .navbar-nav-menu {
     width: 100%;
+    display: flex;
     flex-direction: column;
-    gap: 0;
+    justify-content: flex-start; /* Căn lên trên đầu */
     align-items: stretch;
+    gap: 0;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
   }
 
   .navbar-nav-item {
     width: 100%;
-    border-bottom: 1px solid #F1F8F4;
+    border-bottom: 1px solid #eee;
+    flex-shrink: 0;
+  }
+
+  .navbar-nav-item:last-child {
+    border-bottom: none;
   }
 
   .navbar-nav-link {
     width: 100%;
-    padding: 15px 20px;
+    padding: 14px 16px;
     justify-content: space-between;
     border-radius: 0;
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0;
   }
 
   .navbar-nav-link:hover {
-    background: #F9F9F9;
+    background: #f5f5f5;
   }
 
-  /* Dropdown static trong mobile */
+  .navbar-chevron {
+    font-size: 10px;
+  }
+
+  /* ========== DROPDOWN MOBILE - ACCORDION ========== */
   .navbar-dropdown-menu {
-    position: static;
+    position: static !important;
     box-shadow: none;
     border-radius: 0;
-    background: #F9F9F9;
+    background: #f9f9f9;
     margin: 0;
     padding: 0;
-    transform: none;
+    transform: none !important;
     max-height: none;
+    min-width: auto !important;
+    opacity: 1;
+    visibility: visible;
+    display: none;
+    border-top: 1px solid #eee;
   }
 
   .navbar-dropdown-menu.show {
@@ -833,38 +918,75 @@
 
   .navbar-dropdown-menu a,
   .navbar-dropdown-menu button {
-    padding: 12px 20px 12px 40px;
+    padding: 12px 16px 12px 24px;
+    font-size: 13px;
+    border-bottom: 1px solid #f0f0f0;
+    margin: 0;
   }
 
-  /* Mega menu mobile */
+  .navbar-dropdown-menu a:last-child,
+  .navbar-dropdown-menu button:last-child {
+    border-bottom: none;
+  }
+
+  .navbar-dropdown-menu a svg,
+  .navbar-dropdown-menu button svg {
+    font-size: 14px;
+  }
+
+  /* ========== MEGA MENU MOBILE ========== */
   .navbar-nav-item.navbar-mega .navbar-dropdown-menu {
-    min-width: auto;
+    min-width: auto !important;
     padding: 0;
   }
 
   .navbar-mega-menu-grid {
     gap: 0;
+    flex-direction: column;
+  }
+
+  .navbar-mega-menu-column {
+    border-bottom: none;
   }
 
   .navbar-column-header {
     margin: 0;
+    padding: 12px 16px 12px 24px;
     background: transparent;
-    border-bottom: 1px solid #E8F5E9;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .navbar-column-header svg {
+    font-size: 14px;
   }
 
   .navbar-column-header::after {
-    content: '▼';
+    content: '▾';
     font-size: 12px;
+    transition: transform 0.2s;
   }
 
+  .navbar-mega-menu-column.active .navbar-column-header::after {
+    transform: rotate(180deg);
+  }
+
+  .navbar-mega-menu-column.active .navbar-column-header {
+    background: #f0f0f0;
+  }
+
+  /* Sub menu items */
   .navbar-column-items {
-    position: static;
+    position: static !important;
     display: none;
     padding: 0;
     box-shadow: none;
     border: none;
     border-radius: 0;
-    background: #F9F9F9;
+    background: #f5f5f5;
+    min-width: auto !important;
+    border-left: none;
   }
 
   .navbar-mega-menu-column:hover .navbar-column-items {
@@ -873,72 +995,237 @@
 
   .navbar-mega-menu-column.active .navbar-column-items {
     display: flex;
+    flex-direction: column;
   }
 
   .navbar-column-items a {
-    padding: 10px 20px 10px 40px;
-    border-bottom: 1px solid #fafafa;
+    padding: 10px 16px 10px 40px;
+    font-size: 12px;
+    border-bottom: 1px solid #eee;
+    color: #555;
   }
 
-  /* User button mobile */
-  .navbar-user-btn {
-    width: 40px;
-    height: 40px;
+  .navbar-column-items a:last-child {
+    border-bottom: none;
   }
 
-  .navbar-user-avatar,
-  .navbar-user-avatar-placeholder {
-    width: 36px;
-    height: 36px;
-    font-size: 14px;
+  .navbar-column-items a:hover {
+    background: #eee;
+    padding-left: 44px;
+    color: #4CAF50;
   }
 
-  /* Dropdown menu right */
+  /* ========== USER DROPDOWN - GIỮ ABSOLUTE ========== */
+  .navbar-user-dropdown .navbar-dropdown-menu {
+    position: absolute !important;
+    background: white;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    min-width: 200px !important;
+    border-top: none;
+  }
+
   .navbar-dropdown-menu-right {
     right: 0;
     left: auto;
   }
-}
 
-/* ============================================
-   RESPONSIVE - SMALL MOBILE
-   ============================================ */
-@media (max-width: 480px) {
-  .navbar-container {
-    padding: 0 10px;
+  .navbar-dropdown-user-info {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
   }
 
-  .navbar-logo span {
-    display: none;
-  }
-
-  .navbar-logo img {
-    height: 32px;
-    margin-right: 0;
-  }
-
-  .navbar-search-container {
-    padding: 10px;
-  }
-
-  .navbar-search-bar {
-    padding: 8px 12px;
-  }
-
-  .navbar-search-bar input {
+  .navbar-dropdown-user-info strong {
     font-size: 13px;
   }
 
+  .navbar-dropdown-user-info span {
+    font-size: 11px;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - SMALL MOBILE (max-width: 480px)
+   ============================================ */
+@media (max-width: 480px) {
+  .navbar-main {
+    height: 52px;
+  }
+
+  .navbar-container {
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .navbar-logo img,
+  .navbar-logo-img {
+    height: 28px;
+  }
+
+  .navbar-mobile-menu-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+
+  .navbar-search form,
+  .navbar-search-bar {
+    height: 32px;
+    padding: 0 8px;
+  }
+
+  .navbar-search input {
+    font-size: 12px;
+    padding: 0 6px;
+  }
+
+  .navbar-search svg {
+    font-size: 12px;
+  }
+
   .navbar-user-btn {
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
   }
 
   .navbar-user-avatar,
   .navbar-user-avatar-placeholder {
-    width: 32px;
-    height: 32px;
+    font-size: 12px;
+  }
+
+  /* Mobile menu */
+  .navbar-center {
+    top: 52px;
+    height: calc(100vh - 52px);
+    min-height: calc(100vh - 52px);
+    width: 200px; /* Nhỏ hơn */
+  }
+
+  .navbar-nav-link {
+    padding: 12px 14px;
     font-size: 13px;
+  }
+
+  .navbar-dropdown-menu a,
+  .navbar-dropdown-menu button {
+    padding: 10px 14px 10px 20px;
+    font-size: 12px;
+  }
+
+  .navbar-column-header {
+    padding: 10px 14px 10px 20px;
+    font-size: 12px;
+  }
+
+  .navbar-column-items a {
+    padding: 8px 14px 8px 36px;
+    font-size: 11px;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - VERY SMALL (max-width: 360px)
+   ============================================ */
+@media (max-width: 360px) {
+  .navbar-main {
+    height: 48px;
+  }
+
+  .navbar-container {
+    padding: 0 6px;
+    gap: 4px;
+  }
+
+  .navbar-logo img,
+  .navbar-logo-img {
+    height: 24px;
+  }
+
+  .navbar-mobile-menu-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.875rem;
+    padding: 4px;
+  }
+
+  .navbar-search form,
+  .navbar-search-bar {
+    height: 28px;
+    padding: 0 6px;
+  }
+
+  .navbar-search input {
+    font-size: 11px;
+  }
+
+  .navbar-search svg {
+    font-size: 11px;
+  }
+
+  .navbar-user-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .navbar-center {
+    top: 48px;
+    height: calc(100vh - 48px);
+    min-height: calc(100vh - 48px);
+    width: 180px; /* Nhỏ hơn */
+  }
+
+  .navbar-nav-link {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .navbar-dropdown-menu a,
+  .navbar-dropdown-menu button {
+    padding: 8px 12px 8px 18px;
+    font-size: 11px;
+  }
+
+  .navbar-column-header {
+    padding: 8px 12px 8px 18px;
+    font-size: 11px;
+  }
+
+  .navbar-column-items a {
+    padding: 6px 12px 6px 32px;
+    font-size: 10px;
+  }
+}
+
+/* ============================================
+   MOBILE OVERLAY - Chỉ che content, không che navbar
+   ============================================ */
+.navbar-mobile-overlay {
+  display: none;
+  position: fixed;
+  top: 56px; /* Bắt đầu từ dưới navbar */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 997;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.navbar-mobile-overlay.active {
+  display: block;
+  opacity: 1;
+}
+
+@media (max-width: 480px) {
+  .navbar-mobile-overlay {
+    top: 52px; /* Điều chỉnh theo chiều cao navbar */
+  }
+}
+
+@media (max-width: 360px) {
+  .navbar-mobile-overlay {
+    top: 48px;
   }
 }
 
@@ -948,7 +1235,7 @@
 .navbar-dropdown-menu::-webkit-scrollbar,
 .navbar-search-results::-webkit-scrollbar,
 .navbar-center::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .navbar-dropdown-menu::-webkit-scrollbar-track,
@@ -961,7 +1248,7 @@
 .navbar-search-results::-webkit-scrollbar-thumb,
 .navbar-center::-webkit-scrollbar-thumb {
   background: #81C784;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .navbar-dropdown-menu::-webkit-scrollbar-thumb:hover,
@@ -975,6 +1262,7 @@
    ============================================ */
 .navbar-nav-link:focus-visible,
 .navbar-user-btn:focus-visible,
+.navbar-mobile-menu-btn:focus-visible,
 .navbar-dropdown-menu a:focus-visible,
 .navbar-dropdown-menu button:focus-visible {
   outline: 2px solid #4CAF50;

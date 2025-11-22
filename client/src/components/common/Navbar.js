@@ -325,6 +325,7 @@ const Navbar = () => {
   return (
     <nav className="navbar-main">
       <div className="navbar-container">
+        {/* Logo */}
         <Link to="/" className="navbar-logo" onClick={closeAllDropdowns}>
           {navbarData.logo_image && (
             <img 
@@ -343,6 +344,7 @@ const Navbar = () => {
           </span>
         </Link>
 
+        {/* Mobile menu button */}
         <button 
           className="navbar-mobile-menu-btn"
           onClick={toggleMenu}
@@ -351,123 +353,131 @@ const Navbar = () => {
           {isMenuOpen ? <FaTimes /> : <FaBars />}
         </button>
 
-        <div className={`navbar-center ${isMenuOpen ? 'active' : ''}`}>
-          <div className="navbar-search-container">
-            <div className="navbar-search" ref={searchRef}>
-              <form onSubmit={handleSearchSubmit} className="navbar-search-bar">
-                <FaSearch />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm bài viết, bác sĩ..."
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
-                />
-                {isSearching && <FaSpinner className="navbar-spinner" />}
-              </form>
+        {/* Search Container - hiện trên cả desktop và mobile */}
+        <div className="navbar-search-container">
+          <div className="navbar-search" ref={searchRef}>
+            <form onSubmit={handleSearchSubmit} className="navbar-search-bar">
+              <FaSearch />
+              <input
+                type="text"
+                placeholder="Tìm kiếm bài viết, bác sĩ..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
+              />
+              {isSearching && <FaSpinner className="navbar-spinner" />}
+            </form>
 
-              {showSearchResults && searchQuery.length >= 2 && (
-                <div className="navbar-search-dropdown">
-                  {isSearching ? (
-                    <div className="navbar-loading">
-                      <FaSpinner />
-                      <p>Đang tìm kiếm...</p>
-                    </div>
-                  ) : searchResults ? (
-                    <>
-                      {searchResults.articles && searchResults.articles.length > 0 && (
-                        <div className="navbar-search-section">
-                          <h3><FaNewspaper /> Bài viết ({searchResults.articles.length})</h3>
-                          {searchResults.articles.slice(0, 5).map(article => (
-                            <div 
-                              key={article.id} 
-                              className="navbar-search-item"
-                              onClick={() => handleResultClick('articles', article)}
-                            >
-                              <div className="navbar-search-item-content">
-                                <strong>{article.title}</strong>
-                                <p>{article.excerpt}</p>
-                              </div>
+            {showSearchResults && searchQuery.length >= 2 && (
+              <div className="navbar-search-dropdown">
+                {isSearching ? (
+                  <div className="navbar-loading">
+                    <FaSpinner />
+                    <p>Đang tìm kiếm...</p>
+                  </div>
+                ) : searchResults ? (
+                  <>
+                    {searchResults.articles && searchResults.articles.length > 0 && (
+                      <div className="navbar-search-section">
+                        <h3><FaNewspaper /> Bài viết ({searchResults.articles.length})</h3>
+                        {searchResults.articles.slice(0, 5).map(article => (
+                          <div 
+                            key={article.id} 
+                            className="navbar-search-item"
+                            onClick={() => handleResultClick('articles', article)}
+                          >
+                            <div className="navbar-search-item-content">
+                              <strong>{article.title}</strong>
+                              <p>{article.excerpt}</p>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                      {searchResults.categories && searchResults.categories.length > 0 && (
-                        <div className="navbar-search-section">
-                          <h3><FaFolder /> Danh mục</h3>
-                          {searchResults.categories.map((cat, index) => (
-                            <div 
-                              key={cat.id ?? index}
-                              className="navbar-search-item"
-                              onClick={() => handleResultClick('categories', cat)}
-                            >
-                              <div className="navbar-search-item-content">
-                                <strong>{cat.name}</strong>
-                                <p>{cat.description}</p>
-                              </div>
+                    {searchResults.categories && searchResults.categories.length > 0 && (
+                      <div className="navbar-search-section">
+                        <h3><FaFolder /> Danh mục</h3>
+                        {searchResults.categories.map((cat, index) => (
+                          <div 
+                            key={cat.id ?? index}
+                            className="navbar-search-item"
+                            onClick={() => handleResultClick('categories', cat)}
+                          >
+                            <div className="navbar-search-item-content">
+                              <strong>{cat.name}</strong>
+                              <p>{cat.description}</p>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                      {searchResults.specialties && searchResults.specialties.length > 0 && (
-                        <div className="navbar-search-section">
-                          <h3><FaStethoscope /> Chuyên khoa</h3>
-                          {searchResults.specialties.map(sp => (
-                            <div 
-                              key={sp.id} 
-                              className="navbar-search-item"
-                              onClick={() => handleResultClick('specialties', sp)}
-                            >
-                              <div className="navbar-search-item-content">
-                                <strong>{sp.name}</strong>
-                                <p>{sp.description}</p>
-                              </div>
+                    {searchResults.specialties && searchResults.specialties.length > 0 && (
+                      <div className="navbar-search-section">
+                        <h3><FaStethoscope /> Chuyên khoa</h3>
+                        {searchResults.specialties.map(sp => (
+                          <div 
+                            key={sp.id} 
+                            className="navbar-search-item"
+                            onClick={() => handleResultClick('specialties', sp)}
+                          >
+                            <div className="navbar-search-item-content">
+                              <strong>{sp.name}</strong>
+                              <p>{sp.description}</p>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                      {searchResults.doctors && searchResults.doctors.length > 0 && (
-                        <div className="navbar-search-section">
-                          <h3><FaUserMd /> Bác sĩ</h3>
-                          {searchResults.doctors.map(doctor => (
-                            <div 
-                              key={doctor.id} 
-                              className="navbar-search-item"
-                              onClick={() => handleResultClick('doctors', doctor)}
-                            >
-                              <div className="navbar-search-item-content">
-                                <strong>BS. {doctor.full_name}</strong>
-                                <p>{doctor.specialty} - {doctor.experience} năm kinh nghiệm</p>
-                              </div>
+                    {searchResults.doctors && searchResults.doctors.length > 0 && (
+                      <div className="navbar-search-section">
+                        <h3><FaUserMd /> Bác sĩ</h3>
+                        {searchResults.doctors.map(doctor => (
+                          <div 
+                            key={doctor.id} 
+                            className="navbar-search-item"
+                            onClick={() => handleResultClick('doctors', doctor)}
+                          >
+                            <div className="navbar-search-item-content">
+                              <strong>BS. {doctor.full_name}</strong>
+                              <p>{doctor.specialty} - {doctor.experience} năm kinh nghiệm</p>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                      {(!searchResults.articles || searchResults.articles.length === 0) &&
-                       (!searchResults.specialties || searchResults.specialties.length === 0) &&
-                       (!searchResults.doctors || searchResults.doctors.length === 0) && (
-                        <div className="navbar-no-results">
-                          <FaSearch />
-                          <p>Không tìm thấy kết quả</p>
-                          <span>Thử tìm kiếm với từ khóa khác</span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="navbar-no-results">
-                      <FaSearch />
-                      <p>Không tìm thấy kết quả</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                    {(!searchResults.articles || searchResults.articles.length === 0) &&
+                     (!searchResults.specialties || searchResults.specialties.length === 0) &&
+                     (!searchResults.doctors || searchResults.doctors.length === 0) && (
+                      <div className="navbar-no-results">
+                        <FaSearch />
+                        <p>Không tìm thấy kết quả</p>
+                        <span>Thử tìm kiếm với từ khóa khác</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="navbar-no-results">
+                    <FaSearch />
+                    <p>Không tìm thấy kết quả</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+        </div>
 
+        {/* Mobile overlay */}
+        <div 
+          className={`navbar-mobile-overlay ${isMenuOpen ? 'active' : ''}`}
+          onClick={closeAllDropdowns}
+        ></div>
+
+        {/* Center section - Navigation Menu (ẩn trên mobile, hiện trong sidebar) */}
+        <div className={`navbar-center ${isMenuOpen ? 'active' : ''}`}>
           <div className="navbar-nav-menu">
 
             <div className="navbar-nav-item">
