@@ -370,28 +370,30 @@
 
 /* ==================== RESPONSIVE - MOBILE ==================== */
 @media (max-width: 768px) {
-  /* Mobile: sidebar fixed, đè lên content khi mở */
+  /* Mobile: sidebar sticky trong layout-body */
   .sidebar {
-    position: fixed;
+    position: sticky;
     top: 56px;
     left: 0;
-    width: 220px;
-    height: calc(100vh - 56px);
-    z-index: 1001;
-    transform: translateX(0);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 48px;
+    height: fit-content;
+    max-height: calc(100vh - 56px);
+    z-index: 999;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    align-self: flex-start;
+    flex-shrink: 0;
   }
   
   /* Mobile collapsed: thu nhỏ còn icon */
   .sidebar.sidebar-mobile.sidebar-collapsed {
     width: 48px;
-    transform: translateX(0);
   }
 
-  /* Mobile mở: hiện full sidebar */
+  /* Mobile mở: sidebar mở rộng, vẫn sticky không fixed */
   .sidebar.sidebar-mobile:not(.sidebar-collapsed) {
+    position: sticky;
     width: 220px;
-    transform: translateX(0);
+    z-index: 1001;
   }
 
   .sidebar.sidebar-mobile.sidebar-collapsed .sidebar-nav {
@@ -439,7 +441,7 @@
 @media (max-width: 480px) {
   .sidebar {
     top: 52px;
-    height: calc(100vh - 52px);
+    max-height: calc(100vh - 52px);
   }
 
   .sidebar.sidebar-mobile.sidebar-collapsed {
@@ -469,7 +471,6 @@
 
   .sidebar.sidebar-scrolled {
     top: 52px;
-    height: calc(100vh - 52px);
   }
 }
 
@@ -477,7 +478,7 @@
 @media (max-width: 360px) {
   .sidebar {
     top: 48px;
-    height: calc(100vh - 48px);
+    max-height: calc(100vh - 48px);
   }
 
   .sidebar.sidebar-mobile.sidebar-collapsed {
@@ -507,7 +508,6 @@
 
   .sidebar.sidebar-scrolled {
     top: 48px;
-    height: calc(100vh - 48px);
   }
 }
 

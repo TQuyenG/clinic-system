@@ -58,56 +58,50 @@
 /* ==================== RESPONSIVE - MOBILE ==================== */
 @media (max-width: 768px) {
   .main-content {
-    min-height: calc(100vh - 56px);
+    min-height: auto;
     padding: 0;
   }
   
-  /* Mobile: content dịch sang phải khi sidebar collapsed (chỉ icon) */
+  /* Mobile: content không cần margin vì sidebar là sticky trong flex */
+  .main-content.with-sidebar,
   .main-content.with-sidebar.collapsed {
-    margin-left: 48px;
-  }
-
-  /* Mobile: khi sidebar mở, content không dịch (sidebar đè lên) */
-  .main-content.with-sidebar:not(.collapsed) {
-    margin-left: 48px;
+    margin-left: 0;
   }
 
   .layout-body {
-    min-height: calc(100vh - 56px);
+    min-height: auto;
   }
 }
 
 /* ==================== RESPONSIVE - SMALL MOBILE ==================== */
 @media (max-width: 480px) {
   .main-content {
-    min-height: calc(100vh - 52px);
+    min-height: auto;
   }
 
-  /* Content dịch sang phải bằng width của sidebar collapsed */
-  .main-content.with-sidebar.collapsed,
-  .main-content.with-sidebar:not(.collapsed) {
-    margin-left: 44px;
+  .main-content.with-sidebar,
+  .main-content.with-sidebar.collapsed {
+    margin-left: 0;
   }
 
   .layout-body {
-    min-height: calc(100vh - 52px);
+    min-height: auto;
   }
 }
 
 /* ==================== RESPONSIVE - VERY SMALL ==================== */
 @media (max-width: 360px) {
   .main-content {
-    min-height: calc(100vh - 48px);
+    min-height: auto;
   }
 
-  /* Content dịch sang phải bằng width của sidebar collapsed */
-  .main-content.with-sidebar.collapsed,
-  .main-content.with-sidebar:not(.collapsed) {
-    margin-left: 40px;
+  .main-content.with-sidebar,
+  .main-content.with-sidebar.collapsed {
+    margin-left: 0;
   }
 
   .layout-body {
-    min-height: calc(100vh - 48px);
+    min-height: auto;
   }
 }
 
