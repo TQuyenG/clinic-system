@@ -1,0 +1,274 @@
+/* Path: client/src/components/consultation/ConsultationRealtimeMonitor.css */
+/* File CSS mới cho component Giám sát Realtime */
+
+/* Biến màu chủ đạo (Y tế) */
+:root {
+  --medical-green-light: #E6F4EA;
+  --medical-green-dark: #065f46;
+  --medical-green-primary: #10B981;
+  --medical-red-emergency: #EF4444;
+  --medical-red-light: #FEE2E2;
+  --medical-red-dark: #991B1B;
+  --medical-yellow-warning: #F59E0B;
+  --medical-yellow-light: #FFFBEB;
+  --medical-blue: #3B82F6;
+  --medical-text-primary: #1F2937;
+  --medical-text-secondary: #6B7280;
+  --medical-border: #E5E7EB;
+  --medical-bg-white: #FFFFFF;
+  --medical-bg-light-gray: #F9FAFB;
+}
+
+/* Container chính của tab */
+.consultation-realtime-monitor-container {
+  width: 100%;
+}
+
+/* Header (Bảng điều khiển sự cố (1) [LIVE]) */
+.consultation-realtime-monitor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px; /* Thu nhỏ padding */
+  margin-bottom: 16px; /* Thu nhỏ margin */
+  border-bottom: 1px solid var(--medical-border);
+}
+
+.consultation-realtime-monitor-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.25rem; /* Thu nhỏ chữ (từ 1.5rem) */
+  font-weight: 600;
+  color: var(--medical-text-primary);
+}
+
+.consultation-realtime-monitor-title svg {
+  color: var(--medical-yellow-warning);
+}
+
+/* Chỉ báo [LIVE] */
+.consultation-realtime-monitor-live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px; /* Thu nhỏ padding */
+  background: var(--medical-red-light);
+  color: var(--medical-red-dark);
+  border-radius: 16px;
+  font-size: 0.75rem; /* Thu nhỏ chữ */
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.consultation-realtime-monitor-pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--medical-red-emergency);
+  border-radius: 50%;
+  animation: consultation-realtime-monitor-pulse 2s infinite;
+}
+
+/* Các trạng thái (Loading, Empty, Error) */
+.consultation-realtime-monitor-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px; /* Thu nhỏ padding */
+  text-align: center;
+  color: var(--medical-text-secondary);
+  background: var(--medical-bg-light-gray);
+  border-radius: 8px;
+}
+
+.consultation-realtime-monitor-empty-state svg {
+  font-size: 1.75rem; /* Thu nhỏ icon */
+  margin-bottom: 12px;
+}
+
+.consultation-realtime-monitor-empty-state p {
+  font-size: 0.9rem; /* Thu nhỏ chữ */
+  margin: 0;
+}
+
+.consultation-realtime-monitor-error-state {
+  color: var(--medical-red-dark);
+  background: var(--medical-red-light);
+}
+
+.consultation-realtime-monitor-spinner {
+  width: 28px; /* Thu nhỏ spinner */
+  height: 28px;
+  border: 3px solid var(--medical-border);
+  border-top-color: var(--medical-green-primary);
+  border-radius: 50%;
+  animation: consultation-realtime-monitor-spin 0.8s linear infinite;
+}
+
+/* Danh sách các card sự cố */
+.consultation-realtime-monitor-list {
+  display: grid;
+  grid-template-columns: 1fr; /* 1 cột cho dễ đọc */
+  gap: 16px; /* Thu nhỏ khoảng cách */
+}
+
+/* Card sự cố */
+.consultation-realtime-monitor-card {
+  background: var(--medical-bg-white);
+  border: 1px solid var(--medical-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  /* Đường viền màu bên trái */
+  border-left: 5px solid var(--medical-yellow-warning); 
+  transition: box-shadow 0.2s ease;
+}
+
+.consultation-realtime-monitor-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Các loại card sự cố (viền màu) */
+.consultation-realtime-monitor-card-technical {
+  border-left-color: var(--medical-blue);
+}
+.consultation-realtime-monitor-card-behavior {
+  border-left-color: var(--medical-yellow-warning);
+}
+.consultation-realtime-monitor-card-emergency,
+.consultation-realtime-monitor-card-security {
+  border-left-color: var(--medical-red-emergency);
+}
+
+/* Header của card */
+.consultation-realtime-monitor-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px; /* Thu nhỏ padding */
+  border-bottom: 1px solid var(--medical-border);
+  background: var(--medical-bg-light-gray);
+}
+
+.consultation-realtime-monitor-card-icon {
+  font-size: 1rem; /* Thu nhỏ icon */
+  color: var(--medical-text-secondary);
+  display: flex;
+  align-items: center;
+}
+/* Màu icon cho các loại khẩn cấp */
+.consultation-realtime-monitor-card-emergency .consultation-realtime-monitor-card-icon,
+.consultation-realtime-monitor-card-security .consultation-realtime-monitor-card-icon {
+  color: var(--medical-red-emergency);
+}
+
+.consultation-realtime-monitor-card-title {
+  margin: 0;
+  font-size: 0.95rem; /* Thu nhỏ chữ */
+  font-weight: 600;
+  color: var(--medical-text-primary);
+  flex: 1;
+}
+/* Màu tiêu đề cho các loại khẩn cấp */
+.consultation-realtime-monitor-card-emergency .consultation-realtime-monitor-card-title,
+.consultation-realtime-monitor-card-security .consultation-realtime-monitor-card-title {
+  color: var(--medical-red-emergency);
+}
+
+.consultation-realtime-monitor-card-time {
+  font-size: 0.8rem; /* Thu nhỏ chữ */
+  color: var(--medical-text-secondary);
+}
+
+/* Thân card */
+.consultation-realtime-monitor-card-body {
+  padding: 16px; /* Thu nhỏ padding */
+}
+
+.consultation-realtime-monitor-card-description {
+  font-size: 0.875rem; /* Thu nhỏ chữ */
+  color: var(--medical-text-primary);
+  line-height: 1.5;
+  margin: 0 0 12px 0;
+}
+.consultation-realtime-monitor-card-description strong {
+  font-weight: 500;
+  color: var(--medical-text-secondary);
+}
+
+.consultation-realtime-monitor-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem; /* Thu nhỏ chữ */
+  color: var(--medical-text-secondary);
+}
+.consultation-realtime-monitor-card-meta strong {
+  font-weight: 500;
+  color: var(--medical-text-primary);
+}
+
+/* Nút hành động của card */
+.consultation-realtime-monitor-card-actions {
+  display: flex;
+  flex-wrap: wrap; /* Cho phép xuống dòng trên di động */
+  gap: 8px; /* Thu nhỏ khoảng cách */
+  padding: 0 16px 16px 16px;
+}
+
+.consultation-realtime-monitor-action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px; /* Thu nhỏ nút */
+  font-size: 0.8rem; /* Thu nhỏ chữ */
+  font-weight: 500;
+  border: 1px solid var(--medical-border);
+  background: var(--medical-bg-white);
+  color: var(--medical-text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.consultation-realtime-monitor-action-button:hover {
+  background: var(--medical-bg-light-gray);
+  border-color: #D1D5DB;
+  color: var(--medical-text-primary);
+}
+
+.consultation-realtime-monitor-action-button svg {
+  font-size: 0.75rem; /* Thu nhỏ icon */
+}
+
+/* Nút "Kết thúc" (Nổi bật - Đỏ) */
+.consultation-realtime-monitor-action-terminate {
+  border-color: #FCA5A5;
+  background: var(--medical-red-light);
+  color: var(--medical-red-dark);
+}
+.consultation-realtime-monitor-action-terminate:hover {
+  background: #FEE2E2;
+  border-color: #F87171;
+}
+
+/* Nút "Xử lý" (Nổi bật - Xanh lá) */
+.consultation-realtime-monitor-action-resolve {
+  border-color: #A7F3D0;
+  background: var(--medical-green-light);
+  color: var(--medical-green-dark);
+}
+.consultation-realtime-monitor-action-resolve:hover {
+  background: #D1FAE5;
+  border-color: #6EE7B7;
+}
+
+/* Animation */
+@keyframes consultation-realtime-monitor-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes consultation-realtime-monitor-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}

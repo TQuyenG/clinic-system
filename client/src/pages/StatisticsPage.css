@@ -1,0 +1,436 @@
+/* client/src/pages/StatisticsPage.css */
+
+/* 1. VARIABLES & THEME */
+:root {
+  --stat-bg-main: #f3f4f6;
+  --stat-bg-card: #ffffff;
+  --stat-primary: #10b981;       /* Green 500 */
+  --stat-primary-dark: #059669;  /* Green 700 */
+  --stat-primary-light: #ecfdf5; /* Green 50 */
+  
+  --stat-text-main: #111827;     /* Gray 900 */
+  --stat-text-secondary: #6b7280; /* Gray 500 */
+  
+  --stat-success: #34d399;
+  --stat-warning: #fbbf24;
+  --stat-danger: #f87171;
+  --stat-info: #60a5fa;
+
+  --stat-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --stat-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --stat-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  
+  --stat-radius: 16px;
+}
+
+/* 2. CONTAINER & LAYOUT */
+.statistics-page-container {
+  min-height: 100vh;
+  background-color: var(--stat-bg-main);
+  padding: 2rem;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--stat-text-main);
+}
+
+/* 3. HEADER SECTION */
+.statistics-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  background: var(--stat-bg-card);
+  padding: 1.5rem 2rem;
+  border-radius: var(--stat-radius);
+  box-shadow: var(--stat-shadow-sm);
+}
+
+.statistics-page-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--stat-primary-dark);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.statistics-page-subtitle {
+  margin: 0.5rem 0 0 0;
+  color: var(--stat-text-secondary);
+  font-size: 0.9rem;
+}
+
+.statistics-page-header-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.statistics-page-select-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--stat-bg-main);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.statistics-page-select-group .icon { color: var(--stat-text-secondary); }
+
+.statistics-page-select {
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  color: var(--stat-text-main);
+  font-size: 0.95rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.statistics-page-btn-print {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--stat-primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.statistics-page-btn-print:hover {
+  background-color: var(--stat-primary-dark);
+  transform: translateY(-1px);
+}
+
+/* 4. KPI CARDS GRID */
+.statistics-page-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.statistics-page-kpi-card {
+  background: var(--stat-bg-card);
+  border-radius: var(--stat-radius);
+  padding: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  box-shadow: var(--stat-shadow-sm);
+  border: 1px solid transparent;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.statistics-page-kpi-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--stat-shadow-md);
+}
+
+/* KPI Variants */
+.statistics-page-kpi-card.primary { border-bottom: 4px solid var(--stat-primary); }
+.statistics-page-kpi-card.success { border-bottom: 4px solid var(--stat-success); }
+.statistics-page-kpi-card.info { border-bottom: 4px solid var(--stat-info); }
+.statistics-page-kpi-card.warning { border-bottom: 4px solid var(--stat-warning); }
+
+.kpi-icon-wrapper {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.primary .kpi-icon-wrapper { background: var(--stat-primary-light); color: var(--stat-primary); }
+.success .kpi-icon-wrapper { background: #ecfdf5; color: var(--stat-success); }
+.info .kpi-icon-wrapper { background: #eff6ff; color: var(--stat-info); }
+.warning .kpi-icon-wrapper { background: #fffbeb; color: var(--stat-warning); }
+
+.kpi-content { flex: 1; z-index: 2; }
+
+.kpi-label {
+  font-size: 0.85rem;
+  color: var(--stat-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.kpi-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--stat-text-main);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.2;
+}
+
+.kpi-trend {
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kpi-trend.up { color: var(--stat-primary); }
+.kpi-trend.down { color: var(--stat-danger); }
+.kpi-trend.neutral { color: var(--stat-text-secondary); }
+
+.kpi-bg-decoration {
+  position: absolute;
+  right: -20px;
+  bottom: -20px;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, var(--stat-primary-light) 0%, transparent 70%);
+  opacity: 0.5;
+  z-index: 1;
+}
+
+/* 5. CHARTS LAYOUT */
+.statistics-page-charts-layout {
+  display: grid;
+  grid-template-columns: 2.5fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.statistics-page-chart-container {
+  background: var(--stat-bg-card);
+  border-radius: var(--stat-radius);
+  padding: 1.5rem;
+  box-shadow: var(--stat-shadow-sm);
+  border: 1px solid #e5e7eb;
+  position: relative;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.chart-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--stat-text-main);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-export-chart {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--stat-text-secondary);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.chart-body { position: relative; }
+
+/* Chart Styling Overrides */
+.recharts-cartesian-grid-horizontal line, 
+.recharts-cartesian-grid-vertical line {
+  stroke: #f3f4f6;
+}
+
+.statistics-page-custom-tooltip {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: var(--stat-shadow-lg);
+  backdrop-filter: blur(4px);
+}
+
+.statistics-page-custom-tooltip .label { font-weight: bold; margin-bottom: 4px; color: var(--stat-text-main); }
+.statistics-page-custom-tooltip .revenue { color: var(--stat-primary); font-weight: 600; margin: 2px 0; }
+.statistics-page-custom-tooltip .expense { color: var(--stat-danger); font-size: 0.85rem; margin: 0; }
+
+/* Pie Chart Center Text */
+.side-chart .chart-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-center-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%); /* Căn giữa tuyệt đối */
+  text-align: center;
+  pointer-events: none; /* Để không chặn tooltip */
+  margin-top: -10px; /* Tinh chỉnh nhỏ để khớp legend */
+}
+
+.chart-center-text small { display: block; color: var(--stat-text-secondary); font-size: 0.8rem; }
+.chart-center-text strong { display: block; color: var(--stat-text-main); font-size: 1.1rem; font-weight: 800; }
+
+/* 6. DATA TABLE */
+.statistics-page-table-section {
+  background: var(--stat-bg-card);
+  border-radius: var(--stat-radius);
+  padding: 1.5rem;
+  box-shadow: var(--stat-shadow-sm);
+  border: 1px solid #e5e7eb;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.statistics-page-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
+
+.statistics-page-table th {
+  text-align: left;
+  padding: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--stat-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.statistics-page-table td {
+  padding: 1rem;
+  font-size: 0.95rem;
+  border-bottom: 1px solid #f3f4f6;
+  color: var(--stat-text-main);
+  vertical-align: middle;
+}
+
+.statistics-page-table tr:hover td {
+  background-color: #f9fafb;
+}
+
+.statistics-page-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Table Badges */
+.month-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--stat-bg-main);
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--stat-text-main);
+}
+
+.trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.trend-badge.up { background: #ecfdf5; color: var(--stat-primary); }
+.trend-badge.down { background: #fef2f2; color: var(--stat-danger); }
+
+/* Text Colors */
+.text-primary { color: var(--stat-primary) !important; }
+.text-success { color: var(--stat-success) !important; }
+.text-danger { color: var(--stat-danger) !important; }
+.text-warning { color: var(--stat-warning) !important; }
+.text-muted { color: var(--stat-text-secondary) !important; }
+.fw-bold { font-weight: 700; }
+
+/* 7. LOADING STATE */
+.statistics-page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 80vh;
+  color: var(--stat-primary);
+  font-weight: 600;
+  gap: 1rem;
+}
+
+.icon-spin {
+  font-size: 2.5rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 8. RESPONSIVE */
+@media (max-width: 1024px) {
+  .statistics-page-charts-layout {
+    grid-template-columns: 1fr;
+  }
+  .side-chart {
+    height: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .statistics-page-container {
+    padding: 1rem;
+  }
+  
+  .statistics-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .statistics-page-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .statistics-page-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 9. PRINT STYLES */
+@media print {
+  .statistics-page-container {
+    background: white;
+    padding: 0;
+  }
+  .statistics-page-header-actions,
+  .btn-export-chart {
+    display: none;
+  }
+  .statistics-page-card,
+  .statistics-page-chart-container,
+  .statistics-page-table-section {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    break-inside: avoid;
+  }
+}

@@ -1,0 +1,603 @@
+/* client/src/pages/ConsultationHistoryPage.css */
+/* Giao diện thiết kế lại: Trắng & Xanh lá Pastel */
+
+/* ==================== TỔNG QUAN & NỀN ==================== */
+.consultation-history-page-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px 15px;
+  background-color: #f7fdfa; /* Nền xanh lá rất nhạt */
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ==================== HEADER ==================== */
+.consultation-history-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.consultation-history-page-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #27ae60; /* Màu xanh lá chủ đạo */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.consultation-history-page-book-new-button {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.consultation-history-page-book-new-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
+
+/* ==================== STATS CARDS ==================== */
+.consultation-history-page-stats-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.consultation-history-page-stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.consultation-history-page-stat-icon {
+  width: 45px;
+  height: 45px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: white;
+}
+
+.consultation-history-page-stat-info h3 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.consultation-history-page-stat-info p {
+  font-size: 13px;
+  color: #777;
+  margin: 0;
+}
+
+/* ==================== TABS ==================== */
+.consultation-history-page-tabs-container {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.consultation-history-page-tab-button {
+  flex: 1;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  border: 2px solid #a0d8b0; /* Màu xanh pastel viền */
+  background: white;
+  color: #27ae60;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.consultation-history-page-tab-button:hover {
+  background: #f0f9f4;
+}
+
+.consultation-history-page-tab-button.active {
+  background: #27ae60;
+  color: white;
+  border-color: #27ae60;
+}
+
+/* ==================== FILTERS ==================== */
+.consultation-history-page-filters-container {
+  background: white;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: flex-end;
+}
+
+.consultation-history-page-filter-group {
+  flex: 1;
+  min-width: 200px;
+}
+
+.consultation-history-page-filter-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #444;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.consultation-history-page-filter-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.consultation-history-page-filter-select:focus {
+  outline: none;
+  border-color: #27ae60;
+}
+
+.consultation-history-page-reset-filter-button {
+  padding: 8px 16px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.consultation-history-page-reset-filter-button:hover {
+  background: #c0392b;
+}
+
+/* ==================== CONSULTATIONS LIST CARD ==================== */
+.consultation-history-page-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.consultation-history-page-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.consultation-history-page-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Card Header */
+.consultation-history-page-card-header {
+  padding: 12px 15px;
+  background: #f8f9fa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eef2f5;
+}
+
+.consultation-history-page-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.consultation-history-page-code {
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  color: #3498db;
+  font-size: 13px;
+}
+
+/* Status Badges - Nổi bật */
+.consultation-history-page-status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.consultation-history-page-status-badge-pending {
+  background: #fdf3e1;
+  color: #f39c12;
+}
+.consultation-history-page-status-badge-confirmed {
+  background: #e1f3f8;
+  color: #3498db;
+}
+.consultation-history-page-status-badge-in_progress {
+  background: #dff9eb;
+  color: #27ae60;
+}
+.consultation-history-page-status-badge-completed {
+  background: #e4f8e9;
+  color: #27ae60;
+}
+.consultation-history-page-status-badge-cancelled,
+.consultation-history-page-status-badge-rejected {
+  background: #fbebee;
+  color: #e74c3c;
+}
+
+/* Card Body */
+.consultation-history-page-card-body {
+  padding: 15px;
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 15px;
+}
+
+.consultation-history-page-doctor-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.consultation-history-page-doctor-avatar {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid #e0e0e0;
+}
+
+.consultation-history-page-doctor-info h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+  text-align: center;
+}
+
+.consultation-history-page-doctor-specialty {
+  font-size: 12px;
+  color: #27ae60;
+  font-weight: 500;
+  text-align: center;
+  margin: 0;
+}
+
+.consultation-history-page-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.consultation-history-page-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.consultation-history-page-info-item label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.consultation-history-page-info-item p {
+  font-size: 14px;
+  color: #444;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.consultation-history-page-info-highlight {
+  font-weight: 600;
+  color: #27ae60;
+}
+
+.consultation-history-page-info-complaint {
+  font-style: italic;
+  color: #555;
+}
+
+.consultation-history-page-info-diagnosis {
+  background: #f7fdfa;
+  padding: 8px;
+  border-radius: 6px;
+  border-left: 3px solid #3498db;
+  grid-column: 1 / -1; /* Chẩn đoán chiếm cả hàng */
+}
+.consultation-history-page-info-diagnosis label {
+  color: #3498db;
+}
+
+.consultation-history-page-rating-stars {
+  display: flex;
+  gap: 3px;
+}
+.consultation-history-page-star-filled {
+  color: #f39c12;
+  font-size: 15px;
+}
+.consultation-history-page-star-empty {
+  color: #e0e0e0;
+  font-size: 15px;
+}
+
+/* Card Footer */
+.consultation-history-page-card-footer {
+  padding: 12px 15px;
+  background: #f8f9fa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #eef2f5;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.consultation-history-page-fee-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.consultation-history-page-fee-label {
+  font-size: 13px;
+  color: #777;
+  font-weight: 500;
+}
+
+.consultation-history-page-fee-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e74c3c;
+}
+
+/* Action Buttons */
+.consultation-history-page-action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.consultation-history-page-action-button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.consultation-history-page-action-button-detail {
+  background: #3498db;
+  color: white;
+}
+.consultation-history-page-action-button-detail:hover {
+  background: #2980b9;
+}
+
+consultation-history-page-action-button-history {
+  background: #7f8c8d; /* Màu xám-xanh trung tính */
+  color: white;
+}
+.consultation-history-page-action-button-history:hover {
+  background: #95a5a6;
+}
+.consultation-history-page-action-button-cancel {
+  background: #fdf3e1;
+  color: #f39c12;
+  border: 1px solid #fdeccf;
+}
+.consultation-history-page-action-button-cancel:hover {
+  background: #f39c12;
+  color: white;
+}
+.consultation-history-page-action-button-review {
+  background: #27ae60;
+  color: white;
+}
+.consultation-history-page-action-button-review:hover {
+  background: #2ecc71;
+}
+
+/* ==================== PAGINATION ==================== */
+.consultation-history-page-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-top: 25px;
+}
+
+.consultation-history-page-pagination-button {
+  padding: 8px 16px;
+  background: white;
+  color: #444;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.consultation-history-page-pagination-button:hover:not(:disabled) {
+  border-color: #27ae60;
+  color: #27ae60;
+}
+
+.consultation-history-page-pagination-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.consultation-history-page-page-info {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* ==================== LOADING & EMPTY STATES ==================== */
+.consultation-history-page-loading {
+  text-align: center;
+  padding: 50px 20px;
+  color: #777;
+  font-size: 15px;
+}
+
+.consultation-history-page-no-data {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+}
+
+.consultation-history-page-no-data svg {
+  font-size: 50px;
+  color: #e0e0e0;
+  margin-bottom: 15px;
+}
+
+.consultation-history-page-no-data p {
+  font-size: 16px;
+  color: #999;
+  margin-bottom: 20px;
+}
+
+.consultation-history-page-book-now-button {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.consultation-history-page-book-now-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 768px) {
+  .consultation-history-page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  .consultation-history-page-stats-container {
+    grid-template-columns: 1fr;
+  }
+  .consultaction-history-page-filters-container {
+    flex-direction: column;
+  }
+  .consultation-history-page-filter-group {
+    min-width: 100%;
+  }
+  .consultation-history-page-reset-filter-button {
+    width: 100%;
+  }
+  .consultation-history-page-card-body {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .consultation-history-page-doctor-info {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+  .consultation-history-page-doctor-info h4,
+  .consultation-history-page-doctor-specialty {
+    text-align: left;
+  }
+  .consultation-history-page-info-grid {
+    grid-template-columns: 1fr;
+  }
+  .consultation-history-page-info-diagnosis {
+    grid-column: 1; /* Reset cho mobile */
+  }
+  .consultation-history-page-card-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .consultation-history-page-action-buttons {
+    flex-direction: column;
+  }
+  .consultation-history-page-action-button {
+    justify-content: center;
+  }
+}
+
+/* ... (code cũ của bạn) ... */
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 768px) {
+  /* ... (code responsive cũ) ... */
+  .consultation-history-page-action-button {
+    justify-content: center;
+  }
+}
+
+/* ================================================= */
+/* === THÊM MỚI ĐỂ SỬA LỖI HIỂN THỊ TRẠNG THÁI === */
+/* ================================================= */
+
+/* THÊM 1: Style cho màu 'danger' (đã có ở service) */
+/* (Style này giống hệt .status-badge-cancelled) */
+.consultation-history-page-status-badge-danger {
+  background: #fbebee;
+  color: #e74c3c;
+}
+
+/* THÊM 2: Style cho box hiển thị lý do hủy */
+.consultation-history-page-cancel-reason {
+  background: #fbebee; /* Nền đỏ nhạt */
+  color: #c0392b; /* Chữ đỏ đậm */
+  padding: 12px 15px;
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 1px solid #eef2f5;
+  line-height: 1.5;
+}
+.consultation-history-page-cancel-reason strong {
+  color: #e74c3c;
+  margin-right: 5px;
+}

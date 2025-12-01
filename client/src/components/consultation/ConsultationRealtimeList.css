@@ -1,0 +1,25 @@
+/* ✅ NÚT THAM GIA REALTIME */
+.btn-icon.btn-join-realtime {
+  background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
+  color: white !important;
+  font-size: 1.2rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-icon.btn-join-realtime:hover {
+  background: linear-gradient(135deg, #27ae60, #229954) !important;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.5);
+}
+
+/* Animation nhấp nháy */
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(46, 204, 113, 0);
+  }
+}

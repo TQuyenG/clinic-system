@@ -1,0 +1,807 @@
+/* ========================================================================== */
+/* ConsultationPackageManagement.css - GIAO DIỆN Y TẾ MỚI (PASTEL GREEN) */
+/* ✅ Tên class theo quy ước: consultation-package-management-ten-class */
+/* ✅ Kích thước được thu nhỏ (compact) và thân thiện người dùng */
+/* ✅ Bảng màu: Trắng, Xanh lá pastel, Xanh y tế (#00a79d) */
+/* ========================================================================== */
+
+/* ==================== BIẾN MÀU (VARIABLES) ==================== */
+:root {
+  --cpm-primary-color: #00a79d; /* Xanh y tế (teal) */
+  --cpm-primary-color-dark: #008a7f;
+  --cpm-primary-light: #e6f6f5; /* Xanh lá pastel rất nhạt */
+  --cpm-background-color: #f7fbfb; /* Nền pastel */
+  --cpm-white-color: #ffffff;
+  --cpm-text-color: #333333;
+  --cpm-text-light: #666666;
+  --cpm-border-color: #e0e0e0;
+  --cpm-success-color: #28a745;
+  --cpm-success-light: #eaf7ec;
+  --cpm-danger-color: #dc3545;
+  --cpm-danger-light: #fbebee;
+  --cpm-warning-light: #fff8e1;
+  --cpm-warning-dark: #ffc107;
+  --cpm-info-light: #e7f5ff;
+  --cpm-info-dark: #007bff;
+  --cpm-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* ==================== CONTAINER CHÍNH ==================== */
+.consultation-package-management-container {
+  padding: 16px; /* Thu nhỏ */
+  background: var(--cpm-background-color);
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ==================== HEADER ==================== */
+.consultation-package-management-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px; /* Thu nhỏ */
+}
+
+.consultation-package-management-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Thu nhỏ */
+}
+
+.consultation-package-management-header-icon {
+  font-size: 26px; /* Thu nhỏ */
+  color: var(--cpm-primary-color);
+}
+
+.consultation-package-management-header h2 {
+  font-size: 22px; /* Thu nhỏ */
+  font-weight: 600;
+  color: var(--cpm-text-color);
+  margin: 0;
+}
+
+/* ==================== STATS CARDS ==================== */
+.consultation-package-management-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* Thu nhỏ */
+  gap: 16px; /* Thu nhỏ */
+  margin-bottom: 16px;
+}
+
+.consultation-package-management-stat-card {
+  background: var(--cpm-white-color);
+  border-radius: 8px;
+  padding: 16px; /* Thu nhỏ */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--cpm-shadow);
+  border-left: 4px solid var(--cpm-primary-color);
+}
+
+.consultation-package-management-stat-card.consultation-package-management-stat-success {
+  border-left-color: var(--cpm-success-color);
+}
+.consultation-package-management-stat-card.consultation-package-management-stat-info {
+  border-left-color: var(--cpm-info-dark);
+}
+.consultation-package-management-stat-card.consultation-package-management-stat-warning {
+  border-left-color: var(--cpm-warning-dark);
+}
+
+.consultation-package-management-stat-icon {
+  font-size: 32px; /* Thu nhỏ */
+  width: 50px; /* Thu nhỏ */
+  height: 50px; /* Thu nhỏ */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cpm-primary-light);
+  color: var(--cpm-primary-color);
+  border-radius: 8px;
+}
+
+.consultation-package-management-stat-info {
+  flex: 1;
+}
+
+.consultation-package-management-stat-value {
+  font-size: 26px; /* Thu nhỏ */
+  font-weight: 700;
+  color: var(--cpm-text-color);
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.consultation-package-management-stat-label {
+  font-size: 13px; /* Thu nhỏ */
+  color: var(--cpm-text-light);
+  font-weight: 500;
+}
+
+/* ==================== FILTERS ==================== */
+.consultation-package-management-filters {
+  background: var(--cpm-white-color);
+  padding: 16px; /* Thu nhỏ */
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-shadow: var(--cpm-shadow);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.consultation-package-management-search-box {
+  flex: 1;
+  min-width: 250px; /* Thu nhỏ */
+  position: relative;
+}
+
+.consultation-package-management-search-icon {
+  position: absolute;
+  left: 12px; /* Thu nhỏ */
+  top: 50%;
+  transform: translateY(-50%);
+  color: #95a5a6;
+  font-size: 16px; /* Thu nhỏ */
+}
+
+.consultation-package-management-filter-input,
+.consultation-package-management-filter-select {
+  width: 100%;
+  padding: 10px 12px; /* Thu nhỏ */
+  border: 1px solid var(--cpm-border-color);
+  border-radius: 6px; /* Thu nhỏ */
+  font-size: 14px; /* Thu nhỏ */
+  transition: all 0.3s ease;
+  background: var(--cpm-white-color);
+}
+
+.consultation-package-management-filter-input {
+  padding-left: 36px; /* Thu nhỏ */
+}
+
+.consultation-package-management-filter-input:focus,
+.consultation-package-management-filter-select:focus {
+  outline: none;
+  border-color: var(--cpm-primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 167, 157, 0.1); /* Sửa màu shadow */
+}
+
+.consultation-package-management-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.consultation-package-management-filter-icon {
+  color: var(--cpm-text-light);
+  font-size: 16px;
+}
+
+.consultation-package-management-filter-select {
+  cursor: pointer;
+  min-width: 150px;
+}
+
+/* ==================== TABLE ==================== */
+.consultation-package-management-table-wrapper {
+  background: var(--cpm-white-color);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--cpm-shadow);
+  margin-bottom: 16px;
+}
+
+.consultation-package-management-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.consultation-package-management-table thead {
+  background: var(--cpm-primary-light);
+}
+
+.consultation-package-management-table thead th {
+  padding: 12px 16px; /* Thu nhỏ */
+  text-align: left;
+  font-size: 13px; /* Thu nhỏ */
+  font-weight: 600;
+  color: var(--cpm-primary-color); /* Sửa màu */
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.consultation-package-management-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.2s ease;
+}
+
+.consultation-package-management-table tbody tr:hover {
+  background: var(--cpm-background-color);
+}
+
+.consultation-package-management-table tbody td {
+  padding: 12px 16px; /* Thu nhỏ */
+  color: var(--cpm-text-color);
+  font-size: 14px; /* Thu nhỏ */
+  vertical-align: middle;
+}
+
+/* Tùy chỉnh cell */
+.consultation-package-management-package-name-cell strong {
+  font-weight: 600;
+  color: var(--cpm-text-color);
+  display: block;
+}
+.consultation-package-management-package-desc {
+  font-size: 12px;
+  color: var(--cpm-text-light);
+}
+
+.consultation-package-management-code-badge {
+  display: inline-block;
+  padding: 3px 8px; /* Thu nhỏ */
+  background: var(--cpm-background-color);
+  border: 1px solid var(--cpm-border-color);
+  color: var(--cpm-text-light);
+  border-radius: 4px;
+  font-size: 12px; /* Thu nhỏ */
+  font-weight: 500;
+}
+
+.consultation-package-management-service-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.consultation-package-management-service-badge {
+  padding: 4px 10px; /* Thu nhỏ */
+  border-radius: 12px;
+  font-size: 12px; /* Thu nhỏ */
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.consultation-package-management-chat {
+  background: var(--cpm-info-light);
+  color: var(--cpm-info-dark);
+}
+.consultation-package-management-video {
+  background: var(--cpm-warning-light);
+  color: #ff9800;
+}
+.consultation-package-management-disabled {
+  background: #ECEFF1;
+  color: #90A4AE;
+}
+
+.consultation-package-management-duration-cell {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.consultation-package-management-status-toggle {
+  padding: 6px 12px; /* Thu nhỏ */
+  border: none;
+  border-radius: 12px;
+  font-size: 12px; /* Thu nhỏ */
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.consultation-package-management-status-toggle.consultation-package-management-active {
+  background: var(--cpm-success-light);
+  color: var(--cpm-success-color);
+}
+.consultation-package-management-status-toggle.consultation-package-management-inactive {
+  background: var(--cpm-danger-light);
+  color: var(--cpm-danger-color);
+}
+
+.consultation-package-management-fee-cell {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.consultation-package-management-fee-item {
+  font-weight: 600;
+  color: var(--cpm-primary-color); /* Nhấn mạnh */
+}
+
+/* Action Buttons */
+.consultation-package-management-action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.consultation-package-management-btn-action {
+  width: 32px; /* Thu nhỏ */
+  height: 32px; /* Thu nhỏ */
+  border: 1px solid var(--cpm-border-color);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px; /* Thu nhỏ */
+  background: var(--cpm-white-color);
+}
+
+.consultation-package-management-btn-action:hover {
+  background: var(--cpm-primary-light);
+  color: var(--cpm-primary-color);
+  border-color: var(--cpm-primary-color);
+}
+
+.consultation-package-management-btn-view { color: var(--cpm-info-dark); }
+.consultation-package-management-btn-edit { color: var(--cpm-warning-dark); }
+.consultation-package-management-btn-delete { color: var(--cpm-danger-color); }
+
+/* No Data */
+.consultation-package-management-no-data {
+  text-align: center;
+  padding: 40px 20px; /* Thu nhỏ */
+}
+.consultation-package-management-no-data-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #95a5a6;
+}
+.consultation-package-management-no-data-message svg {
+  font-size: 36px; /* Thu nhỏ */
+}
+
+/* ==================== PAGINATION ==================== */
+.consultation-package-management-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px; /* Thu nhỏ */
+  padding: 16px; /* Thu nhỏ */
+  background: var(--cpm-white-color);
+  border-radius: 8px;
+  box-shadow: var(--cpm-shadow);
+}
+
+.consultation-package-management-pagination-btn {
+  padding: 8px 14px; /* Thu nhỏ */
+  border: 1px solid var(--cpm-primary-color);
+  background: transparent;
+  color: var(--cpm-primary-color);
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px; /* Thu nhỏ */
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.consultation-package-management-pagination-btn:hover:not(:disabled) {
+  background: var(--cpm-primary-color);
+  color: var(--cpm-white-color);
+}
+
+.consultation-package-management-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.consultation-package-management-pagination-info {
+  font-size: 13px; /* Thu nhỏ */
+  color: var(--cpm-text-light);
+  font-weight: 500;
+}
+
+/* ==================== MODALS ==================== */
+.consultation-package-management-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(3px);
+  animation: cpm-fadeIn 0.3s ease;
+}
+
+@keyframes cpm-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.consultation-package-management-modal-content {
+  background: var(--cpm-white-color);
+  border-radius: 12px; /* Thu nhỏ */
+  max-width: 700px; /* Thu nhỏ */
+  width: 90%;
+  max-height: 90vh;
+  overflow: hidden; /* Thay đổi */
+  display: flex; /* Thêm */
+  flex-direction: column; /* Thêm */
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  animation: cpm-slideUp 0.3s ease;
+}
+
+@keyframes cpm-slideUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.consultation-package-management-modal-header {
+  padding: 16px 20px; /* Thu nhỏ */
+  border-bottom: 1px solid var(--cpm-border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--cpm-primary-color);
+  color: var(--cpm-white-color);
+  border-radius: 12px 12px 0 0;
+}
+
+.consultation-package-management-modal-header h3 {
+  margin: 0;
+  font-size: 18px; /* Thu nhỏ */
+  font-weight: 600;
+}
+
+.consultation-package-management-modal-close {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  width: 32px; /* Thu nhỏ */
+  height: 32px; /* Thu nhỏ */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--cpm-white-color);
+  font-size: 16px; /* Thu nhỏ */
+  transition: all 0.3s ease;
+}
+
+.consultation-package-management-modal-close:hover {
+  background: rgba(255,255,255,0.3);
+  transform: rotate(90deg);
+}
+
+.consultation-package-management-modal-body {
+  padding: 20px; /* Thu nhỏ */
+  overflow-y: auto;
+  flex: 1; /* Thêm */
+}
+
+.consultation-package-management-modal-footer {
+  padding: 16px 20px; /* Thu nhỏ */
+  border-top: 1px solid var(--cpm-border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px; /* Thu nhỏ */
+  background: var(--cpm-background-color);
+}
+
+/* ==================== MODAL CHI TIẾT ==================== */
+.consultation-package-management-detail-section {
+  margin-bottom: 20px; /* Thu nhỏ */
+}
+
+.consultation-package-management-detail-section h4 {
+  font-size: 16px; /* Thu nhỏ */
+  font-weight: 600;
+  color: var(--cpm-text-color);
+  margin-bottom: 12px; /* Thu nhỏ */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.consultation-package-management-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.consultation-package-management-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.consultation-package-management-detail-item label {
+  font-size: 12px; /* Thu nhỏ */
+  color: var(--cpm-text-light);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.consultation-package-management-detail-item span {
+  font-size: 14px; /* Thu nhỏ */
+  color: var(--cpm-text-color);
+  font-weight: 500;
+}
+
+.consultation-package-management-status-active {
+  color: var(--cpm-success-color);
+  font-weight: 600;
+}
+.consultation-package-management-status-inactive {
+  color: var(--cpm-danger-color);
+  font-weight: 600;
+}
+
+.consultation-package-management-price-table {
+  background: var(--cpm-background-color);
+  border-radius: 8px;
+  padding: 12px; /* Thu nhỏ */
+}
+
+.consultation-package-management-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0; /* Thu nhỏ */
+  border-bottom: 1px solid var(--cpm-border-color);
+  font-size: 14px; /* Thu nhỏ */
+}
+
+.consultation-package-management-price-row:last-child {
+  border-bottom: none;
+}
+
+.consultation-package-management-price-row strong {
+  color: var(--cpm-primary-color);
+  font-size: 16px; /* Thu nhỏ */
+  font-weight: 700; /* Nhấn mạnh */
+}
+
+.consultation-package-management-notes-text {
+  background: var(--cpm-background-color);
+  padding: 12px;
+  border-radius: 8px;
+  color: var(--cpm-text-color);
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.consultation-package-management-disabled-text {
+  font-size: 14px;
+  color: var(--cpm-text-light);
+  font-style: italic;
+}
+
+/* ==================== MODAL FORM (TẠO/SỬA) ==================== */
+.consultation-package-management-form-section {
+  margin-bottom: 20px;
+}
+
+.consultation-package-management-form-section h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--cpm-text-color);
+  margin-bottom: 12px;
+}
+
+.consultation-package-management-form-row {
+  display: grid;
+  grid-template-columns: 1fr; /* Đơn giản hóa */
+  gap: 16px; /* Thu nhỏ */
+}
+
+.consultation-package-management-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* Thu nhỏ */
+}
+
+.consultation-package-management-form-group.consultation-package-management-full-width {
+  grid-column: 1 / -1;
+}
+
+.consultation-package-management-form-group label {
+  font-size: 13px; /* Thu nhỏ */
+  font-weight: 600;
+  color: var(--cpm-text-color);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Nhấn mạnh trường bắt buộc */
+.consultation-package-management-form-group label.consultation-package-management-required::after {
+  content: '*';
+  color: var(--cpm-danger-color);
+  font-weight: bold;
+}
+
+.consultation-package-management-form-input,
+.consultation-package-management-form-textarea {
+  width: 100%;
+  padding: 10px 12px; /* Thu nhỏ */
+  border: 1px solid var(--cpm-border-color);
+  border-radius: 6px;
+  font-size: 14px; /* Thu nhỏ */
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.consultation-package-management-form-input:focus,
+.consultation-package-management-form-textarea:focus {
+  outline: none;
+  border-color: var(--cpm-primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 167, 157, 0.1);
+}
+
+.consultation-package-management-form-textarea {
+  resize: vertical;
+  min-height: 80px; /* Thu nhỏ */
+}
+
+/* Service Config Cards (Form) */
+.consultation-package-management-service-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px; /* Thu nhỏ */
+}
+
+.consultation-package-management-service-config-card {
+  background: var(--cpm-background-color);
+  border: 1px solid var(--cpm-border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.consultation-package-management-service-config-card:hover {
+  border-color: var(--cpm-primary-color);
+  box-shadow: 0 2px 8px rgba(0, 167, 157, 0.1);
+}
+
+.consultation-package-management-service-header {
+  background: var(--cpm-white-color);
+  padding: 12px; /* Thu nhỏ */
+  border-bottom: 1px solid var(--cpm-border-color);
+}
+
+.consultation-package-management-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Thu nhỏ */
+  position: relative;
+  z-index: 10;
+}
+
+.consultation-package-management-checkbox-label input[type="checkbox"] {
+  width: 18px; /* Thu nhỏ */
+  height: 18px; /* Thu nhỏ */
+  cursor: pointer !important;
+  z-index: 10 !important;
+  position: relative;
+  pointer-events: auto !important;
+}
+
+.consultation-package-management-checkbox-label label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px; /* Thu nhỏ */
+  color: var(--cpm-text-color);
+  cursor: pointer;
+  z-index: 9;
+}
+
+/* Checkbox inline (Miễn phí) */
+.consultation-package-management-checkbox-label.consultation-package-management-inline {
+  flex-direction: row;
+  align-items: center;
+}
+.consultation-package-management-checkbox-label.consultation-package-management-inline input {
+  width: 16px;
+  height: 16px;
+}
+.consultation-package-management-checkbox-label.consultation-package-management-inline label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.consultation-package-management-service-icon {
+  font-size: 20px; /* Thu nhỏ */
+}
+
+.consultation-package-management-service-body {
+  padding: 12px; /* Thu nhỏ */
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Thu nhỏ */
+}
+
+/* ==================== BUTTONS CHUNG ==================== */
+.consultation-package-management-btn {
+  padding: 10px 20px; /* Thu nhỏ */
+  border: none;
+  border-radius: 6px;
+  font-size: 14px; /* Thu nhỏ */
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.consultation-package-management-btn-primary {
+  background: var(--cpm-primary-color);
+  color: var(--cpm-white-color);
+}
+
+.consultation-package-management-btn-primary:hover {
+  background: var(--cpm-primary-color-dark);
+}
+
+.consultation-package-management-btn-secondary {
+  background: var(--cpm-border-color);
+  color: var(--cpm-text-color);
+}
+
+.consultation-package-management-btn-secondary:hover {
+  background: #c0c0c0;
+}
+
+/* ==================== LOADING ==================== */
+.consultation-package-management-loading-container {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.consultation-package-management-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid var(--cpm-primary-color);
+  border-radius: 50%;
+  width: 40px; /* Thu nhỏ */
+  height: 40px; /* Thu nhỏ */
+  animation: cpm-spin 1s linear infinite;
+  margin: 0 auto 16px; /* Thu nhỏ */
+}
+
+@keyframes cpm-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 768px) {
+  .consultation-package-management-stats {
+    grid-template-columns: 1fr;
+  }
+  .consultation-package-management-filters {
+    flex-direction: column;
+  }
+  .consultation-package-management-search-box {
+    width: 100%;
+  }
+  .consultation-package-management-table-wrapper {
+    overflow-x: auto;
+  }
+  .consultation-package-management-table {
+    min-width: 900px; /* Thu nhỏ */
+  }
+  .consultation-package-management-modal-content {
+    width: 95%;
+    max-width: none;
+  }
+  .consultation-package-management-service-config-grid {
+    grid-template-columns: 1fr;
+  }
+}

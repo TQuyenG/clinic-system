@@ -1,0 +1,69 @@
+/* client/src/pages/PaymentSettingsPage.css */
+
+.payment-settings-container {
+  padding: 20px;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.setting-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.setting-card:hover {
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+  padding: 15px 20px;
+}
+
+.card-body {
+  padding: 20px;
+  transition: opacity 0.3s ease;
+}
+
+/* Custom Colors for specific gateways */
+.bg-pink-subtle {
+  background-color: #fce7f3 !important;
+}
+.text-pink-emphasis {
+  color: #9d174d !important;
+}
+.border-pink {
+  border-color: #fbcfe8 !important;
+}
+.text-pink-momo {
+    color: #d82d8b;
+}
+
+.bg-success-subtle { background-color: #d1e7dd !important; }
+.text-success-emphasis { color: #0f5132 !important; }
+
+.bg-primary-subtle { background-color: #cfe2ff !important; }
+.text-primary-emphasis { color: #084298 !important; }
+
+.bg-warning-subtle { background-color: #fff3cd !important; }
+.text-warning-emphasis { color: #664d03 !important; }
+
+/* Switch toggle size */
+.form-switch .form-check-input {
+  width: 3em;
+  height: 1.5em;
+}
+
+/* Animation */
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
