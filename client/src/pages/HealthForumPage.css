@@ -1,0 +1,869 @@
+/* Container chính */
+.health-forum-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px;
+  background: linear-gradient(135deg, #f5fef7 0%, #e8f8f0 100%);
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Header */
+.health-forum-header {
+  background: linear-gradient(135deg, #a8e6cf 0%, #7ecfa5 100%);
+  border-radius: 20px;
+  padding: 40px;
+  margin-bottom: 30px;
+  box-shadow: 0 8px 30px rgba(126, 207, 165, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.health-forum-header::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 300px;
+  height: 300px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  animation: health-forum-float 6s ease-in-out infinite;
+}
+
+@keyframes health-forum-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+.health-forum-header-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.health-forum-title {
+  font-size: 48px;
+  color: #ffffff;
+  font-weight: 800;
+  margin: 0 0 10px 0;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+  animation: health-forum-slide-in 0.6s ease-out;
+}
+
+.health-forum-subtitle {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0;
+  font-weight: 500;
+  animation: health-forum-slide-in 0.8s ease-out;
+}
+
+@keyframes health-forum-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Search Section */
+.health-forum-search-section {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  animation: health-forum-fade-in 0.5s ease-out;
+}
+
+@keyframes health-forum-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.health-forum-search-bar {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.health-forum-search-icon {
+  position: absolute;
+  left: 20px;
+  color: #7ecfa5;
+  font-size: 18px;
+  pointer-events: none;
+}
+
+.health-forum-search-input {
+  width: 100%;
+  padding: 16px 20px 16px 50px;
+  border: 2px solid #d4f1e3;
+  border-radius: 50px;
+  font-size: 16px;
+  background: white;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(126, 207, 165, 0.1);
+}
+
+.health-forum-search-input:focus {
+  outline: none;
+  border-color: #7ecfa5;
+  box-shadow: 0 4px 20px rgba(126, 207, 165, 0.25);
+  transform: translateY(-2px);
+}
+
+.health-forum-filter-toggle {
+  padding: 16px 30px;
+  background: white;
+  border: 2px solid #d4f1e3;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #4a9b7a;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 2px 10px rgba(126, 207, 165, 0.1);
+}
+
+.health-forum-filter-toggle:hover {
+  background: #7ecfa5;
+  color: white;
+  border-color: #7ecfa5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(126, 207, 165, 0.3);
+}
+
+/* Filters */
+.health-forum-filters {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 15px rgba(126, 207, 165, 0.15);
+  animation: health-forum-expand 0.3s ease-out;
+}
+
+@keyframes health-forum-expand {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.health-forum-filter-section {
+  margin-bottom: 20px;
+}
+
+.health-forum-filter-section:last-child {
+  margin-bottom: 0;
+}
+
+.health-forum-filter-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2d6a4f;
+  margin: 0 0 15px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.health-forum-sort-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.health-forum-sort-btn {
+  padding: 10px 20px;
+  background: #f0f9f4;
+  border: 2px solid #d4f1e3;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a9b7a;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.health-forum-sort-btn:hover {
+  background: #d4f1e3;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 10px rgba(126, 207, 165, 0.2);
+}
+
+.health-forum-sort-btn.active {
+  background: #7ecfa5;
+  color: white;
+  border-color: #7ecfa5;
+  box-shadow: 0 4px 15px rgba(126, 207, 165, 0.3);
+}
+
+.health-forum-tags-filter {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.health-forum-tag-btn {
+  padding: 8px 18px;
+  background: white;
+  border: 2px solid #d4f1e3;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #52b788;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.health-forum-tag-btn:hover {
+  background: #f0f9f4;
+  border-color: #a8e6cf;
+  transform: translateY(-1px);
+}
+
+.health-forum-tag-btn.active {
+  background: #52b788;
+  color: white;
+  border-color: #52b788;
+}
+
+/* Main Layout */
+.health-forum-main-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr 300px;
+  gap: 25px;
+  animation: health-forum-fade-in 0.8s ease-out;
+}
+
+@media (max-width: 1400px) {
+  .health-forum-main-layout {
+    grid-template-columns: 250px 1fr 280px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .health-forum-main-layout {
+    grid-template-columns: 1fr 300px;
+  }
+  
+  .health-forum-sidebar-left {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .health-forum-main-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .health-forum-sidebar-right {
+    display: none;
+  }
+}
+
+/* Sidebars */
+.health-forum-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.health-forum-widget {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(126, 207, 165, 0.12);
+  transition: all 0.3s ease;
+}
+
+.health-forum-widget:hover {
+  box-shadow: 0 6px 25px rgba(126, 207, 165, 0.2);
+  transform: translateY(-3px);
+}
+
+.health-forum-widget-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2d6a4f;
+  margin: 0 0 15px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e8f8f0;
+}
+
+/* Groups */
+.health-forum-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.health-forum-group-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8fdfb;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #2d6a4f;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+}
+
+.health-forum-group-btn:hover {
+  background: #f0f9f4;
+  border-color: var(--group-color);
+  transform: translateX(5px);
+}
+
+.health-forum-group-btn.active {
+  background: linear-gradient(135deg, #a8e6cf 0%, #7ecfa5 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 15px rgba(126, 207, 165, 0.3);
+  transform: translateX(5px);
+}
+
+.health-forum-group-icon {
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.health-forum-group-name {
+  flex: 1;
+}
+
+/* New Post Form */
+.health-forum-new-post-widget {
+  background: linear-gradient(135deg, #f8fdfb 0%, #f0f9f4 100%);
+}
+
+.health-forum-post-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.health-forum-form-input,
+.health-forum-form-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #d4f1e3;
+  border-radius: 10px;
+  font-size: 14px;
+  background: white;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.health-forum-form-input:focus,
+.health-forum-form-textarea:focus {
+  outline: none;
+  border-color: #7ecfa5;
+  box-shadow: 0 3px 15px rgba(126, 207, 165, 0.2);
+}
+
+.health-forum-form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.health-forum-submit-btn {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #7ecfa5 0%, #52b788 100%);
+  border: none;
+  border-radius: 25px;
+  font-size: 15px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(126, 207, 165, 0.3);
+}
+
+.health-forum-submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(126, 207, 165, 0.4);
+}
+
+.health-forum-submit-btn:active {
+  transform: translateY(0);
+}
+
+/* Main Content */
+.health-forum-main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.health-forum-posts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(126, 207, 165, 0.12);
+}
+
+.health-forum-posts-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2d6a4f;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.health-forum-posts-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #7ecfa5;
+  background: #f0f9f4;
+  padding: 6px 16px;
+  border-radius: 20px;
+}
+
+/* Posts */
+.health-forum-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.health-forum-post-card {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(126, 207, 165, 0.12);
+  transition: all 0.3s ease;
+  position: relative;
+  border: 2px solid transparent;
+}
+
+.health-forum-post-card:hover {
+  box-shadow: 0 8px 30px rgba(126, 207, 165, 0.25);
+  transform: translateY(-5px);
+  border-color: #d4f1e3;
+}
+
+.health-forum-trending-badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 3px 10px rgba(255, 71, 87, 0.3);
+  animation: health-forum-pulse 2s ease-in-out infinite;
+}
+
+@keyframes health-forum-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.health-forum-post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f9f4;
+}
+
+.health-forum-post-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.health-forum-author-avatar {
+  font-size: 36px;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e8f8f0 0%, #d4f1e3 100%);
+  border-radius: 50%;
+  border: 2px solid #a8e6cf;
+}
+
+.health-forum-author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.health-forum-author-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2d6a4f;
+}
+
+.health-forum-post-date {
+  font-size: 13px;
+  color: #74c69d;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.health-forum-post-group-badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+
+.health-forum-post-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1b4332;
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.health-forum-post-title:hover {
+  color: #52b788;
+}
+
+.health-forum-post-content {
+  font-size: 15px;
+  color: #40916c;
+  line-height: 1.6;
+  margin: 0 0 15px 0;
+}
+
+.health-forum-post-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.health-forum-post-tag {
+  padding: 6px 12px;
+  background: #f0f9f4;
+  border: 1px solid #d4f1e3;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #52b788;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+}
+
+.health-forum-post-tag:hover {
+  background: #d4f1e3;
+  transform: scale(1.05);
+}
+
+.health-forum-post-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 2px solid #f0f9f4;
+}
+
+.health-forum-post-stats {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.health-forum-stat-btn {
+  padding: 8px 16px;
+  background: #f8fdfb;
+  border: 2px solid #e8f8f0;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #40916c;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.health-forum-stat-btn:hover {
+  background: #ffd6e0;
+  border-color: #ff6b9d;
+  color: #ff6b9d;
+  transform: scale(1.05);
+}
+
+.health-forum-stat-btn.liked {
+  background: #ffe0eb;
+  border-color: #ff87a0;
+  color: #ff3f81;
+}
+
+.health-forum-stat-views {
+  font-size: 13px;
+  color: #74c69d;
+  font-weight: 500;
+}
+
+.health-forum-view-btn {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #7ecfa5 0%, #52b788 100%);
+  border: none;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 12px rgba(126, 207, 165, 0.3);
+}
+
+.health-forum-view-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(126, 207, 165, 0.4);
+}
+
+/* Empty State */
+.health-forum-empty-state {
+  background: white;
+  border-radius: 16px;
+  padding: 60px 40px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(126, 207, 165, 0.12);
+}
+
+.health-forum-empty-state p {
+  font-size: 18px;
+  color: #74c69d;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Leaderboard */
+.health-forum-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.health-forum-contributor-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f8fdfb;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.health-forum-contributor-card:hover {
+  background: #f0f9f4;
+  border-color: #d4f1e3;
+  transform: translateX(5px);
+}
+
+.health-forum-contributor-rank {
+  width: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.health-forum-rank-badge {
+  font-size: 24px;
+}
+
+.health-forum-rank-number {
+  font-size: 16px;
+  font-weight: 700;
+  color: #74c69d;
+}
+
+.health-forum-contributor-avatar {
+  font-size: 32px;
+  width: 45px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e8f8f0 0%, #d4f1e3 100%);
+  border-radius: 50%;
+  border: 2px solid #a8e6cf;
+}
+
+.health-forum-contributor-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.health-forum-contributor-info {
+  flex: 1;
+}
+
+.health-forum-contributor-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #2d6a4f;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.health-forum-contributor-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #74c69d;
+  font-weight: 500;
+}
+
+.health-forum-contributor-stats span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.health-forum-badge-icon {
+  font-size: 16px;
+}
+
+.health-forum-gold {
+  color: #ffd700;
+}
+
+.health-forum-silver {
+  color: #c0c0c0;
+}
+
+.health-forum-bronze {
+  color: #cd7f32;
+}
+
+/* Stats Widget */
+.health-forum-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.health-forum-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;
+  background: linear-gradient(135deg, #f8fdfb 0%, #f0f9f4 100%);
+  border-radius: 12px;
+  border: 2px solid #e8f8f0;
+  transition: all 0.3s ease;
+}
+
+.health-forum-stat-item:hover {
+  border-color: #a8e6cf;
+  transform: scale(1.05);
+}
+
+.health-forum-stat-number {
+  font-size: 32px;
+  font-weight: 800;
+  color: #2d6a4f;
+  background: linear-gradient(135deg, #52b788 0%, #2d6a4f 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.health-forum-stat-label {
+  font-size: 13px;
+  color: #74c69d;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .health-forum-title {
+    font-size: 32px;
+  }
+  
+  .health-forum-subtitle {
+    font-size: 16px;
+  }
+  
+  .health-forum-search-section {
+    flex-direction: column;
+  }
+  
+  .health-forum-post-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .health-forum-post-footer {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .health-forum-post-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
