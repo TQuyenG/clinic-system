@@ -4,9 +4,9 @@
 // 2. Sidebar luôn hiện trên mọi kích thước màn hình
 // 3. Collapsed chỉ thu nhỏ còn icon (không ẩn)
 // 4. Tooltip hiện tên khi hover trong trạng thái collapsed
-// 5. ✅ THÊM MỚI: Kiểm tra permissions - Ẩn menu không có quyền
+// 5.  THÊM MỚI: Kiểm tra permissions - Ẩn menu không có quyền
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   FaTachometerAlt, 
@@ -33,7 +33,7 @@ import {
   FaHeadset,
   FaMoneyBillWave
 } from 'react-icons/fa';
-import usePermissions from '../../hooks/usePermissions'; // ✅ THÊM: Import hook kiểm tra quyền
+import usePermissions from '../../hooks/usePermissions'; //  THÊM: Import hook kiểm tra quyền
 import './Sidebar.css';
 
 const Sidebar = ({ onToggle }) => {
@@ -42,7 +42,7 @@ const Sidebar = ({ onToggle }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isScrolled, setIsScrolled] = useState(false);
   
-  // ✅ THÊM: Hook kiểm tra permissions
+  //  THÊM: Hook kiểm tra permissions
   const { canAccessModule, isAdmin, hasPermission } = usePermissions();
   
   // Dropdown states
@@ -96,7 +96,7 @@ const Sidebar = ({ onToggle }) => {
     };
   }, [onToggle]);
 
-  // ✅ Debug: Log sau khi user và canAccessModule sẵn sàng
+  //  Debug: Log sau khi user và canAccessModule sẵn sàng
   useEffect(() => {
     if (user) {
       console.log('📋 Sidebar - Can access services?', canAccessModule('services'));
@@ -207,13 +207,178 @@ const Sidebar = ({ onToggle }) => {
       </div>
     );
   };
+  // --- Reorderable menu state & drag/drop handlers ---
+  const [menuItems, setMenuItems] = useState([]);
+  const dragItemIndex = useRef(null);
+  const [draggingIndex, setDraggingIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [showToast, setShowToast] = useState(false);
+
+  // Build menu items as structured data (top-level only). This mirrors the JSX below
+  const buildMenu = () => {
+    const items = [];
+
+    // Common
+    items.push({ id: 'dashboard', type: 'item', to: '/dashboard', icon: FaTachometerAlt, label: 'Tổng quan' });
+    items.push({ id: 'profile', type: 'item', to: '/ho-so-nguoi-dung', icon: FaUserCircle, label: 'Tài khoản' });
+    items.push({ id: 'my_forum', type: 'item', to: '/dien-dan-cua-toi', icon: FaRegComments, label: 'Diễn đàn của tôi' });
+
+    // Patient
+    if (user && user.role === 'patient') {
+      items.push({ id: 'book', type: 'item', to: '/dat-lich-hen', icon: FaCalendarPlus, label: 'Đặt lịch hẹn' });
+      items.push({ id: 'my_appointments', type: 'item', to: '/lich-hen-cua-toi', icon: FaCalendarAlt, label: 'Lịch hẹn của tôi' });
+      items.push({ id: 'medical_record', type: 'item', to: '/ho-so-y-te', icon: FaFileMedicalAlt, label: 'Hồ sơ y tế' });
+      items.push({ id: 'saved_articles', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
+    }
+
+    // Doctor
+    if (user && user.role === 'doctor') {
+      items.push({ id: 'doctor_my_appointments', type: 'item', to: '/lich-hen-cua-toi', icon: FaCalendarAlt, label: 'Lịch hẹn của tôi' });
+      items.push({ id: 'doctor_schedule', type: 'item', to: '/lich-cua-toi', icon: FaCalendarCheck, label: 'Lịch của tôi' });
+      items.push({ id: 'doctor_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
+        { to: '/quan-ly-bai-viet', label: 'Bài viết' },
+        { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
+        { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
+      ]});
+      items.push({ id: 'saved_articles_2', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
+    }
+
+    // Staff
+    if (user && user.role === 'staff') {
+      items.push({ id: 'staff_schedule', type: 'item', to: '/lich-cua-toi', icon: FaCalendarCheck, label: 'Lịch của tôi' });
+      if (isAdmin || (user.staff && user.staff.rank === 'manager')) {
+        items.push({ id: 'manage_staff', type: 'item', to: '/quan-ly-nhan-vien', icon: FaUserTie, label: 'Quản lý nhân viên' });
+      }
+      if (canAccessModule('appointments')) {
+        items.push({ id: 'manage_appointments', type: 'item', to: '/quan-ly-lich-hen', icon: FaClipboardList, label: 'Quản lý lịch hẹn' });
+      }
+      if (canAccessModule('consultations') || canAccessModule('consultation_pricing')) {
+        items.push({ id: 'manage_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
+      }
+      if (canAccessModule('services') || canAccessModule('service_categories')) {
+        items.push({ id: 'manage_services', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý Dịch vụ' });
+      }
+      if (canAccessModule('articles')) {
+        items.push({ id: 'manage_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
+          { to: '/quan-ly-bai-viet', label: 'Bài viết' },
+          { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
+          { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
+        ]});
+      }
+      if (canAccessModule('forum')) {
+        items.push({ id: 'manage_forum', type: 'item', to: '/quan-ly-dien-dan', icon: FaCommentDots, label: 'Quản lý diễn đàn' });
+      }
+      if (canAccessModule('system_settings')) {
+        items.push({ id: 'manage_system', type: 'item', to: '/quan-ly-he-thong', icon: FaCogs, label: 'Quản lý hệ thống' });
+      }
+      if (canAccessModule('payments')) {
+        items.push({ id: 'stats', type: 'item', to: '/thong-ke', icon: FaChartPie, label: 'Thống kê tổng quan' });
+        items.push({ id: 'manage_finance', type: 'dropdown', icon: FaMoneyBillWave, label: 'Quản lý Tài chính' });
+      }
+      items.push({ id: 'saved_articles_staff', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
+      if (user.role === 'admin' || user.role === 'staff' || user.role === 'support') {
+        items.push({ id: 'work_schedule', type: 'item', to: '/quan-ly-lich-lam-viec', icon: FaCalendarCheck, label: 'Quản lý lịch làm việc' });
+      }
+    }
+
+    // Admin
+    if (user && user.role === 'admin') {
+      items.push({ id: 'admin_stats', type: 'item', to: '/thong-ke', icon: FaChartPie, label: 'Thống kê' });
+      items.push({ id: 'admin_manage_appointments', type: 'item', to: '/quan-ly-lich-hen', icon: FaClipboardList, label: 'Quản lý lịch hẹn' });
+      items.push({ id: 'admin_work_schedule', type: 'item', to: '/quan-ly-lich-lam-viec', icon: FaCalendarCheck, label: 'Quản lý lịch làm việc' });
+      items.push({ id: 'admin_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
+      items.push({ id: 'admin_finance', type: 'dropdown', icon: FaMoneyBillWave, label: 'Quản lý Tài chính' });
+      items.push({ id: 'admin_forum', type: 'item', to: '/quan-ly-dien-dan', icon: FaCommentDots, label: 'Quản lý diễn đàn' });
+      items.push({ id: 'admin_users', type: 'item', to: '/quan-ly-nguoi-dung', icon: FaUsers, label: 'Quản lý người dùng' });
+      items.push({ id: 'admin_staff', type: 'item', to: '/quan-ly-nhan-vien', icon: FaUserTie, label: 'Quản lý nhân viên' });
+      items.push({ id: 'admin_specialties', type: 'item', to: '/quan-ly-chuyen-khoa', icon: FaStethoscope, label: 'Quản lý chuyên khoa' });
+      items.push({ id: 'admin_services_dropdown', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý Dịch vụ' });
+      items.push({ id: 'admin_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
+        { to: '/quan-ly-bai-viet', label: 'Bài viết' },
+        { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
+        { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
+      ]});
+      items.push({ id: 'admin_categories', type: 'item', to: '/quan-ly-danh-muc', icon: FaThList, label: 'Quản lý danh mục' });
+      items.push({ id: 'admin_system', type: 'item', to: '/quan-ly-he-thong', icon: FaCogs, label: 'Quản lý hệ thống' });
+      items.push({ id: 'admin_saved', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
+    }
+
+    return items;
+  };
+
+  // Initialize menu items and apply saved order
+  useEffect(() => {
+    // only build when user/permissions are ready
+    const built = buildMenu();
+    const saved = localStorage.getItem('sidebarOrder');
+    if (saved) {
+      try {
+        const order = JSON.parse(saved);
+        // reorder built by saved order, filter out any ids that no longer exist
+        const ordered = order.map(id => built.find(i => i.id === id)).filter(Boolean);
+        // append any new items not in saved order
+        const remaining = built.filter(i => !order.includes(i.id));
+        setMenuItems([...ordered, ...remaining]);
+        return;
+      } catch (e) {
+        console.error('Unable to parse sidebarOrder', e);
+      }
+    }
+    setMenuItems(built);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isAdmin, canAccessModule]);
+
+  const saveOrder = (items) => {
+    try {
+      const ids = items.map(i => i.id);
+      localStorage.setItem('sidebarOrder', JSON.stringify(ids));
+    } catch (e) {
+      console.error('Failed to save sidebar order', e);
+    }
+  };
+
+  const onDragStart = (e, index) => {
+    dragItemIndex.current = index;
+    setDraggingIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    // for firefox
+    e.dataTransfer.setData('text/plain', 'drag');
+  };
+
+  const onDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const onDrop = (e, index) => {
+    e.preventDefault();
+    const from = dragItemIndex.current;
+    const to = index;
+    setDraggingIndex(null);
+    setDragOverIndex(null);
+    if (from === null || from === undefined) return;
+    if (from === to) {
+      dragItemIndex.current = null;
+      return;
+    }
+    const updated = [...menuItems];
+    const [moved] = updated.splice(from, 1);
+    updated.splice(to, 0, moved);
+    dragItemIndex.current = null;
+    setMenuItems(updated);
+    saveOrder(updated);
+    // show confirmation toast briefly
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 1800);
+  };
 
   if (!user) {
     return null;
   }
 
   return (
-    <div className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} ${isMobile ? 'sidebar-mobile' : ''} ${isScrolled ? 'sidebar-scrolled' : ''}`}>
+    <div className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} ${isMobile ? 'sidebar-mobile' : ''} ${isScrolled ? 'sidebar-scrolled' : ''} ${draggingIndex !== null ? 'sidebar-is-dragging' : ''}`}>
       {/* Toggle button - nằm giữa cạnh phải */}
       <button 
         className="sidebar-toggle-btn" 
@@ -226,487 +391,98 @@ const Sidebar = ({ onToggle }) => {
       {/* Wrapper cho scroll */}
       <div className="sidebar-scroll-wrapper">
         <nav className="sidebar-nav">
-          {/* ==================== MENU CHUNG ==================== */}
-          <MenuItem 
-            to="/dashboard" 
-            icon={FaTachometerAlt} 
-            label="Tổng quan"
-            isActive={location.pathname === '/dashboard'}
-          />
-          
-          <MenuItem 
-            to="/ho-so-nguoi-dung" 
-            icon={FaUserCircle} 
-            label="Tài khoản"
-            isActive={location.pathname === '/ho-so-nguoi-dung'}
-          />
-          
-          {/* ✅ DIỄN ĐÀN CỦA TÔI - Tất cả user đăng nhập */}
-          <MenuItem 
-            to="/dien-dan-cua-toi" 
-            icon={FaRegComments} 
-            label="Diễn đàn của tôi"
-            isActive={location.pathname === '/dien-dan-cua-toi'}
-          />
-
-          {/* ==================== MENU PATIENT ==================== */}
-          {user.role === 'patient' && (
-            <>
-              <MenuItem 
-                to="/dat-lich-hen" 
-                icon={FaCalendarPlus} 
-                label="Đặt lịch hẹn"
-                isActive={location.pathname === '/dat-lich-hen'}
-              />
-              
-              <MenuItem 
-                to="/lich-hen-cua-toi" 
-                icon={FaCalendarAlt} 
-                label="Lịch hẹn của tôi"
-                isActive={location.pathname === '/lich-hen-cua-toi'}
-              />
-              
-              <MenuItem 
-                to="/ho-so-y-te" 
-                icon={FaFileMedicalAlt} 
-                label="Hồ sơ y tế"
-                isActive={location.pathname === '/ho-so-y-te'}
-              />
-              
-              <MenuItem 
-                to="/bai-viet-da-luu" 
-                icon={FaBookmark} 
-                label="Bài viết đã lưu"
-                isActive={location.pathname === '/bai-viet-da-luu'}
-              />
-            </>
-          )}
-
-          {/* ==================== MENU DOCTOR ==================== */}
-          {user.role === 'doctor' && (
-            <>
-              <MenuItem 
-                to="/lich-hen-cua-toi" 
-                icon={FaCalendarAlt} 
-                label="Lịch hẹn của tôi"
-                isActive={location.pathname === '/lich-hen-cua-toi'}
-              />
-              
-              <MenuItem 
-                to="/lich-cua-toi" 
-                icon={FaCalendarCheck} 
-                label="Lịch của tôi"
-                isActive={location.pathname === '/lich-cua-toi'}
-              />
-
-              {/* Dropdown Quản lý bài viết (DOCTOR) */}
-              <MenuDropdownItems
-                icon={FaNewspaper}
-                label="Quản lý Bài viết"
-                isOpen={isArticleMenuOpen}
-                onToggle={() => setArticleMenuOpen(!isArticleMenuOpen)}
-                items={[
-                  { to: '/quan-ly-bai-viet', label: 'Bài viết' },
-                  { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
-                  { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
-                ]}
-              />
-              
-              <MenuItem 
-                to="/bai-viet-da-luu" 
-                icon={FaBookmark} 
-                label="Bài viết đã lưu"
-                isActive={location.pathname === '/bai-viet-da-luu'}
-              />
-            </>
-          )}
-
-          {/* ==================== MENU STAFF ==================== */}
-          {user.role === 'staff' && (
-            <>
-              {/* 1. LỊCH CỦA TÔI (Ai cũng thấy - không cần check quyền) */}
-              <MenuItem 
-                to="/lich-cua-toi" 
-                icon={FaCalendarCheck} 
-                label="Lịch của tôi"
-                isActive={location.pathname === '/lich-cua-toi'}
-              />
-              
-              {/* 1.5 QUẢN LÝ NHÂN VIÊN - CHỈ CHO MANAGER hoặc ADMIN */}
-              {(isAdmin || (user.staff && user.staff.rank === 'manager')) && (
-                <MenuItem 
-                  to="/quan-ly-nhan-vien" 
-                  icon={FaUserTie} 
-                  label="Quản lý nhân viên"
-                  isActive={location.pathname === '/quan-ly-nhan-vien'}
-                />
+          {menuItems.map((item, idx) => (
+            <div
+              key={item.id}
+              className={`sidebar-draggable ${draggingIndex === idx ? 'sidebar-dragging' : ''} ${dragOverIndex === idx ? 'sidebar-drop-target' : ''}`}
+              draggable
+              onDragStart={(e) => onDragStart(e, idx)}
+              onDragOver={(e) => onDragOver(e, idx)}
+              onDrop={(e) => onDrop(e, idx)}
+            >
+              {item.type === 'item' && (
+                <MenuItem to={item.to} icon={item.icon} label={item.label} isActive={location.pathname === item.to} />
               )}
-              
-              {/* ========================================== */}
-              {/* 🔐 QUẢN LÝ LỊCH HẸN - Yêu cầu quyền 'appointments' */}
-              {/* ========================================== */}
-              {canAccessModule('appointments') && (
-                <MenuItem 
-                  to="/quan-ly-lich-hen" 
-                  icon={FaClipboardList} 
-                  label="Quản lý lịch hẹn"
-                  isActive={location.pathname === '/quan-ly-lich-hen'}
+
+              {item.type === 'dropdownItems' && (
+                <MenuDropdownItems
+                  icon={item.icon}
+                  label={item.label}
+                  isOpen={isArticleMenuOpen}
+                  onToggle={() => setArticleMenuOpen(!isArticleMenuOpen)}
+                  items={item.items}
                 />
               )}
 
-              {/* ========================================== */}
-              {/* 🔐 QUẢN LÝ TƯ VẤN - Yêu cầu quyền 'consultations' hoặc 'consultation_pricing' */}
-              {/* ========================================== */}
-              {(canAccessModule('consultations') || canAccessModule('consultation_pricing')) && (
-                <MenuDropdown
-                  icon={FaRegComments}
-                  label="Quản lý Tư vấn"
-                  isOpen={isConsultationMenuOpen}
-                  onToggle={() => setConsultationMenuOpen(!isConsultationMenuOpen)}
-                >
-                  {canAccessModule('consultations') && (
-                    <>
-                      <Link
-                        to="/quan-ly-tu-van/realtime"
-                        className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && !location.search.includes('video') ? 'sidebar-active' : ''}`}
-                      >
-                        <span className="sidebar-submenu-dot">•</span> Quản lý Realtime
-                      </Link>
-                      <Link
-                        to="/quan-ly-tu-van/realtime?type=video"
-                        className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && location.search.includes('video') ? 'sidebar-active' : ''}`}
-                      >
-                        <span className="sidebar-submenu-dot">•</span> Quản lý tư vấn video call
-                      </Link>
-                    </>
-                  )}
-                  {(hasPermission('consultation_pricing', 'create') || 
-                    hasPermission('consultation_pricing', 'edit') || 
-                    hasPermission('consultation_pricing', 'delete') || 
-                    hasPermission('consultation_pricing', 'hide') || 
-                    hasPermission('consultation_pricing', 'set_price')) && (
-                    <Link
-                      to="/quan-ly-tu-van/goi-dich-vu"
-                      className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/goi-dich-vu' ? 'sidebar-active' : ''}`}
-                    >
-                      <span className="sidebar-submenu-dot">•</span> Quản lý gói dịch vụ
-                    </Link>
-                  )}
-                </MenuDropdown>
-              )}
-
-              {/* ========================================== */}
-              {/* 🔐 QUẢN LÝ DỊCH VỤ - Kiểm tra quyền riêng từng module */}
-              {/* ========================================== */}
-              {(canAccessModule('services') || canAccessModule('service_categories')) && (
-                <MenuDropdown
-                  icon={FaBriefcaseMedical}
-                  label="Quản lý Dịch vụ"
-                  isOpen={isServiceMenuOpen}
-                  onToggle={() => setServiceMenuOpen(!isServiceMenuOpen)}
-                >
-                  {canAccessModule('service_categories') && (
-                    <Link
-                      to="/quan-ly-danh-muc-dich-vu"
-                      className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-danh-muc-dich-vu') ? 'sidebar-active' : ''}`}
-                    >
-                      <span className="sidebar-submenu-dot">•</span> Danh mục Dịch vụ
-                    </Link>
-                  )}
-                  {canAccessModule('services') && (
-                    <Link
-                      to="/quan-ly-dich-vu"
-                      className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}
-                    >
-                      <span className="sidebar-submenu-dot">•</span> Dịch vụ
-                    </Link>
-                  )}
-                </MenuDropdown>
-              )}
-
-              {/* ========================================== */}
-              {/* 🔐 QUẢN LÝ BÀI VIẾT - Yêu cầu quyền 'articles' */}
-              {/* ========================================== */}
-              {canAccessModule('articles') && (
+              {item.type === 'dropdown' && (
+                // Render specific dropdowns by id so we preserve the permission-based children
                 <>
-                  <MenuDropdownItems
-                    icon={FaNewspaper}
-                    label="Quản lý Bài viết"
-                    isOpen={isArticleMenuOpen}
-                    onToggle={() => setArticleMenuOpen(!isArticleMenuOpen)}
-                    items={[
-                      { to: '/quan-ly-bai-viet', label: 'Bài viết' },
-                      { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
-                      { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
-                    ]}
-                  />
+                  {item.id === 'manage_consultations' && (canAccessModule('consultations') || canAccessModule('consultation_pricing')) && (
+                    <MenuDropdown
+                      icon={FaRegComments}
+                      label={item.label}
+                      isOpen={isConsultationMenuOpen}
+                      onToggle={() => setConsultationMenuOpen(!isConsultationMenuOpen)}
+                    >
+                      {canAccessModule('consultations') && (
+                        <>
+                          <Link to="/quan-ly-tu-van/realtime" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && !location.search.includes('video') ? 'sidebar-active' : ''}`}>
+                            <span className="sidebar-submenu-dot">•</span> Quản lý Realtime
+                          </Link>
+                          <Link to="/quan-ly-tu-van/realtime?type=video" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && location.search.includes('video') ? 'sidebar-active' : ''}`}>
+                            <span className="sidebar-submenu-dot">•</span> Quản lý tư vấn video call
+                          </Link>
+                        </>
+                      )}
+                      {(hasPermission('consultation_pricing', 'create') || hasPermission('consultation_pricing', 'edit') || hasPermission('consultation_pricing', 'delete') || hasPermission('consultation_pricing', 'hide') || hasPermission('consultation_pricing', 'set_price')) && (
+                        <Link to="/quan-ly-tu-van/goi-dich-vu" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/goi-dich-vu' ? 'sidebar-active' : ''}`}>
+                          <span className="sidebar-submenu-dot">•</span> Quản lý gói dịch vụ
+                        </Link>
+                      )}
+                    </MenuDropdown>
+                  )}
+
+                  {item.id === 'manage_services' && (canAccessModule('services') || canAccessModule('service_categories')) && (
+                    <MenuDropdown
+                      icon={FaBriefcaseMedical}
+                      label={item.label}
+                      isOpen={isServiceMenuOpen}
+                      onToggle={() => setServiceMenuOpen(!isServiceMenuOpen)}
+                    >
+                      {canAccessModule('service_categories') && <Link to="/quan-ly-danh-muc-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-danh-muc-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Danh mục Dịch vụ</Link>}
+                      {canAccessModule('services') && <Link to="/quan-ly-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Dịch vụ</Link>}
+                    </MenuDropdown>
+                  )}
+
+                  {(item.id === 'manage_finance' || item.id === 'admin_finance') && canAccessModule('payments') && (
+                    <MenuDropdown icon={FaMoneyBillWave} label={item.label} isOpen={isPaymentMenuOpen} onToggle={() => setPaymentMenuOpen(!isPaymentMenuOpen)}>
+                      <Link to="/quan-ly-thanh-toan/giao-dich" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/giao-dich' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Giao dịch & Đối soát</Link>
+                      <Link to="/quan-ly-thanh-toan/hoan-tien" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/hoan-tien' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Danh sách Hoàn tiền</Link>
+                      <Link to="/quan-ly-thanh-toan/chinh-sach" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/chinh-sach' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Cấu hình Hoàn tiền</Link>
+                      <Link to="/quan-ly-thanh-toan/cau-hinh" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/cau-hinh' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Cấu hình Tài khoản</Link>
+                    </MenuDropdown>
+                  )}
+
+                  {(item.id === 'admin_consultations') && (
+                    <MenuDropdown icon={FaRegComments} label={item.label} isOpen={isConsultationMenuOpen} onToggle={() => setConsultationMenuOpen(!isConsultationMenuOpen)}>
+                      <Link to="/quan-ly-tu-van/realtime" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && !location.search.includes('video') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý Realtime</Link>
+                      <Link to="/quan-ly-tu-van/realtime?type=video" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && location.search.includes('video') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý tư vấn video call</Link>
+                      <Link to="/quan-ly-tu-van/goi-dich-vu" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/goi-dich-vu' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý gói dịch vụ</Link>
+                    </MenuDropdown>
+                  )}
+
+                  {(item.id === 'admin_services_dropdown') && (
+                    <MenuDropdown icon={FaBriefcaseMedical} label={item.label} isOpen={isServiceMenuOpen} onToggle={() => setServiceMenuOpen(!isServiceMenuOpen)}>
+                      <Link to="/quan-ly-danh-muc-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-danh-muc-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Danh mục Dịch vụ</Link>
+                      <Link to="/quan-ly-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Dịch vụ</Link>
+                    </MenuDropdown>
+                  )}
                 </>
               )}
-                  
-              {/* ========================================== */}
-              {/* 🔐 QUẢN LÝ DIỄN ĐÀN - Yêu cầu quyền 'forum' */}
-              {/* ========================================== */}
-              {canAccessModule('forum') && (
-                <MenuItem 
-                  to="/quan-ly-dien-dan" 
-                  icon={FaCommentDots} 
-                  label="Quản lý diễn đàn"
-                  isActive={location.pathname === '/quan-ly-dien-dan'}
-                />
-              )}
-
-              {/* ========================================== */}
-              {/* 🔐 QUẢN LÝ HỆ THỐNG - Yêu cầu quyền 'system_settings' */}
-              {/* ========================================== */}
-              {canAccessModule('system_settings') && (
-                <MenuItem 
-                  to="/quan-ly-he-thong" 
-                  icon={FaCogs} 
-                  label="Quản lý hệ thống"
-                  isActive={location.pathname === '/quan-ly-he-thong'}
-                />
-              )}
-
-              {/* ========================================== */}
-              {/* 🔐 QUẢN LÝ TÀI CHÍNH - Yêu cầu quyền 'payments' */}
-              {/* ========================================== */}
-              {canAccessModule('payments') && (
-                <>
-                  <MenuItem 
-                    to="/thong-ke" 
-                    icon={FaChartPie} 
-                    label="Thống kê tổng quan"
-                    isActive={location.pathname === '/thong-ke'}
-                  />
-
-                  <MenuDropdown
-                    icon={FaMoneyBillWave}
-                    label="Quản lý Tài chính"
-                    isOpen={isPaymentMenuOpen}
-                    onToggle={() => setPaymentMenuOpen(!isPaymentMenuOpen)}
-                  >
-                    <Link
-                      to="/quan-ly-thanh-toan/giao-dich"
-                      className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/giao-dich' ? 'sidebar-active' : ''}`}
-                    >
-                      <span className="sidebar-submenu-dot">•</span> Giao dịch & Đối soát
-                    </Link>
-                    <Link
-                      to="/quan-ly-thanh-toan/hoan-tien"
-                      className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/hoan-tien' ? 'sidebar-active' : ''}`}
-                    >
-                      <span className="sidebar-submenu-dot">•</span> Danh sách Hoàn tiền
-                    </Link>
-                    <Link
-                      to="/quan-ly-thanh-toan/chinh-sach"
-                      className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/chinh-sach' ? 'sidebar-active' : ''}`}
-                    >
-                      <span className="sidebar-submenu-dot">•</span> Cấu hình Hoàn tiền
-                    </Link>
-                    <Link
-                      to="/quan-ly-thanh-toan/cau-hinh"
-                      className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/cau-hinh' ? 'sidebar-active' : ''}`}
-                    >
-                      <span className="sidebar-submenu-dot">•</span> Cấu hình Tài khoản
-                    </Link>
-                  </MenuDropdown>
-                </>
-              )}
-              
-              {/* 4. BÀI VIẾT ĐÃ LƯU (Ai cũng thấy - không cần check quyền) */}
-              <MenuItem 
-                to="/bai-viet-da-luu" 
-                icon={FaBookmark} 
-                label="Bài viết đã lưu"
-                isActive={location.pathname === '/bai-viet-da-luu'}
-              />
-              
-              {/* Quản lý lịch làm việc (Admin + Trưởng phòng + CSKH) */}
-              {(user.role === 'admin' || user.role === 'staff' || user.role === 'support') && (
-                <MenuItem 
-                  to="/quan-ly-lich-lam-viec" 
-                  icon={FaCalendarCheck} 
-                  label="Quản lý lịch làm việc"
-                  isActive={location.pathname === '/quan-ly-lich-lam-viec'}
-                />
-              )}
-            </>
-          )}
-          {/* ==================== MENU ADMIN ==================== */}
-          {user.role === 'admin' && (
-            <>
-              <MenuItem 
-                to="/thong-ke" 
-                icon={FaChartPie} 
-                label="Thống kê"
-                isActive={location.pathname === '/thong-ke'}
-              />
-              
-              <MenuItem 
-                to="/quan-ly-lich-hen" 
-                icon={FaClipboardList} 
-                label="Quản lý lịch hẹn"
-                isActive={location.pathname === '/quan-ly-lich-hen'}
-              />
-
-              <MenuItem 
-                to="/quan-ly-lich-lam-viec" 
-                icon={FaCalendarCheck} 
-                label="Quản lý lịch làm việc"
-                isActive={location.pathname === '/quan-ly-lich-lam-viec'}
-              />
-
-              {/* Dropdown: Quản lý Tư vấn (ADMIN) */}
-              <MenuDropdown
-                icon={FaRegComments}
-                label="Quản lý Tư vấn"
-                isOpen={isConsultationMenuOpen}
-                onToggle={() => setConsultationMenuOpen(!isConsultationMenuOpen)}
-              >
-                <Link
-                  to="/quan-ly-tu-van/realtime"
-                  className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && !location.search.includes('video') ? 'sidebar-active' : ''}`}
-                >
-                  <span className="sidebar-submenu-dot">•</span> Quản lý Realtime
-                </Link>
-                <Link
-                  to="/quan-ly-tu-van/realtime?type=video"
-                  className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && location.search.includes('video') ? 'sidebar-active' : ''}`}
-                >
-                  <span className="sidebar-submenu-dot">•</span> Quản lý tư vấn video call
-                </Link>
-                <Link
-                  to="/quan-ly-tu-van/goi-dich-vu"
-                  className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/goi-dich-vu' ? 'sidebar-active' : ''}`}
-                >
-                  <span className="sidebar-submenu-dot">•</span> Quản lý gói dịch vụ
-                </Link>
-              </MenuDropdown>
-
-              {/* Dropdown: Quản lý Tài chính (ADMIN) */}
-              <MenuDropdown
-                icon={FaMoneyBillWave}
-                label="Quản lý Tài chính"
-                isOpen={isPaymentMenuOpen}
-                onToggle={() => setPaymentMenuOpen(!isPaymentMenuOpen)}
-              >
-                <Link
-                  to="/quan-ly-thanh-toan/giao-dich"
-                  className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/giao-dich' ? 'sidebar-active' : ''}`}
-                >
-                  <span className="sidebar-submenu-dot">•</span> Giao dịch & Đối soát
-                </Link>
-                {/* --- BẮT ĐẦU THÊM MỚI --- */}
-                <Link
-                  to="/quan-ly-thanh-toan/hoan-tien"
-                  className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/hoan-tien' ? 'sidebar-active' : ''}`}
-                >
-                  <span className="sidebar-submenu-dot">•</span> Danh sách Hoàn tiền
-                </Link>
-                <Link
-                  to="/quan-ly-thanh-toan/chinh-sach"
-                  className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/chinh-sach' ? 'sidebar-active' : ''}`}
-                >
-                  <span className="sidebar-submenu-dot">•</span> Cấu hình Hoàn tiền
-                </Link>
-                {/* --- KẾT THÚC THÊM MỚI --- */}
-                <Link
-                  to="/thong-ke"
-                  className={`sidebar-submenu-link ${location.pathname === '/thong-ke' ? 'sidebar-active' : ''}`}
-                >
-                  <span className="sidebar-submenu-dot">•</span> Thống kê Doanh thu
-                </Link>
-                <Link
-                  to="/quan-ly-thanh-toan/cau-hinh"
-                  className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/cau-hinh' ? 'sidebar-active' : ''}`}
-                >
-                  <span className="sidebar-submenu-dot">•</span> Cấu hình Tài khoản
-                </Link>
-              </MenuDropdown>
-              
-              <MenuItem 
-                to="/quan-ly-dien-dan" 
-                icon={FaCommentDots} 
-                label="Quản lý diễn đàn"
-                isActive={location.pathname === '/quan-ly-dien-dan'}
-              />
-
-              <MenuItem 
-                to="/quan-ly-nguoi-dung" 
-                icon={FaUsers} 
-                label="Quản lý người dùng"
-                isActive={location.pathname === '/quan-ly-nguoi-dung'}
-              />
-              
-              <MenuItem 
-                to="/quan-ly-nhan-vien" 
-                icon={FaUserTie} 
-                label="Quản lý nhân viên"
-                isActive={location.pathname === '/quan-ly-nhan-vien'}
-              />
-              
-              <MenuItem 
-                to="/quan-ly-chuyen-khoa" 
-                icon={FaStethoscope} 
-                label="Quản lý chuyên khoa"
-                isActive={location.pathname === '/quan-ly-chuyen-khoa'}
-              />
-              
-              {/* Dropdown: Quản lý Dịch vụ */}
-              <MenuDropdown
-                icon={FaBriefcaseMedical}
-                label="Quản lý Dịch vụ"
-                isOpen={isServiceMenuOpen}
-                onToggle={() => setServiceMenuOpen(!isServiceMenuOpen)}
-              >
-                <Link
-                  to="/quan-ly-danh-muc-dich-vu"
-                  className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-danh-muc-dich-vu') ? 'sidebar-active' : ''}`}
-                >
-                  <span className="sidebar-submenu-dot">•</span> Danh mục Dịch vụ
-                </Link>
-                <Link
-                  to="/quan-ly-dich-vu"
-                  className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}
-                >
-                  <span className="sidebar-submenu-dot">•</span> Dịch vụ
-                </Link>
-              </MenuDropdown>
-              
-              {/* Dropdown Quản lý bài viết (ADMIN) */}
-              <MenuDropdownItems
-                icon={FaNewspaper}
-                label="Quản lý Bài viết"
-                isOpen={isArticleMenuOpen}
-                onToggle={() => setArticleMenuOpen(!isArticleMenuOpen)}
-                items={[
-                  { to: '/quan-ly-bai-viet', label: 'Bài viết' },
-                  { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
-                  { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
-                ]}
-              />
-
-              <MenuItem 
-                to="/quan-ly-danh-muc" 
-                icon={FaThList} 
-                label="Quản lý danh mục"
-                isActive={location.pathname === '/quan-ly-danh-muc'}
-              />
-              
-              <MenuItem 
-                to="/quan-ly-he-thong" 
-                icon={FaCogs} 
-                label="Quản lý hệ thống"
-                isActive={location.pathname === '/quan-ly-he-thong'}
-              />
-              
-              <MenuItem 
-                to="/bai-viet-da-luu" 
-                icon={FaBookmark} 
-                label="Bài viết đã lưu"
-                isActive={location.pathname === '/bai-viet-da-luu'}
-              />
-            </>
+            </div>
+          ))}
+          {showToast && (
+            <div className="sidebar-toast" role="status">Đã cập nhật</div>
           )}
         </nav>
       </div>
