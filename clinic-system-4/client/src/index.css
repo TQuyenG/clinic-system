@@ -1,0 +1,95 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+}
+
+/* ========== GLOBAL UI TOKENS & COMMON COMPONENTS ========== */
+:root {
+  --ui-primary: #4CAF50;
+  --ui-primary-dark: #43A047;
+  --ui-muted: #f5f7fa;
+  --ui-border: #e6e9ec;
+  --ui-radius: 8px;
+  --ui-shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --ui-shadow-md: 0 6px 18px rgba(0,0,0,0.08);
+  --ui-text: #333;
+  --ui-subtext: #666;
+}
+
+/* Buttons */
+button, .btn {
+  font-family: inherit;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.btn-primary, button.btn-primary {
+  background: var(--ui-primary);
+  color: white;
+  border: 1px solid transparent;
+}
+.btn-primary:hover { background: var(--ui-primary-dark); transform: translateY(-1px); }
+
+.btn-secondary, button.btn-secondary {
+  background: white;
+  color: var(--ui-text);
+  border: 1px solid var(--ui-border);
+}
+.btn-secondary:hover { border-color: var(--ui-primary); color: var(--ui-primary); }
+
+.btn-link { background: transparent; border: none; color: var(--ui-primary); cursor: pointer; padding: 4px 8px; font-size: 0.9rem; }
+.btn-link:hover { text-decoration: underline; }
+
+/* Inputs & textareas */
+input[type="text"], input[type="tel"], input[type="number"], input[type="date"], select, textarea {
+  border: 1px solid var(--ui-border);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  color: var(--ui-text);
+  background: white;
+  transition: border-color 0.12s ease;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--ui-primary); box-shadow: 0 2px 8px rgba(76,175,80,0.08); }
+
+textarea { resize: vertical; min-height: 80px; }
+
+/* Cards */
+.card, .panel, .profile-page-form-card, .smp-list-panel, .smp-detail-panel {
+  background: white;
+  border-radius: var(--ui-radius);
+  border: 1px solid var(--ui-border);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+/* Small utilities */
+.muted { color: var(--ui-subtext); }
+.flex { display: flex; }
+.flex-center { display:flex; align-items:center; justify-content:center; }
+.gap-8 { gap: 8px; }
+.mb-8 { margin-bottom: 8px; }
+.mt-8 { margin-top: 8px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+}

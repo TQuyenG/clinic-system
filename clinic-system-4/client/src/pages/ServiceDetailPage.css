@@ -1,0 +1,583 @@
+/* client/src/pages/ServiceDetailPage.css */
+
+:root {
+  --servicedetail-primary: #86efac;
+  --servicedetail-primary-dark: #4ade80;
+  --servicedetail-primary-light: #bbf7d0;
+  --servicedetail-success: #22c55e;
+  --servicedetail-white: #ffffff;
+  --servicedetail-gray-50: #f9fafb;
+  --servicedetail-gray-100: #f3f4f6;
+  --servicedetail-gray-200: #e5e7eb;
+  --servicedetail-gray-300: #d1d5db;
+  --servicedetail-gray-500: #6b7280;
+  --servicedetail-gray-600: #4b5563;
+  --servicedetail-gray-700: #374151;
+  --servicedetail-gray-900: #111827;
+  --servicedetail-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --servicedetail-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --servicedetail-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --servicedetail-radius: 8px;
+  --servicedetail-transition: all 0.2s ease;
+}
+
+/* Page Container */
+.servicedetail-page {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  min-height: 100vh;
+  padding: 2rem 0;
+}
+
+/* Main Content Container */
+.servicedetail-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Three Column Layout */
+.servicedetail-content {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+/* Image Section */
+.servicedetail-image-section {
+  background: var(--servicedetail-white);
+  border-radius: var(--servicedetail-radius);
+  box-shadow: var(--servicedetail-shadow-md);
+  overflow: hidden;
+  border: 2px solid var(--servicedetail-primary-light);
+}
+
+.servicedetail-image {
+  width: 100%;
+  height: 400px;
+  object-fit: cover;
+}
+
+.servicedetail-placeholder {
+  width: 100%;
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--servicedetail-gray-50);
+  color: var(--servicedetail-gray-500);
+  gap: 1rem;
+}
+
+.servicedetail-placeholder svg {
+  font-size: 4rem;
+  color: var(--servicedetail-primary);
+}
+
+/* Info Section */
+.servicedetail-info-section {
+  background: var(--servicedetail-white);
+  padding: 2rem;
+  border-radius: var(--servicedetail-radius);
+  box-shadow: var(--servicedetail-shadow-md);
+  border: 2px solid var(--servicedetail-primary-light);
+}
+
+.servicedetail-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--servicedetail-primary-light);
+  color: var(--servicedetail-gray-700);
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.servicedetail-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--servicedetail-gray-900);
+  margin-bottom: 1rem;
+  line-height: 1.3;
+}
+
+.servicedetail-description {
+  color: var(--servicedetail-gray-600);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  font-size: 0.9375rem;
+}
+
+.servicedetail-meta {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.servicedetail-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  background: var(--servicedetail-gray-50);
+  border-radius: var(--servicedetail-radius);
+  border: 1px solid var(--servicedetail-gray-200);
+  transition: var(--servicedetail-transition);
+}
+
+.servicedetail-meta-item:hover {
+  background: var(--servicedetail-primary-light);
+  border-color: var(--servicedetail-primary);
+}
+
+.servicedetail-meta-icon {
+  color: var(--servicedetail-primary-dark);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.servicedetail-meta-text {
+  color: var(--servicedetail-gray-700);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.servicedetail-meta-text strong {
+  color: var(--servicedetail-gray-900);
+  font-weight: 700;
+}
+
+.servicedetail-status-active {
+  color: var(--servicedetail-success);
+}
+
+/* Doctor Highlight */
+.servicedetail-doctor-highlight {
+  background: linear-gradient(135deg, var(--servicedetail-primary-light) 0%, #ffffff 100%);
+  border: 2px solid var(--servicedetail-primary);
+  padding: 1rem;
+}
+
+.servicedetail-doctor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  flex: 1;
+}
+
+.servicedetail-doctor-specialty {
+  font-size: 0.8125rem;
+  color: var(--servicedetail-gray-600);
+  font-style: italic;
+}
+
+.servicedetail-doctor-experience {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--servicedetail-primary-dark);
+  font-weight: 600;
+}
+
+.servicedetail-doctor-experience svg {
+  font-size: 0.875rem;
+}
+
+/* Detailed Content */
+.servicedetail-detailed-content {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--servicedetail-gray-200);
+}
+
+.servicedetail-content-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--servicedetail-gray-900);
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.servicedetail-content-title svg {
+  color: var(--servicedetail-primary-dark);
+}
+
+.servicedetail-content-text {
+  color: var(--servicedetail-gray-700);
+  line-height: 1.7;
+  font-size: 0.9375rem;
+}
+
+.servicedetail-content-text h2,
+.servicedetail-content-text h3,
+.servicedetail-content-text h4 {
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--servicedetail-gray-900);
+}
+
+.servicedetail-content-text ul,
+.servicedetail-content-text ol {
+  padding-left: 1.5rem;
+  margin: 0.75rem 0;
+}
+
+.servicedetail-content-text li {
+  margin: 0.375rem 0;
+}
+
+/* Features Section */
+.servicedetail-features-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--servicedetail-gray-200);
+}
+
+.servicedetail-features-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--servicedetail-gray-900);
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.servicedetail-features-title svg {
+  color: var(--servicedetail-success);
+}
+
+.servicedetail-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.servicedetail-features-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--servicedetail-gray-700);
+  padding: 0.625rem;
+  background: var(--servicedetail-gray-50);
+  border-radius: var(--servicedetail-radius);
+}
+
+.servicedetail-feature-icon {
+  color: var(--servicedetail-success);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+/* Booking Section */
+.servicedetail-booking-section {
+  position: sticky;
+  top: 2rem;
+}
+
+.servicedetail-booking-card {
+  background: var(--servicedetail-white);
+  padding: 1.5rem;
+  border-radius: var(--servicedetail-radius);
+  box-shadow: var(--servicedetail-shadow-lg);
+  border: 2px solid var(--servicedetail-primary-light);
+}
+
+.servicedetail-booking-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--servicedetail-gray-900);
+  margin: 0 0 1.25rem 0;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.servicedetail-booking-title svg {
+  color: var(--servicedetail-primary-dark);
+}
+
+.servicedetail-price-display {
+  text-align: center;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, var(--servicedetail-primary-light), var(--servicedetail-white));
+  border-radius: var(--servicedetail-radius);
+  margin-bottom: 1.25rem;
+  border: 2px solid var(--servicedetail-primary);
+}
+
+.servicedetail-price-label {
+  font-size: 0.8125rem;
+  color: var(--servicedetail-gray-600);
+  margin: 0 0 0.5rem 0;
+  font-weight: 500;
+}
+
+.servicedetail-price-amount {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--servicedetail-primary-dark);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.servicedetail-price-icon {
+  font-size: 1.5rem;
+}
+
+.servicedetail-booking-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.servicedetail-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--servicedetail-gray-50);
+  border-radius: var(--servicedetail-radius);
+  font-size: 0.875rem;
+}
+
+.servicedetail-info-label {
+  color: var(--servicedetail-gray-600);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.servicedetail-info-label svg {
+  color: var(--servicedetail-primary-dark);
+  font-size: 1rem;
+}
+
+.servicedetail-info-value {
+  color: var(--servicedetail-gray-900);
+  font-weight: 700;
+  text-align: right;
+}
+
+.servicedetail-btn-book {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, var(--servicedetail-primary), var(--servicedetail-primary-dark));
+  color: white;
+  border: none;
+  border-radius: var(--servicedetail-radius);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--servicedetail-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+  margin-bottom: 1rem;
+}
+
+.servicedetail-btn-book:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(74, 222, 128, 0.4);
+}
+
+.servicedetail-booking-note {
+  padding: 1rem;
+  background: var(--servicedetail-gray-50);
+  border-radius: var(--servicedetail-radius);
+  border: 1px solid var(--servicedetail-gray-200);
+  display: flex;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.servicedetail-booking-note svg {
+  color: var(--servicedetail-primary-dark);
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.servicedetail-booking-note p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--servicedetail-gray-600);
+  line-height: 1.5;
+}
+
+/* Loading */
+.servicedetail-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  font-size: 0.9375rem;
+  color: var(--servicedetail-gray-600);
+  gap: 1rem;
+}
+
+.servicedetail-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid var(--servicedetail-gray-200);
+  border-top-color: var(--servicedetail-primary);
+  border-radius: 50%;
+  animation: servicedetail-spin 1s linear infinite;
+}
+
+@keyframes servicedetail-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error Container */
+.servicedetail-error-container {
+  max-width: 600px;
+  margin: 3rem auto;
+  padding: 2.5rem;
+  background: var(--servicedetail-white);
+  border-radius: var(--servicedetail-radius);
+  box-shadow: var(--servicedetail-shadow-lg);
+  text-align: center;
+  border: 2px solid var(--servicedetail-gray-200);
+}
+
+.servicedetail-error-icon {
+  font-size: 4rem;
+  color: var(--servicedetail-primary);
+  margin-bottom: 1.5rem;
+}
+
+.servicedetail-error-container h2 {
+  font-size: 1.5rem;
+  color: var(--servicedetail-gray-900);
+  margin: 0 0 1rem 0;
+}
+
+.servicedetail-error-container p {
+  color: var(--servicedetail-gray-600);
+  margin: 0 0 1.5rem 0;
+  font-size: 0.9375rem;
+}
+
+.servicedetail-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--servicedetail-radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--servicedetail-transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.servicedetail-btn-primary {
+  background: var(--servicedetail-primary);
+  color: white;
+}
+
+.servicedetail-btn-primary:hover {
+  background: var(--servicedetail-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--servicedetail-shadow-md);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .servicedetail-content {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .servicedetail-booking-section {
+    grid-column: span 2;
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .servicedetail-page {
+    padding: 1rem 0;
+  }
+
+  .servicedetail-container {
+    padding: 0 1rem;
+  }
+
+  .servicedetail-content {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .servicedetail-booking-section {
+    grid-column: span 1;
+    position: static;
+  }
+  
+  .servicedetail-image {
+    height: 300px;
+  }
+
+  .servicedetail-placeholder {
+    height: 300px;
+  }
+
+  .servicedetail-info-section {
+    padding: 1.5rem;
+  }
+
+  .servicedetail-title {
+    font-size: 1.5rem;
+  }
+
+  .servicedetail-booking-card {
+    padding: 1.25rem;
+  }
+
+  .servicedetail-price-amount {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .servicedetail-title {
+    font-size: 1.25rem;
+  }
+
+  .servicedetail-meta-item {
+    padding: 0.75rem;
+  }
+
+  .servicedetail-info-section {
+    padding: 1.25rem;
+  }
+
+  .servicedetail-features-list li {
+    font-size: 0.8125rem;
+  }
+
+  .servicedetail-price-amount {
+    font-size: 1.25rem;
+  }
+}
