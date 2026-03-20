@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import appointmentService from '../services/appointmentService';
 import medicalRecordService from '../services/medicalRecordService';
+import api from '../services/api'; // [MỚI] Import API instance
 
 // Import CSS
 import './MedicalRecordFormPage.css';
@@ -55,6 +56,9 @@ const MedicalRecordFormPage = () => {
   // 3b. File CŨ (đã upload, dùng cho chế độ Update)
   const [keptTestImages, setKeptTestImages] = useState([]); // Mảng các object { filename, url }
   const [keptReportFiles, setKeptReportFiles] = useState([]); // Mảng các object { filename, url }
+  // [MỚI] State quản lý gợi ý thuốc
+  const [medicineSuggestions, setMedicineSuggestions] = useState([]); 
+  const [showSuggestionsIndex, setShowSuggestionsIndex] = useState(null);
 
   // === Tải dữ liệu ===
   useEffect(() => {
@@ -134,6 +138,44 @@ const MedicalRecordFormPage = () => {
     if (prescriptionList.length > 1) {
       setPrescriptionList(prescriptionList.filter((_, i) => i !== index));
     }
+  };
+
+  // [MỚI] Hàm tìm kiếm thuốc khi gõ
+  const handleSearchMedicine = async (index, value) => {
+    // 1. Cập nhật text hiển thị ngay lập tức
+    const newList = [...prescriptionList];
+    newList[index].name = value;
+    setPrescriptionList(newList);
+
+    // 2. Gọi API tìm kiếm (Debounce đơn giản: chỉ tìm khi > 1 ký tự)
+    if (value.trim().length > 1) {
+      try {
+        const res = await api.get(`/articles/medicines?search=${encodeURIComponent(value)}&limit=5`);
+        if (res.data.success) {
+          setMedicineSuggestions(res.data.medicines || []);
+          setShowSuggestionsIndex(index);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    } else {
+      setMedicineSuggestions([]);
+      setShowSuggestionsIndex(null);
+    }
+  };
+
+  // [MỚI] Hàm chọn thuốc từ danh sách gợi ý
+  const selectMedicine = (index, medicine) => {
+    const newList = [...prescriptionList];
+    newList[index].name = medicine.name;
+    newList[index].unit = medicine.unit || 'Hộp'; // Tự động điền đơn vị
+    setPrescriptionList(newList);
+    setShowSuggestionsIndex(null); // Ẩn gợi ý
+  };
+
+  // [MỚI] Ẩn gợi ý khi click ra ngoài (dùng setTimeout để sự kiện click kịp chạy)
+  const handleBlurSearch = () => {
+    setTimeout(() => setShowSuggestionsIndex(null), 200);
   };
 
   // === Xử lý Files ===
@@ -373,23 +415,65 @@ const MedicalRecordFormPage = () => {
               </h2>
               <div className="medical-record-form-page-prescription-list">
                 {prescriptionList.map((item, index) => (
-                  <div key={index} className="medical-record-form-page-prescription-row">
+                  <div key={index} className="medical-record-form-page-prescription-row" style={{position: 'relative', overflow: 'visible'}}>
+                    
+                    {/* [MỚI] Ô NHẬP TÊN THUỐC CÓ GỢI Ý & SEARCH */}
+                    <div style={{flex: 2, position: 'relative'}}>
+                      <input
+                        type="text"
+                        name="name"
+                        className="medical-record-form-page-input"
+                        placeholder="Nhập tên thuốc..."
+                        value={item.name}
+                        onChange={(e) => handleSearchMedicine(index, e.target.value)}
+                        onBlur={handleBlurSearch}
+                        autoComplete="off"
+                      />
+                      {/* Dropdown Gợi ý */}
+                      {showSuggestionsIndex === index && medicineSuggestions.length > 0 && (
+                        <ul style={{
+                          position: 'absolute', top: '100%', left: 0, right: 0,
+                          backgroundColor: 'white', border: '1px solid #ddd',
+                          borderRadius: '4px', zIndex: 1000, padding: 0, margin: 0,
+                          listStyle: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                          maxHeight: '200px', overflowY: 'auto'
+                        }}>
+                          {medicineSuggestions.map((med) => (
+                            <li 
+                              key={med.id}
+                              onClick={() => selectMedicine(index, med)}
+                              style={{
+                                padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #eee',
+                                fontSize: '14px', color: '#333'
+                              }}
+                              onMouseEnter={(e) => e.target.style.backgroundColor = '#f0fdf4'}
+                              onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                            >
+                              <strong>{med.name}</strong> <small style={{color:'#666'}}>({med.unit}) - {parseInt(med.price).toLocaleString()}đ</small>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* [MỚI] Ô ĐƠN VỊ TÍNH (Đã update width nhỏ gọn hơn) */}
                     <input
                       type="text"
-                      name="name"
+                      name="unit"
                       className="medical-record-form-page-input"
-                      placeholder="Tên thuốc"
-                      value={item.name}
+                      placeholder="Đơn vị"
+                      value={item.unit}
                       onChange={(e) => handlePrescriptionChange(index, e)}
+                      style={{width: '80px'}} 
                     />
-                    <input
-                      type="text"
-                      name="quantity"
-                      className="medical-record-form-page-input input-small"
-                      placeholder="Số lượng"
-                      value={item.quantity}
-                      onChange={(e) => handlePrescriptionChange(index, e)}
-                    />
+                  <input
+                    type="text"
+                    name="quantity"
+                    className="medical-record-form-page-input input-small"
+                    placeholder="SL"
+                    value={item.quantity}
+                    onChange={(e) => handlePrescriptionChange(index, e)}
+                  />
                     <input
                       type="text"
                       name="dosage"

@@ -30,9 +30,49 @@ exports.getAllConsultationsRealtime = async (req, res) => {
     } = req.query;
 
     const whereClause = {};
+
+    // [LOGIC MỚI] NẾU LÀ BÁC SĨ -> CHỈ LẤY CỦA CHÍNH MÌNH
+    if (req.user.role === 'doctor') {
+      whereClause.doctor_id = req.user.id;
+    }
     
     // Filters
     // ✅ SỬA: Chuyển đổi giá trị query params
+
+    // [CODE MỚI - START] LOGIC PHÂN QUYỀN STAFF VẬN HÀNH
+    // Nếu là Staff -> Chỉ hiện tư vấn của bác sĩ mình quản lý
+    if (req.user.role === 'staff') {
+      const staff = await models.Staff.findOne({ where: { user_id: req.user.id } });
+      
+      // Lấy danh sách ID bác sĩ được phân công
+      const managedDoctorIds = staff?.managed_doctors?.doctor_ids || [];
+
+      if (managedDoctorIds.length > 0) {
+        // Nếu staff có filter theo doctor_id cụ thể, kiểm tra xem có thuộc danh sách quản lý không
+        if (doctor_id) {
+          if (!managedDoctorIds.includes(parseInt(doctor_id))) {
+            // Nếu lọc bác sĩ không thuộc quyền quản lý -> Trả về rỗng
+             return res.json({ success: true, data: [], pagination: { total: 0, page: 1, limit, totalPages: 0 } });
+          }
+          // Nếu hợp lệ thì whereClause.doctor_id đã được gán ở logic dưới (hoặc giữ nguyên)
+        } else {
+          // ✅ ĐÃ SỬA: Chuyển đổi Doctor ID sang User ID để tìm trong bảng Consultation
+          // Vì Consultation lưu doctor_id là User ID, còn managed_doctors lưu Doctor ID
+          const doctors = await models.Doctor.findAll({
+            where: { id: { [Op.in]: managedDoctorIds } },
+            attributes: ['user_id']
+          });
+          const doctorUserIds = doctors.map(d => d.user_id);
+
+          whereClause.doctor_id = { [Op.in]: doctorUserIds };
+        }
+      } else {
+        // Staff không quản lý ai -> Không thấy gì
+        return res.json({ success: true, data: [], pagination: { total: 0, page: 1, limit, totalPages: 0 } });
+      }
+    }
+    
+
     if (status && status !== 'all') {
       whereClause.status = status;
     }
@@ -142,10 +182,17 @@ exports.getAllConsultationsRealtime = async (req, res) => {
  */
 exports.getActiveConsultations = async (req, res) => {
   try {
+    // [LOGIC MỚI] Tạo điều kiện lọc
+    const whereCondition = { status: 'in_progress' };
+    
+    // Nếu là bác sĩ, chỉ lấy ca của mình
+    if (req.user.role === 'doctor') {
+      whereCondition.doctor_id = req.user.id;
+    }
+
     const activeConsultations = await models.Consultation.findAll({
-      where: {
-        status: 'in_progress'
-      },
+      where: whereCondition,
+      
       include: [
         {
           model: models.User,
@@ -968,6 +1015,19 @@ exports.getAllFeedbacks = async (req, res) => {
       rating: { [Op.ne]: null } 
     };
 
+    if (req.user.role === 'doctor') {
+      // Bác sĩ chỉ xem đánh giá của chính mình
+      whereClause.doctor_id = req.user.id;
+    } 
+    else if (req.user.role === 'staff') {
+      // Staff xem theo filter (hoặc logic quản lý nếu có)
+      if (doctor_id) whereClause.doctor_id = doctor_id;
+    }
+    else {
+      // Admin xem theo filter
+      if (doctor_id) whereClause.doctor_id = doctor_id;
+    }
+
     // THÊM MỚI: Lọc theo loại (chat/video)
     if (type && type !== 'all') {
       whereClause.consultation_type = type;
@@ -1051,10 +1111,14 @@ exports.getAllFeedbacks = async (req, res) => {
  */
 exports.getSystemStatistics = async (req, res) => {
   try {
-    // SỬA: Thêm 'type'
-    const { date_from, date_to, type } = req.query;
+    const { date_from, date_to, type } = req.query; // Thêm type nếu chưa có
 
     const whereClause = {};
+    
+    // [LOGIC MỚI] NẾU LÀ BÁC SĨ -> CHỈ THỐNG KÊ CỦA MÌNH
+    if (req.user.role === 'doctor') {
+      whereClause.doctor_id = req.user.id;
+    }
     if (date_from || date_to) {
       whereClause.created_at = {};
       if (date_from) whereClause.created_at[Op.gte] = new Date(date_from);
@@ -1200,8 +1264,14 @@ exports.getDoctorStatistics = async (req, res) => {
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
+    // ✅ THÊM: Logic lọc bác sĩ
+    const userCondition = { role: 'doctor' };
+    if (req.user.role === 'doctor') {
+      userCondition.id = req.user.id; // Bác sĩ chỉ xem được thống kê của chính mình
+    }
+
     const doctors = await models.User.findAll({
-      where: { role: 'doctor' },
+      where: userCondition, // <-- Thay đổi ở đây
       attributes: ['id', 'full_name', 'avatar_url'],
       include: [
         {

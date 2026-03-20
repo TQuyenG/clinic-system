@@ -138,6 +138,16 @@ router.put('/:id/details',
   appointmentController.updateAppointmentDetails
 );
 
+/**
+ * Check-in tại quầy (Cấp STT)
+ * PUT /api/appointments/:code/check-in
+ */
+router.put('/:code/check-in',
+  authenticateToken,
+  authorize('admin', 'staff'),
+  appointmentController.checkIn
+);
+
 // ========== COMMON ROUTES ==========
 /**
  * Lấy chi tiết lịch hẹn

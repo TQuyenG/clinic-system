@@ -3256,6 +3256,8 @@ exports.createMedicine = async (req, res) => {
   try {
     const { 
       name, 
+      price,
+      unit, // <--- [THÊM] Nhận biến unit từ request
       category_id, 
       composition, 
       uses, 
@@ -3264,7 +3266,6 @@ exports.createMedicine = async (req, res) => {
       image_url,
       description 
     } = req.body;
-
     // Validate
     if (!name) {
       return res.status(400).json({ 
@@ -3289,6 +3290,8 @@ exports.createMedicine = async (req, res) => {
       name,
       slug,
       category_id: category_id || null,
+      price: price || 0,
+      unit: unit || 'Hộp', // <--- [THÊM] Lưu unit vào database
       composition,
       uses,
       side_effects,
@@ -3324,6 +3327,8 @@ exports.updateMedicine = async (req, res) => {
     const { id } = req.params;
     const { 
       name, 
+      price,
+      unit, // <--- [THÊM]
       category_id, 
       composition, 
       uses, 
@@ -3351,6 +3356,8 @@ exports.updateMedicine = async (req, res) => {
       name: name || medicine.name,
       slug,
       category_id: category_id !== undefined ? category_id : medicine.category_id,
+      price: price !== undefined ? price : medicine.price,
+      unit: unit !== undefined ? unit : medicine.unit, // <--- [THÊM] Cập nhật unit
       composition: composition !== undefined ? composition : medicine.composition,
       uses: uses !== undefined ? uses : medicine.uses,
       side_effects: side_effects !== undefined ? side_effects : medicine.side_effects,

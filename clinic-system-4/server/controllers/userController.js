@@ -1922,6 +1922,34 @@ exports.getUsersByRole = async (req, res) => {
       return userData;
     });
 
+    if (req.user && req.user.role === 'staff') {
+      const currentStaffId = req.user.id;
+      
+      // Tìm thông tin Staff hiện tại để lấy danh sách bác sĩ đang quản lý
+      const currentStaff = await models.Staff.findOne({
+        where: { user_id: currentStaffId },
+        include: [{ model: models.Doctor, as: 'managedDoctors', attributes: ['id'] }]
+      });
+
+      if (currentStaff) {
+        // Lấy danh sách ID các bác sĩ được phân công (Đây là ID của bảng Doctor)
+        const managedDoctorIds = currentStaff.managedDoctors ? currentStaff.managedDoctors.map(d => d.id) : [];
+
+        // Lọc formattedUsers: Chỉ giữ lại Bác sĩ thuộc danh sách quản lý (hoặc chính mình nếu cần)
+        const filteredUsers = formattedUsers.filter(u => {
+          // Nếu user là bác sĩ, kiểm tra ID (lưu ý: u.id ở đây đã được map thành Doctor ID ở logic trên)
+          if (u.role === 'doctor') {
+            return managedDoctorIds.includes(u.id);
+          }
+          return true; // Giữ lại các role khác (nếu có)
+        });
+
+        // Gán lại danh sách đã lọc để trả về
+        formattedUsers.length = 0;
+        formattedUsers.push(...filteredUsers);
+      }
+    }
+
     res.status(200).json({
       success: true,
       users: formattedUsers,

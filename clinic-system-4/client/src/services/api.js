@@ -98,6 +98,12 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
+    // --- THÊM ĐOẠN NÀY ĐỂ SỬA LỖI UPLOAD ẢNH ---
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+    // ------------------------------------------
+    
     console.log('API Request:', config.method?.toUpperCase(), config.url);
     return config;
   },

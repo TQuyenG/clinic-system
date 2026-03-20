@@ -85,8 +85,11 @@ const ConsultationRealtimeManagementPage = () => {
   useEffect(() => {
     if (['admin', 'staff'].includes(user.role)) {
       fetchDashboardStats(currentType);
+    } else {
+      // ✅ FIX: Nếu là bác sĩ (hoặc role khác), tắt loading ngay lập tức
+      setLoading(false);
     }
-  }, [user, currentType, selectedDoctorId]); // Thêm selectedDoctorId vào dependency
+  }, [user, currentType, selectedDoctorId]);
 
   const fetchDashboardStats = async (type) => {
     try {
@@ -139,12 +142,11 @@ const ConsultationRealtimeManagementPage = () => {
     }
   };
 
-  if (!user || !['admin', 'staff'].includes(user.role)) {
+  if (!user || !['admin', 'staff', 'doctor'].includes(user.role)) {
     return (
       <div className="crm-access-denied">
         <FaExclamationTriangle size={40} />
         <h2>Không có quyền truy cập</h2>
-        <p>Chỉ Admin hoặc Staff được phân công mới có thể truy cập.</p>
       </div>
     );
   }

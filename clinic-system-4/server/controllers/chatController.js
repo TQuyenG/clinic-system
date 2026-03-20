@@ -3,6 +3,10 @@
 
 const { models } = require('../config/db');
 const { Op } = require('sequelize');
+const { GoogleGenerativeAI } = require('@google/generative-ai'); // BỔ SUNG: Thư viện Gemini AI
+
+// Khởi tạo Gemini AI (Nhớ thêm GEMINI_API_KEY vào file .env)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // ==================== GỬI TIN NHẮN ====================
 
@@ -851,6 +855,104 @@ exports.uploadFile = async (req, res) => {
   }
 };
 
+// ==================== AI CHATBOT (ĐIỂM NHẤN USP) ====================
+
+/**
+ * Xử lý tin nhắn từ public chatbot sử dụng Gemini AI
+ * POST /api/chat/ai-chat
+ */
+exports.handleAIChatbot = async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ success: false, message: 'Vui lòng nhập tin nhắn' });
+
+    // Lấy ngày hôm nay định dạng YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. Kéo dữ liệu Chuyên khoa
+    const specialties = await models.Specialty.findAll({ attributes: ['id', 'name'] });
+    const specialtyList = specialties.map(s => `- Khoa ${s.name} (ID: ${s.id})`).join('\n');
+
+    // 2. Kéo dữ liệu Gói Tư Vấn Online (Chat/Video)
+    const packages = await models.ConsultationPricing.findAll({
+       where: { is_active: true }
+    });
+    const packageList = packages.map(p => `- ID Gói: ${p.id} | Tên: ${p.package_name} (${p.package_type}) | Thời lượng: ${p.duration_minutes} phút | Giá: ${p.price} VNĐ`).join('\n');
+
+    // 3. Kéo dữ liệu Lịch làm việc của Bác sĩ HÔM NAY (Fixed & Overtime đã duyệt)
+    const schedules = await models.Schedule.findAll({
+      where: {
+        date: today,
+        status: 'approved',
+        schedule_type: { [Op.in]: ['fixed', 'overtime'] }
+      },
+      include: [{
+        model: models.Doctor, as: 'doctor',
+        include: [
+          { model: models.User, as: 'user', attributes: ['full_name'] }, 
+          { model: models.Specialty, as: 'specialty', attributes: ['name'] }
+        ]
+      }]
+    });
+
+    const doctorAvailability = schedules.map(s => {
+        if(s.doctor && s.doctor.user) {
+           return `- Bác sĩ ${s.doctor.user.full_name} (Khoa ${s.doctor.specialty?.name || 'Đa khoa'}) | Rảnh hôm nay từ: ${s.start_time} đến ${s.end_time}`;
+        }
+        return null;
+    }).filter(Boolean).join('\n');
+
+    // 4. Cấu hình Prompt siêu thông minh cho AI
+    const systemPrompt = `Bạn là trợ lý y tế AI cao cấp của hệ thống Clinic System.
+Nhiệm vụ: Tư vấn triệu chứng, báo giá dịch vụ online, và kiểm tra lịch bác sĩ để điều hướng bệnh nhân.
+
+=== DỮ LIỆU PHÒNG KHÁM HÔM NAY (${today}) ===
+1. CÁC CHUYÊN KHOA:
+${specialtyList}
+
+2. BÁC SĨ ĐANG CÓ LỊCH LÀM VIỆC HÔM NAY:
+${doctorAvailability || 'Hiện chưa có lịch làm việc của bác sĩ nào được cập nhật cho hôm nay.'}
+
+3. CÁC GÓI TƯ VẤN ONLINE TỪ XA:
+${packageList || 'Hiện chưa có gói tư vấn online.'}
+
+=== YÊU CẦU BẮT BUỘC ===
+1. Trả lời thấu cảm, chuyên nghiệp. Tuyệt đối không tự ý bịa ra tên bác sĩ hay giá tiền ngoài danh sách trên.
+2. NẾU người dùng muốn khám trực tiếp: Hãy nói cho họ biết hôm nay có bác sĩ nào rảnh không, gợi ý chuyên khoa và trả về action BOOK_OFFLINE.
+3. NẾU người dùng bận, ở xa, hoặc muốn tư vấn online: Hãy báo giá gói tư vấn (Chat/Video) phù hợp và trả về action BOOK_ONLINE.
+4. Bạn LUÔN LUÔN phải trả về duy nhất một chuỗi JSON hợp lệ (không markdown, không bọc bởi \`\`\`json) theo cấu trúc:
+{
+  "text": "Câu trả lời của bạn (có kèm thông tin lịch bác sĩ hoặc giá gói nếu cần)",
+  "suggested_action": "NONE" | "BOOK_OFFLINE" | "BOOK_ONLINE",
+  "suggested_specialty_id": ID_chuyên_khoa_nếu_có_hoặc_null,
+  "suggested_specialty_name": "Tên_chuyên_khoa_nếu_có_hoặc_null",
+  "suggested_package_id": ID_gói_online_nếu_có_hoặc_null
+}
+Tin nhắn của người dùng: "${message}"`;
+
+    // 5. Gọi Gemini API
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent(systemPrompt);
+    const responseText = result.response.text().trim();
+    
+    // Ép kiểu chuẩn JSON
+    const cleanJsonString = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsedResponse = JSON.parse(cleanJsonString);
+
+    res.status(200).json({
+      success: true,
+      data: parsedResponse
+    });
+
+  } catch (error) {
+    console.error('❌ Error handleAIChatbot:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Xin lỗi, hệ thống AI đang quá tải hoặc gặp sự cố. Vui lòng thử lại sau.'
+    });
+  }
+};
+
 module.exports = {
   sendMessage: exports.sendMessage,
   getChatHistory: exports.getChatHistory,
@@ -863,5 +965,6 @@ module.exports = {
   searchMessages: exports.searchMessages,
   getMessageStats: exports.getMessageStats,
   verifyChatOTP: exports.verifyChatOTP,
-  uploadFile: exports.uploadFile
+  uploadFile: exports.uploadFile,
+  handleAIChatbot: exports.handleAIChatbot // Bổ sung hàm mới
 };

@@ -13,6 +13,40 @@ const StaffAssignmentModal = ({ staffId, staffName, onClose, onSuccess }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  // --- THÊM ĐOẠN NÀY ---
+  const [financeRole, setFinanceRole] = useState('cashier'); // Mặc định là Thu ngân
+
+  const handleFinanceRoleChange = (role) => {
+    setFinanceRole(role);
+  };
+  // ---------------------
+
+  // --- BẮT ĐẦU THÊM MỚI ---
+  // Định nghĩa các mẫu quyền cho từng vai trò tài chính
+  // --- BẮT ĐẦU SỬA: ĐỊNH NGHĨA QUYỀN CHUẨN ---
+  const FINANCE_ROLE_PERMISSIONS = {
+    cashier: { // Nhân viên Thu ngân
+      payments: ['view', 'verify'], // 'verify' để xác nhận tiền đã về
+      appointments: ['view'], // Xem lịch để đối chiếu
+      medical_records: ['view'], // Xem đơn thuốc để thu tiền
+      consultations: ['view'],
+      services: ['view'],
+      consultation_pricing: ['view']
+    },
+    accountant: { // Kế toán Tổng hợp
+      payments: ['view', 'verify', 'approve', 'refund'], // Duyệt thanh toán và hoàn tiền
+      invoices: ['view', 'create', 'export'], // Quản lý hóa đơn (nếu có module invoices)
+      system_settings: ['view'],
+      reports: ['view', 'export'], // Xem báo cáo
+      consultation_pricing: ['view']
+    },
+    manager: { // Quản lý Dịch vụ & Giá (Pricing Manager)
+      consultation_pricing: ['create', 'edit', 'delete', 'set_price', 'hide'], // Quản lý giá
+      payments: ['view', 'approve', 'refund'],
+      services: ['view'], // Chỉ xem dịch vụ, không sửa nội dung y tế
+      system_settings: ['view']
+    }
+  };
 
   const [formData, setFormData] = useState({
     department: 'clinical',
@@ -45,6 +79,14 @@ const StaffAssignmentModal = ({ staffId, staffName, onClose, onSuccess }) => {
           manager_id: current.manager_id || '',
           managed_doctor_ids: current.managed_doctors?.doctor_ids || []
         });
+        // --- THÊM ĐOẠN NÀY (Để tự động chọn đúng Radio khi mở modal sửa) ---
+        if (current.department === 'finance') {
+           // Map từ mô tả công việc sang key của radio button
+           if (current.job_description === 'Kế toán Tổng hợp') setFinanceRole('accountant');
+           else if (current.job_description === 'Quản lý Dịch vụ & Giá') setFinanceRole('manager');
+           else setFinanceRole('cashier');
+        }
+        // ------------------------------------------------------------------
       } catch (error) {
         console.error(error);
         toast.error('Lỗi tải dữ liệu. Vui lòng thử lại.');
@@ -58,13 +100,20 @@ const StaffAssignmentModal = ({ staffId, staffName, onClose, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // SỬA: Đổi '/assign' thành '/assign-doctors' để khớp với StaffManagementPage và Backend Controller
-      await api.put(`/staff/${staffId}/assign-doctors`, {
+      // --- BẮT ĐẦU SỬA ---
+      const payload = {
         department: formData.department,
         rank: formData.rank,
         manager_id: formData.manager_id || null,
-        doctor_ids: formData.managed_doctor_ids
-      });
+        doctor_ids: formData.managed_doctor_ids,
+        // (MỚI) Gửi thêm vai trò chuyên môn để backend lưu vào job_description hoặc permissions
+        finance_role: formData.department === 'finance' ? financeRole : null,
+        // (MỚI) Nếu là tài chính, gửi luôn bộ quyền mẫu để backend cập nhật
+        permissions: formData.department === 'finance' ? FINANCE_ROLE_PERMISSIONS[financeRole] : null
+      };
+
+      await api.put(`/staff/${staffId}/assign-doctors`, payload);
+// --- KẾT THÚC SỬA ---
       toast.success('Cập nhật thành công!');
       onSuccess();
       onClose();
@@ -122,6 +171,7 @@ const StaffAssignmentModal = ({ staffId, staffName, onClose, onSuccess }) => {
             <div className="staff-assignment-modal-section">
               <h4 className="staff-assignment-modal-section-title"><FaSitemap /> Cấu Trúc & Vai Trò</h4>
               <div className="staff-assignment-modal-grid">
+                {/* 1. Phần chọn Phòng Ban (Giữ nguyên hoặc đảm bảo đã có) */}
                 <div className="staff-assignment-modal-input-group">
                   <label>Phòng Ban</label>
                   <select 
@@ -136,17 +186,72 @@ const StaffAssignmentModal = ({ staffId, staffName, onClose, onSuccess }) => {
                     <option value="content">Nội dung Y tế</option>
                   </select>
                 </div>
-                <div className="staff-assignment-modal-input-group">
-                  <label>Cấp Bậc</label>
-                  <select 
-                    className="staff-assignment-modal-select"
-                    value={formData.rank}
-                    onChange={e => setFormData({...formData, rank: e.target.value})}
-                  >
-                    <option value="staff">Nhân viên (Staff)</option>
-                    <option value="manager">Quản lý (Manager)</option>
-                  </select>
-                </div>
+
+                {/* --- BẮT ĐẦU ĐOẠN CODE MỚI (CHỈ CHÈN 1 LẦN) --- */}
+                {formData.department === 'finance' && (
+                  <div className="staff-assignment-modal-input-group full-width" style={{marginTop: '15px', background: '#e8f5e9', padding: '15px', borderRadius: '8px', border: '1px solid #c8e6c9'}}>
+                    <label style={{marginBottom: '10px', display: 'block', fontWeight: 'bold', color: '#2e7d32', fontSize: '13px', textTransform: 'uppercase'}}>
+                      Chọn vai trò Tài chính (Phân quyền tự động)
+                    </label>
+                    
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                      {/* Option 1: Thu ngân */}
+                      <label style={{cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 0'}}>
+                        <input 
+                          type="radio" 
+                          name="finance_role" 
+                          value="cashier"
+                          checked={financeRole === 'cashier'}
+                          onChange={(e) => handleFinanceRoleChange(e.target.value)}
+                          style={{width: '18px', height: '18px', accentColor: '#2e7d32', cursor: 'pointer'}}
+                        /> 
+                        <div>
+                          <strong style={{fontSize: '14px', color: '#333'}}>Nhân viên Thu ngân (Cashier)</strong>
+                          <div style={{fontSize: '12px', color: '#666', marginTop: '2px'}}>
+                            Quyền: Thu tiền tại quầy, Xem lịch hẹn, Xem đơn thuốc.
+                          </div>
+                        </div>
+                      </label>
+
+                      {/* Option 2: Kế toán */}
+                      <label style={{cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 0'}}>
+                        <input 
+                          type="radio" 
+                          name="finance_role" 
+                          value="accountant"
+                          checked={financeRole === 'accountant'}
+                          onChange={(e) => handleFinanceRoleChange(e.target.value)}
+                          style={{width: '18px', height: '18px', accentColor: '#2e7d32', cursor: 'pointer'}}
+                        /> 
+                        <div>
+                          <strong style={{fontSize: '14px', color: '#333'}}>Kế toán Tổng hợp (Accountant)</strong>
+                          <div style={{fontSize: '12px', color: '#666', marginTop: '2px'}}>
+                            Quyền: Duyệt chi, Hoàn tiền, Xem báo cáo doanh thu, Cấu hình ví.
+                          </div>
+                        </div>
+                      </label>
+
+                      {/* Option 3: Quản lý Giá */}
+                      <label style={{cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 0'}}>
+                        <input 
+                          type="radio" 
+                          name="finance_role" 
+                          value="manager"
+                          checked={financeRole === 'manager'}
+                          onChange={(e) => handleFinanceRoleChange(e.target.value)}
+                          style={{width: '18px', height: '18px', accentColor: '#2e7d32', cursor: 'pointer'}}
+                        /> 
+                        <div>
+                          <strong style={{fontSize: '14px', color: '#333'}}>Quản lý Dịch vụ & Giá (Pricing Manager)</strong>
+                          <div style={{fontSize: '12px', color: '#666', marginTop: '2px'}}>
+                            Quyền: Tạo/Sửa giá dịch vụ, Quản lý danh mục, Ẩn/Hiện gói khám.
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                )}
+                {/* --- KẾT THÚC ĐOẠN CODE MỚI --- */}
                 <div className="staff-assignment-modal-input-group full-width">
                   <label>Quản lý trực tiếp</label>
                   <select 

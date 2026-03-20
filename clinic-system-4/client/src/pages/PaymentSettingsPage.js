@@ -19,6 +19,24 @@ import './PaymentSettingsPage.css';
 const PaymentSettingsPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [banks, setBanks] = useState([]);
+  const [showBankSuggestions, setShowBankSuggestions] = useState(false);
+
+  // Tải danh sách ngân hàng từ VietQR API khi vào trang
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const response = await fetch('https://api.vietqr.io/v2/banks');
+        const data = await response.json();
+        if (data.code === '00') {
+          setBanks(data.data);
+        }
+      } catch (error) {
+        console.error('Lỗi tải danh sách ngân hàng:', error);
+      }
+    };
+    fetchBanks();
+  }, []);
   
   const [config, setConfig] = useState({
     cash: { enabled: true },
@@ -182,16 +200,63 @@ const PaymentSettingsPage = () => {
                 </div>
                 
                 <div className="row g-2">
-                  <div className="col-12">
+                  {/* --- BẮT ĐẦU SỬA: Thay thế input thường bằng Dropdown gợi ý --- */}
+                  <div className="col-12 position-relative">
                     <label className="form-label">Tên Ngân hàng</label>
                     <input 
                       type="text" 
                       className="form-control" 
-                      placeholder="MBBank, VCB, Techcombank..."
+                      placeholder="Nhập tên ngân hàng (VD: MBBank)..."
                       value={config.bank.bank_name}
-                      onChange={(e) => handleChange('bank', 'bank_name', e.target.value)}
+                      onChange={(e) => {
+                        handleChange('bank', 'bank_name', e.target.value);
+                        setShowBankSuggestions(true);
+                      }}
+                      onFocus={() => setShowBankSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowBankSuggestions(false), 200)} // Delay để kịp nhận sự kiện click
+                      autoComplete="off"
                     />
+                    
+                    {/* Danh sách gợi ý Dropdown */}
+                    {showBankSuggestions && (
+                      <div className="card position-absolute w-100 shadow overflow-auto" style={{ zIndex: 1000, maxHeight: '250px', top: '100%' }}>
+                        <ul className="list-group list-group-flush">
+                          {banks
+                            .filter(bank => 
+                              !config.bank.bank_name || 
+                              bank.shortName.toLowerCase().includes(config.bank.bank_name.toLowerCase()) || 
+                              bank.name.toLowerCase().includes(config.bank.bank_name.toLowerCase())
+                            )
+                            .map((bank) => (
+                              <li 
+                                key={bank.id} 
+                                className="list-group-item list-group-item-action cursor-pointer d-flex align-items-center gap-2"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                  handleChange('bank', 'bank_name', bank.shortName); // Lưu tên ngắn (VD: MBBank)
+                                  setShowBankSuggestions(false);
+                                }}
+                              >
+                                <img src={bank.logo} alt={bank.shortName} style={{ width: '40px', objectFit: 'contain' }} />
+                                <div>
+                                  <div className="fw-bold">{bank.shortName}</div>
+                                  <div className="small text-muted" style={{ fontSize: '0.8rem' }}>{bank.name}</div>
+                                </div>
+                              </li>
+                            ))}
+                            {/* Hiển thị thông báo nếu không tìm thấy */}
+                            {banks.filter(bank => 
+                              !config.bank.bank_name || 
+                              bank.shortName.toLowerCase().includes(config.bank.bank_name.toLowerCase()) || 
+                              bank.name.toLowerCase().includes(config.bank.bank_name.toLowerCase())
+                            ).length === 0 && (
+                              <li className="list-group-item text-muted text-center small">Không tìm thấy ngân hàng</li>
+                            )}
+                        </ul>
+                      </div>
+                    )}
                   </div>
+                  {/* --- KẾT THÚC SỬA --- */}
                   <div className="col-7">
                     <label className="form-label">Số tài khoản</label>
                     <input 

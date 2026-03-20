@@ -31,7 +31,7 @@ module.exports = (sequelize) => {
     
     // TRẠNG THÁI WORKFLOW (luồng xử lý chính)
     status: { 
-      type: DataTypes.ENUM('pending', 'confirmed', 'upcoming', 'in_progress', 'completed', 'passed', 'cancelled'), 
+      type: DataTypes.ENUM('pending', 'confirmed', 'upcoming','waiting_pay','waiting_exam', 'in_progress', 'completed', 'passed', 'cancelled'), 
       defaultValue: 'pending',
       comment: 'pending: chờ duyệt | confirmed: đã duyệt | upcoming: sắp tới (24h trước) | in_progress: đang diễn ra | completed: hoàn thành | passed: đã qua (1 ngày sau hoàn thành) | cancelled: đã hủy'
     },
@@ -68,6 +68,17 @@ module.exports = (sequelize) => {
     completed_at: { type: DataTypes.DATE, allowNull: true },
     completed_by: { type: DataTypes.INTEGER, allowNull: true },
     code: { type: DataTypes.STRING(20), unique: true, allowNull: false },
+
+    // --- [THÊM MỚI QUẢN LÝ SỐ THỨ TỰ] ---
+    // STT Thanh toán (Reset theo ngày, dùng chung cho cả sảnh)
+    payment_queue_number: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null },
+    
+    // STT Khám bệnh (Reset theo ngày, riêng cho từng Bác sĩ/Phòng khám)
+    queue_number: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null },
+    
+    // Thời điểm check-in tại quầy
+    checked_in_at: { type: DataTypes.DATE, allowNull: true },
+    // -------------------------------------
     
     // MỚI: Thêm địa chỉ
     appointment_address: { 

@@ -24,6 +24,7 @@ const SuggestionModal = ({ entityType, mode, entity, suggestion, categories, onC
       title: 'Thuốc',
       fields: {
         name: { label: 'Tên thuốc', type: 'text', required: true },
+        price: { label: 'Giá tiền (VNĐ)', type: 'number', required: true, min: 0 },
         category_id: { label: 'Danh mục', type: 'select', required: false },
         image_url: { label: 'URL hình ảnh', type: 'image', required: false },
         composition: { label: 'Thành phần', type: 'textarea', required: false },

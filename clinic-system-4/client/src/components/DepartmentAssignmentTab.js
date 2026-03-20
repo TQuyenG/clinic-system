@@ -35,6 +35,7 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
   // Color config state
   const [showColorConfig, setShowColorConfig] = useState(false);
   const [tempColors, setTempColors] = useState({});
+  const [financeRole, setFinanceRole] = useState('cashier');
 
   useEffect(() => {
     loadAllStaff();
@@ -191,14 +192,28 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
 
   const handleSave = async () => {
     try {
+        // Chuẩn bị dữ liệu mở rộng cho Tài chính
+        const extraData = {};
+        if (formState.department === 'finance') {
+            extraData.finance_role = financeRole;
+            // Định nghĩa Permissions tương ứng
+            const FINANCE_PERMS = {
+                cashier: { payments: ['view', 'verify'], appointments: ['view'], medical_records: ['view'], consultations: ['view'], services: ['view'], consultation_pricing: ['view'] },
+                accountant: { payments: ['view', 'verify', 'approve', 'refund'], invoices: ['view', 'create', 'export'], system_settings: ['view'], reports: ['view', 'export'], consultation_pricing: ['view'] },
+                manager: { consultation_pricing: ['create', 'edit', 'delete', 'set_price', 'hide'], payments: ['view', 'approve', 'refund'], services: ['view'], system_settings: ['view'] }
+            };
+            extraData.permissions = FINANCE_PERMS[financeRole] || {};
+        }
+
         if (modalType === 'single') {
             // Update Single
-            if (formState.department === editingStaff.department && formState.rank === editingStaff.rank) {
+            if (formState.department === editingStaff.department && formState.rank === editingStaff.rank && formState.department !== 'finance') {
                 toast.info('Không có thay đổi nào');
                 closeModal();
                 return;
             }
-            const res = await api.put(`/staff/${editingStaff.id}`, formState);
+            // Gửi thêm extraData vào request
+            const res = await api.put(`/staff/${editingStaff.id}`, { ...formState, ...extraData });
             if (res.data.success) {
                 toast.success('Cập nhật thành công');
                 loadAllStaff();
@@ -209,10 +224,12 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
                 toast.warning('Vui lòng chọn ít nhất một thông tin để cập nhật');
                 return;
             }
+            // Gửi thêm extraData vào request
             const payload = {
                 staff_ids: selectedStaffIds,
                 ...(formState.department && { department: formState.department }),
-                ...(formState.rank && { rank: formState.rank })
+                ...(formState.rank && { rank: formState.rank }),
+                ...extraData
             };
             const res = await api.post('/staff/bulk-update', payload);
             if (res.data.success) {
@@ -382,11 +399,30 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
                             {DEPARTMENTS[staff.department]?.name || staff.department}
                         </span>
                     </td>
+                    {/* --- SỬA CỘT CHỨC VỤ ĐỂ HIỆN THÊM VAI TRÒ TÀI CHÍNH --- */}
                     <td>
-                        <span className="DeptAssign-badge DeptAssign-badge-rank">
-                            {getRankLabel(staff.rank)}
-                        </span>
+                        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px'}}>
+                            <span className="DeptAssign-badge DeptAssign-badge-rank">
+                                {getRankLabel(staff.rank)}
+                            </span>
+                            {/* Nếu là Tài chính và có mô tả công việc (vai trò) thì hiện thêm badge nhỏ */}
+                            {staff.department === 'finance' && staff.job_description && (
+                                <span style={{
+                                    fontSize: '11px', 
+                                    color: '#155724', 
+                                    backgroundColor: '#d4edda', 
+                                    padding: '2px 6px', 
+                                    borderRadius: '4px', 
+                                    border: '1px solid #c3e6cb',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: '500'
+                                }}>
+                                    {staff.job_description}
+                                </span>
+                            )}
+                        </div>
                     </td>
+                    {/* ----------------------------------------------------- */}
                     <td style={{textAlign: 'right'}}>
                         <button className="DeptAssign-action-btn" onClick={() => openEditModal(staff)}>
                             <FaEdit /> Sửa
@@ -471,6 +507,54 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
                             <option value="staff">Nhân viên</option>
                         </select>
                     </div>
+                    {/* --- CHÈN ĐOẠN CODE NÀY VÀO SAU Ô CHỨC VỤ MỚI --- */}
+                    {/* Hiển thị Radio Button khi chọn Phòng ban = Tài chính */}
+                    {formState.department === 'finance' && (
+                        <div className="DeptAssign-form-group" style={{marginTop: '15px', background: '#f0f9f0', padding: '12px', borderRadius: '6px', border: '1px solid #c8e6c9'}}>
+                            <label style={{marginBottom: '10px', display: 'block', fontWeight: 'bold', color: '#2e7d32'}}>
+                                Vai trò chuyên môn (Tự động phân quyền)
+                            </label>
+                            
+                            <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                                <label style={{cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                    <input 
+                                        type="radio" 
+                                        name="finance_role_tab" 
+                                        value="cashier"
+                                        checked={financeRole === 'cashier'}
+                                        onChange={(e) => setFinanceRole(e.target.value)}
+                                        style={{width: '16px', height: '16px', accentColor: '#2e7d32'}}
+                                    /> 
+                                    <span style={{fontSize: '13px'}}>Nhân viên Thu ngân (Cashier)</span>
+                                </label>
+
+                                <label style={{cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                    <input 
+                                        type="radio" 
+                                        name="finance_role_tab" 
+                                        value="accountant"
+                                        checked={financeRole === 'accountant'}
+                                        onChange={(e) => setFinanceRole(e.target.value)}
+                                        style={{width: '16px', height: '16px', accentColor: '#2e7d32'}}
+                                    /> 
+                                    <span style={{fontSize: '13px'}}>Kế toán Tổng hợp (Accountant)</span>
+                                </label>
+
+                                <label style={{cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                    <input 
+                                        type="radio" 
+                                        name="finance_role_tab" 
+                                        value="manager"
+                                        checked={financeRole === 'manager'}
+                                        onChange={(e) => setFinanceRole(e.target.value)}
+                                        style={{width: '16px', height: '16px', accentColor: '#2e7d32'}}
+                                    /> 
+                                    <span style={{fontSize: '13px'}}>Quản lý Dịch vụ & Giá (Manager)</span>
+                                </label>
+                            </div>
+                        </div>
+                    )}
+                    {/* ------------------------------------------------ */}
                 </div>
 
                 <div className="DeptAssign-modal-footer">

@@ -39,6 +39,11 @@ const PaymentPage = () => {
   const [uploadedBill, setUploadedBill] = useState(null); 
   const [timeLeft, setTimeLeft] = useState(0);
   const [timerExpired, setTimerExpired] = useState(false);
+  // --- THÊM STATE CHO VOUCHER ---
+  const [voucherCode, setVoucherCode] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState(null);
+  const [applyingVoucher, setApplyingVoucher] = useState(false);
+  const [myVouchers, setMyVouchers] = useState([]); // ✅ LƯU DANH SÁCH MÃ TỪ VÍ
 
   // ========== INIT ==========
   useEffect(() => {
@@ -47,7 +52,8 @@ const PaymentPage = () => {
       try {
         await Promise.all([
           fetchAppointmentDetails(),
-          fetchPaymentConfig()
+          fetchPaymentConfig(),
+          fetchMyVouchers() // ✅ GỌI API LẤY VÍ VOUCHER
         ]);
       } catch (err) {
         console.error("Init error:", err);
@@ -57,6 +63,21 @@ const PaymentPage = () => {
     };
     initData();
   }, [appointmentId, consultation_id]);
+
+  // ✅ HÀM LẤY DANH SÁCH VÍ VOUCHER CỦA USER
+  const fetchMyVouchers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:3001/api/marketing/my-vouchers', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMyVouchers(data.vouchers);
+      }
+    } catch (err) { console.error('Lỗi tải ví voucher:', err); }
+  };
+      
 
   // Timer logic
   useEffect(() => {
@@ -181,6 +202,7 @@ const PaymentPage = () => {
             code: data.code,
             amount: data.Service?.price,
             serviceName: data.Service?.name,
+            serviceId: data.Service?.id, // Lưu thêm ID để check voucher
             // Gán tên Bác sĩ & Bệnh nhân
             doctorName: docName || 'Chưa phân công',
             patientName: patName || 'Bạn',
@@ -197,6 +219,40 @@ const PaymentPage = () => {
     } catch (err) { setError(err.message || 'Lỗi tải thông tin đơn hàng'); }
   };
 
+  // --- HÀM XỬ LÝ ÁP DỤNG VÀ HỦY VOUCHER ---
+  const handleApplyVoucher = async () => {
+    if (!voucherCode.trim()) return toast.warning('Vui lòng nhập mã voucher');
+    setApplyingVoucher(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:3001/api/marketing/validate-voucher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          code: voucherCode,
+          order_type: appointment.type === 'consultation' ? 'consultation' : 'service',
+          total_amount: appointment.amount,
+          item_id: appointment.type === 'consultation' ? consultation_id : appointment.serviceId
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message);
+        setAppliedVoucher(data.discount);
+      } else {
+        toast.error(data.message);
+        setAppliedVoucher(null);
+      }
+    } catch (error) { toast.error('Lỗi kết nối kiểm tra mã!'); }
+    setApplyingVoucher(false);
+  };
+
+  const handleRemoveVoucher = () => {
+    setVoucherCode('');
+    setAppliedVoucher(null);
+    toast.info('Đã gỡ mã giảm giá');
+  };
+
   const handlePayment = async () => {
     if (!selectedMethod) return toast.warning('Vui lòng chọn phương thức');
     if (selectedMethod === 'momo' && config?.momo?.mode === 'personal' && !uploadedBill) {
@@ -207,7 +263,9 @@ const PaymentPage = () => {
     try {
       const payload = {
         payment_method: selectedMethod,
-        proof_image_url: uploadedBill ? uploadedBill.preview : null 
+        proof_image_url: uploadedBill ? uploadedBill.preview : null,
+        promotion_id: appliedVoucher ? appliedVoucher.promotion_id : null, // Gửi kèm ID voucher
+        discount_amount: appliedVoucher ? appliedVoucher.discount_amount : 0
       };
 
       let res;
@@ -422,7 +480,7 @@ const PaymentPage = () => {
                       <div className="bank-transfer-layout">
                          <div className="qr-block">
                             <img 
-                                src={`https://img.vietqr.io/image/${config.bank.bank_name}-${config.bank.account_no}-compact.png?amount=${appointment.amount}&addInfo=TKPQT2 ${appointment.code}`}
+                                src={`https://img.vietqr.io/image/${config.bank.bank_name}-${config.bank.account_no}-compact.png?amount=${appliedVoucher ? appliedVoucher.final_amount : appointment.amount}&addInfo=TKPQT2 ${appointment.code}`}
                                 alt="VietQR" 
                             />
                             <span className="small-note">Quét bằng App Ngân hàng</span>
@@ -442,7 +500,7 @@ const PaymentPage = () => {
                                </div>
                             </div>
                             <div className="info-row highlight">
-                               <span>Số tiền:</span> <strong className="text-danger">{formatCurrency(appointment.amount)}</strong>
+                               <span>Số tiền:</span> <strong className="text-danger">{formatCurrency(appliedVoucher ? appliedVoucher.final_amount : appointment.amount)}</strong>
                             </div>
                             <div className="info-row highlight-box">
                                <span>Nội dung:</span> 
@@ -547,13 +605,63 @@ const PaymentPage = () => {
                  
                  <div className="summary-divider"></div>
 
-                 <div className="summary-total">
-                    <span>Tổng tiền</span>
-                    <span className="amount">{formatCurrency(appointment?.amount || 0)}</span>
+                 {/* --- KHU VỰC CHỌN VOUCHER CỦA TÔI --- */}
+                 <div style={{ marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexDirection: 'column' }}>
+                       <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#555' }}>Ưu đãi của bạn:</label>
+                       <div style={{ display: 'flex', gap: '8px' }}>
+                          <select 
+                             value={voucherCode}
+                             onChange={(e) => setVoucherCode(e.target.value)}
+                             disabled={!!appliedVoucher}
+                             style={{ flex: 1, padding: '10px 12px', border: '1px solid #00b894', borderRadius: '6px', backgroundColor: '#f4fffb' }}
+                          >
+                             <option value="">-- Chọn mã giảm giá từ Ví của bạn --</option>
+                             {myVouchers.length === 0 && <option value="" disabled>Ví của bạn đang trống</option>}
+                             {myVouchers.map(v => {
+                                const applyMap = { 'all': 'Tất cả', 'service': 'Dịch vụ', 'medicine': 'Thuốc', 'consultation': 'Tư vấn', 'shipping': 'Freeship' };
+                                return (
+                                  <option key={v.id} value={v.Promotion.code}>
+                                     {v.Promotion.code} - Giảm {v.Promotion.discount_type === 'percentage' ? `${v.Promotion.discount_value}%` : `${parseInt(v.Promotion.discount_value).toLocaleString('vi-VN')}đ`} (Dùng cho: {applyMap[v.Promotion.apply_for] || 'Khác'})
+                                  </option>
+                                );
+                             })}
+                          </select>
+
+                          {appliedVoucher ? (
+                             <button onClick={handleRemoveVoucher} style={{ padding: '0 15px', background: '#d63031', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Hủy mã</button>
+                          ) : (
+                             <button onClick={handleApplyVoucher} disabled={applyingVoucher || !voucherCode} style={{ padding: '0 15px', background: '#00b894', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                {applyingVoucher ? 'Đang thử...' : 'Áp dụng'}
+                             </button>
+                          )}
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="summary-divider"></div>
+
+                 {/* TÁCH BẠCH RÕ RÀNG TIỀN TRƯỚC VÀ SAU KHI GIẢM */}
+                 <div className="summary-row">
+                    <span>Tạm tính:</span>
+                    <span>{formatCurrency(appointment?.amount || 0)}</span>
+                 </div>
+
+                 {appliedVoucher && (
+                   <div className="summary-row" style={{ color: '#00b894', fontWeight: 'bold' }}>
+                      <span>Khuyến mãi ({appliedVoucher.code}):</span>
+                      <span>- {formatCurrency(appliedVoucher.discount_amount)}</span>
+                   </div>
+                 )}
+
+                 <div className="summary-divider" style={{ borderTop: '2px dashed #eee', margin: '15px 0' }}></div>
+
+                 <div className="summary-total" style={{ fontSize: '1.3rem' }}>
+                    <span>Tổng thanh toán</span>
+                    <span className="amount">{formatCurrency(appliedVoucher ? appliedVoucher.final_amount : (appointment?.amount || 0))}</span>
                  </div>
               </div>
-           </div>
-
+            </div>
            {!timerExpired && timeLeft > 0 && (
               <div className="payment-page-timer-widget">
                  <FaClock className="timer-icon"/>

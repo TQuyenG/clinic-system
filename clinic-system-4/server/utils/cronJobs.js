@@ -797,6 +797,92 @@ const sendReviewReminders = cron.schedule('0 18 * * *', async () => {
 /**
  * Start all cron jobs
  */
+// =================================================================
+// ======================= STOCK ALERTS ============================
+// =================================================================
+
+/**
+ * Cảnh báo kho thuốc: hết hạn, tồn thấp, hết hàng
+ * Chạy mỗi ngày lúc 07:00 sáng
+ */
+const checkStockAlerts = cron.schedule('0 7 * * *', async () => {
+  if (!models) return;
+  try {
+    console.log('📦 [CRON] Checking stock alerts...');
+    const { Op } = require('sequelize');
+    const today = new Date();
+    const in30days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const in60days = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
+
+    if (!models.MedicineBatch || !models.Medicine) return;
+
+    // 1. Thuốc hết hàng
+    const outOfStock = await models.Medicine.findAll({
+      where: { stock_total: 0, hidden: false }
+    });
+    for (const med of outOfStock) {
+      await createNotification({
+        type: 'stock_alert',
+        title: '⚠️ Thuốc hết hàng',
+        message: `Thuốc "${med.name}" đã hết hàng trong kho.`,
+        target_role: 'admin'
+      }).catch(() => {});
+    }
+
+    // 2. Lô thuốc sắp hết hạn trong 30 ngày
+    const expiringSoon = await models.MedicineBatch.findAll({
+      where: {
+        expiry_date: { [Op.between]: [today, in30days] },
+        quantity_remaining: { [Op.gt]: 0 },
+        status: 'active'
+      },
+      include: [{ model: models.Medicine, as: 'Medicine', attributes: ['name'] }]
+    });
+    for (const batch of expiringSoon) {
+      await createNotification({
+        type: 'stock_alert',
+        title: '⏰ Lô thuốc sắp hết hạn',
+        message: `Lô ${batch.batch_code} - "${batch.Medicine?.name}" sắp hết hạn ngày ${new Date(batch.expiry_date).toLocaleDateString('vi-VN')}.`,
+        target_role: 'admin'
+      }).catch(() => {});
+    }
+
+    // 3. Tồn kho thấp
+    const lowStock = await models.Medicine.findAll({
+      where: {
+        stock_total: { [Op.gt]: 0, [Op.lt]: models.sequelize?.col?.('min_stock_threshold') || 10 },
+        hidden: false
+      }
+    });
+    for (const med of lowStock) {
+      if (med.stock_total < med.min_stock_threshold) {
+        await createNotification({
+          type: 'stock_alert',
+          title: '📉 Tồn kho thấp',
+          message: `Thuốc "${med.name}" chỉ còn ${med.stock_total} ${med.unit} (ngưỡng tối thiểu: ${med.min_stock_threshold}).`,
+          target_role: 'admin'
+        }).catch(() => {});
+      }
+    }
+
+    // 4. Cập nhật lô đã hết hạn → status = 'expired'
+    await models.MedicineBatch.update(
+      { status: 'expired' },
+      { where: { expiry_date: { [Op.lt]: today }, status: 'active' } }
+    );
+
+    // 5. Cập nhật lô đã hết hàng → status = 'used_up'
+    await models.MedicineBatch.update(
+      { status: 'used_up' },
+      { where: { quantity_remaining: 0, status: 'active' } }
+    );
+
+    console.log(`📦 [CRON] Stock alerts done. OutOfStock:${outOfStock.length}, ExpiringSoon:${expiringSoon.length}`);
+  } catch (error) {
+    console.error('❌ [CRON] checkStockAlerts error:', error.message);
+  }
+}, { scheduled: false });
+
 const startAllCronJobs = () => {
   console.log('🚀 Starting all cron jobs...');
   
@@ -810,6 +896,7 @@ const startAllCronJobs = () => {
   systemHealthCheck.start();
   updatePassedAppointments.start();
   sendReviewReminders.start();
+  checkStockAlerts.start();
   
   console.log(' All cron jobs started successfully');
 };
@@ -828,6 +915,7 @@ const stopAllCronJobs = () => {
   cleanupOldNotifications.stop();
   cleanupOldFiles.stop();
   systemHealthCheck.stop();
+  checkStockAlerts.stop();
   updatePassedAppointments.stop();
   sendReviewReminders.stop();
   
@@ -889,5 +977,6 @@ module.exports = {
   cleanupOldFiles,
   systemHealthCheck,
   updatePassedAppointments,
-  sendReviewReminders
+  sendReviewReminders,
+  checkStockAlerts
 };

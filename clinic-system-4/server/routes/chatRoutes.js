@@ -166,4 +166,16 @@ router.post(
   chatController.verifyChatOTP
 );
 
+// ==================== AI CHATBOT PUBLIC ====================
+
+/**
+ * Xử lý tin nhắn public với Gemini AI (Không cần đăng nhập)
+ * POST /api/chat/ai-chat
+ */
+router.post(
+  '/ai-chat',
+  chatController.handleAIChatbot
+);
+
+
 module.exports = router;

@@ -419,15 +419,39 @@ const AppointmentDetailPage = () => {
     return info[status] || info.pending;
   };
 
+  // Hàm map trạng thái sang hiển thị
   const getPaymentStatusInfo = (status) => {
     const info = {
+      // 1. Chưa thanh toán (Màu vàng/cam)
+      unpaid: { 
+          text: 'Chưa thanh toán', 
+          class: 'payment-pending', // CSS màu vàng
+          icon: <FaClock /> 
+      },
       pending: { text: 'Chưa thanh toán', class: 'payment-pending', icon: <FaClock /> },
+      
+      // 2. Đã thanh toán ONLINE (Màu xanh) - Dành cho VNPay/MoMo
+      paid_online: { 
+          text: 'Đã thanh toán Online', 
+          class: 'payment-paid', // CSS màu xanh
+          icon: <FaCheckCircle /> 
+      },
+      
+      // 3. Đã thanh toán TẠI QUẦY (Màu xanh) - Dành cho Thu ngân thu tiền [QUAN TRỌNG]
+      paid_at_clinic: { 
+          text: 'Đã thanh toán tại quầy', // Sửa text cho đúng thực tế
+          class: 'payment-paid',          // Dùng chung class màu xanh với Online để thể hiện đã xong
+          icon: <FaHospital />            // Dùng icon Bệnh viện để phân biệt với Online
+      },
+      
+      // 4. Các trạng thái khác
       paid: { text: 'Đã thanh toán', class: 'payment-paid', icon: <FaCheckCircle /> },
       refunded: { text: 'Đã hoàn tiền', class: 'payment-refunded', icon: <FaMoneyBillWave /> },
-      paid_at_clinic: { text: 'Thanh toán tại quầy', class: 'payment-at-clinic', icon: <FaHospital /> },
       not_required: { text: 'Miễn phí', class: 'payment-free', icon: <FaCheckCircle /> }
     };
-    return info[status] || info.pending;
+    
+    // Nếu không tìm thấy trạng thái thì mặc định là unpaid
+    return info[status] || info.unpaid;
   };
 
   const formatDate = (dateStr) => {
@@ -630,20 +654,23 @@ const AppointmentDetailPage = () => {
                 <div className="appointment-detail-page-info-item">
                   <div className="appointment-detail-page-info-label"><FaUser /> Họ tên</div>
                   <div className="appointment-detail-page-info-value">
-                    {appointment.Patient?.user?.full_name || appointment.guest_name || 'N/A'}
+                    {/* Sửa .user thành .User (viết hoa chữ U) */}
+                    {appointment.Patient?.User?.full_name || appointment.guest_name || 'N/A'}
                   </div>
                 </div>
                 <div className="appointment-detail-page-info-item">
                   <div className="appointment-detail-page-info-label"><FaEnvelope /> Email</div>
                   <div className="appointment-detail-page-info-value">
-                    {appointment.Patient?.user?.email || appointment.guest_email || 'N/A'}
+                    {/* Sửa .user thành .User (viết hoa chữ U) */}
+                    {appointment.Patient?.User?.email || appointment.guest_email || 'N/A'}
                   </div>
                 </div>
                 <div className="appointment-detail-page-info-item">
                   <div className="appointment-detail-page-info-label"><FaPhone /> Số điện thoại</div>
                   <div className="appointment-detail-page-info-value">
-                    {appointment.Patient?.user?.phone || appointment.guest_phone || 'N/A'}
-                  </div>
+                  {/* Sửa .user thành .User (viết hoa chữ U) */}
+                  {appointment.Patient?.User?.phone || appointment.guest_phone || 'N/A'}
+                </div>
                 </div>
               </div>
             </div>

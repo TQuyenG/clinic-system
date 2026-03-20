@@ -315,12 +315,11 @@ exports.createAppointment = async (req, res) => {
     let payment_hold_until = new Date(appointmentDateTime.getTime() - 30 * 60 * 1000); 
 
     if (payment_method === 'cash' || service.price === 0) {
-      payment_status = service.price === 0 ? 'not_required' : 'paid_at_clinic';
+      // [ĐÃ SỬA]: Nếu là tiền mặt thì để là 'unpaid' (Chờ thu), trừ khi giá = 0 mới miễn phí
+      payment_status = service.price === 0 ? 'not_required' : 'unpaid';
       
-      // SỬA: Đặt là 'pending' để Staff/Admin phải vào bấm xác nhận thủ công
       status = 'pending'; 
-      
-      payment_hold_until = null; // Không cần giữ chỗ giới hạn thời gian vì trả sau
+      payment_hold_until = null; 
     }
 
     const appointment = await models.Appointment.create({
@@ -541,61 +540,88 @@ exports.completePayment = async (req, res) => {
 
 
 /**
- * Admin/Staff: Cập nhật thông tin thanh toán cho một Appointment
- * Body: { payment_method, paid_at (ISO string or timestamp) }
+ * Admin/Staff: Cập nhật thông tin thanh toán (Thu tiền tại quầy)
+ * Fix lỗi: Tìm theo Code và Đồng bộ sang bảng Payment
  * Route: PUT /api/appointments/:id/payment
  */
 exports.updatePaymentInfo = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { id } = req.params;
-    const { payment_method, paid_at } = req.body;
+    const { id } = req.params; // Đây là CODE (VD: AP-2111...) gửi từ Frontend
+    const { payment_status, payment_method, paid_at, amount } = req.body;
 
-    // Tìm appointment bằng code hoặc id
-    let appointment = await models.Appointment.findOne({ where: { code: id }, transaction: t });
-    if (!appointment && !isNaN(id)) appointment = await models.Appointment.findByPk(id, { transaction: t });
-    if (!appointment) {
-      await t.rollback();
-      return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
+    // 1. TÌM LỊCH HẸN BẰNG CODE (Ưu tiên) HOẶC ID
+    let appointment = await models.Appointment.findOne({ 
+        where: { code: id }, 
+        include: [{ model: models.Service, as: 'Service' }],
+        transaction: t 
+    });
+    
+    // Fallback: Nếu không tìm thấy bằng code thì tìm bằng ID
+    if (!appointment && !isNaN(id)) {
+        appointment = await models.Appointment.findByPk(id, {
+            include: [{ model: models.Service, as: 'Service' }],
+            transaction: t
+        });
     }
 
-    // Cập nhật trường appointment
-    const updates = {};
-    if (payment_method !== undefined) updates.payment_method = payment_method;
-    if (paid_at) updates.paid_at = new Date(paid_at);
+    if (!appointment) {
+      await t.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn với mã: ' + id });
+    }
 
-    // Nếu có paid_at -> mark paid_at_clinic (vì đây là manual update bởi staff)
-    if (paid_at) {
-      updates.payment_status = 'paid_at_clinic';
-      updates.status = 'confirmed';
+    // 2. CẬP NHẬT TRẠNG THÁI LỊCH HẸN
+    const updates = {};
+    if (payment_status) updates.payment_status = payment_status;
+    if (payment_method) updates.payment_method = payment_method;
+    if (paid_at) updates.paid_at = new Date(paid_at);
+    
+    // Nếu đã thanh toán -> Tự động xác nhận lịch hẹn luôn
+    if (payment_status === 'paid_at_clinic' || payment_status === 'paid_online') {
+        updates.status = 'confirmed'; 
+        if (!updates.paid_at) updates.paid_at = new Date();
     }
 
     await appointment.update(updates, { transaction: t });
 
-    // Tạo hoặc cập nhật Payment record liên quan
-    let payment = await models.Payment.findOne({ where: { appointment_id: appointment.id }, transaction: t });
+    // 3. QUAN TRỌNG: ĐỒNG BỘ SANG BẢNG PAYMENT (Để xem chi tiết không bị lỗi)
+    // Tìm xem đã có bản ghi thanh toán chưa
+    let payment = await models.Payment.findOne({ 
+        where: { appointment_id: appointment.id }, 
+        transaction: t 
+    });
+
     const paymentData = {
-      user_id: appointment.patient_id || 1,
+      user_id: appointment.patient_id || req.user.id, // Nếu không có bệnh nhân thì lấy ID người thao tác
       appointment_id: appointment.id,
-      amount: appointment.Service?.price || null,
-      method: payment_method || (payment ? payment.method : null),
-      status: paid_at ? 'paid' : (payment ? payment.status : 'pending'),
-      transaction_id: payment ? payment.transaction_id : null,
-      payment_info: JSON.stringify({ updated_by: req.user.id, note: 'Admin/Staff manual update' })
+      amount: amount || appointment.Service?.price || 0, // Lấy số tiền từ request hoặc từ dịch vụ
+      method: payment_method || 'cash',
+      status: (payment_status === 'paid_at_clinic' || payment_status === 'paid_online') ? 'paid' : 'pending',
+      transaction_id: `MANUAL_${Date.now()}`, // Mã giao dịch thủ công
+      payment_info: JSON.stringify({ 
+          updated_by: req.user.id, 
+          note: 'Thu ngân xác nhận tại quầy',
+          date: new Date()
+      })
     };
 
     if (payment) {
+      // Nếu có rồi thì update
       await payment.update(paymentData, { transaction: t });
     } else {
+      // Chưa có thì tạo mới
+      // Tạo mã thanh toán ngẫu nhiên nếu Payment model yêu cầu code
+      paymentData.code = `PY${Date.now()}`; 
       await models.Payment.create(paymentData, { transaction: t });
     }
 
     await t.commit();
-    res.json({ success: true, message: 'Cập nhật thông tin thanh toán thành công', data: appointment });
+    res.json({ success: true, message: 'Thu tiền thành công & Đã cập nhật trạng thái!', data: appointment });
+
   } catch (error) {
     await t.rollback();
-    console.error('Error updatePaymentInfo:', error);
-    res.status(500).json({ success: false, message: 'Lỗi khi cập nhật thanh toán' });
+    console.error('ERROR updatePaymentInfo:', error);
+    res.status(500).json({ success: false, message: 'Lỗi khi cập nhật thanh toán: ' + error.message });
   }
 };
 
@@ -1326,6 +1352,30 @@ exports.getAllAppointments = async (req, res) => {
 
     let whereCondition = {};
 
+    // [CODE MỚI - START] LOGIC PHÂN QUYỀN STAFF VẬN HÀNH
+    // Nếu là Staff -> Chỉ hiện lịch hẹn của bác sĩ mình quản lý
+    if (req.user.role === 'staff') {
+      const staff = await models.Staff.findOne({ where: { user_id: req.user.id } });
+      const managedDoctorIds = staff?.managed_doctors?.doctor_ids || [];
+
+      if (managedDoctorIds.length > 0) {
+        if (doctor_id) {
+          // Nếu staff đang tìm kiếm 1 bác sĩ cụ thể -> Check quyền
+          if (!managedDoctorIds.includes(parseInt(doctor_id))) {
+             return res.json({ success: true, data: [], pagination: { total: 0, page: 1, limit, totalPages: 0 } });
+          }
+          // Nếu hợp lệ, logic gán where.doctor_id bên dưới sẽ chạy
+        } else {
+           // Nếu không tìm cụ thể -> Tự động filter theo list managed
+           whereCondition.doctor_id = { [Op.in]: managedDoctorIds }; // ✅ ĐÃ SỬA: dùng 'whereCondition'
+        }
+      } else {
+         // Staff không quản lý ai
+         return res.json({ success: true, data: [], pagination: { total: 0, page: 1, limit, totalPages: 0 } });
+      }
+    }
+    // [CODE MỚI - END]
+
     // --- BẮT ĐẦU SỬA LOGIC LỌC ---
     // 1. Xử lý quyền hạn Staff và Filter Bác sĩ
     if (req.user.role === 'staff') {
@@ -1358,7 +1408,14 @@ exports.getAllAppointments = async (req, res) => {
     }
 
     // 2. Các filter chung khác
-    if (status && status !== 'all') whereCondition.status = status;
+    // [SỬA] Cho phép lọc nhiều trạng thái cách nhau bằng dấu phẩy
+    if (status && status !== 'all') {
+      if (status.includes(',')) {
+        whereCondition.status = { [Op.in]: status.split(',') };
+      } else {
+        whereCondition.status = status;
+      }
+    }
     if (service_id) whereCondition.service_id = service_id;
     if (date_from && date_to) {
       whereCondition.appointment_date = { [Op.between]: [new Date(date_from), new Date(date_to)] };
@@ -1385,11 +1442,12 @@ exports.getAllAppointments = async (req, res) => {
       { model: models.Payment, as: 'Payment' },
       
       // BỔ SUNG MỚI
+      // BỔ SUNG MỚI - ĐÃ SỬA: Lấy thêm đơn thuốc và chẩn đoán
       {
         model: models.MedicalRecord,
         as: 'MedicalRecord',
-        attributes: ['id', 'created_at', 'updated_at'], // Chỉ lấy các trường cần thiết
-        required: false // Dùng left join để vẫn lấy lịch hẹn dù chưa có kết quả
+        attributes: ['id', 'created_at', 'updated_at', 'prescription_json', 'diagnosis'], 
+        required: false 
       }
       // KẾT THÚC BỔ SUNG
     ];
@@ -1933,68 +1991,175 @@ exports.updateStatus = async (req, res) => {
 };
 
 /**
- * Update appointment payment information (for manual payment marking)
- * PUT /api/appointments/:id/payment
- * Body: { 
- *   payment_status: 'unpaid'|'paid_online'|'paid_at_clinic'|'not_required',
- *   payment_method: 'cash'|'card'|'transfer'|'online'|'insurance' (optional),
- *   paid_at: '2024-12-12' (optional)
- * }
+ * Admin/Staff: Cập nhật thông tin thanh toán (Thu tiền tại quầy)
+ * [FIX FINAL]: Nhận đúng payment_status từ Frontend và đồng bộ sang bảng Payment
+ * Route: PUT /api/appointments/:id/payment
  */
 exports.updatePaymentInfo = async (req, res) => {
+  const t = await sequelize.transaction();
   try {
-    const { id } = req.params;
-    const { payment_status, payment_method, paid_at } = req.body;
+    const { id } = req.params; // Đây là CODE (VD: AP-2026...) hoặc ID
+    // [QUAN TRỌNG] Lấy cả payment_status và amount từ body frontend gửi lên
+    const { payment_status, payment_method, paid_at, amount } = req.body;
 
-    // Validate payment_status
-    const validPaymentStatuses = ['unpaid', 'paid_online', 'paid_at_clinic', 'not_required'];
-    if (!payment_status || !validPaymentStatuses.includes(payment_status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Trạng thái thanh toán không hợp lệ. Phải là một trong: ${validPaymentStatuses.join(', ')}`
-      });
+    // 1. TÌM LỊCH HẸN BẰNG CODE (Ưu tiên) HOẶC ID
+    let appointment = await models.Appointment.findOne({ 
+        where: { code: id }, 
+        include: [{ model: models.Service, as: 'Service' }],
+        transaction: t 
+    });
+    
+    if (!appointment && !isNaN(id)) {
+        appointment = await models.Appointment.findByPk(id, {
+            include: [{ model: models.Service, as: 'Service' }],
+            transaction: t
+        });
     }
 
-    // Find appointment
-    const appointment = await models.Appointment.findByPk(id);
     if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy lịch hẹn'
+      await t.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
+    }
+
+    // 2. CẬP NHẬT TRẠNG THÁI LỊCH HẸN (APPOINTMENT)
+    const updates = {};
+    
+    // [FIX LOGIC] Tôn trọng dữ liệu Frontend gửi lên
+    // Nếu Frontend gửi 'paid_at_clinic' -> Lưu y nguyên 'paid_at_clinic'
+    if (payment_status) {
+        updates.payment_status = payment_status; 
+    }
+    
+    if (payment_method) updates.payment_method = payment_method;
+    if (paid_at) updates.paid_at = new Date(paid_at);
+    
+    // Logic phụ: Nếu đã thanh toán (dù online hay tại quầy) -> Xác nhận lịch luôn
+    if (updates.payment_status === 'paid_at_clinic' || updates.payment_status === 'paid_online') {
+        updates.status = 'confirmed'; 
+        // Nếu chưa có giờ thanh toán thì lấy giờ hiện tại
+        if (!updates.paid_at) updates.paid_at = new Date();
+    }
+
+    await appointment.update(updates, { transaction: t });
+
+    // 3. ĐỒNG BỘ SANG BẢNG THANH TOÁN (PAYMENT)
+    // Để xem chi tiết hiển thị đúng số tiền và trạng thái
+    let payment = await models.Payment.findOne({ 
+        where: { appointment_id: appointment.id }, 
+        transaction: t 
+    });
+
+    const paymentData = {
+      user_id: appointment.patient_id || (req.user ? req.user.id : 1),
+      appointment_id: appointment.id,
+      amount: amount || appointment.Service?.price || 0, // Ưu tiên lấy số tiền thực thu gửi từ Frontend
+      method: payment_method || 'cash',
+      status: 'paid', // Bảng Payment chỉ cần biết là 'paid' (đã thu tiền)
+      transaction_id: `MANUAL_${Date.now()}`,
+      payment_info: JSON.stringify({ 
+          updated_by: req.user ? req.user.id : 'staff', 
+          note: 'Thu ngân xác nhận tại quầy'
+      })
+    };
+
+    if (payment) {
+      await payment.update(paymentData, { transaction: t });
+    } else {
+      paymentData.code = `PY${Date.now()}`; 
+      await models.Payment.create(paymentData, { transaction: t });
+    }
+
+    await t.commit();
+    res.json({ success: true, message: 'Thu tiền thành công!', data: appointment });
+
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR updatePaymentInfo:', error);
+    res.status(500).json({ success: false, message: 'Lỗi cập nhật: ' + error.message });
+  }
+};
+
+/**
+ * @desc    Check-in tại quầy (Cấp số chuẩn MAX + 1)
+ */
+exports.checkIn = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { code } = req.params;
+    const { type } = req.body; 
+
+    // Tìm lịch hẹn
+    const appointment = await models.Appointment.findOne({ where: { code }, transaction: t });
+    if (!appointment) {
+      await t.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
+    }
+
+    // Lấy ngày hiện tại theo giờ Việt Nam
+    const today = moment().format('YYYY-MM-DD'); 
+    let updateData = { checked_in_at: new Date() };
+
+    // --- LOGIC 1: CẤP SỐ THANH TOÁN ---
+    if (type === 'payment') {
+      // Tìm số lớn nhất trong ngày (thay vì đếm)
+      const maxRecord = await models.Appointment.findOne({
+        where: {
+          appointment_date: today,
+          payment_queue_number: { [Op.ne]: null }
+        },
+        order: [['payment_queue_number', 'DESC']], // Lấy số to nhất
+        attributes: ['payment_queue_number'],
+        transaction: t
       });
+      
+      // Số mới = Số lớn nhất + 1 (Nếu chưa có ai thì là 1)
+      const nextNumber = (maxRecord?.payment_queue_number || 0) + 1;
+      
+      updateData.payment_queue_number = nextNumber;
+      updateData.status = 'waiting_pay'; // Chuyển trạng thái sang chờ thanh toán
+    } 
+    
+    // --- LOGIC 2: CẤP SỐ KHÁM ---
+    else if (type === 'clinical') {
+      const maxRecord = await models.Appointment.findOne({
+        where: {
+          appointment_date: today,
+          doctor_id: appointment.doctor_id,
+          queue_number: { [Op.ne]: null }
+        },
+        order: [['queue_number', 'DESC']],
+        attributes: ['queue_number'],
+        transaction: t
+      });
+      
+      const nextNumber = (maxRecord?.queue_number || 0) + 1;
+      updateData.queue_number = nextNumber;
+      updateData.status = 'waiting_exam';
     }
 
-    // Update payment fields
-    appointment.payment_status = payment_status;
-    if (payment_method) {
-      appointment.payment_method = payment_method;
-    }
-    if (paid_at) {
-      appointment.paid_at = paid_at;
-    }
-    // If marking as paid, set paid_at to now if not provided
-    if ((payment_status === 'paid_online' || payment_status === 'paid_at_clinic') && !paid_at && !appointment.paid_at) {
-      appointment.paid_at = new Date();
-    }
+    await appointment.update(updateData, { transaction: t });
+    await t.commit();
 
-    await appointment.save();
+    // Trả về dữ liệu đầy đủ để in phiếu
+    const fullAppointment = await models.Appointment.findOne({
+      where: { id: appointment.id },
+      include: [
+        { model: models.Patient, as: 'Patient', include: [{ model: models.User }] },
+        { model: models.Doctor, as: 'Doctor', include: [{ model: models.User, as: 'user' }] },
+        { model: models.Service, as: 'Service' },
+      ]
+    });
 
-    // Log audit trail
-    console.log(`Appointment ${id} payment updated: status=${payment_status}, method=${payment_method}, paid_at=${paid_at} by user ${req.user?.id}`);
-
-    res.status(200).json({
-      success: true,
-      message: 'Cập nhật thông tin thanh toán thành công',
-      data: appointment
+    res.json({ 
+      success: true, 
+      message: `Đã cấp số thành công: ${type === 'payment' ? updateData.payment_queue_number : updateData.queue_number}`,
+      data: fullAppointment
     });
 
   } catch (error) {
-    console.error('ERROR in updatePaymentInfo:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi khi cập nhật thông tin thanh toán',
-      error: error.message
-    });
+    if (t && !t.finished) await t.rollback();
+    console.error('Check-in error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server khi cấp số' });
   }
 };
 

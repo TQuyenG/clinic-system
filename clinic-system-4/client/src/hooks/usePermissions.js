@@ -23,45 +23,54 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import api from '../services/api';
 
 const usePermissions = () => {
   const [user, setUser] = useState(null);
   const [permissions, setPermissions] = useState({});
 
+  // --- [BẮT ĐẦU ĐOẠN SỬA] ---
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const userData = JSON.parse(userStr);
-        setUser(userData);
-        
-        // ✅ Lấy permissions từ Staff (nếu là staff)
-        // Check nhiều vị trí có thể có permissions
-        if (userData.role === 'staff') {
-          const perms = userData.role_info?.permissions || userData.staff?.permissions || {};
-          setPermissions(perms);
-          console.log('🔐 [usePermissions] Staff permissions loaded:', perms);
-        }
-        // ✅ Admin có toàn quyền
-        else if (userData.role === 'admin') {
-          setPermissions('admin'); // Flag đặc biệt cho admin
-          console.log('👑 [usePermissions] Admin - Full access');
-        }
-        // ✅ Doctor có thể có permissions (nếu cần)
-        else if (userData.role === 'doctor' && userData.permissions) {
-          setPermissions(userData.permissions);
-        }
-        // ✅ Các role khác
-        else {
-          setPermissions({});
-        }
-      } catch (error) {
-        console.error('[usePermissions] Error parsing user:', error);
-        setUser(null);
-        setPermissions({});
+    const loadPermissions = () => {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          setUser(userData);
+                    if (userData.role === 'staff') {
+            // SỬA: Kiểm tra thêm trường roleData để lấy quyền chính xác từ Server
+            const perms = userData.role_info?.permissions || 
+                          userData.staff?.permissions || 
+                          userData.roleData?.permissions || 
+                          {};
+            setPermissions(perms);
+          }
+          else if (userData.role === 'admin') {
+            setPermissions('admin');
+          }
+        } catch (e) { setPermissions({}); }
       }
-    }
+    };
+
+    loadPermissions();
+    // Đồng bộ ngay lập tức nếu dữ liệu LocalStorage thay đổi (giúp menu ẩn/hiện tức thì)
+    window.addEventListener('storage', loadPermissions);
+    return () => window.removeEventListener('storage', loadPermissions);
   }, []);
+
+  // Hàm gọi API lấy quyền mới nhất từ Server để cập nhật LocalStorage
+  const refreshPermissions = async () => {
+    try {
+      const { data } = await api.get('/users/profile/role-info');
+      if (data.success) {
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+        const updatedUser = { ...currentUser, role_info: data.user };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        window.dispatchEvent(new Event('storage')); // Kích hoạt cập nhật giao diện
+      }
+    } catch (err) { console.error("Không thể cập nhật quyền:", err); }
+  };
+  // --- [KẾT THÚC ĐOẠN SỬA] ---
 
   /**
    * Kiểm tra 1 quyền cụ thể
@@ -194,6 +203,10 @@ const usePermissions = () => {
       
       // ✅ Module không tồn tại → false
       if (!modulePermissions) return false;
+
+      if (Array.isArray(modulePermissions)) {
+        return modulePermissions.length > 0;
+      }
       
       // ✅ Boolean → Có quyền
       if (modulePermissions === true) return true;
@@ -219,6 +232,7 @@ const usePermissions = () => {
     hasAnyPermission,
     hasAllPermissions,
     canAccessModule,
+    refreshPermissions,
     isAdmin: permissions === 'admin'
   };
 };

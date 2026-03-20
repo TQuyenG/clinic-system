@@ -107,6 +107,14 @@ const appointmentService = {
   },
 
   /**
+   * Check-in tại quầy (FrontDesk)
+   * type: 'payment' | 'clinical'
+   */
+  checkIn: (code, type) => {
+    return api.put(`/appointments/${code}/check-in`, { type });
+  },
+
+  /**
    * Khôi phục mã lịch hẹn (Public)
    */
   recoverAppointmentCodes: (contact, date) => {

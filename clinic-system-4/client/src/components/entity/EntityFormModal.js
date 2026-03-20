@@ -118,6 +118,26 @@ const EntityFormModal = ({ entityType, mode, entity, categories, onClose, onSucc
       fields: {
         // Thông tin cơ bản
         name: { label: 'Tên thuốc', type: 'text', required: true, group: 'basic' },
+        // --- [SỬA] Thêm input nhập đơn vị tính ---
+       // [SỬA] Chuyển sang dạng chọn (select) và thêm đầy đủ các loại
+        unit: { 
+          label: 'Đơn vị tính', 
+          type: 'datalist', 
+          required: true, 
+          group: 'basic',
+          options: [
+            { value: 'Viên', label: 'Viên' },
+            { value: 'Vỉ', label: 'Vỉ' },
+            { value: 'Hộp', label: 'Hộp' },
+            { value: 'Lọ', label: 'Lọ' },
+            { value: 'Chai', label: 'Chai' },
+            { value: 'Tuýp', label: 'Tuýp' },
+            { value: 'Gói', label: 'Gói' },
+            { value: 'Ống', label: 'Ống' },
+            { value: 'Túi', label: 'Túi' }
+          ]
+        },
+        price: { label: 'Giá tiền (VNĐ)', type: 'number', required: true, group: 'basic', min: 0 },
         slug: { label: 'Slug (URL)', type: 'slug', required: false, group: 'basic', autoGenerate: true },
         category_id: { label: 'Danh mục', type: 'select', required: false, group: 'basic' },
         image_url: { label: 'URL hình ảnh', type: 'image', required: false, group: 'basic' },
@@ -220,10 +240,21 @@ const EntityFormModal = ({ entityType, mode, entity, categories, onClose, onSucc
     
     // Xử lý số
     if (type === 'number') {
-      newValue = parseFloat(value) || 0;
-      const field = currentConfig.fields[name];
-      if (field?.min !== undefined && newValue < field.min) newValue = field.min;
-      if (field?.max !== undefined && newValue > field.max) newValue = field.max;
+      // FIX: Cho phép chuỗi rỗng để người dùng xóa được số 0
+      if (value === '') {
+        newValue = '';
+      } else {
+        // FIX: Dùng parseInt thay vì parseFloat vì tiền Việt không có số lẻ
+        newValue = parseInt(value, 10);
+        if (isNaN(newValue)) newValue = 0;
+      }
+      
+      // Chỉ validate min/max nếu newValue là số
+      if (newValue !== '') {
+        const field = currentConfig.fields[name];
+        if (field?.min !== undefined && newValue < field.min) newValue = field.min;
+        if (field?.max !== undefined && newValue > field.max) newValue = field.max;
+      }
     }
     
     const newFormData = { ...formData, [name]: newValue };
@@ -251,6 +282,13 @@ const EntityFormModal = ({ entityType, mode, entity, categories, onClose, onSucc
     try {
       // Chuẩn bị dữ liệu gửi đi
       const submitData = { ...formData };
+
+      // FIX: Chuyển các trường số đang để trống về 0 trước khi gửi
+      Object.keys(currentConfig.fields).forEach(key => {
+        if (currentConfig.fields[key].type === 'number' && submitData[key] === '') {
+          submitData[key] = 0;
+        }
+      });
       
       // Loại bỏ các trường không cần thiết
       delete submitData.id;
@@ -459,6 +497,10 @@ const EntityFormModal = ({ entityType, mode, entity, categories, onClose, onSucc
     
     switch (fieldConfig.type) {
       case 'select':
+        // [SỬA] Logic mới: Nếu cấu hình có danh sách options riêng (như Đơn vị) thì dùng nó
+        // Nếu không thì mặc định lấy từ danh sách categories (như Danh mục)
+        const optionsList = fieldConfig.options || categories.map(c => ({ value: c.id, label: c.name }));
+        
         return (
           <select
             name={fieldName}
@@ -468,11 +510,33 @@ const EntityFormModal = ({ entityType, mode, entity, categories, onClose, onSucc
             className="entity-form-select"
           >
             <option value="">-- Chọn --</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            {optionsList.map((opt, idx) => (
+              <option key={idx} value={opt.value}>{opt.label}</option>
             ))}
           </select>
         );
+
+        // [THÊM ĐOẠN NÀY VÀO SAU CASE SELECT HOẶC TRƯỚC CASE TEXTAREA]
+      case 'datalist':
+        return (
+          <>
+            <input
+              type="text"
+              name={fieldName}
+              value={value}
+              onChange={handleChange}
+              required={fieldConfig.required}
+              className="entity-form-input"
+              list={`list-${fieldName}`}
+              placeholder={`Nhập hoặc chọn ${fieldConfig.label.toLowerCase()}...`}
+            />
+            <datalist id={`list-${fieldName}`}>
+              {fieldConfig.options.map((opt, idx) => (
+                <option key={idx} value={opt.value} />
+              ))}
+            </datalist>
+          </>
+        )
         
       case 'textarea':
         return (
@@ -498,7 +562,7 @@ const EntityFormModal = ({ entityType, mode, entity, categories, onClose, onSucc
             className="entity-form-input entity-form-input-number"
             min={fieldConfig.min}
             max={fieldConfig.max}
-            step="0.01"
+            step="1000"  // FIX: Bước nhảy là 1000đ thay vì 0.01
           />
         );
         

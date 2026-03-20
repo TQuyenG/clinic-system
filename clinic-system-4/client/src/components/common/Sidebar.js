@@ -13,6 +13,7 @@ import {
   FaUserCircle, 
   FaUsers, 
   FaStethoscope, 
+  FaUserMd,
   FaThList, 
   FaNewspaper, 
   FaCalendarCheck, 
@@ -31,7 +32,11 @@ import {
   FaBriefcaseMedical,
   FaRegComments,
   FaHeadset,
-  FaMoneyBillWave
+  FaMoneyBillWave,
+  FaGift,      // <--- THÊM MỚI (Icon quà tặng)
+  FaBullhorn,  // <--- THÊM MỚI (Icon sự kiện/loa)
+  FaGamepad,
+  FaWarehouse  // <--- KHO THUỐC
 } from 'react-icons/fa';
 import usePermissions from '../../hooks/usePermissions'; //  THÊM: Import hook kiểm tra quyền
 import './Sidebar.css';
@@ -43,7 +48,7 @@ const Sidebar = ({ onToggle }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   
   //  THÊM: Hook kiểm tra permissions
-  const { canAccessModule, isAdmin, hasPermission } = usePermissions();
+  const { canAccessModule, isAdmin, hasPermission, refreshPermissions } = usePermissions(); // <--- THÊM refreshPermissions VÀO ĐÂY
   
   // Dropdown states
   const [isServiceMenuOpen, setServiceMenuOpen] = useState(false);
@@ -59,12 +64,14 @@ const Sidebar = ({ onToggle }) => {
       try {
         const userData = JSON.parse(userStr);
         setUser(userData);
+        refreshPermissions();
         console.log('👤 Sidebar - User loaded:', userData.username);
         console.log('🔐 Sidebar - Permissions:', userData.role_info?.permissions);
       } catch (error) {
         console.error('Error parsing user:', error);
       }
     }
+
 
     const handleResize = () => {
       const width = window.innerWidth;
@@ -230,6 +237,26 @@ const Sidebar = ({ onToggle }) => {
       items.push({ id: 'my_consultations', type: 'item', to: '/lich-tu-van-cua-toi', icon: FaRegComments, label: 'Lịch sử tư vấn' });
       items.push({ id: 'medical_record', type: 'item', to: '/ho-so-y-te', icon: FaFileMedicalAlt, label: 'Hồ sơ y tế' });
       items.push({ id: 'saved_articles', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
+
+      // --- THÊM MỚI: Menu Ưu đãi cho bệnh nhân ---
+      items.push({ 
+        id: 'patient_promotions', 
+        type: 'dropdownItems', 
+        icon: FaGift, 
+        label: 'Ưu đãi & Quà tặng', 
+        items: [
+          { to: '/khuyen-mai', label: 'Kho Voucher' },
+          { to: '/su-kien', label: 'Sự kiện nổi bật' },
+          { to: '/san-qua', label: 'Vòng quay may mắn' } // Game
+        ]
+      });
+    }
+
+    // Marketing
+    if (user && user.role === 'marketing') {
+      items.push({ id: 'marketing_dashboard', type: 'item', to: '/marketing-dashboard', icon: FaBullhorn, label: 'Bảng điều khiển Marketing' });
+      items.push({ id: 'event_management', type: 'item', to: '/quan-ly-su-kien', icon: FaGift, label: 'Quản lý sự kiện' });
+      items.push({ id: 'promotion_management', type: 'item', to: '/quan-ly-khuyen-mai', icon: FaGamepad, label: 'Quản lý khuyến mãi' });
     }
 
     // Doctor
@@ -243,6 +270,7 @@ const Sidebar = ({ onToggle }) => {
         { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
         { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
       ]});
+      items.push({ id: 'pharmacy_stock_doctor', type: 'item', to: '/quan-ly-kho-thuoc', icon: FaWarehouse, label: 'Quản lý Kho Thuốc' });
       items.push({ id: 'saved_articles_2', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
     }
 
@@ -250,6 +278,17 @@ const Sidebar = ({ onToggle }) => {
     if (user && user.role === 'staff') {
       if (canAccessModule('patients')) {
         items.push({ id: 'manage_patients', type: 'item', to: '/quan-ly-benh-nhan', icon: FaUsers, label: 'Quản lý bệnh nhân' });
+      }
+      
+
+      if (canAccessModule('doctors')) {
+        items.push({ 
+          id: 'manage_doctors_staff', 
+          type: 'item', 
+          to: '/quan-ly-bac-si', 
+          icon: FaUserMd, 
+          label: 'Quản lý bác sĩ' 
+        });
       }
       
       if (canAccessModule('medical_records')) {
@@ -285,8 +324,10 @@ const Sidebar = ({ onToggle }) => {
         items.push({ id: 'stats', type: 'item', to: '/thong-ke', icon: FaChartPie, label: 'Thống kê tổng quan' });
         items.push({ id: 'manage_finance', type: 'dropdown', icon: FaMoneyBillWave, label: 'Quản lý Tài chính' });
       }
+      items.push({ id: 'pharmacy_stock_staff', type: 'item', to: '/quan-ly-kho-thuoc', icon: FaWarehouse, label: 'Quản lý Kho Thuốc' });
       items.push({ id: 'saved_articles_staff', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
-      if (user.role === 'admin' || user.role === 'staff' || user.role === 'support') {
+      // SỬA: Loại bỏ 'staff' khỏi điều kiện này để tránh trùng lặp menu
+      if (user.role === 'admin' || user.role === 'support') {
         items.push({ id: 'work_schedule', type: 'item', to: '/quan-ly-lich-lam-viec', icon: FaCalendarCheck, label: 'Quản lý lịch làm việc' });
       }
     }
@@ -309,7 +350,18 @@ const Sidebar = ({ onToggle }) => {
         { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
       ]});
       items.push({ id: 'admin_categories', type: 'item', to: '/quan-ly-danh-muc', icon: FaThList, label: 'Quản lý danh mục' });
+      items.push({ 
+        id: 'manage_marketing', 
+        type: 'dropdownItems', 
+        icon: FaBullhorn, 
+        label: 'Tiếp thị & Sự kiện', 
+        items: [
+          { to: '/quan-ly-su-kien', label: 'Quản lý Sự kiện' },
+          { to: '/quan-ly-khuyen-mai', label: 'Mã giảm giá & Game' }
+        ]
+      });
       items.push({ id: 'admin_system', type: 'item', to: '/quan-ly-he-thong', icon: FaCogs, label: 'Quản lý hệ thống' });
+      items.push({ id: 'pharmacy_stock_admin', type: 'item', to: '/quan-ly-kho-thuoc', icon: FaWarehouse, label: 'Quản lý Kho Thuốc' });
       items.push({ id: 'admin_saved', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
     }
 
@@ -436,9 +488,6 @@ const Sidebar = ({ onToggle }) => {
                     >
                       {canAccessModule('consultations') && (
                         <>
-                          <Link to="/quan-ly-tu-van/lich-tu-van" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/lich-tu-van' ? 'sidebar-active' : ''}`}>
-                          <span className="sidebar-submenu-dot">•</span> Quản lý lịch tư vấn
-                        </Link>
                           <Link to="/quan-ly-tu-van/realtime" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && !location.search.includes('video') ? 'sidebar-active' : ''}`}>
                             <span className="sidebar-submenu-dot">•</span> Quản lý Realtime
                           </Link>
@@ -469,6 +518,11 @@ const Sidebar = ({ onToggle }) => {
 
                   {(item.id === 'manage_finance' || item.id === 'admin_finance') && canAccessModule('payments') && (
                     <MenuDropdown icon={FaMoneyBillWave} label={item.label} isOpen={isPaymentMenuOpen} onToggle={() => setPaymentMenuOpen(!isPaymentMenuOpen)}>
+                      {/* --- BẮT ĐẦU ĐOẠN THÊM MỚI --- */}
+                      <Link to="/quay-tiep-don" className={`sidebar-submenu-link ${location.pathname === '/quay-tiep-don' ? 'sidebar-active' : ''}`}>
+                          <span className="sidebar-submenu-dot">•</span> Quầy Tiếp Đón (POS)
+                      </Link>
+                      {/* --- KẾT THÚC ĐOẠN THÊM MỚI --- */}
                       <Link to="/quan-ly-thanh-toan/giao-dich" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/giao-dich' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Giao dịch & Đối soát</Link>
                       <Link to="/quan-ly-thanh-toan/hoan-tien" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/hoan-tien' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Danh sách Hoàn tiền</Link>
                       <Link to="/quan-ly-thanh-toan/chinh-sach" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/chinh-sach' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Cấu hình Hoàn tiền</Link>
@@ -484,15 +538,13 @@ const Sidebar = ({ onToggle }) => {
                     </MenuDropdown>
                   )}
 
-                  {/* --- THÊM MỚI BLOCK NÀY CHO BÁC SĨ --- */}
                   {(item.id === 'doctor_consultations') && (
                     <MenuDropdown icon={FaRegComments} label={item.label} isOpen={isConsultationMenuOpen} onToggle={() => setConsultationMenuOpen(!isConsultationMenuOpen)}>
-                       <Link to="/quan-ly-tu-van/lich-tu-van" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/lich-tu-van' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Lịch tư vấn</Link>
-                       <Link to="/quan-ly-tu-van/realtime" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && !location.search.includes('video') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý Realtime</Link>
-                       <Link to="/quan-ly-tu-van/realtime?type=video" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && location.search.includes('video') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Tư vấn video call</Link>
+                        {/* SỬA: Dùng link quản lý Realtime thay vì lịch sử đơn điệu */}
+                        <Link to="/quan-ly-tu-van/realtime" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && !location.search.includes('video') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý Realtime</Link>
+                        <Link to="/quan-ly-tu-van/realtime?type=video" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && location.search.includes('video') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span>Quản lý Tư vấn Video Call</Link>
                     </MenuDropdown>
                   )}
-                  {/* -------------------------------------- */}
 
                   {(item.id === 'admin_services_dropdown') && (
                     <MenuDropdown icon={FaBriefcaseMedical} label={item.label} isOpen={isServiceMenuOpen} onToggle={() => setServiceMenuOpen(!isServiceMenuOpen)}>

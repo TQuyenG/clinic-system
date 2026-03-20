@@ -78,6 +78,9 @@ import PaymentPage from './pages/PaymentPage';
 // tôi giữ lại từ Code 1 để đảm bảo không mất chức năng cũ)
 import PaymentManagementPage from './pages/PaymentManagementPage';
 import PaymentSettingsPage from './pages/PaymentSettingsPage';
+import FrontDeskPage from './pages/FrontDeskPage';
+import PharmacyStockPage from './pages/PharmacyStockPage';
+
 // --- THÊM 2 DÒNG NÀY VÀO ---
 import RefundRequestPage from './pages/RefundRequestPage';
 import RefundPolicyConfigPage from './pages/RefundPolicyConfigPage';
@@ -116,6 +119,12 @@ import 'react-toastify/dist/ReactToastify.css';
 import './utils/css/toast.css'; 
 import './App.css';
 import './services/ws'; // Initialize WebSocket
+
+import MarketingManagementPage from './pages/MarketingManagementPage'; // Trang quản lý 2 tab: Sự kiện / Khuyến mãi
+import EventListPage from './pages/EventListPage'; // Trang danh sách sự kiện cho user
+import EventDetailPage from './pages/EventDetailPage'; // Trang chi tiết sự kiện
+import EventManagementPage from './pages/EventManagementPage';
+import UserPromotionPage from './pages/UserPromotionPage'; // Trang ví voucher & game
 
 // --- Protected Route Component ---
 const ProtectedRoute = ({ children, requiredRole }) => {
@@ -213,6 +222,14 @@ function App() {
             {/* [TỪ CODE 2] ROUTE TÌM KIẾM */}
             <Route path="/tim-kiem" element={<SearchResultPage />} />
             <Route path="/search" element={<SearchResultPage />} />
+
+            <Route path="/quan-ly-su-kien" element={<ProtectedRoute requiredRole={['admin', 'staff']}><EventManagementPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-khuyen-mai" element={<ProtectedRoute requiredRole={['admin', 'staff']}><MarketingManagementPage /></ProtectedRoute>} />
+            <Route path="/su-kien" element={<EventListPage />} />
+            <Route path="/su-kien/:slug" element={<EventDetailPage />} />
+            <Route path="/khuyen-mai" element={<ProtectedRoute requiredRole="patient"><UserPromotionPage tab="vouchers" /></ProtectedRoute>} />
+            <Route path="/san-qua" element={<ProtectedRoute requiredRole="patient"><UserPromotionPage tab="game" /></ProtectedRoute>} />
+            {/* -------------------------------------------------- */}
             
             {/* ========== 3. ARTICLES & FORUM ========== */}
             <Route path="/bai-viet" element={<ArticlesListPage />} />
@@ -264,6 +281,7 @@ function App() {
             <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
             <Route path="/thong-bao" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
             <Route path="/bai-viet-da-luu" element={<ProtectedRoute><SavedArticlesPage /></ProtectedRoute>} />
+            <Route path="/quay-tiep-don" element={<ProtectedRoute requiredRole={['admin', 'staff']}><FrontDeskPage /></ProtectedRoute>} />
 
             {/* ========== 6. APPOINTMENTS & MEDICAL RECORDS ========== */}
             <Route path="/dat-lich-hen" element={<ProtectedRoute requiredRole="patient"><AppointmentBookingPage /></ProtectedRoute>} />
@@ -301,6 +319,10 @@ function App() {
             
             {/* ========== 8. STAFF & DOCTOR ========== */}
             <Route path="/lich-cua-toi" element={<ProtectedRoute requiredRole={['doctor', 'staff']}><MySchedulePage /></ProtectedRoute>} />
+
+            <Route path="/quan-ly-benh-nhan" element={<ProtectedRoute requiredRole={['admin', 'staff']}><UsersPage defaultRole="patient" /></ProtectedRoute>} />
+            <Route path="/quan-ly-bac-si" element={<ProtectedRoute requiredRole={['admin', 'staff']}><UsersPage defaultRole="doctor" /></ProtectedRoute>} />
+            <Route path="/ho-so-benh-an" element={<ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}><MedicalRecordViewPage mode="management" /></ProtectedRoute>} />
 
             {/* ========== 9. ADMIN ========== */}
             <Route path="/quan-ly-nguoi-dung" element={<ProtectedRoute requiredRole="admin"><UsersPage /></ProtectedRoute>} />
@@ -344,6 +366,7 @@ function App() {
             {/* Entity Management (Quản lý Thuốc/Bệnh lý) */}
             <Route path="/quan-ly-thuoc" element={<ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}><EntityManagementPage entityType="medicine" /></ProtectedRoute>} />
             <Route path="/quan-ly-benh-ly" element={<ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}><EntityManagementPage entityType="disease" /></ProtectedRoute>} />
+            <Route path="/quan-ly-kho-thuoc" element={<ProtectedRoute requiredRole={['admin', 'staff']}><PharmacyStockPage /></ProtectedRoute>} />
 
             <Route path="/quan-ly-lich-lam-viec" element={<ProtectedRoute requiredRole={['admin', 'staff']}><ScheduleManagementPage /></ProtectedRoute>} />
             <Route path="/quan-ly-lich-hen" element={<ProtectedRoute requiredRole={['admin', 'staff']}><AppointmentManagementPage /></ProtectedRoute>} />
@@ -356,7 +379,7 @@ function App() {
             
             {/* 🔐 QUẢN LÝ TƯ VẤN - Admin & Staff (UI check permissions) */}
             <Route path="/quan-ly-tu-van/realtime" element={
-              <PermissionRoute requiredRole={['admin', 'staff']}>
+              <PermissionRoute requiredRole={['admin', 'staff','doctor']}>
                 <ConsultationRealtimeManagementPage />
               </PermissionRoute>
             } />
@@ -369,6 +392,7 @@ function App() {
             {/* Legacy routes - Redirect để tương thích ngược */}
             <Route path="/admin/tu-van/realtime" element={<Navigate to="/quan-ly-tu-van/realtime" replace />} />
             <Route path="/admin/tu-van/packages" element={<Navigate to="/quan-ly-tu-van/goi-dich-vu" replace />} />
+
             
 
             {/* ========== 10. QUẢN LÝ TÀI CHÍNH (Giữ lại từ Code 1) ========== */}

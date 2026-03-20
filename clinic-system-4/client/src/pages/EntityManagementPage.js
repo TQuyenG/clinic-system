@@ -77,6 +77,8 @@ const EntityManagementPage = ({ entityType }) => {
     stt: { label: 'STT', visible: true, fixed: true },
     checkbox: { label: '', visible: true, fixed: true },
     name: { label: 'Tên thuốc', visible: true, fixed: true },
+    unit: { label: 'Đơn vị', visible: true },
+    price: { label: 'Giá tiền', visible: true },
     category: { label: 'Danh mục', visible: true },
     image_url: { label: 'Hình ảnh', visible: false },
     composition: { label: 'Thành phần', visible: false },
@@ -794,7 +796,7 @@ const EntityManagementPage = ({ entityType }) => {
                         
                         {/* STT */}
                         <th className="entity-mgmt-col-stt">STT</th>
-                        
+
                         {/* Name - Sortable */}
                         <th 
                           className="entity-mgmt-col-name entity-mgmt-sortable"
@@ -803,6 +805,21 @@ const EntityManagementPage = ({ entityType }) => {
                           {entityType === 'medicine' ? 'Tên thuốc' : 'Tên bệnh lý'}
                           {getSortIcon('name')}
                         </th>
+
+                        {/* [MỚI] CỘT ĐƠN VỊ TÍNH */}
+                        {entityType === 'medicine' && visibleColumns.unit?.visible && (
+                          <th>Đơn vị</th>
+                        )}
+
+                        {/* --- THÊM ĐOẠN NÀY --- */}
+                        {entityType === 'medicine' && visibleColumns.price?.visible && (
+                                                
+                      
+                          <th className="entity-mgmt-sortable" onClick={() => handleSort('price')}>
+                             Giá tiền {getSortIcon('price')}
+                          </th>
+                        )}
+                        {/* --------------------- */}
                         
                         {/* Category */}
                         {visibleColumns.category?.visible && (
@@ -886,6 +903,21 @@ const EntityManagementPage = ({ entityType }) => {
                               {entity.name}
                             </span>
                           </td>
+
+                          {/* [MỚI] DỮ LIỆU ĐƠN VỊ TÍNH */}
+                          {entityType === 'medicine' && visibleColumns.unit?.visible && (
+                            <td>
+                              <span className="entity-mgmt-badge entity-mgmt-badge-secondary">
+                                {entity.unit || 'Hộp'}
+                              </span>
+                            </td>
+                          )}
+
+                          {entityType === 'medicine' && visibleColumns.price?.visible && (
+                            <td>
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(entity.price || 0)}
+                            </td>
+                          )}
                           
                           {/* Category */}
                           {visibleColumns.category?.visible && (

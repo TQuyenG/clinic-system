@@ -198,11 +198,11 @@ const PERMISSION_MODULES = {
 // Định nghĩa department nào được phép quản lý module nào
 const DEPARTMENT_MODULE_ACCESS = {
   system: ['work_shift', 'system_settings', 'services', 'service_categories', 'consultation_pricing', 'staff_management'],
-  clinical: ['work_shift', 'appointments', 'doctors', 'patients', 'medical_records', 'consultations'],
-  support: ['work_shift', 'consultations', 'consultation_pricing', 'forum', 'appointments'],  // CSKH có quyền xem lịch bác sĩ
+  clinical: ['work_shift', 'appointments', 'doctors', 'patients', 'medical_records', 'consultations', 'services', 'service_categories', 'system_settings'],
+  support: ['work_shift', 'consultations', 'consultation_pricing', 'forum', 'appointments', 'services', 'system_settings'],
   finance: ['work_shift', 'payments', 'appointments'],
   content: ['work_shift', 'articles', 'forum'],
-  BGD: [] // Admin có tất cả quyền, không cần kiểm tra
+  BGD: [] 
 };
 
 // --- StatusBadge & RankBadge Components ---
@@ -975,9 +975,17 @@ const StaffManagementPage = () => {
                          )}
                        </div>
                        <div className="staff-info">
-                         <strong>{staff.User?.full_name || staff.username}</strong>
-                         <span>{staff.code} | Giám đốc</span>
-                       </div>
+                        <strong>{staff.User?.full_name || staff.username}</strong>
+                        {/* Sửa dòng dưới để hiện vai trò nếu là Tài chính */}
+                        <span style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                           {staff.code} | 
+                           {staff.department === 'finance' && staff.job_description ? (
+                             <span style={{color: '#2e7d32', fontWeight: '500'}}>{staff.job_description}</span>
+                           ) : (
+                             'Staff'
+                           )}
+                        </span>
+                      </div>
                        <StatusBadge status={staff.work_status} />
                      </div>
                    ))}
@@ -1177,9 +1185,18 @@ const StaffManagementPage = () => {
                                     </div>
                                     <div>
                                         <h2 style={{margin:0, fontSize: 18}}>{selectedStaff.User?.full_name || selectedStaff.username}</h2>
-                                        <p style={{margin:0, color:'#666', fontSize: 13}}>
-                                          {getRankLabel(selectedStaff.rank)} | {DEPARTMENTS[activeDepartment]?.name}
-                                        </p>
+                                        {/* --- SỬA ĐOẠN NÀY --- */}
+                                    <p style={{margin:0, color:'#666', fontSize: 13, display: 'flex', alignItems: 'center', gap: '6px'}}>
+                                        {/* Nếu là tài chính thì ưu tiên hiện Job Description (Vai trò) */}
+                                        {selectedStaff.department === 'finance' && selectedStaff.job_description ? (
+                                            <span style={{fontWeight: 'bold', color: '#2e7d32'}}>{selectedStaff.job_description}</span>
+                                        ) : (
+                                            getRankLabel(selectedStaff.rank)
+                                        )}
+                                        <span>|</span>
+                                        <span>{DEPARTMENTS[activeDepartment]?.name}</span>
+                                    </p>
+                                    {/* ------------------- */}
                                     </div>
                                 </div>
                                 <div className="header-actions">

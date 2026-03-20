@@ -81,4 +81,11 @@ router.put('/refunds/:id/process',
   // uploadMiddleware, // Thêm middleware upload file của bạn vào đây nếu cần
   paymentController.processRefundRequest
 );
+
+// --- NHÀ THUỐC BÁN LẺ (RETAIL PHARMACY) ---
+// Lấy danh sách hóa đơn bán lẻ
+router.get('/pharmacy/retail', paymentController.getRetailInvoices);
+// Tạo hóa đơn bán lẻ mới
+router.post('/pharmacy/retail', paymentController.createRetailInvoice);
+
 module.exports = router;

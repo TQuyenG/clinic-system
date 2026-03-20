@@ -561,7 +561,7 @@ const AppointmentBookingPage = () => {
                   {loading.doctors && <option>Đang tải bác sĩ...</option>}
                   {doctors.map(doctor => (
                     <option key={doctor.id} value={doctor.id}>
-                      BS. {doctor.user?.full_name} ({doctor.specialty?.name})
+                      BS. {doctor.full_name} {doctor.specialty?.name ? `(${doctor.specialty.name})` : ''}
                     </option>
                   ))}
                 </select>
@@ -762,7 +762,7 @@ const AppointmentBookingPage = () => {
               <h2>Xác nhận thông tin đặt lịch</h2>
               <div className="appointment-booking-confirm-details">
                 <p><strong>Dịch vụ:</strong> {selectedService?.name}</p>
-                <p><strong>Bác sĩ:</strong> {selectedDoctor?.user?.full_name || 'Sẽ được phân công'}</p>
+                <p><strong>Bác sĩ:</strong> {selectedDoctor ? `BS. ${selectedDoctor.full_name}` : 'Sẽ được phân công'}</p>
                 <p><strong>Ngày khám:</strong> {formData.date}</p>
                 <p><strong>Giờ khám:</strong> {formData.time}</p>
                 <p><strong>Khách hàng:</strong> {formData.name}</p>

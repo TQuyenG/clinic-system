@@ -31,8 +31,17 @@ module.exports = (sequelize) => {
       allowNull: true 
     },
     
+    // ✅ THÊM MỚI: Cột lưu điểm tích lũy của user
+    reward_points: { type: DataTypes.INTEGER, defaultValue: 0 },
+
+    // ✅ THÊM MỚI: Cột lưu điểm tích lũy của user
+    reward_points: { type: DataTypes.INTEGER, defaultValue: 0 },
+    last_checkin_date: { type: DataTypes.DATE, allowNull: true },
+    
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-    updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+    updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    checkin_streak: { type: DataTypes.INTEGER, defaultValue: 0, comment: 'Chuỗi điểm danh liên tiếp' },
+    checkin_history: { type: DataTypes.TEXT, allowNull: true, comment: 'Lịch sử điểm danh trong tuần (JSON array)' }
   }, {
     tableName: 'users',
     timestamps: true,

@@ -301,23 +301,59 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
                               <FaSpinner className="spin" />
                             ) : (
                               <>
-                                <button className="crl-btn-icon info" onClick={() => navigate(`/tu-van/${item.id}`)} title="Xem"><FaEye /></button>
-                                
-                                {item.status === 'pending' && (
-                                  <>
-                                    <button className="crl-btn-icon success" onClick={() => handleApprove(item.consultation_code)} title="Duyệt"><FaCheckCircle /></button>
-                                    <button className="crl-btn-icon danger" onClick={() => handleReject(item.consultation_code)} title="Từ chối"><FaTimesCircle /></button>
-                                  </>
-                                )}
+                                {/* Nút Xem chi tiết (Ai cũng thấy) */}
+                                <button className="crl-btn-icon info" onClick={() => navigate(`/tu-van/${item.id}`)} title="Xem chi tiết"><FaEye /></button>
 
-                                {(item.status === 'cancelled' || item.status === 'rejected') && 
-                                  parseFloat(item.total_fee) > 0 && 
-                                  (item.payment_status === 'paid_online' || item.payment_status === 'paid_at_clinic') && (
-                                  <button className="crl-btn-icon warning" onClick={() => handleRefund(item)} title="Hoàn tiền"><FaMoneyBillWave /></button>
-                                )}
-                                
-                                {item.status === 'confirmed' && (
-                                  <button className="crl-btn-icon danger" onClick={() => handleCancelConfirmed(item)} title="Hủy lịch"><FaCalendarTimes /></button>
+                                {/* ================= LOGIC CHO BỆNH NHÂN ================= */}
+                                {role === 'patient' ? (
+                                  <>
+                                    {/* 1. Chờ duyệt hoặc Chờ thanh toán -> Nút HỦY */}
+                                    {(item.status === 'pending' || item.status === 'pending_payment') && (
+                                      <button className="crl-btn-icon danger" onClick={() => handleCancelConfirmed(item)} title="Hủy lịch"><FaCalendarTimes /></button>
+                                    )}
+
+                                    {/* 2. Chờ thanh toán -> Nút THANH TOÁN */}
+                                    {item.status === 'pending_payment' && (
+                                      <button className="crl-btn-icon warning" onClick={() => navigate(`/thanh-toan/${item.id}`)} title="Thanh toán ngay"><FaMoneyBillWave /></button>
+                                    )}
+
+                                    {/* 3. Sắp diễn ra hoặc Đang diễn ra -> Nút VÀO PHÒNG */}
+                                    {(item.status === 'upcoming' || item.status === 'in_progress') && (
+                                      <button 
+                                        className="crl-btn-icon success" 
+                                        style={{ width: 'auto', padding: '0 10px', fontSize: '12px' }}
+                                        onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)}
+                                      >
+                                        <FaCheck /> Vào phòng
+                                      </button>
+                                    )}
+
+                                    {/* 4. Hoàn thành -> Nút ĐÁNH GIÁ (Review) */}
+                                    {item.status === 'completed' && !item.rating && (
+                                       <button className="crl-btn-icon info" onClick={() => navigate(`/tu-van/${item.id}?tab=review`)} title="Đánh giá"><FaCheckCircle /></button>
+                                    )}
+                                  </>
+                                ) : (
+                                  /* ================= LOGIC CHO BÁC SĨ / STAFF ================= */
+                                  <>
+                                    {/* Bác sĩ duyệt/từ chối lịch PENDING */}
+                                    {item.status === 'pending' && (
+                                      <>
+                                        <button className="crl-btn-icon success" onClick={() => handleApprove(item.consultation_code)} title="Duyệt"><FaCheckCircle /></button>
+                                        <button className="crl-btn-icon danger" onClick={() => handleReject(item.consultation_code)} title="Từ chối"><FaTimesCircle /></button>
+                                      </>
+                                    )}
+                                    
+                                    {/* Bác sĩ vào phòng */}
+                                    {(item.status === 'upcoming' || item.status === 'in_progress') && (
+                                       <button className="crl-btn-icon success" onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)} title="Vào phòng"><FaCheck /></button>
+                                    )}
+                                    
+                                    {/* Staff hoàn tiền */}
+                                    {(item.status === 'cancelled' || item.status === 'rejected') && parseFloat(item.total_fee) > 0 && item.payment_status === 'paid_online' && (
+                                      <button className="crl-btn-icon warning" onClick={() => handleRefund(item)} title="Hoàn tiền"><FaMoneyBillWave /></button>
+                                    )}
+                                  </>
                                 )}
                               </>
                             )}

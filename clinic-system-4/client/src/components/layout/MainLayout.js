@@ -23,7 +23,9 @@ const MainLayout = ({ children }) => {
   '/admin/tu-van/realtime', '/admin/tu-van/packages', '/quan-ly-gioi-thieu',
   '/quan-ly-thanh-toan/giao-dich', '/quan-ly-thanh-toan/hoan-tien', '/quan-ly-thanh-toan/chinh-sach',
   '/quan-ly-thanh-toan/cau-hinh',
-    '/lich-tu-van-cua-toi'
+  '/lich-tu-van-cua-toi',
+   '/quay-tiep-don', '/quan-ly-su-kien', '/quan-ly-khuyen-mai', '/khuyen-mai', '/san-qua'
+
 ];
 
   const showSidebar = !!token && dashboardPaths.some(path => location.pathname.startsWith(path));

@@ -305,3 +305,58 @@
   height: 14px !important;
   pointer-events: none; /* Để click vào icon vẫn ăn sự kiện nút */
 }
+
+/* --- Nút In --- */
+.btn-print {
+  background-color: #7e22ce !important; /* Màu tím */
+  color: white !important;
+}
+
+/* --- CẤU HÌNH IN ẤN (QUAN TRỌNG) --- */
+@media print {
+  /* Ẩn tất cả mọi thứ của trang web */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Ẩn header, sidebar, popup, nút bấm */
+  .payment-management-page-container,
+  .payment-management-page-header, 
+  .payment-management-page-filter-card,
+  .payment-management-page-pagination,
+  .Toastify, 
+  .modal {
+    display: none !important;
+  }
+
+  /* Chỉ hiện vùng hóa đơn */
+  #invoice-print-area, #invoice-print-area * {
+    visibility: visible;
+    display: block !important;
+  }
+
+  /* Căn chỉnh vùng hóa đơn về góc trên cùng khổ giấy */
+  #invoice-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: white;
+    color: black;
+  }
+
+  /* Reset các style bảng để in rõ nét */
+  .table-bordered {
+    border: 1px solid #000 !important;
+  }
+  .table-bordered th, .table-bordered td {
+    border: 1px solid #000 !important;
+  }
+  
+  /* Ẩn các link href khi in */
+  a[href]:after {
+    content: none !important;
+  }
+}

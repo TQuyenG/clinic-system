@@ -225,7 +225,7 @@ console.log('📅 DEBUG getAvailableSlots:', {
   const totalFee = parseFloat(baseFee) + parseFloat(platformFee);
 
   // 6. Xác định trạng thái dựa trên phí và phương thức thanh toán
-  let initialStatus = 'pending'; // ✅ Luôn là pending - chờ admin duyệt
+  let initialStatus = totalFee > 0 ? 'pending_payment' : 'pending';
   
   // Payment status dựa trên phương thức thanh toán
   let initialPaymentStatus = 'unpaid'; // Mặc định chưa thanh toán

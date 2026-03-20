@@ -77,7 +77,9 @@ const ArticleManagementPage = () => {
 
   const initialFormData = useMemo(() => ({
     title: '', content: '', category_id: '', tags_json: [], source: '',
-    name: '', composition: '', uses: '', side_effects: '', image_url: '', manufacturer: '', 
+    name: '', unit: '',
+    composition: '', uses: '', side_effects: '', image_url: '', manufacturer: '', 
+
     excellent_review_percent: 0, average_review_percent: 0, poor_review_percent: 0, 
     components: '', medicine_usage: '', symptoms: '', treatments: '', description: '',
     entity_id: null, entity_type: null
@@ -591,6 +593,7 @@ const ArticleManagementPage = () => {
         tags_json: articleToEdit.tags_json || [],
         source: articleToEdit.source || '',
         name: articleToEdit.name || linkedEntity?.name || '',
+        unit: linkedEntity?.unit || 'Hộp',
         composition: linkedEntity?.composition || '',
         uses: linkedEntity?.uses || '',
         side_effects: linkedEntity?.side_effects || '',
@@ -2333,6 +2336,40 @@ const ArticleManagementPage = () => {
 
                   {/* LIÊN KẾT ENTITY */}
                   {renderEntitySearchSection()}
+
+                  {/* [MỚI] CHỈ HIỆN KHI LÀ THUỐC - ĐƠN VỊ TÍNH & NHÀ SX */}
+                  {selectedCategoryType === 'thuoc' && (
+                    <div className="article-mgmt-form-row">
+                       <div className="article-mgmt-form-group">
+                          <label className="article-mgmt-form-label">Đơn vị tính</label>
+                          <select
+                            name="unit"
+                            value={formData.unit}
+                            onChange={handleFormChange}
+                            className="article-mgmt-form-select"
+                          >
+                            <option value="Hộp">Hộp</option>
+                            <option value="Vỉ">Vỉ</option>
+                            <option value="Lọ">Lọ</option>
+                            <option value="Chai">Chai</option>
+                            <option value="Viên">Viên</option>
+                            <option value="Tuýp">Tuýp</option>
+                            <option value="Gói">Gói</option>
+                          </select>
+                       </div>
+                       <div className="article-mgmt-form-group">
+                          <label className="article-mgmt-form-label">Nhà sản xuất</label>
+                          <input 
+                            type="text"
+                            name="manufacturer" 
+                            value={formData.manufacturer}
+                            onChange={handleFormChange}
+                            className="article-mgmt-form-input"
+                            placeholder="VD: Dược Hậu Giang..."
+                          />
+                       </div>
+                    </div>
+                  )}
 
                   {/* HÀNG 3: Import file */}
                   <div className="article-mgmt-form-row">

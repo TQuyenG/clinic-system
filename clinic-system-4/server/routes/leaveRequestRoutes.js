@@ -8,13 +8,15 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
 // ========== DOCTOR/STAFF ROUTES ==========
+// ========== DOCTOR/STAFF ROUTES ==========
 /**
  * Tạo đơn xin nghỉ
  * POST /api/leave-requests
  */
 router.post('/',
   authenticateToken,
-  roleMiddleware('work_shift:register_leave', ['doctor', 'staff']),
+  // [SỬA] Đổi permission thành null để cho phép tất cả staff/doctor
+  roleMiddleware(null, ['doctor', 'staff']),
   leaveRequestController.createLeaveRequest
 );
 
@@ -24,7 +26,8 @@ router.post('/',
  */
 router.get('/my-leaves',
   authenticateToken,
-  roleMiddleware('work_shift:register_leave', ['doctor', 'staff']),
+  // [SỬA] Đổi permission thành null để cho phép tất cả staff/doctor
+  roleMiddleware(null, ['doctor', 'staff']),
   leaveRequestController.getMyLeaveRequests
 );
 
@@ -34,7 +37,8 @@ router.get('/my-leaves',
  */
 router.delete('/:id',
   authenticateToken,
-  roleMiddleware('work_shift:register_leave', ['doctor', 'staff']),
+  // [SỬA] Đổi permission thành null để cho phép tất cả staff/doctor
+  roleMiddleware(null, ['doctor', 'staff']),
   leaveRequestController.cancelLeaveRequest
 );
 

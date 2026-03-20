@@ -36,6 +36,8 @@ const systemRoutes = require('./routes/systemRoutes');
 const forumRoutes = require('./routes/forumRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const marketingRoutes = require('./routes/marketingRoutes');
+const pharmacyRoutes = require('./routes/pharmacyRoutes');
 
 // Khởi tạo ứng dụng Express
 const app = express();
@@ -74,12 +76,12 @@ app.use(passport.session());
 //  THÊM: Audit middleware để log actions
 app.use(auditMiddleware);
 
-// Serve static files cho ảnh đã upload
-app.use('/uploads/article', express.static(path.join(__dirname, 'uploads')));
-// MỚI: Serve static files cho Hồ sơ y tế
-app.use('/uploads/medical-files', express.static(path.join(__dirname, 'uploads/medical-files')));
-// THÊM TỪ FILE 1: Serve static files cho chat (images, files)
+// Chuẩn hóa toàn bộ đường dẫn static để Frontend có thể truy cập qua http://localhost:3001/uploads/...
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Giữ lại các cấu hình phụ để đảm bảo tương thích ngược nếu bạn đã hardcode link cũ
 app.use('/uploads/images', express.static(path.join(__dirname, 'uploads/images')));
+app.use('/uploads/medical-files', express.static(path.join(__dirname, 'uploads/medical-files')));
 
 
 // ========== MOUNT ROUTES ==========
@@ -103,6 +105,8 @@ app.use('/api/settings', systemRoutes);
 app.use('/api/forum', forumRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/marketing', marketingRoutes);
+app.use('/api/pharmacy', pharmacyRoutes);
 
 // ========== HEALTH CHECK ENDPOINT ==========
 app.get('/api/health', (req, res) => {

@@ -16,11 +16,19 @@ const chatService = {
   },
 
   /**
-   * Gửi tin nhắn mới
+   * Gửi tin nhắn mới tới phòng tư vấn
    * POST /api/chat/messages
    */
   sendMessage: (data) => {
     return api.post('/chat/messages', data);
+  },
+
+  /**
+   * Gửi tin nhắn cho AI Chatbot Public
+   * POST /api/chat/ai-chat
+   */
+  sendAIMessage: (message) => {
+    return api.post('/chat/ai-chat', { message });
   },
 
   /**

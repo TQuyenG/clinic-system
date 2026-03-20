@@ -11,6 +11,75 @@ const vnpayService = require('../utils/vnpayService');
 const momoService = require('../utils/momoService');
 const moment = require('moment');
 
+// ========== WEBHOOK XỬ LÝ THANH TOÁN TỰ ĐỘNG ==========
+exports.handleBankWebhook = async (req, res) => {
+    try {
+        // Log dữ liệu nhận được để debug
+        console.log('🔔 [WEBHOOK] Received:', JSON.stringify(req.body));
+        
+        // 1. Lấy nội dung giao dịch
+        // Cấu trúc này hỗ trợ SePay, Casso, VietQR (Standard)
+        const { content, description, amount, transferContent, transactionId, id } = req.body;
+        
+        // Gộp các trường có thể chứa nội dung chuyển khoản lại để tìm kiếm
+        const transactionText = (content || description || transferContent || '').toUpperCase();
+        
+        // 2. Tìm mã giao dịch trong nội dung (Tìm chuỗi bắt đầu bằng REL...)
+        // Regex: Tìm chữ REL viết hoa, theo sau là dãy số (VD: REL1703829102)
+        const match = transactionText.match(/REL\d+/);
+        
+        if (match) {
+            const paymentCode = match[0];
+            console.log('✅ Tìm thấy mã đơn hàng trong nội dung CK:', paymentCode);
+
+            // 3. Tìm đơn hàng trong Database
+            const payment = await models.Payment.findOne({ 
+                where: { code: paymentCode } 
+            });
+
+            if (payment) {
+                // Kiểm tra trạng thái để tránh xử lý trùng
+                if (payment.status === 'paid') {
+                    console.log('ℹ️ Đơn hàng đã được thanh toán trước đó.');
+                    return res.json({ success: true, message: 'Already paid' });
+                }
+
+                // Kiểm tra số tiền (Cho phép sai số nhỏ hoặc >= số tiền cần thanh toán)
+                // Lưu ý: payment.amount trong DB là string hoặc number tùy setup, nên parse ra float
+                const requiredAmount = parseFloat(payment.amount);
+                const receivedAmount = parseFloat(amount);
+
+                if (receivedAmount >= requiredAmount) {
+                    // Cập nhật trạng thái thanh toán thành công
+                    await payment.update({ 
+                        status: 'paid',
+                        transaction_id: transactionId || id || null, // Lưu mã tham chiếu ngân hàng
+                        provider_ref: transactionText, // Lưu nội dung gốc để đối soát
+                        updated_at: new Date()
+                    });
+                    
+                    console.log(`💰 XÁC NHẬN THANH TOÁN THÀNH CÔNG: ${paymentCode} - Số tiền: ${receivedAmount}`);
+                } else {
+                    console.log(`⚠️ Số tiền chưa đủ. Đơn: ${requiredAmount}, Nhận: ${receivedAmount}`);
+                    // Tùy chọn: Có thể cập nhật trạng thái 'partial_paid' nếu muốn
+                }
+            } else {
+                console.log('❌ Không tìm thấy đơn hàng trên hệ thống với mã:', paymentCode);
+            }
+        } else {
+            console.log('⚠️ Không tìm thấy mã REL... trong nội dung chuyển khoản:', transactionText);
+        }
+
+        // Luôn trả về success true để ngân hàng không gửi lại webhook
+        res.json({ success: true });
+
+    } catch (error) {
+        console.error('Webhook Error:', error);
+        // Vẫn trả về 200 hoặc 500 tùy policy, nhưng thường trả 200 để bên gửi không retry spam
+        res.status(200).json({ success: false }); 
+    }
+};
+
 // ========== 1. TẠO THANH TOÁN CHO TƯ VẤN ==========
 exports.createConsultationPayment = async (req, res) => {
   try {
@@ -79,7 +148,7 @@ exports.createConsultationPayment = async (req, res) => {
 exports.createPayment = async (req, res) => {
   try {
     const userId = req.user?.id || 1; 
-    const { appointment_id, payment_method, proof_image_url } = req.body;
+    const { appointment_id, payment_method, proof_image_url, payment_info } = req.body;
 
     if (!appointment_id) return res.status(400).json({ success: false, message: 'Thiếu thông tin' });
 
@@ -93,19 +162,22 @@ exports.createPayment = async (req, res) => {
       },
       include: [{ model: models.Service, as: 'Service' }]
     });
+    
 
     if (!appointment) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
 
+    
+
     // Kiểm tra/Update Payment cũ
     let payment = await models.Payment.findOne({ where: { appointment_id: appointment.id } });
-    
     const paymentData = {
         user_id: userId,
         appointment_id: appointment.id,
         amount: appointment.Service.price,
-        status: 'pending',
+        status: 'paid', // Sửa luôn thành 'paid' nếu là thanh toán tại quầy
         method: payment_method,
-        payment_info: JSON.stringify({ note: 'Created via UI' }),
+        // SỬA: Lưu đúng thông tin chi tiết tiền khách đưa
+        payment_info: payment_info ? JSON.stringify(payment_info) : JSON.stringify({ note: 'Created via UI' }),
         proof_image_url: proof_image_url || null
     };
 
@@ -180,7 +252,7 @@ exports.handleBankWebhook = async (req, res) => {
                  payment_status: 'paid_online', 
                  paid_at: new Date(), 
                  payment_method: 'bank_transfer',
-                 status: 'confirmed' // <--- QUAN TRỌNG: Tự động chuyển sang trạng thái xác nhận
+                 status: 'upcoming' // [SỬA] Chuyển sang "upcoming" để hiện nút Vào phòng
              });
              
              // 2. Tìm hoặc tạo Payment Record
@@ -355,9 +427,11 @@ exports.getAllPayments = async (req, res) => {
     if (method && method !== 'all') where.method = method;
 
     const { count, rows: payments } = await models.Payment.findAndCountAll({
-      where,
+  where,
+  distinct: true,  // Giữ nguyên để đếm đúng
+  subQuery: false, // [QUAN TRỌNG] Thêm dòng này để ngăn Sequelize tạo query con gây mất dữ liệu hoặc trùng lặp khi join
       include: [
-        // 1. Include Appointment -> Patient -> User
+        // ... (Giữ nguyên các include bên trong như cũ)
         {
           model: models.Appointment,
           as: 'Appointment',
@@ -367,7 +441,7 @@ exports.getAllPayments = async (req, res) => {
               model: models.Patient,
               as: 'Patient',
               required: false,
-              include: [{ model: models.User, attributes: ['full_name', 'phone', 'email'], required: false }]
+              include: [{ model: models.User, attributes: ['full_name', 'phone', 'email', 'address', 'gender', 'dob'], required: false }] // Lấy thêm info để xem chi tiết
             },
             {
               model: models.Doctor,
@@ -378,30 +452,19 @@ exports.getAllPayments = async (req, res) => {
             {
                model: models.Service,
                as: 'Service',
-               attributes: ['name'],
+               attributes: ['name', 'price', 'description'], // Lấy thêm mô tả/giá
                required: false
             }
           ]
         },
-        // 2. Include Consultation -> Patient(User)
-        {
-          model: models.Consultation,
-          as: 'Consultation',
-          required: false,
-          include: [
-             { model: models.User, as: 'patient', attributes: ['full_name', 'phone'], required: false },
-             { model: models.User, as: 'doctor', attributes: ['full_name'], required: false }
-          ]
-        },
-        // 3. Include User (Người thanh toán)
-        {
-            model: models.User,
-            as: 'User',
-            attributes: ['full_name', 'email', 'phone'],
-            required: false
-        }
+        // ... (Giữ nguyên các include khác)
       ],
-      order: [['created_at', 'DESC']],
+      // SỬA: Ưu tiên sắp xếp theo Ngày hẹn -> STT Tiếp đón -> Thời gian tạo
+      order: [
+          [{ model: models.Appointment, as: 'Appointment' }, 'appointment_date', 'DESC'], // Gom nhóm theo ngày
+          [{ model: models.Appointment, as: 'Appointment' }, 'queue_number', 'ASC'],      // Xếp theo STT Tiếp đón (nhỏ đến lớn)
+          ['created_at', 'DESC']
+      ],
       limit: parseInt(limit),
       offset: parseInt(offset)
     });
@@ -820,6 +883,164 @@ exports.processRefundRequest = async (req, res) => {
     }
 };
 // --- KẾT THÚC ĐOẠN CONTROLLER ---
+
+// ========== 5. NHÀ THUỐC BÁN LẺ (RETAIL) ==========
+
+// Tạo hóa đơn bán lẻ
+// --- KIỂM TRA MÃ GIẢM GIÁ ---
+exports.checkDiscount = async (req, res) => {
+    try {
+        const { code, totalAmount } = req.body;
+        // Tìm mã giảm giá (Dùng trường name làm code)
+        const discount = await models.Discount.findOne({
+            where: { 
+                name: code,
+                start_date: { [Op.lte]: new Date() },
+                end_date: { [Op.gte]: new Date() }
+            }
+        });
+
+        if (!discount) {
+            return res.status(404).json({ success: false, message: 'Mã giảm giá không tồn tại hoặc đã hết hạn' });
+        }
+
+        // Tính toán giá trị giảm
+        let discountValue = 0;
+        if (discount.type === 'percentage') {
+            discountValue = (totalAmount * discount.value) / 100;
+        } else {
+            discountValue = parseFloat(discount.value);
+        }
+
+        // Đảm bảo không giảm quá tổng tiền
+        if (discountValue > totalAmount) discountValue = totalAmount;
+
+        res.json({
+            success: true,
+            discount: {
+                id: discount.id,
+                code: discount.name,
+                type: discount.type,
+                value: discount.value,
+                discountAmount: discountValue
+            }
+        });
+
+    } catch (error) {
+        console.error('Check Discount Error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi kiểm tra mã giảm giá' });
+    }
+};
+
+// --- TẠO HÓA ĐƠN BÁN LẺ (CẬP NHẬT) ---
+exports.createRetailInvoice = async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+        // Nhận code từ Frontend gửi lên
+        const { items, customer, total_amount, payment_method, discount_info, final_amount, code } = req.body;
+        const staffId = req.user.id;
+
+        // Nếu có code gửi lên thì dùng, không thì tự tạo
+        const invoiceCode = code || `REL${Date.now()}`;
+
+        const invoiceDetail = {
+            customer_info: customer,
+            items: items.map(item => ({
+                id: item.id,
+                name: item.name,
+                qty: item.qty,
+                price: item.price,
+                total: item.price * item.qty
+            })),
+            discount_applied: discount_info || null, // Lưu thông tin giảm giá
+            staff_name: req.user.full_name
+        };
+
+        const payment = await models.Payment.create({
+            code: invoiceCode,
+            user_id: staffId, 
+            amount: final_amount || total_amount, // Lưu số tiền thực thu
+            status: 'paid',
+            method: payment_method, // 'cash' hoặc 'transfer'
+            payment_info: JSON.stringify(invoiceDetail),
+            description: `Bán lẻ: ${customer.name || 'Khách vãng lai'} - ${payment_method === 'transfer' ? 'CK' : 'TM'}`,
+            // Nếu có giảm giá thì lưu ID
+            discount_id: discount_info?.id || null
+        }, { transaction: t });
+
+        // Tăng đếm số lần dùng mã giảm giá
+        if (discount_info?.id) {
+            await models.Discount.increment('apply_count', { 
+                by: 1, 
+                where: { id: discount_info.id },
+                transaction: t 
+            });
+        }
+
+        await t.commit();
+        res.json({ success: true, message: 'Thanh toán thành công', invoice: payment });
+
+    } catch (error) {
+        await t.rollback();
+        console.error('Retail Invoice Error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi tạo hóa đơn: ' + error.message });
+    }
+};
+
+// Lấy danh sách hóa đơn bán lẻ
+exports.getRetailInvoices = async (req, res) => {
+    try {
+        const { page = 1, limit = 20, search } = req.query;
+        const offset = (page - 1) * limit;
+
+        const whereCondition = {
+            code: { [Op.like]: 'REL-%' } // Chỉ lấy các mã bắt đầu bằng REL-
+        };
+
+        if (search) {
+            whereCondition[Op.or] = [
+                { code: { [Op.like]: `%${search}%` } },
+                { description: { [Op.like]: `%${search}%` } }
+            ];
+        }
+
+        const { count, rows } = await models.Payment.findAndCountAll({
+            where: whereCondition,
+            order: [['created_at', 'DESC']],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            include: [
+                { model: models.User, as: 'User', attributes: ['id', 'full_name'] } // Người bán
+            ]
+        });
+
+        // Parse payment_info từ JSON string sang Object để frontend dùng
+        const invoices = rows.map(inv => {
+            let details = {};
+            try { details = JSON.parse(inv.payment_info); } catch (e) {}
+            return {
+                ...inv.toJSON(),
+                customer_name: details.customer_info?.name || 'Khách lẻ',
+                customer_phone: details.customer_info?.phone || '',
+                item_count: details.items?.length || 0
+            };
+        });
+
+        res.json({
+            success: true,
+            invoices,
+            pagination: {
+                total: count,
+                page: parseInt(page),
+                totalPages: Math.ceil(count / limit)
+            }
+        });
+
+    } catch (error) {
+        console.error('Get Retail Invoices Error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi lấy danh sách' });
+    }
+};
 
 // --- KẾT THÚC ĐOẠN THÊM MỚI ---
 exports.adminCheckTransaction = async (req, res) => res.json({ success: true });

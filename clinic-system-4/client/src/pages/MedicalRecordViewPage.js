@@ -106,9 +106,21 @@ const MedicalRecordViewPage = () => {
         const { missing_profile, missing_fields, roleData } = res.data.user;
         
         if (roleData?.medical_history) {
-          const medHistory = typeof roleData.medical_history === 'string' 
-            ? JSON.parse(roleData.medical_history) 
-            : roleData.medical_history;
+          let medHistory = {};
+          try {
+            // Thử parse JSON, nếu backend trả về text "Không có" thì sẽ nhảy vào catch
+            medHistory = typeof roleData.medical_history === 'string' 
+              ? JSON.parse(roleData.medical_history) 
+              : roleData.medical_history;
+          } catch (error) {
+            console.warn("Dữ liệu sức khỏe không đúng định dạng JSON:", roleData.medical_history);
+            // Nếu lỗi parse (ví dụ chuỗi là "Không có"), ta gán bằng rỗng để không crash trang
+            medHistory = {}; 
+          }
+          
+          // Kiểm tra nếu medHistory là null sau khi parse thì gán lại object rỗng
+          if (!medHistory) medHistory = {};
+
           setHealthData(prev => ({ ...prev, ...medHistory }));
         }
 

@@ -6,6 +6,13 @@ module.exports = (sequelize) => {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     category_id: { type: DataTypes.BIGINT },
     name: { type: DataTypes.STRING(255), unique: true, allowNull: false },
+    // --- [SỬA] Thêm cột đơn vị tính ---
+    unit: { 
+      type: DataTypes.STRING(50), 
+      defaultValue: 'Hộp', 
+      comment: 'Đơn vị tính (Viên, Vỉ, Hộp, Lọ...)' 
+    },
+    price: { type: DataTypes.INTEGER, defaultValue: 0, comment: 'Giá tiền (VNĐ)' },
     composition: { type: DataTypes.TEXT, comment: 'Thành phần thuốc' },
     uses: { type: DataTypes.TEXT, comment: 'Công dụng' },
     side_effects: { type: DataTypes.TEXT, comment: 'Tác dụng phụ' },
@@ -37,6 +44,22 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Slug cho URL công khai'
     },
+    // ===== KHO THUỐC =====
+    is_prescription_drug: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      comment: 'Thuốc kê đơn (true) hay không kê đơn (false)'
+    },
+    min_stock_threshold: {
+      type: DataTypes.INTEGER,
+      defaultValue: 10,
+      comment: 'Ngưỡng tồn kho tối thiểu - cảnh báo khi dưới mức này'
+    },
+    stock_total: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      comment: 'Tổng tồn kho hiện tại (cập nhật tự động khi nhập/xuất)'
+    },
     // ===================
     
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
@@ -67,6 +90,20 @@ module.exports = (sequelize) => {
       scope: { entity_type: 'medicine' },
       as: 'suggestions'
     });
+
+    // ===== KHO THUỐC =====
+    if (models.MedicineBatch) {
+      Medicine.hasMany(models.MedicineBatch, {
+        foreignKey: 'medicine_id',
+        as: 'batches'
+      });
+    }
+    if (models.StockTransaction) {
+      Medicine.hasMany(models.StockTransaction, {
+        foreignKey: 'medicine_id',
+        as: 'stockTransactions'
+      });
+    }
     // ===================
   };
 

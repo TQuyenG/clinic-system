@@ -100,7 +100,8 @@ exports.uploadMultipleImages = (req, res) => {
     const uploadedFiles = req.files.map(file => ({
       name: file.originalname,
       size: file.size,
-      url: `/uploads/images/${file.filename}`
+      // Đảm bảo đường dẫn này khớp với cấu hình static ở index.js
+      url: `/uploads/images/${file.filename}` 
     }));
 
     res.json({

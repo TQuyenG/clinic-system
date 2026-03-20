@@ -150,7 +150,7 @@ exports.getStaffById = async (req, res) => {
 exports.assignDoctorsToStaff = async (req, res) => {
   try {
     const { id } = req.params;
-  const { doctor_ids, rank, manager_id } = req.body; // Bỏ department khỏi body
+  const { doctor_ids, rank, manager_id, department, permissions, finance_role } = req.body;
 
     const staff = await models.Staff.findByPk(id, {
       include: [{ model: models.User, attributes: ['full_name'] }]
@@ -189,11 +189,31 @@ exports.assignDoctorsToStaff = async (req, res) => {
       }
     }
 
-    // 1. Cập nhật thông tin cơ bản (chỉ admin, bỏ department cho bác sĩ)
-    if (req.user.role === 'admin') {
+    // --- BẮT ĐẦU ĐOẠN SỬA ---
+    // 1. Cập nhật thông tin cơ bản (Admin hoặc Manager được quyền)
+    if (req.user.role === 'admin' || req.user.role === 'staff') {
       if (rank !== undefined) staff.rank = rank;
+      if (department !== undefined) staff.department = department;
       if (manager_id !== undefined) staff.manager_id = manager_id || null;
+      
+      // Xử lý cập nhật Permissions (Quyền hạn)
+      if (permissions) {
+        staff.permissions = permissions;
+      }
+      
+      // Xử lý lưu tên Vai trò Tài chính vào Mô tả công việc (job_description)
+      // Logic: Nếu chọn phòng Finance và có gửi finance_role lên
+      if (department === 'finance' && finance_role) {
+        const roleNames = {
+          cashier: 'Nhân viên Thu ngân',
+          accountant: 'Kế toán Tổng hợp',
+          manager: 'Quản lý Dịch vụ & Giá'
+        };
+        // Lưu tên tiếng Việt
+        staff.job_description = roleNames[finance_role] || finance_role;
+      }
     }
+    // --- KẾT THÚC ĐOẠN SỬA ---
     
     // 2. Cập nhật managed_doctors
     // FIX: Chuyển đổi User.id -> Doctor.id nếu cần
@@ -1128,6 +1148,71 @@ exports.getStaffAuditStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Lỗi khi lấy thống kê audit',
+      error: error.message
+    });
+  }
+
+  
+};
+
+/**
+ * Cập nhật thông tin nhân viên (Phân công phòng ban, cấp bậc, quản lý bác sĩ)
+ * PUT /api/staff/:id
+ */
+exports.updateStaff = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      department, 
+      rank, 
+      manager_id, 
+      managed_doctor_ids, // <--- Nhận mảng ID từ Frontend gửi lên
+      scopes,
+      permissions
+    } = req.body;
+
+    const staff = await models.Staff.findByPk(id);
+    if (!staff) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy nhân viên' });
+    }
+
+    // 1. Cập nhật thông tin cơ bản
+    staff.department = department;
+    staff.rank = rank;
+    staff.manager_id = manager_id || null;
+    staff.scopes = scopes || staff.scopes;
+    staff.permissions = permissions || staff.permissions;
+
+    // 2. [QUAN TRỌNG] Xử lý lưu danh sách bác sĩ quản lý
+    // Frontend gửi lên mảng [1, 2, 3] -> Backend lưu JSON { "doctor_ids": [1, 2, 3] }
+    if (managed_doctor_ids) {
+      staff.managed_doctors = { 
+        doctor_ids: Array.isArray(managed_doctor_ids) ? managed_doctor_ids : [] 
+      };
+    }
+
+    await staff.save();
+
+    // Log audit
+    await models.AuditLog.create({
+      user_id: req.user.id,
+      action_type: 'UPDATE',
+      target_type: 'Staff',
+      target_id: staff.id,
+      description: `Cập nhật nhân viên ${staff.code}: rank=${rank}, dept=${department}, managed_docs=${managed_doctor_ids?.length || 0}`
+    });
+
+    res.json({
+      success: true,
+      message: 'Cập nhật nhân viên thành công',
+      data: staff
+    });
+
+  } catch (error) {
+    console.error('ERROR updateStaff:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi cập nhật nhân viên',
       error: error.message
     });
   }

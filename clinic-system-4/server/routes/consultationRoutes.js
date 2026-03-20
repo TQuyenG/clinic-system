@@ -344,7 +344,8 @@ router.post(
 router.get(
   '/admin/realtime/all',
   authMiddleware,
-  roleMiddleware('consultations:view'),
+  // ✅ SỬA: Đặt các role vào trong mảng []
+  roleMiddleware('consultations:view', ['admin', 'doctor', 'staff']),
   consultationAdminController.getAllConsultationsRealtime
 );
 
@@ -355,7 +356,8 @@ router.get(
 router.get(
   '/admin/realtime/active',
   authMiddleware,
-  roleMiddleware('consultations:view'),
+  // ✅ SỬA: Đặt các role vào trong mảng []
+  roleMiddleware('consultations:view', ['admin', 'doctor', 'staff']),
   consultationAdminController.getActiveConsultations
 );
 
@@ -366,7 +368,8 @@ router.get(
 router.get(
   '/admin/realtime/:id/messages',
   authMiddleware,
-  roleMiddleware('consultations:view'),
+  // ✅ SỬA: Đặt các role vào trong mảng []
+  roleMiddleware('consultations:view', ['admin', 'doctor', 'staff']),
   consultationAdminController.getConsultationMessages
 );
 
@@ -417,27 +420,28 @@ router.put(
 );
 
 /**
- * ✅ DUYỆT TƯ VẤN - Yêu cầu quyền 'consultations:assign'
+ * Duyệt lịch tư vấn (Admin/Manager)
  * PUT /api/consultations/admin/realtime/:id/approve
  */
 router.put(
   '/admin/realtime/:id/approve',
   authMiddleware,
-  roleMiddleware('consultations:assign'),
+  // [SỬA] Đổi 'assign' -> 'approve' và thêm ['admin', 'staff'] để cho phép Staff thao tác
+  roleMiddleware('consultations:approve', ['admin', 'staff']), 
   consultationAdminController.approveConsultation
 );
 
 /**
- * ❌ TỪ CHỐI TƯ VẤN - Yêu cầu quyền 'consultations:assign'
+ * Từ chối lịch tư vấn (Admin/Manager)
  * PUT /api/consultations/admin/realtime/:id/reject
  */
 router.put(
   '/admin/realtime/:id/reject',
   authMiddleware,
-  roleMiddleware('consultations:assign'),
+  // [SỬA] Đổi 'assign' -> 'approve' và thêm ['admin', 'staff'] để cho phép Staff thao tác
+  roleMiddleware('consultations:approve', ['admin', 'staff']),
   consultationAdminController.rejectConsultation
 );
-
 /**
  * 🚫 HỦY LỊCH ĐÃ XÁC NHẬN - Yêu cầu quyền 'consultations:close'
  * PUT /api/consultations/admin/realtime/:id/cancel-confirmed
@@ -577,6 +581,8 @@ router.post(
   consultationAdminController.processRefund
 );
 
+
+
 /**
  * 5. QUẢN LÝ PHẢN HỒI & ĐÁNH GIÁ
  * GET /api/consultations/admin/feedbacks
@@ -584,7 +590,8 @@ router.post(
 router.get(
   '/admin/feedbacks',
   authMiddleware,
-  authorize('admin', 'staff'),
+  // ✅ SỬA: Thêm 'doctor' vào danh sách cho phép
+  authorize('admin', 'staff', 'doctor'), 
   consultationAdminController.getAllFeedbacks
 );
 
@@ -598,9 +605,11 @@ router.get(
 router.get(
   '/admin/statistics/overview',
   authMiddleware,
-  authorize('admin', 'staff'), // <--- Thêm 'staff' vào đây
+  // ✅ SỬA: Thêm 'doctor' vào đây
+  authorize('admin', 'staff', 'doctor'), 
   consultationAdminController.getSystemStatistics
 );
+
 /**
  * Thống kê theo bác sĩ
  * GET /api/consultations/admin/statistics/by-doctor
@@ -608,7 +617,8 @@ router.get(
 router.get(
   '/admin/statistics/by-doctor',
   authMiddleware,
-  authorize('admin', 'staff'),
+  // ✅ SỬA: Thêm 'doctor' vào đây
+  authorize('admin', 'staff', 'doctor'),
   consultationAdminController.getDoctorStatistics
 );
 
@@ -619,7 +629,8 @@ router.get(
 router.get(
   '/admin/statistics/by-patient',
   authMiddleware,
-  authorize('admin', 'staff'),
+  // ✅ SỬA: Thêm 'doctor' vào đây
+  authorize('admin', 'staff', 'doctor'),
   consultationAdminController.getPatientStatistics
 );
 

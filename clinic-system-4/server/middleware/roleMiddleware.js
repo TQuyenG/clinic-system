@@ -166,6 +166,17 @@ const roleMiddleware = (requiredPermission = null, allowedRoles = []) => {
               hasPermission = true;
             }
             break;
+
+            case 'marketing:manage_events':
+            if (permissions && permissions.marketing && permissions.marketing.includes('manage_events')) {
+              hasPermission = true;
+            }
+            break;
+          case 'marketing:manage_promotions':
+            if (permissions && permissions.marketing && permissions.marketing.includes('manage_promotions')) {
+              hasPermission = true;
+            }
+            break;
           // --- FALLBACK: Check JSON permissions field ---
           default:
             if (permissions && typeof permissions === 'object') {

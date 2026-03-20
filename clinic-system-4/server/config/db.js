@@ -31,8 +31,10 @@ const seedForum = require('./forumSeed');
 const seedConsultationChat = require('./consultationChatSeed');
 const seedConsultationPricing = require('./consultationPricingSeed');
 
-require('dotenv').config({ 
-  path: path.join(__dirname, '../../.env') 
+// Load environment variables from server/.env (app.js already loads dotenv,
+// but ensure config files loaded when required directly)
+require('dotenv').config({
+  path: path.join(__dirname, '../.env')
 });
 
 // Log để kiểm tra biến môi trường được load
@@ -70,10 +72,17 @@ async function initializeDatabase() {
     }
 
     console.log('Đang kết nối với MySQL...');
+
+    // Ensure port is used and prefer TCP for localhost to avoid socket issues
+    let dbHost = process.env.DB_HOST || '127.0.0.1';
+    if (dbHost === 'localhost') dbHost = '127.0.0.1';
+
     const connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
+      host: dbHost,
       user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD
+      password: process.env.DB_PASSWORD,
+      port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 3306,
+      connectTimeout: 10000
     });
 
     console.log('Đang tạo database...');
@@ -88,6 +97,7 @@ async function initializeDatabase() {
     return true;
   } catch (error) {
     console.error('ERROR trong initializeDatabase:', error.message);
+    console.error('ERROR details:', { code: error.code, stack: error.stack });
     throw error;
   }
 }

@@ -5,7 +5,7 @@
  * 
  * ĐÃ SỬA: Banner slider tự động chuyển slide
  */
-
+import EventPopup from '../components/common/EventPopup'; // <--- THÊM
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -35,6 +35,9 @@ const HomePage = () => {
   const [isVisible, setIsVisible] = useState({});
   const [error, setError] = useState(null);
 
+  const [showEventPopup, setShowEventPopup] = useState(false);
+  const [popupEventData, setPopupEventData] = useState(null);
+
   const iconMap = { ...FaIcons };
 
   // Fetch data chỉ chạy 1 lần khi component mount
@@ -51,6 +54,50 @@ const HomePage = () => {
         setError('Không thể tải dữ liệu trang chủ. Vui lòng thử lại sau.');
       }
     };
+
+    // --- THÊM MỚI: Lấy sự kiện Popup ---
+    const fetchPopupEvent = async () => {
+      try {
+        const response = await axios.get('http://localhost:3001/api/marketing/events/popup');
+        if (response.data && response.data.success && response.data.event) {
+          const event = response.data.event;
+          // Lấy cấu hình tần suất từ Database (mặc định là once_per_day nếu chưa có)
+          const frequency = event.popup_config?.frequency || 'once_per_day';
+          const storageKey = `seen_event_${event.id}`;
+          let shouldShow = false;
+
+          if (frequency === 'always') {
+            shouldShow = true;
+          } else if (frequency === 'once_per_session') {
+            shouldShow = !sessionStorage.getItem(storageKey);
+          } else if (frequency === 'once_per_day') {
+            const lastSeen = localStorage.getItem(storageKey);
+            if (!lastSeen) {
+              shouldShow = true;
+            } else {
+              const oneDay = 24 * 60 * 60 * 1000;
+              shouldShow = (Date.now() - parseInt(lastSeen)) > oneDay;
+            }
+          }
+
+          if (shouldShow) {
+            setTimeout(() => {
+              setPopupEventData(event);
+              setShowEventPopup(true);
+              // Lưu dấu đã xem
+              if (frequency === 'once_per_session') {
+                sessionStorage.setItem(storageKey, 'true');
+              } else {
+                localStorage.setItem(storageKey, Date.now().toString());
+              }
+            }, 1500);
+          }
+        }
+      } catch (err) {
+        console.log('Không có sự kiện popup nào');
+      }
+    };
+    fetchPopupEvent();
 
     const fetchSpecialties = async () => {
       try {
@@ -632,6 +679,13 @@ const HomePage = () => {
             </div>
           </div>
         </section>
+      )}
+      {/* --- THÊM MỚI: Render Popup --- */}
+      {showEventPopup && popupEventData && (
+        <EventPopup 
+          data={popupEventData} 
+          onClose={() => setShowEventPopup(false)} 
+        />
       )}
     </main>
   );
