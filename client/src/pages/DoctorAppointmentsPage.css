@@ -1,0 +1,13 @@
+/* client/src/pages/DoctorAppointmentsPage.css */
+/* COPY TOÀN BỘ NỘI DUNG TỪ client/src/pages/AppointmentManagementPage.css VÀO ĐÂY */
+
+/* Hoặc bạn có thể import trực tiếp nếu muốn gọn: */
+@import "./AppointmentManagementPage.css"; 
+
+/* Thêm css riêng nếu cần chỉnh sửa nhỏ */
+.doctor-appt-page-container {
+  max-width: 100%;
+  padding: 15px;
+  background: #f1f8e9; /* Màu nền nhẹ */
+  min-height: 100vh;
+}

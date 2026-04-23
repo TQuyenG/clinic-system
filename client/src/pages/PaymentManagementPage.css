@@ -1,0 +1,362 @@
+/* client/src/pages/PaymentManagementPage.css */
+
+/* --- BIẾN MÀU SẮC PASTEL Y TẾ --- */
+:root {
+  --pm-color-bg: #F1F8E9;        /* Xanh lá pastel rất nhạt (Light Green 50) */
+  --pm-color-primary: #43A047;   /* Xanh lá y tế (Green 600) */
+  --pm-color-primary-dark: #2E7D32;
+  --pm-color-surface: #FFFFFF;
+  --pm-color-text: #37474F;      /* Xám đậm xanh */
+  --pm-color-text-light: #78909C;
+  --pm-border-color: #DCEDC8;    /* Viền xanh nhạt */
+  
+  /* Status Colors */
+  --pm-status-paid-bg: #E8F5E9;
+  --pm-status-paid-text: #2E7D32;
+  --pm-status-pending-bg: #FFF8E1;
+  --pm-status-pending-text: #F57F17;
+  --pm-status-failed-bg: #FFEBEE;
+  --pm-status-failed-text: #C62828;
+}
+
+/* --- CONTAINER CHUNG --- */
+.payment-management-page-container {
+  padding: 15px 20px;
+  background-color: var(--pm-color-bg);
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--pm-color-text);
+}
+
+/* --- HEADER --- */
+.payment-management-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.payment-management-page-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--pm-color-primary-dark);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.payment-management-page-refresh-btn {
+  background-color: var(--pm-color-surface);
+  border: 1px solid var(--pm-border-color);
+  color: var(--pm-color-primary);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.payment-management-page-refresh-btn:hover {
+  background-color: var(--pm-color-primary);
+  color: white;
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+/* --- FILTER CARD --- */
+.payment-management-page-filter-card {
+  background-color: var(--pm-color-surface);
+  padding: 12px 15px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+  margin-bottom: 15px;
+  border: 1px solid var(--pm-border-color);
+}
+
+.payment-management-page-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--pm-color-text-light);
+  margin-bottom: 4px;
+  display: block;
+}
+
+.payment-management-page-select {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border: 1px solid #cfd8dc;
+  border-radius: 6px;
+  background-color: #fafafa;
+  color: var(--pm-color-text);
+  outline: none;
+}
+
+.payment-management-page-select:focus {
+  border-color: var(--pm-color-primary);
+  background-color: #fff;
+}
+
+/* --- TABLE WRAPPER --- */
+.payment-management-page-table-wrapper {
+  background-color: var(--pm-color-surface);
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+  border: 1px solid var(--pm-border-color);
+  overflow: hidden;
+}
+
+.payment-management-page-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.payment-management-page-table thead th {
+  background-color: rgba(67, 160, 71, 0.08); /* Xanh rất nhạt */
+  color: var(--pm-color-primary-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--pm-border-color);
+}
+
+.payment-management-page-table tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f1f1;
+  vertical-align: middle;
+  font-size: 0.85rem;
+}
+
+.payment-management-page-table tbody tr:hover {
+  background-color: #f9fbe7; /* Hiệu ứng hover xanh nhạt */
+}
+
+/* --- TYPOGRAPHY TRONG BẢNG --- */
+.payment-management-page-code {
+  font-weight: 700;
+  color: var(--pm-color-primary);
+  font-family: 'Courier New', monospace;
+}
+
+.payment-management-page-text-bold {
+  font-weight: 600;
+  color: var(--pm-color-text);
+}
+
+.payment-management-page-sub-text {
+  font-size: 0.75rem;
+  color: #90a4ae;
+}
+
+.payment-management-page-icon-user {
+  font-size: 0.8rem;
+  color: #b0bec5;
+}
+
+.payment-management-page-service-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  background-color: #eceff1;
+  color: #546e7a;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.payment-management-page-amount {
+  font-weight: 700;
+  color: #e64a19; /* Màu cam đậm cho tiền */
+  font-size: 0.9rem;
+}
+
+.payment-management-page-date {
+  font-size: 0.8rem;
+  color: var(--pm-color-text);
+}
+
+/* --- BADGES --- */
+.payment-management-page-badge-method {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.method-vnpay { background-color: #e3f2fd; color: #1565c0; }
+.method-momo { background-color: #fce4ec; color: #c2185b; }
+.method-bank_transfer { background-color: #e8f5e9; color: #2e7d32; }
+.method-cash { background-color: #fff3e0; color: #ef6c00; }
+
+.payment-management-page-badge-status {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.status-paid {
+  background-color: var(--pm-status-paid-bg);
+  color: var(--pm-status-paid-text);
+  border-color: #c8e6c9;
+}
+.status-pending {
+  background-color: var(--pm-status-pending-bg);
+  color: var(--pm-status-pending-text);
+  border-color: #ffe082;
+}
+.status-failed {
+  background-color: var(--pm-status-failed-bg);
+  color: var(--pm-status-failed-text);
+  border-color: #ffcdd2;
+}
+
+/* --- ACTION BUTTONS --- */
+.payment-management-page-action-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s;
+  font-size: 0.8rem;
+  margin: 0 2px;
+}
+
+.payment-management-page-action-btn:hover {
+  transform: scale(1.1);
+}
+
+.btn-check {
+  background-color: #e1f5fe;
+  color: #0277bd;
+}
+
+.btn-approve {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+/* --- PAGINATION --- */
+.payment-management-page-pagination {
+  padding: 10px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--pm-border-color);
+  background-color: #fafafa;
+}
+
+.payment-management-page-pagination-controls button {
+  border: 1px solid #cfd8dc;
+  background: white;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--pm-color-text);
+}
+
+.payment-management-page-pagination-controls button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.payment-management-page-pagination-controls span {
+  margin: 0 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* --- BỔ SUNG STYLE CHO NÚT VÀ ICON --- */
+
+/* 1. Màu nền cho từng loại nút */
+.btn-view {
+  background-color: #0ea5e9 !important; /* Xanh dương đậm */
+  color: white !important;
+}
+.btn-view:hover {
+  background-color: #0284c7 !important;
+}
+
+.btn-check {
+  background-color: #e1f5fe !important; /* Xanh nhạt */
+  color: #0277bd !important;
+}
+
+.btn-approve {
+  background-color: #dcfce7 !important; /* Xanh lá nhạt */
+  color: #166534 !important;
+}
+
+/* 2. Bắt buộc hiển thị Icon bên trong nút */
+.payment-management-page-action-btn svg {
+  display: block !important;
+  font-size: 14px !important; /* Kích thước icon */
+  width: 14px !important;
+  height: 14px !important;
+  pointer-events: none; /* Để click vào icon vẫn ăn sự kiện nút */
+}
+
+/* --- Nút In --- */
+.btn-print {
+  background-color: #7e22ce !important; /* Màu tím */
+  color: white !important;
+}
+
+/* --- CẤU HÌNH IN ẤN (QUAN TRỌNG) --- */
+@media print {
+  /* Ẩn tất cả mọi thứ của trang web */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Ẩn header, sidebar, popup, nút bấm */
+  .payment-management-page-container,
+  .payment-management-page-header, 
+  .payment-management-page-filter-card,
+  .payment-management-page-pagination,
+  .Toastify, 
+  .modal {
+    display: none !important;
+  }
+
+  /* Chỉ hiện vùng hóa đơn */
+  #invoice-print-area, #invoice-print-area * {
+    visibility: visible;
+    display: block !important;
+  }
+
+  /* Căn chỉnh vùng hóa đơn về góc trên cùng khổ giấy */
+  #invoice-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: white;
+    color: black;
+  }
+
+  /* Reset các style bảng để in rõ nét */
+  .table-bordered {
+    border: 1px solid #000 !important;
+  }
+  .table-bordered th, .table-bordered td {
+    border: 1px solid #000 !important;
+  }
+  
+  /* Ẩn các link href khi in */
+  a[href]:after {
+    content: none !important;
+  }
+}

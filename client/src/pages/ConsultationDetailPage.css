@@ -1,0 +1,158 @@
+/* client/src/pages/ConsultationDetailPage.css */
+/* ✅ DETAIL PAGE - COMPACT THEME */
+
+:root {
+  --cdp-primary: #20bf6b;
+  --cdp-bg: #f8f9fa;
+  --cdp-white: #ffffff;
+  --cdp-text: #2d3436;
+  --cdp-border: #dfe6e9;
+  --cdp-danger: #ff7675;
+  --cdp-warning: #fdcb6e;
+  --cdp-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  --cdp-radius: 6px;
+}
+
+.cdp-page {
+  padding: 12px;
+  background: var(--cdp-bg);
+  min-height: 100vh;
+  font-family: -apple-system, sans-serif;
+  font-size: 13px;
+  color: var(--cdp-text);
+}
+
+/* Header */
+.cdp-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  background: var(--cdp-white);
+  padding: 10px 15px;
+  border-radius: var(--cdp-radius);
+  box-shadow: var(--cdp-shadow);
+}
+
+.cdp-btn-back {
+  background: none; border: none; font-size: 16px; color: #636e72; cursor: pointer; display: flex;
+}
+.cdp-header-title { display: flex; flex-direction: column; }
+.cdp-header-title h1 { margin: 0; font-size: 16px; font-weight: 600; }
+.cdp-code-badge { font-size: 11px; color: var(--cdp-primary); font-weight: 500; }
+
+/* Layout Grid */
+.cdp-container {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 12px;
+}
+
+/* Cards */
+.cdp-card {
+  background: var(--cdp-white);
+  border-radius: var(--cdp-radius);
+  box-shadow: var(--cdp-shadow);
+  border: 1px solid var(--cdp-border);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.cdp-card-header {
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--cdp-bg);
+  display: flex; justify-content: space-between; align-items: center;
+  background: #fdfdfd;
+}
+.cdp-card-header.sm { padding: 8px 12px; background: transparent; }
+.cdp-card-header h3, .cdp-card-header h4 { margin: 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.cdp-card-header h3 svg { color: var(--cdp-primary); }
+
+.cdp-card-body { padding: 15px; }
+.cdp-card-body.centered { text-align: center; }
+
+/* Status Badges */
+.cdp-status-badge {
+  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+}
+.cdp-status-badge.completed { background: #d4edda; color: #155724; }
+.cdp-status-badge.pending { background: #fff3cd; color: #856404; }
+.cdp-status-badge.confirmed { background: #cce5ff; color: #004085; }
+.cdp-status-badge.cancelled { background: #f8d7da; color: #721c24; }
+
+.cdp-type-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #eee; color: #555;
+}
+.cdp-type-badge.chat { background: #e3f2fd; color: #0d47a1; }
+.cdp-type-badge.video { background: #f3e5f5; color: #4a148c; }
+
+/* Info Grid */
+.cdp-info-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;
+}
+.cdp-info-item { display: flex; flex-direction: column; gap: 2px; }
+.cdp-info-item label { font-size: 11px; color: #999; text-transform: uppercase; font-weight: 600; }
+.cdp-info-item strong { font-size: 13px; }
+
+/* User Row */
+.cdp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cdp-user-row { display: flex; align-items: center; gap: 10px; padding: 10px 15px; }
+.cdp-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid var(--cdp-border); }
+.cdp-user-info { display: flex; flex-direction: column; line-height: 1.2; }
+.cdp-user-info strong { font-size: 13px; }
+.cdp-user-info span { font-size: 11px; color: var(--cdp-primary); }
+.cdp-user-info small { font-size: 10px; color: #999; }
+
+/* Medical & Diagnosis */
+.cdp-medical-section { margin-bottom: 12px; }
+.cdp-medical-section label { font-weight: 600; display: block; margin-bottom: 4px; font-size: 12px; }
+.cdp-diagnosis-box { background: #f0fdf4; border: 1px dashed var(--cdp-primary); padding: 12px; border-radius: 6px; }
+.cdp-diagnosis-item { margin-top: 8px; }
+.cdp-pre { background: white; padding: 8px; border-radius: 4px; font-size: 11px; border: 1px solid #eee; overflow-x: auto; }
+
+/* Files */
+.cdp-files-section { margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
+.cdp-file-list { display: flex; gap: 8px; flex-wrap: wrap; }
+.cdp-file-link { font-size: 12px; color: var(--cdp-primary); text-decoration: none; background: #e8f5e9; padding: 4px 8px; border-radius: 4px; }
+.cdp-file-link:hover { text-decoration: underline; }
+
+/* Payment Side */
+.cdp-payment-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+.cdp-payment-row.total { border-top: 1px solid #eee; padding-top: 8px; margin-top: 8px; font-size: 14px; }
+.cdp-text-primary { color: var(--cdp-primary); }
+.cdp-payment-status { margin-top: 12px; text-align: center; }
+.cdp-pay-badge { display: inline-block; padding: 4px 8px; background: #eee; border-radius: 12px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+.cdp-pay-badge.paid { background: #d4edda; color: #155724; }
+
+/* Rating */
+.cdp-stars-display { color: #ffeaa7; font-size: 16px; margin-bottom: 6px; }
+.cdp-stars-display .filled { color: #fdcb6e; }
+.cdp-review-text { font-style: italic; color: #636e72; font-size: 12px; }
+
+/* Buttons */
+.cdp-btn { padding: 6px 12px; border-radius: 4px; border: none; font-size: 12px; cursor: pointer; font-weight: 600; }
+.cdp-btn.full { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; height: 36px; }
+.cdp-btn-primary { background: var(--cdp-primary); color: white; }
+.cdp-btn-danger { background: var(--cdp-danger); color: white; }
+.cdp-btn-warning { background: var(--cdp-warning); color: #fff; }
+.cdp-btn-secondary { background: #eee; color: #333; }
+
+/* Modal */
+.cdp-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 999; }
+.cdp-modal { background: white; width: 350px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden; }
+.cdp-modal-header { padding: 12px 15px; background: var(--cdp-primary); color: white; display: flex; justify-content: space-between; align-items: center; }
+.cdp-modal-header button { background: none; border: none; color: white; cursor: pointer; }
+.cdp-modal-body { padding: 15px; text-align: center; }
+.cdp-star-input { display: flex; justify-content: center; gap: 5px; margin-bottom: 15px; }
+.star-lg { font-size: 24px; color: #ddd; cursor: pointer; transition: color 0.2s; }
+.star-lg.active { color: #fdcb6e; }
+.cdp-textarea { width: 100%; padding: 8px; border: 1px solid var(--cdp-border); border-radius: 4px; font-size: 13px; }
+.cdp-modal-footer { padding: 10px 15px; background: #f8f9fa; display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cdp-container { grid-template-columns: 1fr; }
+  .cdp-grid-2 { grid-template-columns: 1fr; }
+  .cdp-col-side { order: -1; } /* Đưa payment/actions lên đầu mobile */
+}
