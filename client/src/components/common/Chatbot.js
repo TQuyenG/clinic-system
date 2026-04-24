@@ -38,7 +38,7 @@ const Chatbot = () => {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: 'Xin chào! Tôi là trợ lý AI thông minh của Clinic System. Bạn đang gặp vấn đề gì về sức khỏe, hoặc cần tôi hỗ trợ thông tin gì về phòng khám?',
+      text: 'Xin chào! Tôi là trợ lý AI thông minh của Easy Medify. Bạn đang gặp vấn đề gì về sức khỏe, hoặc cần tôi hỗ trợ thông tin gì về phòng khám?',
       sender: 'bot',
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
     }

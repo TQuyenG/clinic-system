@@ -27,7 +27,7 @@ const Footer = () => {
   });
   
   const [footerData, setFooterData] = useState({
-    about_title: 'Clinic System',
+    about_title: 'Easy Medify',
     about_description: 'Hệ thống y tế hàng đầu, mang đến dịch vụ chăm sóc sức khỏe chất lượng cao.',
     address: '123 Đường Sức Khỏe, Q.1, TP.HCM',
     hotline: '1900 1234',
@@ -37,9 +37,9 @@ const Footer = () => {
     social_twitter: '',
     social_instagram: '',
     social_youtube: '',
-    copyright_text: 'Clinic System. Tất cả quyền được bảo lưu.',
+    copyright_text: 'Easy Medify. Tất cả quyền được bảo lưu.',
     privacy_link: '/privacy-policy',
-    terms_link: '/terms-of-service'
+    terms_link: '/terms'
   });
 
   const toggleSection = (section) => {

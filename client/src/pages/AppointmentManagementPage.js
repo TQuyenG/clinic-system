@@ -14,7 +14,8 @@ import {
   FaHourglassHalf, FaEye, FaBan, FaFilter, FaSearch, FaDownload, 
   FaPhone, FaEnvelope, FaSpinner, FaTimes,
   FaChevronDown, FaChevronUp, FaChevronRight, FaLock, FaSyncAlt, FaCheck,
-  FaHospital, FaPlay, FaNotesMedical
+  FaHospital, FaPlay, FaNotesMedical, FaMoneyBillWave, FaClipboardCheck,
+  FaStethoscope, FaFileAlt
 } from 'react-icons/fa';
 import './AppointmentManagementPage.css'; 
 
@@ -352,21 +353,21 @@ const AppointmentManagementPage = () => {
     let text, icon, className;
     switch (status) {
       case 'pending':
-        text = 'Chờ xác nhận'; icon = <FaHourglassHalf />; className = 'status-pending'; break;
+        text = 'Chờ xác nhận'; icon = <FaHourglassHalf />; className = 'amp-status-pending'; break;
       case 'confirmed':
-        text = 'Đã xác nhận'; icon = <FaCheckCircle />; className = 'status-confirmed'; break;
+        text = 'Đã xác nhận'; icon = <FaCheckCircle />; className = 'amp-status-confirmed'; break;
       case 'upcoming':
-        text = 'Sắp tới'; icon = <FaClock />; className = 'status-upcoming'; break;
+        text = 'Sắp tới'; icon = <FaClock />; className = 'amp-status-upcoming'; break;
       case 'in_progress':
-        text = 'Đang khám'; icon = <FaClock />; className = 'status-in-progress'; break;
+        text = 'Đang khám'; icon = <FaClock />; className = 'amp-status-in-progress'; break;
       case 'completed':
-        text = 'Hoàn thành'; icon = <FaCheckCircle />; className = 'status-completed'; break;
+        text = 'Hoàn thành'; icon = <FaCheckCircle />; className = 'amp-status-completed'; break;
       case 'passed':
-        text = 'Đã qua'; icon = <FaTimesCircle />; className = 'status-passed'; break;
+        text = 'Đã qua'; icon = <FaTimesCircle />; className = 'amp-status-passed'; break;
       case 'cancelled':
-        text = 'Đã hủy'; icon = <FaTimesCircle />; className = 'status-cancelled'; break;
+        text = 'Đã hủy'; icon = <FaTimesCircle />; className = 'amp-status-cancelled'; break;
       default:
-        text = 'Không rõ'; icon = <FaTimes />; className = 'status-cancelled'; break;
+        text = 'Không rõ'; icon = <FaTimes />; className = 'amp-status-cancelled'; break;
     }
     return <span className={`admin-appt-page-status-badge ${className}`}>{icon} {text}</span>;
   };
@@ -375,26 +376,26 @@ const AppointmentManagementPage = () => {
     let text, className, icon;
     switch (paymentStatus) {
       case 'unpaid':
-        text = 'Chưa thanh toán'; className = 'payment-unpaid'; icon = <FaClock className="me-1"/>; break;
+        text = 'Chưa thanh toán'; className = 'amp-payment-unpaid'; icon = <FaClock className="amp-me-1"/>; break;
       case 'paid_online':
-        text = 'Đã thanh toán'; className = 'payment-paid-online'; icon = <FaCheckCircle className="me-1"/>; break;
+        text = 'Đã thanh toán'; className = 'amp-payment-paid-online'; icon = <FaCheckCircle className="amp-me-1"/>; break;
       case 'paid_at_clinic':
-        text = 'Thanh toán tại quầy'; className = 'payment-paid-clinic'; icon = <FaHospital className="me-1"/>; break;
+        text = 'Thanh toán tại quầy'; className = 'amp-payment-paid-clinic'; icon = <FaHospital className="amp-me-1"/>; break;
       case 'refunded':
-        text = 'Đã hoàn tiền'; className = 'payment-refunded'; icon = <FaTimesCircle className="me-1"/>; break;
+        text = 'Đã hoàn tiền'; className = 'amp-payment-refunded'; icon = <FaTimesCircle className="amp-me-1"/>; break;
       case 'not_required':
-        text = 'Miễn phí'; className = 'payment-not-required'; icon = <FaCheckCircle className="me-1"/>; break;
+        text = 'Miễn phí'; className = 'amp-payment-not-required'; icon = <FaCheckCircle className="amp-me-1"/>; break;
       default:
-        text = 'Không rõ'; className = 'payment-unpaid'; icon = <FaClock className="me-1"/>; break;
+        text = 'Không rõ'; className = 'amp-payment-unpaid'; icon = <FaClock className="amp-me-1"/>; break;
     }
-    return <span className={`payment-status-badge ${className}`}>{icon}{text}</span>;
+    return <span className={`amp-payment-status-badge ${className}`}>{icon}{text}</span>;
   };
 
   const getMedicalRecordBadge = (status) => {
     if (status === 'has_record') {
-      return <span className="medical-record-badge has-record"><FaCheckCircle className="me-1"/>Có HSKB</span>;
+      return <span className="amp-medical-record-badge amp-has-record"><FaCheckCircle className="amp-me-1"/>Có HSKB</span>;
     }
-    return <span className="medical-record-badge no-record"><FaTimes className="me-1"/>Chưa có</span>;
+    return <span className="amp-medical-record-badge amp-no-record"><FaTimes className="amp-me-1"/>Chưa có</span>;
   };
   
   const getStats = () => {
@@ -451,7 +452,7 @@ const AppointmentManagementPage = () => {
     return (
       <div className="admin-appt-page-container">
         <div className="admin-appt-page-loading">
-          <FaSpinner className="fa-spin" />
+          <FaSpinner className="amp-fa-spin" />
           <span>Đang tải danh sách lịch hẹn...</span>
         </div>
       </div>
@@ -669,30 +670,30 @@ const AppointmentManagementPage = () => {
                     const isExpanded = expandedRow === medicalRecord?.id;
                     return (
                       <React.Fragment key={apt.id}>
-                        <tr className={isExpanded ? 'row-expanded' : ''}>
+                        <tr className={isExpanded ? 'amp-row-expanded' : ''}>
                           <td data-label="Mã Lịch Hẹn">{apt.code}</td>
                           
                           {/* SỬA LỖI: KIỂM TRA KỸ DỮ LIỆU BỆNH NHÂN */}
                           <td data-label="Bệnh nhân">
                             <div className="admin-appt-page-patient-info">
-                              <span className="fw-bold text-wrap">{apt.Patient?.user?.full_name || apt.guest_name || 'Khách vãng lai'}</span>
-                              <div className="text-muted small">
+                              <span className="amp-fw-bold text-wrap">{apt.Patient?.user?.full_name || apt.guest_name || 'Khách vãng lai'}</span>
+                              <div className="amp-text-muted amp-small">
                                 {apt.Patient?.user ? (
                                   <>
-                                    <div className="d-flex align-items-center">
-                                      <FaPhone className="me-1" size={10}/> {apt.Patient.user.phone || 'N/A'}
+                                    <div className="amp-d-flex amp-align-items-center">
+                                      <FaPhone className="amp-me-1" size={10}/> {apt.Patient.user.phone || 'N/A'}
                                     </div>
-                                    <div className="d-flex align-items-center mt-1">
-                                      <FaEnvelope className="me-1" size={10}/> {apt.Patient.user.email || 'N/A'}
+                                    <div className="amp-d-flex amp-align-items-center amp-mt-1">
+                                      <FaEnvelope className="amp-me-1" size={10}/> {apt.Patient.user.email || 'N/A'}
                                     </div>
                                   </>
                                 ) : (
                                   <>
-                                    <div className="d-flex align-items-center">
-                                      <FaPhone className="me-1" size={10}/> {apt.guest_phone || 'N/A'}
+                                    <div className="amp-d-flex amp-align-items-center">
+                                      <FaPhone className="amp-me-1" size={10}/> {apt.guest_phone || 'N/A'}
                                     </div>
-                                    <div className="d-flex align-items-center mt-1">
-                                      <FaEnvelope className="me-1" size={10}/> {apt.guest_email || 'N/A'}
+                                    <div className="amp-d-flex amp-align-items-center amp-mt-1">
+                                      <FaEnvelope className="amp-me-1" size={10}/> {apt.guest_email || 'N/A'}
                                     </div>
                                   </>
                                 )}
@@ -704,17 +705,17 @@ const AppointmentManagementPage = () => {
                           
                           <td data-label="Bác sĩ">
                             <div className="admin-appt-page-doctor-info">
-                              <FaUserMd className="me-1"/>
+                              <FaUserMd className="amp-me-1"/>
                               <span>{apt.Doctor?.user?.full_name || 'Đang cập nhật'}</span>
                             </div>
                           </td>
                           
                           <td data-label="Ngày & Giờ">
                             <div className="admin-appt-page-datetime-info">
-                              <FaCalendarAlt /> <span className="fw-bold">{new Date(apt.appointment_date).toLocaleDateString('vi-VN')}</span>
+                              <FaCalendarAlt /> <span className="amp-fw-bold">{new Date(apt.appointment_date).toLocaleDateString('vi-VN')}</span>
                             </div>
                             <div className="admin-appt-page-datetime-info">
-                              <FaClock /> <span className="text-primary">{formatTime(apt.appointment_start_time)}</span>
+                              <FaClock /> <span className="amp-text-primary">{formatTime(apt.appointment_start_time)}</span>
                             </div>
                           </td>
                           
@@ -726,7 +727,7 @@ const AppointmentManagementPage = () => {
                             {getPaymentStatusBadge(apt.payment_status)}
                             {apt.payment_method && (
                               <div className="payment-method-info">
-                                <small className="text-muted">
+                                <small className="amp-text-muted">
                                   {apt.payment_method === 'cash' ? '💵 Tiền mặt' :
                                    apt.payment_method === 'card' ? '💳 Thẻ' :
                                    apt.payment_method === 'bank_transfer' ? '🏦 Chuyển khoản' :
@@ -737,7 +738,7 @@ const AppointmentManagementPage = () => {
                             )}
                             {apt.paid_at && (
                               <div className="paid-date-info">
-                                <small className="text-success">
+                                <small className="amp-text-success">
                                   {new Date(apt.paid_at).toLocaleDateString('vi-VN')}
                                 </small>
                               </div>
@@ -752,10 +753,11 @@ const AppointmentManagementPage = () => {
                             <div className="admin-appt-page-action-buttons">
                               <Link 
                                 to={`/lich-hen/${apt.code}`}
-                                className="admin-appt-page-btn-action btn-view"
+                                className="admin-appt-page-btn-action amp-btn-view"
                                 title="Xem chi tiết"
                               >
                                 <FaEye />
+                                <span className="amp-btn-label">Chi tiết</span>
                               </Link>
                               
                               {(() => {
@@ -774,19 +776,20 @@ const AppointmentManagementPage = () => {
                                      (apt.status === 'confirmed' || apt.status === 'in_progress' || isPaid) && 
                                      (!apt.medical_record_status || apt.medical_record_status === 'no_record') && (
                                       <button 
-                                        className="admin-appt-page-btn-action" 
+                                        className="admin-appt-page-btn-action appointment-management-action-medical" 
                                         onClick={() => navigate(`/ho-so-y-te/nhap-moi?appointment_code=${apt.code}`)} 
                                         title="Lập hồ sơ & Đo sinh hiệu"
-                                        style={{ backgroundColor: '#ff69b4', color: 'white', border: '1px solid #ff69b4' }}
                                       > 
-                                        <FaNotesMedical /> 
+                                        <FaNotesMedical />
+                                        <span className="amp-btn-label">Lập HS</span>
                                       </button>
                                     )}
                                     {/* --- KẾT THÚC: NÚT LẬP HỒ SƠ Y TẾ --- */}
 
                                     {apt.status === 'pending' && (
-                                      <button className="admin-appt-page-btn-action appointment-management-action-confirm" onClick={() => openActionModal(apt, 'confirm')} title="Xác nhận" > 
-                                        <FaCheckCircle /> 
+                                      <button className="admin-appt-page-btn-action appointment-management-action-confirm" onClick={() => openActionModal(apt, 'confirm')} title="Xác nhận lịch hẹn" > 
+                                        <FaClipboardCheck />
+                                        <span className="amp-btn-label">Duyệt</span>
                                       </button>
                                     )}
                                     {apt.payment_status === 'unpaid' && (apt.status === 'pending' || apt.status === 'confirmed') && (
@@ -794,19 +797,21 @@ const AppointmentManagementPage = () => {
                                         className="admin-appt-page-btn-action appointment-management-action-payment" 
                                         onClick={() => openPaymentModal(apt)} 
                                         title="Xác nhận thanh toán tại quầy"
-                                        style={{ backgroundColor: '#28a745', color: 'white' }}
-                                      > 
-                                        <FaCheckCircle /> 
+                                      >
+                                        <FaMoneyBillWave />
+                                        <span className="amp-btn-label">Thanh toán</span>
                                       </button>
                                     )}
                                     {(apt.status === 'confirmed' || apt.status === 'upcoming' || apt.status === 'in_progress' || (apt.status === 'pending' && isPaid)) && (
                                       <button className="admin-appt-page-btn-action appointment-management-action-complete" onClick={() => navigate(`/nhap-ket-qua/${apt.code}`)} title="Hoàn thành & Nhập kết quả" > 
-                                        <FaUserMd /> 
+                                        <FaStethoscope />
+                                        <span className="amp-btn-label">Nhập KQ</span>
                                       </button>
                                     )}
                                     {(apt.status !== 'completed' && apt.status !== 'passed' && apt.status !== 'cancelled') && (
                                       <button className="admin-appt-page-btn-action appointment-management-action-cancel" onClick={() => openActionModal(apt, 'cancel')} title="Hủy lịch hẹn" > 
-                                        <FaBan /> 
+                                        <FaBan />
+                                        <span className="amp-btn-label">Hủy</span>
                                       </button>
                                     )}
                                   </>
@@ -815,12 +820,13 @@ const AppointmentManagementPage = () => {
                               
                               {medicalRecord && (
                                 <button
-                                  className="admin-appt-page-btn-action btn-reset"
+                                  className="admin-appt-page-btn-action amp-btn-reset"
                                   onClick={() => handleResetCodeClick(medicalRecord.id)}
                                   title="Reset Mã Tra Cứu"
                                   disabled={isResettingCode}
                                 >
-                                  {isResettingCode ? <FaSpinner className="fa-spin" /> : <FaSyncAlt />}
+                                  {isResettingCode ? <FaSpinner className="amp-fa-spin" /> : <FaSyncAlt />}
+                                  <span className="amp-btn-label">Reset</span>
                                 </button>
                               )}
                             </div>
@@ -832,9 +838,9 @@ const AppointmentManagementPage = () => {
                             <td colSpan="8">
                               <div className="admin-appt-page-result-content">
                                 <p className="mb-2"><strong>Mã Hồ Sơ:</strong> {medicalRecord.record_code}</p>
-                                <p className="mb-2"><strong>Mã Tra Cứu:</strong> <span className="text-danger fw-bold">{medicalRecord.lookup_code}</span> <FaLock size={12} className="text-danger"/></p>
+                                <p className="mb-2"><strong>Mã Tra Cứu:</strong> <span className="amp-text-danger amp-fw-bold">{medicalRecord.lookup_code}</span> <FaLock size={12} className="amp-text-danger"/></p>
                                 <p className="mb-2"><strong>Kết Luận:</strong> {medicalRecord.diagnosis || 'Chưa có kết luận'}</p>
-                                <Link to={`/ho-so-kham-benh/${medicalRecord.record_code}`} className="small text-decoration-none fw-bold">
+                                <Link to={`/ho-so-kham-benh/${medicalRecord.record_code}`} className="amp-small amp-text-decoration-none amp-fw-bold">
                                   Xem chi tiết hồ sơ <FaChevronRight size={10} className="ms-1"/>
                                 </Link>
                               </div>
@@ -846,7 +852,7 @@ const AppointmentManagementPage = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="8" className="text-center py-4 text-muted">Không tìm thấy lịch hẹn nào theo bộ lọc.</td>
+                    <td colSpan="8" className="text-center py-4 amp-text-muted">Không tìm thấy lịch hẹn nào theo bộ lọc.</td>
                   </tr>
                 )}
               </tbody>
@@ -860,7 +866,7 @@ const AppointmentManagementPage = () => {
             <div className="admin-appt-page-modal-content">
               <div className="admin-appt-page-modal-header">
                 <h5>{actionType === 'confirm' ? 'Xác nhận Lịch Hẹn' : 'Hủy Lịch Hẹn'}</h5>
-                <button className="close-btn" onClick={closeActionModal}><FaTimes /></button>
+                <button className="amp-close-btn" onClick={closeActionModal}><FaTimes /></button>
               </div>
               <div className="admin-appt-page-modal-body">
                 <div className="admin-appt-page-appointment-summary">
@@ -869,9 +875,9 @@ const AppointmentManagementPage = () => {
                   <p><strong>Thời gian:</strong> {new Date(selectedAppointment.appointment_date).toLocaleDateString('vi-VN')} lúc {formatTime(selectedAppointment.appointment_start_time)}</p>
                 </div>
                 {actionType === 'confirm' ? (
-                  <p className="admin-appt-page-confirmation-text text-success fw-bold">Bạn có chắc chắn muốn xác nhận lịch hẹn này?</p>
+                  <p className="admin-appt-page-confirmation-text amp-text-success amp-fw-bold">Bạn có chắc chắn muốn xác nhận lịch hẹn này?</p>
                 ) : (
-                  <p className="admin-appt-page-confirmation-text text-danger">Lịch hẹn sẽ bị hủy bỏ. Bệnh nhân sẽ nhận được thông báo.</p>
+                  <p className="admin-appt-page-confirmation-text amp-text-danger">Lịch hẹn sẽ bị hủy bỏ. Bệnh nhân sẽ nhận được thông báo.</p>
                 )}
                 {actionType === 'cancel' && (
                   <div className="admin-appt-page-form-group">
@@ -884,12 +890,12 @@ const AppointmentManagementPage = () => {
                 )}
               </div>
               <div className="admin-appt-page-modal-footer">
-                <button className="admin-appt-page-btn btn-secondary" onClick={closeActionModal} disabled={isSubmitting}>Đóng</button>
+                <button className="admin-appt-page-btn amp-btn-secondary" onClick={closeActionModal} disabled={isSubmitting}>Đóng</button>
                 <button 
-                  className={`admin-appt-page-btn ${actionType === 'cancel' ? 'btn-danger' : 'btn-primary'}`}
+                  className={`admin-appt-page-btn ${actionType === 'cancel' ? 'amp-btn-danger' : 'amp-btn-primary'}`}
                   onClick={handleConfirmAction} disabled={isSubmitting}
                 >
-                  {isSubmitting ? <FaSpinner className="fa-spin" /> : (actionType === 'confirm' ? 'Xác nhận' : 'Hủy lịch')}
+                  {isSubmitting ? <FaSpinner className="amp-fa-spin" /> : (actionType === 'confirm' ? 'Xác nhận' : 'Hủy lịch')}
                 </button>
               </div>
             </div>
@@ -912,7 +918,7 @@ const AppointmentManagementPage = () => {
             <div className="admin-appt-page-modal-content">
               <div className="admin-appt-page-modal-header">
                 <h5>Xác nhận thanh toán tại quầy</h5>
-                <button className="close-btn" onClick={closePaymentModal}><FaTimes /></button>
+                <button className="amp-close-btn" onClick={closePaymentModal}><FaTimes /></button>
               </div>
               <div className="admin-appt-page-modal-body">
                 <div className="admin-appt-page-appointment-summary">
@@ -946,16 +952,16 @@ const AppointmentManagementPage = () => {
                 </div>
               </div>
               <div className="admin-appt-page-modal-footer">
-                <button className="admin-appt-page-btn btn-secondary" onClick={closePaymentModal} disabled={isSubmitting}>
+                <button className="admin-appt-page-btn amp-btn-secondary" onClick={closePaymentModal} disabled={isSubmitting}>
                   Đóng
                 </button>
                 <button 
-                  className="admin-appt-page-btn btn-primary"
+                  className="admin-appt-page-btn amp-btn-primary"
                   onClick={handleConfirmPayment} 
                   disabled={isSubmitting}
                   style={{ backgroundColor: '#28a745' }}
                 >
-                  {isSubmitting ? <FaSpinner className="fa-spin" /> : 'Xác nhận thanh toán'}
+                  {isSubmitting ? <FaSpinner className="amp-fa-spin" /> : 'Xác nhận thanh toán'}
                 </button>
               </div>
             </div>

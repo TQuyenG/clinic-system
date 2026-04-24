@@ -1,341 +1,771 @@
-/* client/src/pages/PaymentManagementPage.css */
+/* ============================================
+   PAYMENT MANAGEMENT PAGE - RESPONSIVE DESIGN
+   Màu chủ đạo: Trắng + Xanh lá nhạt
+   Đồng bộ với AppointmentManagementPage
+   ============================================ */
 
-/* --- BIẾN MÀU SẮC PASTEL Y TẾ --- */
+/* === CSS VARIABLES === */
 :root {
-  --pm-color-bg: #F1F8E9;        /* Xanh lá pastel rất nhạt (Light Green 50) */
-  --pm-color-primary: #43A047;   /* Xanh lá y tế (Green 600) */
-  --pm-color-primary-dark: #2E7D32;
-  --pm-color-surface: #FFFFFF;
-  --pm-color-text: #37474F;      /* Xám đậm xanh */
-  --pm-color-text-light: #78909C;
-  --pm-border-color: #DCEDC8;    /* Viền xanh nhạt */
-  
-  /* Status Colors */
-  --pm-status-paid-bg: #E8F5E9;
-  --pm-status-paid-text: #2E7D32;
-  --pm-status-pending-bg: #FFF8E1;
-  --pm-status-pending-text: #F57F17;
-  --pm-status-failed-bg: #FFEBEE;
-  --pm-status-failed-text: #C62828;
+  --pm-primary: #4caf50;
+  --pm-primary-light: #a5d6a7;
+  --pm-primary-lighter: #e8f5e9;
+  --pm-primary-dark: #388e3c;
+  --pm-accent: #66bb6a;
+  --pm-danger: #e53935;
+  --pm-danger-light: #ffebee;
+  --pm-warning: #f57c00;
+  --pm-warning-light: #fff3e0;
+  --pm-info: #1976d2;
+  --pm-info-light: #e3f2fd;
+  --pm-teal: #00695c;
+  --pm-teal-light: #e0f2f1;
+  --pm-gray: #757575;
+  --pm-gray-light: #f5f5f5;
+  --pm-border: #c8e6c9;
+  --pm-bg: #f9fbe7;
+  --pm-white: #ffffff;
+  --pm-text: #212121;
+  --pm-text-secondary: #616161;
+  --pm-shadow-sm: 0 1px 4px rgba(76, 175, 80, 0.12);
+  --pm-shadow-md: 0 2px 12px rgba(76, 175, 80, 0.18);
+  --pm-shadow-lg: 0 8px 32px rgba(0,0,0,0.15);
+  --pm-radius: 10px;
+  --pm-radius-sm: 7px;
+  --pm-radius-xs: 5px;
+  --pm-transition: all 0.22s ease;
+
+  /* Font sizes fluid */
+  --pm-font-xs: clamp(10px, 1.2vw, 11px);
+  --pm-font-sm: clamp(11px, 1.4vw, 13px);
+  --pm-font-base: clamp(12px, 1.5vw, 14px);
+  --pm-font-lg: clamp(14px, 2vw, 18px);
+  --pm-font-xl: clamp(16px, 2.5vw, 20px);
 }
 
-/* --- CONTAINER CHUNG --- */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* === CONTAINER === */
 .payment-management-page-container {
-  padding: 15px 20px;
-  background-color: var(--pm-color-bg);
+  width: 100%;
+  max-width: 100%;
+  padding: clamp(8px, 2vw, 20px);
+  background: var(--pm-bg);
   min-height: 100vh;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: var(--pm-color-text);
+  color: var(--pm-text);
 }
 
-/* --- HEADER --- */
+/* === HEADER === */
 .payment-management-page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: clamp(10px, 1.5vw, 16px);
+  background: var(--pm-white);
+  border-radius: var(--pm-radius);
+  padding: clamp(12px, 1.5vw, 16px) clamp(14px, 2vw, 20px);
+  box-shadow: var(--pm-shadow-sm);
+  border: 1px solid var(--pm-border);
 }
 
 .payment-management-page-title {
-  font-size: 1.1rem;
+  font-size: var(--pm-font-xl);
   font-weight: 700;
-  color: var(--pm-color-primary-dark);
+  color: var(--pm-primary-dark);
   margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .payment-management-page-refresh-btn {
-  background-color: var(--pm-color-surface);
-  border: 1px solid var(--pm-border-color);
-  color: var(--pm-color-primary);
-  padding: 5px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--pm-white);
+  border: 1.5px solid var(--pm-border);
+  color: var(--pm-primary-dark);
+  padding: clamp(5px, 0.8vw, 7px) clamp(10px, 1.5vw, 16px);
   border-radius: 20px;
-  font-size: 0.8rem;
+  font-size: var(--pm-font-sm);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: var(--pm-transition);
+  white-space: nowrap;
 }
 
 .payment-management-page-refresh-btn:hover {
-  background-color: var(--pm-color-primary);
-  color: white;
+  background: var(--pm-primary);
+  color: var(--pm-white);
+  border-color: var(--pm-primary);
+  box-shadow: var(--pm-shadow-md);
 }
 
-.spin-icon {
+.pmp-spin-icon {
   animation: spin 1s linear infinite;
 }
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
-/* --- FILTER CARD --- */
+/* === FILTER CARD === */
 .payment-management-page-filter-card {
-  background-color: var(--pm-color-surface);
-  padding: 12px 15px;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-  margin-bottom: 15px;
-  border: 1px solid var(--pm-border-color);
+  background: var(--pm-white);
+  padding: clamp(12px, 1.5vw, 16px) clamp(14px, 2vw, 18px);
+  border-radius: var(--pm-radius);
+  box-shadow: var(--pm-shadow-sm);
+  margin-bottom: clamp(10px, 1.5vw, 16px);
+  border: 1px solid var(--pm-border);
+}
+
+/* Hàng filter - 1 dòng ngang, tự xuống khi hẹp */
+.pmp-filter-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: clamp(8px, 1.5vw, 14px);
+}
+
+/* Mỗi group filter */
+.pmp-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+/* Group date rộng hơn một chút */
+.pmp-filter-group--date {
+  flex: 1.6 1 240px;
 }
 
 .payment-management-page-label {
-  font-size: 0.75rem;
+  font-size: var(--pm-font-xs);
   font-weight: 700;
-  color: var(--pm-color-text-light);
-  margin-bottom: 4px;
-  display: block;
+  color: var(--pm-primary-dark);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
 .payment-management-page-select {
   width: 100%;
-  padding: 6px 10px;
-  font-size: 0.85rem;
-  border: 1px solid #cfd8dc;
-  border-radius: 6px;
-  background-color: #fafafa;
-  color: var(--pm-color-text);
+  padding: clamp(6px, 1vw, 8px) clamp(8px, 1.2vw, 11px);
+  font-size: var(--pm-font-sm);
+  border: 1.5px solid var(--pm-border);
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-white);
+  color: var(--pm-text);
   outline: none;
+  transition: var(--pm-transition);
+  height: clamp(32px, 3.5vw, 38px);
 }
 
 .payment-management-page-select:focus {
-  border-color: var(--pm-color-primary);
-  background-color: #fff;
+  border-color: var(--pm-primary);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
+  background: var(--pm-primary-lighter);
 }
 
-/* --- TABLE WRAPPER --- */
+/* === DATE NAVIGATOR === */
+.pmp-date-navigator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: clamp(32px, 3.5vw, 38px);
+}
+
+.pmp-date-nav-btn {
+  height: 100%;
+  min-width: clamp(28px, 2.5vw, 34px);
+  padding: 0 8px;
+  border: 1.5px solid var(--pm-border);
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-white);
+  color: var(--pm-primary-dark);
+  cursor: pointer;
+  transition: var(--pm-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--pm-font-sm);
+  flex-shrink: 0;
+}
+
+.pmp-date-nav-btn:hover {
+  background: var(--pm-primary);
+  color: var(--pm-white);
+  border-color: var(--pm-primary);
+}
+
+.pmp-date-input {
+  height: 100%;
+  flex: 1 1 110px;
+  min-width: 0;
+  padding: 0 clamp(6px, 1vw, 10px);
+  font-size: var(--pm-font-sm);
+  font-weight: 600;
+  text-align: center;
+  border: 1.5px solid var(--pm-border);
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-white);
+  color: var(--pm-text);
+  outline: none;
+  transition: var(--pm-transition);
+}
+
+.pmp-date-input:focus {
+  border-color: var(--pm-primary);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
+  background: var(--pm-primary-lighter);
+}
+
+.pmp-date-all-btn {
+  height: 100%;
+  padding: 0 clamp(8px, 1.2vw, 13px);
+  border: 1.5px solid var(--pm-border);
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-white);
+  color: var(--pm-primary-dark);
+  font-size: var(--pm-font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--pm-transition);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pmp-date-all-btn:hover {
+  background: var(--pm-primary-lighter);
+  border-color: var(--pm-primary);
+}
+
+.pmp-date-all-btn--active {
+  background: var(--pm-primary);
+  color: var(--pm-white);
+  border-color: var(--pm-primary);
+}
+
+.pmp-date-all-btn--active:hover {
+  background: var(--pm-primary-dark);
+}
+
+/* === TABLE WRAPPER === */
 .payment-management-page-table-wrapper {
-  background-color: var(--pm-color-surface);
-  border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.03);
-  border: 1px solid var(--pm-border-color);
-  overflow: hidden;
+  background: var(--pm-white);
+  border-radius: var(--pm-radius);
+  box-shadow: var(--pm-shadow-sm);
+  border: 1px solid var(--pm-border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .payment-management-page-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: var(--pm-font-sm);
+  min-width: 720px;
 }
 
+/* Header bảng - nền xanh lá */
 .payment-management-page-table thead th {
-  background-color: rgba(67, 160, 71, 0.08); /* Xanh rất nhạt */
-  color: var(--pm-color-primary-dark);
-  font-size: 0.75rem;
+  background: var(--pm-primary);
+  color: var(--pm-white);
+  font-size: clamp(10px, 1.1vw, 12px);
   font-weight: 700;
   text-transform: uppercase;
-  padding: 10px 12px;
+  letter-spacing: 0.4px;
+  padding: clamp(9px, 1.2vw, 12px) clamp(8px, 1vw, 12px);
   text-align: left;
-  border-bottom: 1px solid var(--pm-border-color);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
+/* Cell */
 .payment-management-page-table tbody td {
-  padding: 8px 12px;
-  border-bottom: 1px solid #f1f1f1;
+  padding: clamp(7px, 1vw, 10px) clamp(8px, 1vw, 12px);
+  border-bottom: 1px solid var(--pm-border);
   vertical-align: middle;
-  font-size: 0.85rem;
+  font-size: var(--pm-font-sm);
+  color: var(--pm-text);
+}
+
+.payment-management-page-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Zebra - xanh lá cực nhạt */
+.payment-management-page-table tbody tr:nth-child(even) {
+  background: #f1f8e9;
 }
 
 .payment-management-page-table tbody tr:hover {
-  background-color: #f9fbe7; /* Hiệu ứng hover xanh nhạt */
+  background: var(--pm-primary-lighter);
 }
 
-/* --- TYPOGRAPHY TRONG BẢNG --- */
+/* === TYPOGRAPHY TRONG BẢNG === */
 .payment-management-page-code {
   font-weight: 700;
-  color: var(--pm-color-primary);
+  color: var(--pm-primary-dark);
   font-family: 'Courier New', monospace;
+  font-size: var(--pm-font-sm);
 }
 
 .payment-management-page-text-bold {
   font-weight: 600;
-  color: var(--pm-color-text);
+  color: var(--pm-text);
+  font-size: var(--pm-font-sm);
 }
 
 .payment-management-page-sub-text {
-  font-size: 0.75rem;
-  color: #90a4ae;
+  font-size: var(--pm-font-xs);
+  color: var(--pm-text-secondary);
 }
 
 .payment-management-page-icon-user {
-  font-size: 0.8rem;
-  color: #b0bec5;
+  font-size: var(--pm-font-xs);
+  color: var(--pm-gray);
+  flex-shrink: 0;
 }
 
 .payment-management-page-service-tag {
   display: inline-block;
-  font-size: 0.7rem;
-  background-color: #eceff1;
-  color: #546e7a;
-  padding: 2px 6px;
+  font-size: var(--pm-font-xs);
+  background: var(--pm-primary-lighter);
+  color: var(--pm-primary-dark);
+  padding: 2px 7px;
   border-radius: 4px;
+  border: 1px solid var(--pm-border);
 }
 
 .payment-management-page-amount {
   font-weight: 700;
-  color: #e64a19; /* Màu cam đậm cho tiền */
-  font-size: 0.9rem;
+  color: #bf360c;
+  font-size: clamp(12px, 1.4vw, 14px);
 }
 
 .payment-management-page-date {
-  font-size: 0.8rem;
-  color: var(--pm-color-text);
+  font-size: var(--pm-font-xs);
+  color: var(--pm-text-secondary);
 }
 
-/* --- BADGES --- */
+/* === BADGES - Phương thức === */
 .payment-management-page-badge-method {
+  display: inline-flex;
+  align-items: center;
   padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 0.7rem;
+  border-radius: var(--pm-radius-xs);
+  font-size: var(--pm-font-xs);
   font-weight: 700;
   text-transform: uppercase;
+  white-space: nowrap;
 }
-.method-vnpay { background-color: #e3f2fd; color: #1565c0; }
-.method-momo { background-color: #fce4ec; color: #c2185b; }
-.method-bank_transfer { background-color: #e8f5e9; color: #2e7d32; }
-.method-cash { background-color: #fff3e0; color: #ef6c00; }
 
+.pmp-method-vnpay        { background: #e3f2fd; color: #0d47a1; }
+.pmp-method-momo         { background: #fce4ec; color: #880e4f; }
+.pmp-method-bank_transfer{ background: var(--pm-primary-lighter); color: var(--pm-primary-dark); }
+.pmp-method-cash         { background: var(--pm-warning-light); color: #bf360c; }
+
+/* === BADGES - Trạng thái === */
 .payment-management-page-badge-status {
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 20px;
+  font-size: var(--pm-font-xs);
   font-weight: 600;
   border: 1px solid transparent;
-}
-.status-paid {
-  background-color: var(--pm-status-paid-bg);
-  color: var(--pm-status-paid-text);
-  border-color: #c8e6c9;
-}
-.status-pending {
-  background-color: var(--pm-status-pending-bg);
-  color: var(--pm-status-pending-text);
-  border-color: #ffe082;
-}
-.status-failed {
-  background-color: var(--pm-status-failed-bg);
-  color: var(--pm-status-failed-text);
-  border-color: #ffcdd2;
+  white-space: nowrap;
 }
 
-/* --- ACTION BUTTONS --- */
+.pmp-status-paid    { background: var(--pm-primary-lighter); color: var(--pm-primary-dark); border-color: var(--pm-border); }
+.pmp-status-pending { background: var(--pm-warning-light);   color: #e65100;               border-color: #ffe082; }
+.pmp-status-failed  { background: var(--pm-danger-light);    color: #b71c1c;               border-color: #ffcdd2; }
+
+/* === ACTION BUTTONS === */
 .payment-management-page-action-btn {
-  width: 30px;
-  height: 30px;
+  height: clamp(28px, 3vw, 32px);
+  min-width: clamp(28px, 3vw, 32px);
+  padding: 0 clamp(5px, 0.8vw, 8px);
   border: none;
-  border-radius: 50%;
+  border-radius: var(--pm-radius-xs);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   cursor: pointer;
-  transition: transform 0.1s;
-  font-size: 0.8rem;
-  margin: 0 2px;
+  transition: var(--pm-transition);
+  font-size: var(--pm-font-xs);
+  font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .payment-management-page-action-btn:hover {
-  transform: scale(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.18);
 }
 
-.btn-check {
-  background-color: #e1f5fe;
-  color: #0277bd;
+.payment-management-page-action-btn svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
-.btn-approve {
-  background-color: #e8f5e9;
-  color: #2e7d32;
+/* In hóa đơn - Tím */
+.pmp-btn-print {
+  background: #ede7f6;
+  color: #4527a0;
+}
+.pmp-btn-print:hover {
+  background: #4527a0;
+  color: var(--pm-white);
 }
 
-/* --- PAGINATION --- */
-.payment-management-page-pagination {
-  padding: 10px 15px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid var(--pm-border-color);
-  background-color: #fafafa;
+/* Xem chi tiết - Xanh dương */
+.pmp-btn-view-detail {
+  background: var(--pm-info-light);
+  color: var(--pm-info);
+}
+.pmp-btn-view-detail:hover {
+  background: var(--pm-info);
+  color: var(--pm-white);
 }
 
-.payment-management-page-pagination-controls button {
-  border: 1px solid #cfd8dc;
-  background: white;
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  color: var(--pm-color-text);
+/* Đối soát VNPay - Cam */
+.pmp-btn-check {
+  background: var(--pm-warning-light);
+  color: var(--pm-warning);
+}
+.pmp-btn-check:hover {
+  background: var(--pm-warning);
+  color: var(--pm-white);
 }
 
-.payment-management-page-pagination-controls button:disabled {
-  opacity: 0.5;
-  cursor: default;
+/* Duyệt tay - Xanh lá */
+.pmp-btn-approve {
+  background: var(--pm-primary-lighter);
+  color: var(--pm-primary-dark);
+}
+.pmp-btn-approve:hover {
+  background: var(--pm-primary-dark);
+  color: var(--pm-white);
 }
 
-.payment-management-page-pagination-controls span {
-  margin: 0 10px;
-  font-size: 0.8rem;
+/* Label bên trong button */
+.pmp-btn-label {
+  font-size: clamp(9px, 1vw, 11px);
   font-weight: 600;
 }
 
-/* --- BỔ SUNG STYLE CHO NÚT VÀ ICON --- */
-
-/* 1. Màu nền cho từng loại nút */
-.btn-view {
-  background-color: #0ea5e9 !important; /* Xanh dương đậm */
-  color: white !important;
-}
-.btn-view:hover {
-  background-color: #0284c7 !important;
-}
-
-.btn-check {
-  background-color: #e1f5fe !important; /* Xanh nhạt */
-  color: #0277bd !important;
+/* === PAGINATION === */
+.payment-management-page-pagination {
+  padding: clamp(8px, 1vw, 12px) clamp(12px, 1.5vw, 16px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--pm-border);
+  background: #fafcf7;
+  border-radius: 0 0 var(--pm-radius) var(--pm-radius);
 }
 
-.btn-approve {
-  background-color: #dcfce7 !important; /* Xanh lá nhạt */
-  color: #166534 !important;
+.payment-management-page-pagination small {
+  font-size: var(--pm-font-sm);
+  color: var(--pm-text-secondary);
 }
 
-/* 2. Bắt buộc hiển thị Icon bên trong nút */
-.payment-management-page-action-btn svg {
-  display: block !important;
-  font-size: 14px !important; /* Kích thước icon */
-  width: 14px !important;
-  height: 14px !important;
-  pointer-events: none; /* Để click vào icon vẫn ăn sự kiện nút */
+.payment-management-page-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-/* --- Nút In --- */
-.btn-print {
-  background-color: #7e22ce !important; /* Màu tím */
-  color: white !important;
+.payment-management-page-pagination-controls button {
+  border: 1.5px solid var(--pm-border);
+  background: var(--pm-white);
+  border-radius: var(--pm-radius-xs);
+  width: clamp(26px, 2.5vw, 30px);
+  height: clamp(26px, 2.5vw, 30px);
+  font-size: var(--pm-font-sm);
+  cursor: pointer;
+  color: var(--pm-primary-dark);
+  transition: var(--pm-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* --- CẤU HÌNH IN ẤN (QUAN TRỌNG) --- */
-@media print {
-  /* Ẩn tất cả mọi thứ của trang web */
-  body * {
-    visibility: hidden;
+.payment-management-page-pagination-controls button:hover:not(:disabled) {
+  background: var(--pm-primary);
+  color: var(--pm-white);
+  border-color: var(--pm-primary);
+}
+
+.payment-management-page-pagination-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.payment-management-page-pagination-controls span {
+  margin: 0 8px;
+  font-size: var(--pm-font-sm);
+  font-weight: 600;
+  color: var(--pm-text);
+}
+
+/* === UTILITY === */
+.pmp-me-1  { margin-right: 4px; }
+.pmp-me-2  { margin-right: 8px; }
+.pmp-mt-1  { margin-top: 4px; }
+.pmp-mb-1  { margin-bottom: 4px; }
+.pmp-text-muted   { color: var(--pm-text-secondary); }
+.pmp-text-success { color: var(--pm-primary-dark); }
+.pmp-text-danger  { color: var(--pm-danger); }
+.pmp-fw-bold { font-weight: 600; }
+.pmp-small   { font-size: var(--pm-font-xs); }
+.pmp-d-flex  { display: flex; }
+.pmp-align-items-center { align-items: center; }
+.pmp-gap-1   { gap: 4px; }
+.pmp-gap-2   { gap: 8px; }
+.pmp-opacity-50 { opacity: 0.5; }
+
+/* fa-spin / spin-icon */
+.pmp-fa-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+/* Tablet (769px - 1024px) */
+@media (max-width: 1024px) {
+  .payment-management-page-table {
+    min-width: 680px;
   }
 
-  /* Ẩn header, sidebar, popup, nút bấm */
+  .payment-management-page-table thead th,
+  .payment-management-page-table tbody td {
+    padding: 8px 9px;
+  }
+
+  .payment-management-page-action-btn {
+    height: 28px;
+    min-width: 28px;
+  }
+}
+
+/* Tablet Portrait (481px - 768px) */
+@media (max-width: 768px) {
+  .payment-management-page-container {
+    padding: 10px;
+  }
+
+  .payment-management-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .payment-management-page-refresh-btn {
+    align-self: flex-end;
+  }
+
+  /* Filter: wrap xuống 2 hàng trên tablet */
+  .pmp-filter-row {
+    flex-wrap: wrap;
+  }
+
+  .pmp-filter-group {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 140px;
+  }
+
+  .pmp-filter-group--date {
+    flex: 1 1 100%;
+  }
+
+  .pmp-date-navigator {
+    width: 100%;
+  }
+
+  .pmp-date-input {
+    flex: 1 1 auto;
+  }
+
+  /* Table: card layout */
+  .payment-management-page-table-wrapper {
+    overflow-x: visible;
+  }
+
+  .payment-management-page-table {
+    display: block;
+    min-width: unset;
+  }
+
+  .payment-management-page-table thead {
+    display: none;
+  }
+
+  .payment-management-page-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .payment-management-page-table tbody tr {
+    display: block;
+    border: 1.5px solid var(--pm-border);
+    border-radius: var(--pm-radius-sm);
+    padding: 12px;
+    background: var(--pm-white);
+    box-shadow: var(--pm-shadow-sm);
+    border-bottom: 1.5px solid var(--pm-border) !important;
+  }
+
+  .payment-management-page-table tbody tr:nth-child(even) {
+    background: #f9fbe7;
+  }
+
+  .payment-management-page-table tbody tr:hover {
+    background: var(--pm-primary-lighter);
+  }
+
+  .payment-management-page-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f4e8;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .payment-management-page-table tbody td:last-child {
+    border-bottom: none;
+    padding-top: 8px;
+  }
+
+  /* Label từ data-label */
+  .payment-management-page-table tbody td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--pm-primary-dark);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+    width: 90px;
+    padding-top: 2px;
+  }
+
+  /* Action buttons căn phải */
+  .payment-management-page-table tbody td:last-child {
+    justify-content: flex-end;
+  }
+
+  .payment-management-page-table tbody td:last-child::before {
+    display: none;
+  }
+
+  /* Pagination compact */
+  .payment-management-page-pagination {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+  }
+}
+
+/* Small Mobile (≤480px) */
+@media (max-width: 480px) {
+  .payment-management-page-container {
+    padding: 8px;
+  }
+
+  .payment-management-page-title {
+    font-size: 15px;
+  }
+
+  /* Filter: stack dọc hoàn toàn */
+  .pmp-filter-row {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+
+  .pmp-filter-group,
+  .pmp-filter-group--date {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .payment-management-page-table tbody tr {
+    padding: 10px;
+  }
+
+  .payment-management-page-table tbody td::before {
+    width: 78px;
+    font-size: 9px;
+  }
+
+  .payment-management-page-action-btn {
+    height: 27px;
+    min-width: 27px;
+    font-size: 10px;
+    padding: 0 5px;
+  }
+
+  .pmp-btn-label {
+    display: none;
+  }
+
+  .payment-management-page-badge-method,
+  .payment-management-page-badge-status {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}
+
+/* Scrollbar */
+.payment-management-page-table-wrapper::-webkit-scrollbar { height: 5px; }
+.payment-management-page-table-wrapper::-webkit-scrollbar-track { background: var(--pm-primary-lighter); }
+.payment-management-page-table-wrapper::-webkit-scrollbar-thumb { background: var(--pm-primary-light); border-radius: 4px; }
+.payment-management-page-table-wrapper::-webkit-scrollbar-thumb:hover { background: var(--pm-primary); }
+
+/* ============================================
+   IN ẤN
+   ============================================ */
+@media print {
+  body * { visibility: hidden; }
+
   .payment-management-page-container,
-  .payment-management-page-header, 
+  .payment-management-page-header,
   .payment-management-page-filter-card,
   .payment-management-page-pagination,
-  .Toastify, 
+  .Toastify,
   .modal {
     display: none !important;
   }
 
-  /* Chỉ hiện vùng hóa đơn */
-  #invoice-print-area, #invoice-print-area * {
+  #invoice-print-area,
+  #invoice-print-area * {
     visibility: visible;
     display: block !important;
   }
 
-  /* Căn chỉnh vùng hóa đơn về góc trên cùng khổ giấy */
   #invoice-print-area {
     position: absolute;
     left: 0;
@@ -347,16 +777,9 @@
     color: black;
   }
 
-  /* Reset các style bảng để in rõ nét */
-  .table-bordered {
-    border: 1px solid #000 !important;
-  }
-  .table-bordered th, .table-bordered td {
-    border: 1px solid #000 !important;
-  }
-  
-  /* Ẩn các link href khi in */
-  a[href]:after {
-    content: none !important;
-  }
+  .table-bordered { border: 1px solid #000 !important; }
+  .table-bordered th,
+  .table-bordered td { border: 1px solid #000 !important; }
+
+  a[href]:after { content: none !important; }
 }

@@ -1,7 +1,62 @@
-import React, { useState, useEffect } from 'react';
+/* * Tệp: PrivacyPolicyPage.js
+ * Mô tả: Trang Chính sách bảo mật đồng bộ UI/UX (Xanh dịu, Banner 100vh, Lướt ngang, Card nhỏ cuộn trong)
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import * as Icons from 'react-icons/fa';
+import * as FaIcons from 'react-icons/fa';
 import './PrivacyPolicyPage.css';
+
+// Component hỗ trợ cuộn ngang với nút bấm và Loop
+const ScrollWrapper = ({ children, className }) => {
+  const scrollRef = useRef(null);
+  const [canScroll, setCanScroll] = useState(false);
+
+  useEffect(() => {
+    const checkScroll = () => {
+      if (scrollRef.current) {
+        setCanScroll(scrollRef.current.scrollWidth > scrollRef.current.clientWidth + 5);
+      }
+    };
+    checkScroll();
+    setTimeout(checkScroll, 500); 
+    window.addEventListener('resize', checkScroll);
+    return () => window.removeEventListener('resize', checkScroll);
+  }, [children]);
+
+  const handleScroll = (direction) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const scrollAmount = container.clientWidth * 0.8;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    let newScroll = container.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
+
+    if (direction === 'right' && Math.ceil(container.scrollLeft) >= maxScroll - 10) {
+      newScroll = 0; 
+    } else if (direction === 'left' && container.scrollLeft <= 10) {
+      newScroll = maxScroll; 
+    }
+    container.scrollTo({ left: newScroll, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="scroll-wrapper-container">
+      {canScroll && (
+        <button className="scroll-arrow left" onClick={() => handleScroll('left')}>
+          <FaIcons.FaChevronLeft />
+        </button>
+      )}
+      <div className={`scroll-content ${className || ''}`} ref={scrollRef}>
+        {children}
+      </div>
+      {canScroll && (
+        <button className="scroll-arrow right" onClick={() => handleScroll('right')}>
+          <FaIcons.FaChevronRight />
+        </button>
+      )}
+    </div>
+  );
+};
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
@@ -14,6 +69,7 @@ const PrivacyPolicyPage = () => {
     contact_address: ''
   });
   const [loading, setLoading] = useState(true);
+  const iconMap = { ...FaIcons };
 
   useEffect(() => {
     const fetchPrivacyData = async () => {
@@ -34,159 +90,108 @@ const PrivacyPolicyPage = () => {
 
   if (loading) {
     return (
-      <div className="privacy-loading">
-        <Icons.FaSpinner className="spinner" /> Đang tải...
+      <div className="privacy-policy-page">
+        <section className="privacy-hero">
+          <div className="privacy-container"><p>Đang tải dữ liệu...</p></div>
+        </section>
       </div>
     );
   }
 
   return (
     <div className="privacy-policy-page">
-      {/* Hero */}
+      {/* 1. Hero Banner Full Màn Hình */}
       <section className="privacy-hero">
-        <div className="container">
-          <Icons.FaLock className="hero-icon" />
-          <h1>{privacyData.hero.title || 'Chính sách bảo mật'}</h1>
-          <p className="hero-subtitle">
-            {privacyData.hero.subtitle || 'Chúng tôi cam kết bảo vệ quyền riêng tư và bảo mật thông tin cá nhân của bạn'}
+        <div className="privacy-container">
+          <div className="privacy-hero-badge">
+            <FaIcons.FaShieldAlt />
+            <span>Cam kết bảo mật</span>
+          </div>
+          <h1>{privacyData.hero?.title || 'Chính sách bảo mật'}</h1>
+          <p className="privacy-hero-subtitle">
+            {privacyData.hero?.subtitle || 'Chúng tôi cam kết bảo vệ quyền riêng tư và bảo mật thông tin cá nhân của bạn.'}
           </p>
-          {privacyData.hero.last_updated && (
-            <p className="last-updated">
-              <Icons.FaCalendarAlt /> Cập nhật lần cuối: {privacyData.hero.last_updated}
-            </p>
+          {privacyData.hero?.last_updated && (
+            <p className="privacy-last-updated">Cập nhật lần cuối: {privacyData.hero.last_updated}</p>
           )}
         </div>
       </section>
 
-      {/* Trust Badges */}
-      <section className="trust-badges">
-        <div className="container">
-          <div className="badges-grid">
-            <div className="badge">
-              <Icons.FaShieldAlt />
-              <span>Mã hóa SSL</span>
-            </div>
-            <div className="badge">
-              <Icons.FaLock />
-              <span>Bảo mật 256-bit</span>
-            </div>
-            <div className="badge">
-              <Icons.FaUserShield />
-              <span>Tuân thủ GDPR</span>
-            </div>
-            <div className="badge">
-              <Icons.FaCheckCircle />
-              <span>ISO 27001</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Main Content */}
-      <section className="privacy-content">
-        <div className="container">
-          {(privacyData.sections || []).map((section, index) => {
-            const IconComponent = Icons[section.icon] || Icons.FaInfoCircle;
-            return (
-              <div key={index} className="privacy-section">
-                <div className="section-header">
-                  <IconComponent />
-                  <h2>{section.title}</h2>
-                </div>
-                <div className="section-items">
-                  {(section.items || []).map((item, idx) => (
-                    <div key={idx} className="privacy-item">
-                      <h3>{item.subtitle}</h3>
-                      <p>{item.content}</p>
+      {/* 2. Nội dung chính sách (Lướt ngang) */}
+      {privacyData.sections && privacyData.sections.length > 0 && (
+        <section className="privacy-section-container">
+          <div className="privacy-container">
+            <h2 className="privacy-section-title">Nội dung chính sách</h2>
+            <ScrollWrapper className="privacy-sections-grid">
+              {privacyData.sections.map((section, index) => {
+                const Icon = iconMap[section.icon] || FaIcons.FaDatabase;
+                return (
+                  <div key={index} className="privacy-section-card">
+                    <div className="privacy-card-header">
+                      <Icon className="privacy-card-icon" />
+                      <h2>{section.title}</h2>
                     </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Cookie Section */}
-          <div className="privacy-section cookie-section">
-            <div className="section-header">
-              <Icons.FaDatabase />
-              <h2>Chính sách Cookie</h2>
-            </div>
-            <p className="cookie-desc">Chúng tôi sử dụng cookie để cải thiện trải nghiệm người dùng</p>
-            <div className="cookie-types">
-              <div className="cookie-type">
-                <div className="cookie-header">
-                  <h3>Cookie cần thiết</h3>
-                  <span className="required-badge">Bắt buộc</span>
-                </div>
-                <p>Cần thiết cho hoạt động của website (đăng nhập, giỏ hàng)</p>
-              </div>
-              <div className="cookie-type">
-                <div className="cookie-header">
-                  <h3>Cookie phân tích</h3>
-                  <span className="optional-badge">Tùy chọn</span>
-                </div>
-                <p>Giúp chúng tôi hiểu cách người dùng sử dụng website</p>
-              </div>
-              <div className="cookie-type">
-                <div className="cookie-header">
-                  <h3>Cookie quảng cáo</h3>
-                  <span className="optional-badge">Tùy chọn</span>
-                </div>
-                <p>Hiển thị quảng cáo phù hợp với sở thích của bạn</p>
-              </div>
-            </div>
-            <button className="btn-manage-cookies">Quản lý Cookie</button>
+                    <div className="privacy-card-content">
+                      {section.items && section.items.map((item, idx) => (
+                        <div key={idx} className="privacy-item">
+                          <h3>{item.subtitle}</h3>
+                          <p>{item.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </ScrollWrapper>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Contact Section */}
-      <section className="privacy-contact">
-        <div className="container">
-          <div className="contact-box">
-            <Icons.FaEnvelope className="contact-icon-large" />
-            <h2>Câu hỏi về quyền riêng tư?</h2>
-            <p>Liên hệ Bộ phận bảo mật dữ liệu của chúng tôi</p>
-            <div className="contact-info">
-              {privacyData.contact_email && (
-                <div className="contact-item">
-                  <Icons.FaEnvelope />
-                  <strong>Email:</strong> 
-                  <a href={`mailto:${privacyData.contact_email}`}>{privacyData.contact_email}</a>
-                </div>
-              )}
-              {privacyData.contact_phone && (
-                <div className="contact-item">
-                  <Icons.FaPhone />
-                  <strong>Điện thoại:</strong> 
-                  <a href={`tel:${privacyData.contact_phone}`}>{privacyData.contact_phone}</a>
-                </div>
-              )}
-              {privacyData.contact_address && (
-                <div className="contact-item">
-                  <Icons.FaMapMarkerAlt />
-                  <strong>Địa chỉ:</strong> {privacyData.contact_address}
-                </div>
-              )}
+      {/* 3. Liên hệ & Cập nhật */}
+      <section className="privacy-section-container bg-light">
+        <div className="privacy-container">
+          <div className="privacy-footer-grid">
+            
+            {/* Hộp liên hệ */}
+            <div className="privacy-contact-box">
+              <FaIcons.FaHeadset className="privacy-contact-icon" />
+              <h2>Liên hệ với chúng tôi</h2>
+              <p>Nếu bạn có bất kỳ câu hỏi nào về chính sách bảo mật, vui lòng liên hệ:</p>
+              <div className="privacy-contact-info">
+                {privacyData.contact_email && (
+                  <div className="privacy-contact-item">
+                    <FaIcons.FaEnvelope />
+                    <span><strong>Email:</strong> <a href={`mailto:${privacyData.contact_email}`}>{privacyData.contact_email}</a></span>
+                  </div>
+                )}
+                {privacyData.contact_phone && (
+                  <div className="privacy-contact-item">
+                    <FaIcons.FaPhone />
+                    <span><strong>Điện thoại:</strong> <a href={`tel:${privacyData.contact_phone}`}>{privacyData.contact_phone}</a></span>
+                  </div>
+                )}
+                {privacyData.contact_address && (
+                  <div className="privacy-contact-item">
+                    <FaIcons.FaMapMarkerAlt />
+                    <span><strong>Địa chỉ:</strong> {privacyData.contact_address}</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <button className="btn-contact">Gửi yêu cầu</button>
-          </div>
-        </div>
-      </section>
 
-      {/* Updates Notice */}
-      <section className="privacy-updates">
-        <div className="container">
-          <div className="updates-box">
-            <Icons.FaExclamationTriangle />
-            <div>
-              <h3>Thông báo về cập nhật</h3>
-              <p>
-                Chúng tôi có thể cập nhật Chính sách bảo mật này theo thời gian. 
-                Chúng tôi sẽ thông báo cho bạn về các thay đổi quan trọng qua email 
-                hoặc thông báo trên website. Vui lòng xem lại chính sách định kỳ.
-              </p>
+            {/* Thông báo cập nhật */}
+            <div className="privacy-updates-box">
+              <FaIcons.FaExclamationTriangle className="privacy-updates-icon" />
+              <div>
+                <h3>Thông báo về cập nhật</h3>
+                <p>
+                  Chúng tôi có thể cập nhật Chính sách bảo mật này theo thời gian. 
+                  Chúng tôi sẽ thông báo cho bạn về các thay đổi quan trọng qua email 
+                  hoặc thông báo trên website. Vui lòng xem lại chính sách định kỳ.
+                </p>
+              </div>
             </div>
+
           </div>
         </div>
       </section>

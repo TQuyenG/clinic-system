@@ -3365,7 +3365,7 @@ const SystemSettingsPage = () => {
                   <div className="sys-settings-card" style={{ gridColumn: '1 / -1' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                       <h4 style={{ color: '#667eea', fontWeight: 'bold' }}>
-                        🖼️ Slideshow nhiều ảnh ({(contactData.hero?.banner_images || []).length} ảnh)
+                        Slideshow nhiều ảnh ({(contactData.hero?.banner_images || []).length} ảnh)
                       </h4>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         {/* Nút upload nhiều file cùng lúc */}

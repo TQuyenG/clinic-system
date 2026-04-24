@@ -1,7 +1,5 @@
-/* 
- * File: AboutPage.js - PHIÊN BẢN HOÀN CHỈNH
- * Mô tả: Trang "Về chúng tôi" với 10 sections
- * API: /api/settings/about, /api/specialties, /api/users/doctors
+/* * File: AboutPage.js
+ * Mô tả: Trang "Về chúng tôi" - Fix tràn Mobile, Chia 50/50, 3 Thumbnails trượt
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -10,36 +8,73 @@ import axios from 'axios';
 import * as FaIcons from 'react-icons/fa';
 import './AboutPage.css';
 
+// Component hỗ trợ cuộn ngang với nút bấm và Loop
+const ScrollWrapper = ({ children, className }) => {
+  const scrollRef = useRef(null);
+  const [canScroll, setCanScroll] = useState(false);
+
+  useEffect(() => {
+    const checkScroll = () => {
+      if (scrollRef.current) {
+        setCanScroll(scrollRef.current.scrollWidth > scrollRef.current.clientWidth + 5);
+      }
+    };
+    checkScroll();
+    setTimeout(checkScroll, 500); 
+    window.addEventListener('resize', checkScroll);
+    return () => window.removeEventListener('resize', checkScroll);
+  }, [children]);
+
+  const handleScroll = (direction) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const scrollAmount = container.clientWidth * 0.8;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    let newScroll = container.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
+
+    // Xử lý vòng lặp (Loop)
+    if (direction === 'right' && Math.ceil(container.scrollLeft) >= maxScroll - 10) {
+      newScroll = 0;
+    } else if (direction === 'left' && container.scrollLeft <= 10) {
+      newScroll = maxScroll;
+    }
+    container.scrollTo({ left: newScroll, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="scroll-wrapper-container">
+      {canScroll && (
+        <button className="scroll-arrow left" onClick={() => handleScroll('left')}>
+          <FaIcons.FaChevronLeft />
+        </button>
+      )}
+      <div className={`scroll-content ${className || ''}`} ref={scrollRef}>
+        {children}
+      </div>
+      {canScroll && (
+        <button className="scroll-arrow right" onClick={() => handleScroll('right')}>
+          <FaIcons.FaChevronRight />
+        </button>
+      )}
+    </div>
+  );
+};
+
 const AboutPage = () => {
   const [specialties, setSpecialties] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [aboutData, setAboutData] = useState({
-    banner: {},
-    mission: {},
-    vision: {},
-    milestones: [],
-    stats: [],
-    values: [],
-    leadership: [],
-    achievements: [],
-    facilities: []
+    banner: {}, mission: {}, vision: {}, milestones: [],
+    stats: [], values: [], leadership: [], achievements: [], facilities: []
   });
   const [isVisible, setIsVisible] = useState({});
   const [error, setError] = useState(null);
-  
-  // Timeline state
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isAutoPlay, setIsAutoPlay] = useState(true);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startY, setStartY] = useState(0);
-  const [scrollTop, setScrollTop] = useState(0);
-  
-  const timelineRef = useRef(null);
-  const autoPlayRef = useRef(null);
+
+  // State quản lý tab đang được chọn trong phần Lịch sử
+  const [activeMilestoneIndex, setActiveMilestoneIndex] = useState(0);
 
   const iconMap = { ...FaIcons };
 
-  // Fetch data
   useEffect(() => {
     const fetchAboutData = async () => {
       try {
@@ -58,12 +93,8 @@ const AboutPage = () => {
       try {
         const response = await fetch('http://localhost:3001/api/specialties');
         const data = await response.json();
-        if (data.success && data.specialties) {
-          setSpecialties(data.specialties);
-        }
-      } catch (error) {
-        console.error('Lỗi khi lấy dữ liệu chuyên khoa:', error);
-      }
+        if (data.success && data.specialties) setSpecialties(data.specialties);
+      } catch (error) {}
     };
 
     const fetchDoctors = async () => {
@@ -74,9 +105,7 @@ const AboutPage = () => {
           const { normalizeUserList } = await import('../utils/normalizeUser');
           setDoctors(normalizeUserList(data.doctors || [], 'doctor'));
         }
-      } catch (error) {
-        console.error('Lỗi khi lấy dữ liệu bác sĩ:', error);
-      }
+      } catch (error) {}
     };
 
     fetchAboutData();
@@ -91,7 +120,7 @@ const AboutPage = () => {
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.15 }
     );
 
     const sections = document.querySelectorAll('.aboutpage-animate-section');
@@ -100,101 +129,27 @@ const AboutPage = () => {
     return () => sections.forEach(section => observer.unobserve(section));
   }, []);
 
-  // Auto-play timeline
-  useEffect(() => {
-    if (!aboutData.milestones || aboutData.milestones.length === 0) return;
-    if (!isAutoPlay || isDragging) return;
-
-    autoPlayRef.current = setInterval(() => {
-      setCurrentIndex(prev => (prev + 1) % aboutData.milestones.length);
-    }, 3000); // 3 giây mỗi milestone
-
-    return () => {
-      if (autoPlayRef.current) {
-        clearInterval(autoPlayRef.current);
-      }
-    };
-  }, [aboutData.milestones, isAutoPlay, isDragging]);
-
-  // Scroll to milestone
-  useEffect(() => {
-    if (timelineRef.current && aboutData.milestones.length > 0) {
-      const itemHeight = 350; // Chiều cao mỗi milestone item
-      const targetScroll = currentIndex * itemHeight;
-      
-      timelineRef.current.scrollTo({
-        top: targetScroll,
-        behavior: 'smooth'
-      });
+  // Hàm chuyển đổi Milestone
+  const handleNextMilestone = () => {
+    if (aboutData.milestones.length > 0) {
+      setActiveMilestoneIndex((prev) => (prev + 1) % aboutData.milestones.length);
     }
-  }, [currentIndex, aboutData.milestones]);
-
-  // Mouse drag handlers
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    setIsAutoPlay(false);
-    setStartY(e.pageY - timelineRef.current.offsetTop);
-    setScrollTop(timelineRef.current.scrollTop);
   };
 
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    const y = e.pageY - timelineRef.current.offsetTop;
-    const walk = (y - startY) * 2;
-    timelineRef.current.scrollTop = scrollTop - walk;
+  const handlePrevMilestone = () => {
+    if (aboutData.milestones.length > 0) {
+      setActiveMilestoneIndex((prev) => (prev - 1 + aboutData.milestones.length) % aboutData.milestones.length);
+    }
   };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    // Resume auto-play sau 3s
-    setTimeout(() => {
-      setIsAutoPlay(true);
-    }, 3000);
-  };
-
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-  };
-
-  // Touch handlers (mobile)
-  const handleTouchStart = (e) => {
-    setIsDragging(true);
-    setIsAutoPlay(false);
-    setStartY(e.touches[0].pageY - timelineRef.current.offsetTop);
-    setScrollTop(timelineRef.current.scrollTop);
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDragging) return;
-    const y = e.touches[0].pageY - timelineRef.current.offsetTop;
-    const walk = (y - startY) * 2;
-    timelineRef.current.scrollTop = scrollTop - walk;
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-    setTimeout(() => {
-      setIsAutoPlay(true);
-    }, 3000);
-  };
-
-  // Manual navigation
-  const goToMilestone = (index) => {
-    setCurrentIndex(index);
-    setIsAutoPlay(false);
-    setTimeout(() => {
-      setIsAutoPlay(true);
-    }, 5000);
-  };
-
-  const nextMilestone = () => {
-    setCurrentIndex(prev => (prev + 1) % aboutData.milestones.length);
-  };
-
-  const prevMilestone = () => {
-    setCurrentIndex(prev => (prev - 1 + aboutData.milestones.length) % aboutData.milestones.length);
-  };
+  // Logic lấy đúng 3 khung ảnh, ảnh chính luôn ở đầu tiên
+  const visibleThumbnails = aboutData.milestones.length > 0 
+    ? [
+        activeMilestoneIndex,
+        (activeMilestoneIndex + 1) % aboutData.milestones.length,
+        (activeMilestoneIndex + 2) % aboutData.milestones.length,
+      ].slice(0, Math.min(3, aboutData.milestones.length))
+    : [];
 
   if (error) {
     return (
@@ -217,370 +172,282 @@ const AboutPage = () => {
             <FaIcons.FaHospital />
             <span>Về chúng tôi</span>
           </div>
-          <h1 className="aboutpage-hero-title">{aboutData.banner?.title || 'Clinic System'}</h1>
+          <h1 className="aboutpage-hero-title">{aboutData.banner?.title || 'Easy Medify'}</h1>
           <h2 className="aboutpage-hero-subtitle">{aboutData.banner?.subtitle || 'Đồng hành cùng sức khỏe cộng đồng'}</h2>
           <p className="aboutpage-hero-description">
-            {aboutData.banner?.description || 'Với hơn 15 năm kinh nghiệm, chúng tôi tự hào là đơn vị tiên phong...'}
+            {aboutData.banner?.description || 'Với hơn 15 năm kinh nghiệm, chúng tôi tự hào là đơn vị tiên phong trong việc cung cấp dịch vụ y tế chất lượng cao.'}
           </p>
         </div>
       </section>
 
       {/* 2. Sứ mệnh & Tầm nhìn */}
-      <section className="aboutpage-section-container aboutpage-mission-section aboutpage-animate-section" id="mission">
+      <section className="aboutpage-section-container aboutpage-animate-section" id="mission-vision">
         <div className="aboutpage-section-content">
-          <h2 className="aboutpage-section-title">Sứ mệnh & Tầm nhìn</h2>
-          <div className="aboutpage-mission-grid">
-            {/* Sứ mệnh */}
-            {aboutData.mission && aboutData.mission.title && (
-              <div className="aboutpage-mission-card">
-                <div className="aboutpage-mission-image">
-                  <img src={aboutData.mission.image || 'https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=600&h=400&fit=crop'} 
-                    alt={aboutData.mission.alt || 'Sứ mệnh'} />
-                  <div className="aboutpage-mission-icon-overlay">
-                    {iconMap[aboutData.mission.icon] ? React.createElement(iconMap[aboutData.mission.icon]) : <FaIcons.FaLeaf />}
-                  </div>
-                </div>
-                <div className="aboutpage-mission-content">
-                  <h3 className="aboutpage-mission-title">{aboutData.mission.title}</h3>
-                  <p className="aboutpage-mission-text">{aboutData.mission.description}</p>
+          {aboutData.mission && aboutData.mission.title && (
+            <div className="aboutpage-zigzag-row">
+              <div className="aboutpage-zigzag-image">
+                <img src={aboutData.mission.image || 'https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=600&h=400&fit=crop'} alt="Sứ mệnh" />
+                <div className="aboutpage-zigzag-icon">
+                  {iconMap[aboutData.mission.icon] ? React.createElement(iconMap[aboutData.mission.icon]) : <FaIcons.FaLeaf />}
                 </div>
               </div>
-            )}
-            
-            {/* Tầm nhìn */}
-            {aboutData.vision && aboutData.vision.title && (
-              <div className="aboutpage-mission-card">
-                <div className="aboutpage-mission-image">
-                  <img src={aboutData.vision.image || 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=400&fit=crop'} 
-                    alt={aboutData.vision.alt || 'Tầm nhìn'} />
-                  <div className="aboutpage-mission-icon-overlay">
-                    {iconMap[aboutData.vision.icon] ? React.createElement(iconMap[aboutData.vision.icon]) : <FaIcons.FaHeartbeat />}
-                  </div>
-                </div>
-                <div className="aboutpage-mission-content">
-                  <h3 className="aboutpage-mission-title">{aboutData.vision.title}</h3>
-                  <p className="aboutpage-mission-text">{aboutData.vision.description}</p>
+              <div className="aboutpage-zigzag-text">
+                <span className="aboutpage-section-badge">Sứ mệnh</span>
+                <h2 className="aboutpage-section-title-left">{aboutData.mission.title}</h2>
+                <p className="aboutpage-section-desc">{aboutData.mission.description}</p>
+              </div>
+            </div>
+          )}
+
+          {aboutData.vision && aboutData.vision.title && (
+            <div className="aboutpage-zigzag-row reverse">
+              <div className="aboutpage-zigzag-image">
+                <img src={aboutData.vision.image || 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=400&fit=crop'} alt="Tầm nhìn" />
+                <div className="aboutpage-zigzag-icon">
+                  {iconMap[aboutData.vision.icon] ? React.createElement(iconMap[aboutData.vision.icon]) : <FaIcons.FaEye />}
                 </div>
               </div>
-            )}
-          </div>
+              <div className="aboutpage-zigzag-text">
+                <span className="aboutpage-section-badge">Tầm nhìn</span>
+                <h2 className="aboutpage-section-title-left">{aboutData.vision.title}</h2>
+                <p className="aboutpage-section-desc">{aboutData.vision.description}</p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* 3. Lịch sử phát triển - Timeline Carousel */}
+      {/* 3. Lịch sử phát triển (Chia 50/50 & Chỉ hiện 3 Thumbnail) */}
       {aboutData.milestones && aboutData.milestones.length > 0 && (
-        <section className="aboutpage-section-container aboutpage-timeline-section aboutpage-animate-section" id="timeline">
+        <section className="aboutpage-section-container bg-light aboutpage-animate-section" id="timeline">
           <div className="aboutpage-section-content">
             <h2 className="aboutpage-section-title">Lịch sử phát triển</h2>
             
-            <div className="aboutpage-timeline-wrapper">
-              {/* Navigation button - Up */}
-              <button 
-                className="aboutpage-timeline-nav aboutpage-nav-up" 
-                onClick={prevMilestone}
-                disabled={aboutData.milestones.length <= 1}
-              >
-                <FaIcons.FaChevronUp />
-              </button>
-
-              {/* Timeline container với scroll */}
-              <div 
-                className="aboutpage-timeline-container"
-                ref={timelineRef}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-              >
-                {/* Center line dọc */}
-                <div className="aboutpage-timeline-line"></div>
+            <div className="aboutpage-gallery-container">
+              {/* Bên trái: Ảnh lớn chiếm 50% */}
+              <div className="aboutpage-gallery-main">
+                <button className="gallery-nav-btn left" onClick={handlePrevMilestone}>
+                  <FaIcons.FaChevronLeft />
+                </button>
                 
-                {/* Timeline track chứa các items */}
-                <div className="aboutpage-timeline-track">
-                  {aboutData.milestones.map((milestone, index) => {
-                    const isActive = index === currentIndex;
-                    const isPrev = index === currentIndex - 1;
-                    const isNext = index === currentIndex + 1;
-                    
-                    return (
-                      <div 
-                        key={index} 
-                        className={`aboutpage-timeline-item ${isActive ? 'active' : ''} ${isPrev || isNext ? 'adjacent' : ''}`}
-                        onClick={() => goToMilestone(index)}
-                      >
-                        {/* Cột trái: Image (nếu lẻ) hoặc Content (nếu chẵn) */}
-                        <div className="aboutpage-timeline-left">
-                          {index % 2 === 0 ? (
-                            // Chẵn: Content bên trái
-                            <div className="aboutpage-timeline-content">
-                              <h3 className="aboutpage-timeline-title">{milestone.title}</h3>
-                              <p className="aboutpage-timeline-desc">{milestone.description}</p>
-                              <div className="aboutpage-timeline-tags">
-                                <span className="aboutpage-timeline-tag">Milestone</span>
-                                <span className="aboutpage-timeline-tag">{milestone.year}</span>
-                              </div>
-                            </div>
-                          ) : (
-                            // Lẻ: Image bên trái
-                            <div className="aboutpage-timeline-image-wrapper">
-                              <div className="aboutpage-timeline-icon">
-                                <FaIcons.FaTrophy />
-                              </div>
-                              <img src={milestone.image} alt={milestone.alt || milestone.title} />
-                            </div>
-                          )}
-                        </div>
+                {aboutData.milestones[activeMilestoneIndex] && (
+                  <img 
+                    key={`main-${activeMilestoneIndex}`}
+                    src={aboutData.milestones[activeMilestoneIndex].image} 
+                    alt={aboutData.milestones[activeMilestoneIndex].title} 
+                    className="gallery-main-image"
+                  />
+                )}
 
-                        {/* Cột giữa: Year badge */}
-                        <div className="aboutpage-timeline-center">
-                          <div className="aboutpage-timeline-year">
-                            {milestone.year}
+                <button className="gallery-nav-btn right" onClick={handleNextMilestone}>
+                  <FaIcons.FaChevronRight />
+                </button>
+              </div>
+
+              {/* Bên phải: Nội dung & 3 Ảnh nhỏ chiếm 50% */}
+              <div className="aboutpage-gallery-info">
+                {aboutData.milestones[activeMilestoneIndex] && (
+                  <div className="aboutpage-gallery-text" key={`text-${activeMilestoneIndex}`}>
+                    <span className="gallery-year">{aboutData.milestones[activeMilestoneIndex].year}</span>
+                    <h3 className="gallery-title">{aboutData.milestones[activeMilestoneIndex].title}</h3>
+                    <p className="gallery-desc">{aboutData.milestones[activeMilestoneIndex].description}</p>
+                  </div>
+                )}
+
+                <div className="aboutpage-gallery-thumbnails-wrapper">
+                  <div className="aboutpage-gallery-thumbnails">
+                    {/* Render chính xác 3 ảnh */}
+                    {visibleThumbnails.map((idx, index) => {
+                      const milestone = aboutData.milestones[idx];
+                      return (
+                        <div 
+                          key={`thumb-${idx}`}
+                          className={`gallery-thumb ${index === 0 ? 'active' : ''}`} // Ảnh đầu tiên (index 0) là ảnh chính
+                          onClick={() => setActiveMilestoneIndex(idx)}
+                        >
+                          <img src={milestone.image} alt={milestone.year} />
+                          <div className="gallery-thumb-overlay">
+                            <span>{milestone.year}</span>
                           </div>
                         </div>
-
-                        {/* Cột phải: Content (nếu lẻ) hoặc Image (nếu chẵn) */}
-                        <div className="aboutpage-timeline-right">
-                          {index % 2 === 0 ? (
-                            // Chẵn: Image bên phải
-                            <div className="aboutpage-timeline-image-wrapper">
-                              <div className="aboutpage-timeline-icon">
-                                <FaIcons.FaTrophy />
-                              </div>
-                              <img src={milestone.image} alt={milestone.alt || milestone.title} />
-                            </div>
-                          ) : (
-                            // Lẻ: Content bên phải
-                            <div className="aboutpage-timeline-content">
-                              <h3 className="aboutpage-timeline-title">{milestone.title}</h3>
-                              <p className="aboutpage-timeline-desc">{milestone.description}</p>
-                              <div className="aboutpage-timeline-tags">
-                                <span className="aboutpage-timeline-tag">Milestone</span>
-                                <span className="aboutpage-timeline-tag">{milestone.year}</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-
-              {/* Navigation button - Down */}
-              <button 
-                className="aboutpage-timeline-nav aboutpage-nav-down" 
-                onClick={nextMilestone}
-                disabled={aboutData.milestones.length <= 1}
-              >
-                <FaIcons.FaChevronDown />
-              </button>
-
-              {/* Dots indicator - Hiển thị năm */}
-              <div className="aboutpage-timeline-dots">
-                {aboutData.milestones.map((milestone, index) => (
-                  <button
-                    key={index}
-                    className={`aboutpage-timeline-dot ${index === currentIndex ? 'active' : ''}`}
-                    onClick={() => goToMilestone(index)}
-                    aria-label={`Go to milestone ${index + 1}`}
-                  >
-                    <span>{milestone.year}</span>
-                  </button>
-                ))}
               </div>
             </div>
-
-            {/* 4. Thống kê - Hiển thị ở cuối timeline */}
-            {aboutData.stats && aboutData.stats.length > 0 && (
-              <div className="aboutpage-timeline-summary">
-                <div className="aboutpage-summary-stats">
-                  {aboutData.stats.map((stat, index) => (
-                    <div key={index} className="aboutpage-summary-stat">
-                      <h4>{stat.number}</h4>
-                      <p>{stat.label}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </section>
       )}
 
-      {/* 5. Nguyên tắc hoạt động */}
+      {/* 4. Giá trị cốt lõi */}
       {aboutData.values && aboutData.values.length > 0 && (
-        <section className="aboutpage-section-container aboutpage-values-section aboutpage-animate-section" id="values">
+        <section className="aboutpage-section-container aboutpage-animate-section" id="values">
           <div className="aboutpage-section-content">
-            <h2 className="aboutpage-section-title">Nguyên tắc hoạt động</h2>
-            <div className="aboutpage-values-grid">
+            <h2 className="aboutpage-section-title">Giá trị cốt lõi</h2>
+            <ScrollWrapper className="aboutpage-values-mini-row">
               {aboutData.values.map((value, index) => {
                 const Icon = iconMap[value.icon] || iconMap.FaHeart;
                 return (
-                  <div key={index} className="aboutpage-value-card">
-                    <div className="aboutpage-value-icon"><Icon /></div>
-                    <h3 className="aboutpage-value-title">{value.title}</h3>
-                    <p className="aboutpage-value-desc">{value.description}</p>
+                  <div key={index} className="aboutpage-value-mini-card">
+                    <div className="aboutpage-value-mini-icon"><Icon /></div>
+                    <h3 className="aboutpage-value-mini-title">{value.title}</h3>
+                    <p className="aboutpage-value-mini-desc">{value.description}</p>
                   </div>
                 );
               })}
-            </div>
+            </ScrollWrapper>
           </div>
         </section>
       )}
 
-      {/* 6. Đội ngũ điều hành */}
+      {/* 5. Đội ngũ điều hành */}
       {aboutData.leadership && aboutData.leadership.length > 0 && (
-        <section className="aboutpage-section-container aboutpage-leadership-section aboutpage-animate-section" id="leadership">
+        <section className="aboutpage-section-container bg-light aboutpage-animate-section" id="leadership">
           <div className="aboutpage-section-content">
             <h2 className="aboutpage-section-title">Đội ngũ điều hành</h2>
-            <div className="aboutpage-leadership-grid">
+            <ScrollWrapper className="aboutpage-horizontal-grid leader-grid">
               {aboutData.leadership.map((leader, index) => (
-                <div key={index} className="aboutpage-leader-card">
-                  <img src={leader.image} alt={leader.alt || leader.name} className="aboutpage-leader-image" />
-                  <div className="aboutpage-leader-info">
-                    <h3 className="aboutpage-leader-name">{leader.name}</h3>
-                    <p className="aboutpage-leader-position">{leader.position}</p>
-                    <p className="aboutpage-leader-desc">{leader.description}</p>
+                <div key={index} className="aboutpage-mini-card">
+                  <div className="aboutpage-mini-img-wrapper">
+                    <img src={leader.image} alt={leader.name} />
+                  </div>
+                  <div className="aboutpage-mini-info">
+                    <h3 className="aboutpage-mini-name">{leader.name}</h3>
+                    <p className="aboutpage-mini-position">{leader.position}</p>
                   </div>
                 </div>
               ))}
-            </div>
+            </ScrollWrapper>
           </div>
         </section>
       )}
 
-      {/* 7. Giải thưởng & Chứng nhận */}
+      {/* 6. Giải thưởng & Chứng nhận */}
       {aboutData.achievements && aboutData.achievements.length > 0 && (
-        <section className="aboutpage-section-container aboutpage-achievements-section aboutpage-animate-section" id="achievements">
+        <section className="aboutpage-section-container aboutpage-animate-section" id="achievements">
           <div className="aboutpage-section-content">
             <h2 className="aboutpage-section-title">Giải thưởng & Chứng nhận</h2>
-            <div className="aboutpage-achievements-grid">
+            <ScrollWrapper className="aboutpage-horizontal-grid achievement-grid">
               {aboutData.achievements.map((achievement, index) => {
                 const Icon = iconMap[achievement.icon] || iconMap.FaTrophy;
                 return (
-                  <div key={index} className="aboutpage-achievement-card">
-                    {achievement.image && (
-                      <div className="aboutpage-achievement-image">
-                        <img src={achievement.image} alt={achievement.alt || achievement.title} />
+                  <div key={index} className="aboutpage-mini-card">
+                    {achievement.image ? (
+                      <div className="aboutpage-mini-img-wrapper achievement">
+                        <img src={achievement.image} alt={achievement.title} />
                       </div>
+                    ) : (
+                      <div className="aboutpage-mini-icon-large"><Icon /></div>
                     )}
-                    <div className="aboutpage-achievement-content">
-                      <div className="aboutpage-achievement-icon"><Icon /></div>
-                      <h3 className="aboutpage-achievement-title">{achievement.title}</h3>
-                      <span className="aboutpage-achievement-year">{achievement.year}</span>
+                    <div className="aboutpage-mini-info center">
+                      <h3 className="aboutpage-mini-name">{achievement.title}</h3>
+                      <span className="aboutpage-mini-year">{achievement.year}</span>
                     </div>
                   </div>
                 );
               })}
-            </div>
-            
-            <div className="aboutpage-section-footer">
-              <Link to="/trang-thiet-bi" className="aboutpage-btn-outline">
-                Xem tất cả trang thiết bị
-                <FaIcons.FaArrowRight />
-              </Link>
-            </div>
+            </ScrollWrapper>
           </div>
         </section>
       )}
 
-      {/* 8. Trang thiết bị hiện đại */}
+      {/* 7. Trang thiết bị hiện đại */}
       {aboutData.facilities && aboutData.facilities.length > 0 && (
-        <section className="aboutpage-section-container aboutpage-facilities-section aboutpage-animate-section" id="facilities">
+        <section className="aboutpage-section-container bg-light aboutpage-animate-section" id="facilities">
           <div className="aboutpage-section-content">
             <h2 className="aboutpage-section-title">Trang thiết bị hiện đại</h2>
-            <div className="aboutpage-facilities-grid">
+            <ScrollWrapper className="aboutpage-horizontal-grid facility-grid">
               {aboutData.facilities.map((facility, index) => {
                 const Icon = iconMap[facility.icon] || iconMap.FaBuilding;
                 return (
-                  <div key={index} className="aboutpage-facility-card">
+                  <div key={index} className="aboutpage-mini-card">
                     {facility.image && (
-                      <div className="aboutpage-facility-image">
-                        <img src={facility.image} alt={facility.alt || facility.title} />
+                      <div className="aboutpage-mini-img-wrapper facility">
+                        <img src={facility.image} alt={facility.title} />
+                        <div className="aboutpage-facility-badge"><Icon /></div>
                       </div>
                     )}
-                    <div className="aboutpage-facility-content">
-                      <div className="aboutpage-facility-icon"><Icon /></div>
-                      <h3 className="aboutpage-facility-title">{facility.title}</h3>
-                      <p className="aboutpage-facility-desc">{facility.description}</p>
+                    <div className="aboutpage-mini-info center">
+                      <h3 className="aboutpage-mini-name">{facility.title}</h3>
                     </div>
                   </div>
                 );
               })}
-            </div>
-            
+            </ScrollWrapper>
             <div className="aboutpage-section-footer">
               <Link to="/trang-thiet-bi" className="aboutpage-btn-outline">
-                Xem tất cả trang thiết bị
-                <FaIcons.FaArrowRight />
+                Xem chi tiết trang thiết bị <FaIcons.FaArrowRight />
               </Link>
             </div>
           </div>
         </section>
       )}
 
-      {/* 9. Bác sĩ tiêu biểu */}
-      <section className="aboutpage-section-container aboutpage-doctors-section aboutpage-animate-section" id="doctors">
-        <div className="aboutpage-section-content">
-          <h2 className="aboutpage-section-title">Bác sĩ tiêu biểu</h2>
-          {doctors.length > 0 ? (
-            <>
-              <div className="aboutpage-doctors-grid">
-                {doctors.map((doctor) => (
-                  <div key={doctor.id} className="aboutpage-doctor-card">
+      {/* 8. Bác sĩ tiêu biểu */}
+      {doctors.length > 0 && (
+        <section className="aboutpage-section-container aboutpage-animate-section" id="doctors">
+          <div className="aboutpage-section-content">
+            <h2 className="aboutpage-section-title">Bác sĩ tiêu biểu</h2>
+            <ScrollWrapper className="aboutpage-horizontal-grid doctor-grid">
+              {doctors.map((doctor) => (
+                <div key={doctor.id} className="aboutpage-mini-card">
+                  <div className="aboutpage-mini-img-wrapper">
                     <img 
                       src={doctor.avatar_url} 
                       alt={doctor.full_name} 
-                      className="aboutpage-doctor-image"
                       onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f0f0f0" width="400" height="300"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="18" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3EDoctor%3C/text%3E%3C/svg%3E';
                       }}
                     />
-                    <div className="aboutpage-doctor-info">
-                      <h3 className="aboutpage-doctor-name">{doctor.full_name}</h3>
-                      <p className="aboutpage-doctor-specialty">
-                        <FaIcons.FaStethoscope />
-                        {doctor.specialty_name}
-                      </p>
-                      <p className="aboutpage-doctor-experience">
-                        <FaIcons.FaAward />
-                        {doctor.experience_years} năm kinh nghiệm
-                      </p>
-                    </div>
                   </div>
-                ))}
-              </div>
-              <div className="aboutpage-section-footer">
-                <Link to="/doctors" className="aboutpage-btn-outline">
-                  Xem tất cả bác sĩ
-                  <FaIcons.FaArrowRight />
-                </Link>
-              </div>
-            </>
-          ) : (
-            <p className="aboutpage-loading-text">Đang cập nhật thông tin bác sĩ...</p>
-          )}
-        </div>
-      </section>
+                  <div className="aboutpage-mini-info">
+                    <h3 className="aboutpage-mini-name">{doctor.full_name}</h3>
+                    <p className="aboutpage-mini-specialty">
+                      <FaIcons.FaStethoscope /> {doctor.specialty_name}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </ScrollWrapper>
+            <div className="aboutpage-section-footer">
+              <Link to="/bac-si" className="aboutpage-btn-outline">
+                Xem tất cả bác sĩ <FaIcons.FaArrowRight />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 9. Thống kê nổi bật */}
+      {aboutData.stats && aboutData.stats.length > 0 && (
+        <section className="aboutpage-stats-banner">
+          <div className="aboutpage-section-content">
+            <ScrollWrapper className="aboutpage-stats-grid">
+              {aboutData.stats.map((stat, index) => (
+                <div key={index} className="aboutpage-stat-item">
+                  <h4>{stat.number}</h4>
+                  <p>{stat.label}</p>
+                </div>
+              ))}
+            </ScrollWrapper>
+          </div>
+        </section>
+      )}
 
       {/* 10. CTA */}
-      <section className="aboutpage-section-container aboutpage-cta-section">
+      <section className="aboutpage-cta-section">
         <div className="aboutpage-cta-content">
           <h2 className="aboutpage-cta-title">Sẵn sàng chăm sóc sức khỏe của bạn?</h2>
           <p className="aboutpage-cta-text">
-            Đặt lịch khám ngay hôm nay để được tư vấn và chăm sóc bởi đội ngũ y bác sĩ chuyên nghiệp
+            Đặt lịch khám ngay hôm nay để được tư vấn và chăm sóc bởi đội ngũ y bác sĩ chuyên nghiệp.
           </p>
           <div className="aboutpage-cta-buttons">
-            <Link to="/book-appointment" className="aboutpage-btn-primary">
-              <FaIcons.FaCalendarAlt />
-              Đặt lịch khám
+            <Link to="/dat-lich-hen" className="aboutpage-btn-primary">
+              <FaIcons.FaCalendarAlt /> Đặt lịch khám
             </Link>
-            <Link to="/contact" className="aboutpage-btn-secondary">
+            <Link to="/lien-he" className="aboutpage-btn-secondary">
               Liên hệ tư vấn
             </Link>
           </div>

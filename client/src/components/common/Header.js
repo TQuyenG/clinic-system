@@ -11,7 +11,7 @@ const Header = () => {
     phone: '1900 1234',
     email: 'contact@clinicsystem.vn',
     working_hours: 'T2-T7: 7:00-20:00 | CN: 8:00-17:00',
-    welcome_text: 'Chào mừng bạn đến với Clinic System'
+    welcome_text: 'Chào mừng bạn đến với Easy Medify'
   });
   const [loading, setLoading] = useState(true);
 

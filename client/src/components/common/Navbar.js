@@ -7,12 +7,12 @@ import {
   FaTachometerAlt, FaCalendarAlt, FaUserMd, FaNewspaper, FaPills,
   FaHeartbeat, FaCogs, FaInfoCircle, FaBuilding, FaMicroscope, 
   FaSignInAlt, FaUserPlus, FaBookmark, FaStethoscope, FaComments,
-  FaEye, FaFolder, FaArrowRight, FaSpinner
+  FaEye, FaFolder, FaArrowRight, FaSpinner, FaPhone
 } from 'react-icons/fa';
 
 import NotificationDropdown from './NotificationDropdown';
 import './Navbar.css';
-import { useAuth } from '../../contexts/AuthContext'; // FIX: Import useAuth
+import { useAuth } from '../../contexts/AuthContext'; 
 
 // Component riêng để hiển thị avatar người dùng
 const UserAvatar = ({ user, userProfile }) => {
@@ -56,7 +56,6 @@ const UserAvatar = ({ user, userProfile }) => {
 };
 
 const Navbar = () => {
-  // FIX: Sử dụng useAuth() để lấy thông tin user từ AuthContext
   const { user: authUser, logout: authLogout, isAuthenticated } = useAuth();
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -65,7 +64,9 @@ const Navbar = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   
-  // FIX: Giữ local state để merge với authUser (cho avatar và profile mới nhất)
+  // State quản lý popup logout
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const [userProfile, setUserProfile] = useState(null);
   const [unreadConsultationCount, setUnreadConsultationCount] = useState(0);
   const [specialties, setSpecialties] = useState([]);
@@ -75,7 +76,7 @@ const Navbar = () => {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [activeMobileColumn, setActiveMobileColumn] = useState(null);
   const [navbarData, setNavbarData] = useState({
-    logo_image: '', logo_text: 'Clinic System'
+    logo_image: '', logo_text: 'Easy Medify'
   });
   
   const navigate = useNavigate();
@@ -83,7 +84,6 @@ const Navbar = () => {
   const searchTimeoutRef = useRef(null);
   const API_BASE_URL = 'http://localhost:3001';
 
-  // FIX: Effect để fetch user profile khi authUser thay đổi
   useEffect(() => {
     if (authUser) {
       const token = localStorage.getItem('token');
@@ -91,22 +91,18 @@ const Navbar = () => {
         fetchUserProfile(token);
       }
     } else {
-      // Khi logout, clear userProfile
       setUserProfile(null);
     }
-  }, [authUser]); // Re-run khi authUser thay đổi
+  }, [authUser]); 
 
-  // FIX: Effect để lắng nghe authStateChanged event
   useEffect(() => {
     const handleAuthChange = () => {
-      // Force re-render bằng cách check localStorage
       const token = localStorage.getItem('token');
       if (!token) {
         setUserProfile(null);
       }
     };
 
-    // Lắng nghe event từ AuthContext
     window.addEventListener('authStateChanged', handleAuthChange);
     
     return () => {
@@ -114,7 +110,6 @@ const Navbar = () => {
     };
   }, []);
 
-  // Effect để load data ban đầu
   useEffect(() => {
     fetchSpecialties();
     fetchCategories();
@@ -143,7 +138,6 @@ const Navbar = () => {
         const profileData = response.data.user || response.data;
         setUserProfile(profileData);
         
-        // FIX: Cập nhật localStorage để đồng bộ với AuthContext
         const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
         const updatedUser = { 
           ...currentUser, 
@@ -152,14 +146,12 @@ const Navbar = () => {
         };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         
-        // FIX: Dispatch event để các component khác biết user đã được cập nhật
         window.dispatchEvent(new Event('authStateChanged'));
       }
     } catch (error) {
       console.error('Lỗi khi lấy profile:', error);
-      // FIX: Nếu token không hợp lệ, logout
       if (error.response?.status === 401 || error.response?.status === 403) {
-        handleLogout();
+        authLogout();
       }
     }
   };
@@ -170,7 +162,6 @@ const Navbar = () => {
       if (response.data && response.data.navbar) {
         const navbar = response.data.navbar;
         
-        // Chuẩn hóa logo_image: Nếu không bắt đầu bằng 'http', thêm API_BASE_URL
         if (navbar.logo_image && !navbar.logo_image.startsWith('http')) {
           if (!navbar.logo_image.startsWith('/')) {
             navbar.logo_image = '/' + navbar.logo_image;
@@ -214,7 +205,6 @@ const Navbar = () => {
     setSearchQuery(query);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     
-    // Tìm kiếm từ 1 ký tự
     if (query.trim().length < 1) {
       setSearchResults(null);
       setShowSearchResults(false);
@@ -233,9 +223,6 @@ const Navbar = () => {
         }
       } catch (error) {
         console.error('Lỗi tìm kiếm:', error);
-        if (error.response?.status === 404) {
-          console.error('Endpoint /api/articles/search/global chưa được tạo');
-        }
         setSearchResults(null);
       } finally {
         setIsSearching(false);
@@ -292,13 +279,16 @@ const Navbar = () => {
     }
   };
 
-  // FIX: Sử dụng authLogout từ AuthContext
-  const handleLogout = () => {
-    if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
-      console.log('Đăng xuất từ Navbar');
-      authLogout(); // FIX: Gọi logout từ AuthContext
-      closeAllDropdowns();
-    }
+  // Mở modal xác nhận đăng xuất
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+    closeAllDropdowns();
+  };
+
+  // Xác nhận đăng xuất
+  const confirmLogout = () => {
+    authLogout();
+    setShowLogoutModal(false);
   };
 
   const toggleMenu = () => {
@@ -326,7 +316,6 @@ const Navbar = () => {
     setActiveMobileColumn(activeMobileColumn === column ? null : column);
   };
 
-  // FIX: Sử dụng authUser từ AuthContext thay vì local state
   const currentUser = authUser || userProfile;
 
   return (
@@ -360,7 +349,7 @@ const Navbar = () => {
           {isMenuOpen ? <FaTimes /> : <FaBars />}
         </button>
 
-        {/* Search Container - hiện trên cả desktop và mobile */}
+        {/* Search Container */}
         <div className="navbar-search-container">
           <div className="navbar-search" ref={searchRef}>
             <form onSubmit={handleSearchSubmit} className="navbar-search-bar">
@@ -384,7 +373,7 @@ const Navbar = () => {
                   </div>
                 ) : searchResults ? (
                   <>
-                    {/* MEDICINES SECTION - Ưu tiên cao */}
+                    {/* MEDICINES SECTION */}
                     {searchResults.medicines && searchResults.medicines.length > 0 && (
                       <div className="navbar-search-section">
                         <div className="navbar-search-section-header">
@@ -422,7 +411,7 @@ const Navbar = () => {
                       </div>
                     )}
 
-                    {/* DISEASES SECTION - Ưu tiên cao */}
+                    {/* DISEASES SECTION */}
                     {searchResults.diseases && searchResults.diseases.length > 0 && (
                       <div className="navbar-search-section">
                         <div className="navbar-search-section-header">
@@ -618,7 +607,7 @@ const Navbar = () => {
           onClick={closeAllDropdowns}
         ></div>
 
-        {/* Center section - Navigation Menu (ẩn trên mobile, hiện trong sidebar) */}
+        {/* Center section - Navigation Menu */}
         <div className={`navbar-center ${isMenuOpen ? 'active' : ''}`}>
           <div className="navbar-nav-menu">
 
@@ -642,6 +631,9 @@ const Navbar = () => {
                 </Link>
                 <Link to="/trang-thiet-bi" onClick={closeAllDropdowns}>
                   <FaMicroscope /> Trang thiết bị
+                </Link>
+                <Link to="/lien-he" onClick={closeAllDropdowns}>
+                  <FaPhone /> Liên hệ
                 </Link>
               </div>
             </div>
@@ -737,7 +729,7 @@ const Navbar = () => {
                     </Link>
                   </div>
                   
-                  {/* ===== CỘT TRA CỨU THUỐC (Gom Tra cứu và Danh mục con) ===== */}
+                  {/* ===== CỘT TRA CỨU THUỐC ===== */}
                   <div className={`navbar-mega-menu-column ${activeMobileColumn === 'medicine-lookup' ? 'active' : ''}`}>
                     <Link 
                       to="/thuoc"
@@ -770,9 +762,8 @@ const Navbar = () => {
                       </div>
                     )}
                   </div>
-                  {/* =========================================================== */}
                   
-                  {/* ===== CỘT TRA CỨU BỆNH LÝ (Gom Tra cứu và Danh mục con) ===== */}
+                  {/* ===== CỘT TRA CỨU BỆNH LÝ ===== */}
                   <div className={`navbar-mega-menu-column ${activeMobileColumn === 'disease-lookup' ? 'active' : ''}`}>
                     <Link 
                       to="/benh-ly"
@@ -805,7 +796,6 @@ const Navbar = () => {
                       </div>
                     )}
                   </div>
-                  {/* =========================================================== */}
 
                   <div className={`navbar-mega-menu-column ${activeMobileColumn === 'news' ? 'active' : ''}`}>
                     <Link 
@@ -849,25 +839,13 @@ const Navbar = () => {
                 className="navbar-nav-link"
                 onClick={closeAllDropdowns}
               >
-                TRA CỨU KẾT QUẢ
-              </Link>
-            </div>
-
-            {/* THÊM MENU LIÊN HỆ VÀO ĐÂY */}
-            <div className="navbar-nav-item">
-              <Link 
-                to="/lien-he" 
-                className="navbar-nav-link"
-                onClick={closeAllDropdowns}
-              >
-                LIÊN HỆ
+                Tra cứu kết quả
               </Link>
             </div>
 
           </div>
         </div>
         
-
         <div className="navbar-right">
           {(isAuthenticated || authUser) && <NotificationDropdown />}
 
@@ -893,14 +871,15 @@ const Navbar = () => {
                   <Link to="/ho-so-nguoi-dung" onClick={closeAllDropdowns}>
                     <FaUser /> Thông tin cá nhân
                   </Link>
-                  <Link to="/appointments" onClick={closeAllDropdowns}>
-                    <FaCalendarAlt /> Lịch hẹn
+                  <Link to="/dat-lich-hen" onClick={closeAllDropdowns}>
+                    <FaCalendarAlt /> 
+                    {['admin', 'staff'].includes(currentUser?.role) ? 'Quản lý lịch hẹn' : 'Lịch của tôi'}
                   </Link>
                   <Link to="/bai-viet-da-luu" onClick={closeAllDropdowns}>
                     <FaBookmark /> Bài viết đã lưu
                   </Link>
                   <div className="navbar-dropdown-divider"></div>
-                  <button onClick={() => { handleLogout(); closeAllDropdowns(); }} className="navbar-dropdown-logout">
+                  <button onClick={handleLogoutClick} className="navbar-dropdown-logout">
                     <FaSignOutAlt /> Đăng xuất
                   </button>
                 </>
@@ -918,6 +897,25 @@ const Navbar = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal xác nhận đăng xuất */}
+      {showLogoutModal && (
+        <div className="navbar-logout-overlay" onClick={() => setShowLogoutModal(false)}>
+          <div className="navbar-logout-modal" onClick={(e) => e.stopPropagation()}>
+            <FaSignOutAlt className="navbar-logout-icon" />
+            <h3>Xác nhận đăng xuất</h3>
+            <p>Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?</p>
+            <div className="navbar-logout-actions">
+              <button className="btn-cancel" onClick={() => setShowLogoutModal(false)}>
+                Hủy
+              </button>
+              <button className="btn-confirm" onClick={confirmLogout}>
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };

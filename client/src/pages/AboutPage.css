@@ -1,35 +1,146 @@
 /* src/pages/AboutPage.css */
-/* Import Google Fonts if needed, but omitted to reduce size */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Colors - Customize as needed */
-  --aboutpage-primary: #10b981;
-  --aboutpage-primary-dark: #059669;
+  --aboutpage-primary: #4CAF50;
+  --aboutpage-primary-dark: #2E7D32;
+  --aboutpage-primary-light: #81C784;
   --aboutpage-bg-white: #ffffff;
-  --aboutpage-bg-gray-50: #f9fafb;
-  --aboutpage-text-dark: #111827;
-  --aboutpage-text-gray: #6b7280;
-  --aboutpage-shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+  --aboutpage-bg-gray-50: #F1F8F4;
+  --aboutpage-text-dark: #1f2937;
+  --aboutpage-text-gray: #4b5563;
+  --aboutpage-text-light: #9ca3af;
+  --aboutpage-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  --aboutpage-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --aboutpage-radius: 0.75rem;
   --aboutpage-radius-xl: 1rem;
   --aboutpage-transition: all 0.3s ease;
 }
 
-html {
-  scroll-behavior: smooth;
+/* Đảm bảo toàn trang không bao giờ bị overflow ngang */
+html, body {
+  overflow-x: hidden;
 }
 
 .aboutpage-container {
-  width: 100%;
-  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+  color: var(--aboutpage-text-dark);
   background: var(--aboutpage-bg-white);
-  scroll-snap-type: y mandatory;
+  width: 100%;
+  overflow-x: hidden; /* Xóa sổ lỗi tràn ngang */
+  box-sizing: border-box;
 }
 
-/* Hero Section */
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+/* ==================== THIẾT LẬP NÚT CUỘN NGANG ==================== */
+.scroll-wrapper-container {
+  position: relative;
+  width: 100%;
+  max-width: 100vw;
+}
+
+.scroll-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  width: 40px; 
+  height: 40px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.3s ease;
+  color: var(--aboutpage-primary-dark);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.scroll-arrow:hover {
+  background: var(--aboutpage-primary);
+  color: white;
+}
+
+@media (hover: hover) {
+  .scroll-wrapper-container:hover .scroll-arrow {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  .scroll-arrow {
+    opacity: 0.8;
+    width: 32px; 
+    height: 32px;
+  }
+}
+
+.scroll-arrow.left { left: 5px; }
+.scroll-arrow.right { right: 5px; }
+
+.scroll-content { scrollbar-width: none; width: 100%; }
+.scroll-content::-webkit-scrollbar { display: none; }
+
+/* ==================== COMMON SECTIONS ==================== */
+.aboutpage-section-container {
+  padding: 4rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  width: 100%;
+}
+
+.bg-light { background-color: var(--aboutpage-bg-gray-50); }
+
+.aboutpage-section-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  width: 100%;
+}
+
+.aboutpage-section-title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 2.5rem;
+  color: var(--aboutpage-primary-dark);
+}
+
+.aboutpage-section-title-left {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  color: var(--aboutpage-primary-dark);
+}
+
+.aboutpage-section-badge {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  background: #E8F5E9;
+  color: var(--aboutpage-primary-dark);
+  border-radius: 2rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+
+.aboutpage-section-desc {
+  font-size: 1.05rem;
+  color: var(--aboutpage-text-gray);
+  line-height: 1.6;
+}
+
+/* ==================== HERO BANNER ==================== */
 .aboutpage-hero {
   position: relative;
-  height: 500px;
-  background: url('https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=1920&h=600&fit=crop');
+  height: 100vh;
+  min-height: 500px;
   background-size: cover;
   background-position: center;
   display: flex;
@@ -37,18 +148,19 @@ html {
   justify-content: center;
   color: white;
   text-align: center;
+  width: 100%;
 }
 
 .aboutpage-hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.85));
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.85), rgba(46, 125, 50, 0.85));
 }
 
 .aboutpage-hero-content {
   position: relative;
   z-index: 2;
-  max-width: 900px;
+  max-width: 800px;
   padding: 0 1.5rem;
 }
 
@@ -56,1447 +168,492 @@ html {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 1rem;
   background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 2rem;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 600;
   margin-bottom: 1.5rem;
 }
 
 .aboutpage-hero-title {
-  font-size: 3.5rem;
-  font-weight: 900;
+  font-size: 3rem;
+  font-weight: 800;
   margin-bottom: 1rem;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 
 .aboutpage-hero-subtitle {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.3rem;
+  font-weight: 500;
   margin-bottom: 1rem;
-  opacity: 0.95;
+  opacity: 0.9;
 }
 
 .aboutpage-hero-description {
-  font-size: 1.125rem;
-  line-height: 1.7;
+  font-size: 1rem;
+  line-height: 1.5;
   opacity: 0.9;
-  max-width: 700px;
-  margin: 0 auto;
 }
 
-/* Section Container */
-.aboutpage-section-container {
-  padding: 4rem 0;
-  border-bottom: 1px solid var(--aboutpage-bg-gray-50);
+/* ==================== STATS BANNER ==================== */
+.aboutpage-stats-banner {
+  background: var(--aboutpage-bg-white);
+  padding: 3rem 0;
+  border-top: 1px solid #e5e7eb;
 }
 
-.aboutpage-section-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
+.aboutpage-stats-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-around;
+  align-items: center;
+  gap: 1.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
 }
 
-.aboutpage-section-title {
+.aboutpage-stat-item {
   text-align: center;
-  max-width: 700px;
-  margin: 0 auto 3rem;
-  font-size: 2.5rem;
+  flex: 1;
+  min-width: max-content;
+  padding: 0 1.5rem;
+  scroll-snap-align: center;
+}
+
+.aboutpage-stat-item h4 {
+  font-size: 3rem;
   font-weight: 800;
-  color: var(--aboutpage-text-dark);
+  margin-bottom: 0.25rem;
+  color: var(--aboutpage-primary-dark);
 }
 
-.aboutpage-section-badge {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  background: #ecfdf5;
-  color: #047857;
-  border-radius: 2rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 1rem;
-}
-
-.aboutpage-section-subtitle {
-  font-size: 1.125rem;
-  color: var(--aboutpage-text-gray);
-  line-height: 1.7;
-}
-
-/* Buttons */
-.aboutpage-btn-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.875rem 1.75rem;
-  background: transparent;
-  color: var(--aboutpage-primary);
-  border: 2px solid var(--aboutpage-primary);
-  border-radius: var(--aboutpage-radius-xl);
+.aboutpage-stat-item p {
   font-size: 1rem;
   font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  transition: var(--aboutpage-transition);
+  color: var(--aboutpage-text-gray);
+  white-space: nowrap;
 }
 
-.aboutpage-btn-outline:hover {
-  background: var(--aboutpage-primary);
-  color: white;
-  transform: translateY(-2px);
-}
-
-/* Mission Section */
-.aboutpage-mission-section {
-  background: var(--aboutpage-bg-gray-50);
-}
-
-.aboutpage-mission-grid {
+/* ==================== MISSION & VISION ==================== */
+.aboutpage-zigzag-row {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 3rem;
-}
-
-.aboutpage-mission-card {
-  display: flex;
-  flex-direction: column;
-  background: white;
-  border-radius: var(--aboutpage-radius-xl);
-  overflow: hidden;
-  box-shadow: var(--aboutpage-shadow-md);
-  transition: var(--aboutpage-transition);
-}
-
-.aboutpage-mission-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--aboutpage-shadow-xl);
-}
-
-.aboutpage-mission-image {
-  position: relative;
-  height: 300px;
-}
-
-.aboutpage-mission-image img {
+  align-items: center;
+  margin-bottom: 5rem;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
-.aboutpage-mission-icon-overlay {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  background: rgba(255,255,255,0.9);
-  border-radius: 50%;
-  padding: 1rem;
-  font-size: 2rem;
-  color: var(--aboutpage-primary);
-  box-shadow: var(--aboutpage-shadow);
-}
+.aboutpage-zigzag-row.reverse .aboutpage-zigzag-image { order: 2; }
+.aboutpage-zigzag-row.reverse .aboutpage-zigzag-text { order: 1; }
 
-.aboutpage-mission-content {
-  padding: 2rem;
-}
-
-.aboutpage-mission-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-}
-
-.aboutpage-mission-text {
-  font-size: 1rem;
-  color: var(--aboutpage-text-gray);
-  line-height: 1.7;
-}
-
-/* ==================== TIMELINE SECTION - CAROUSEL VERTICAL ==================== */
-.aboutpage-timeline-section {
-  padding: 5rem 0;
-  background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+.aboutpage-zigzag-image {
   position: relative;
+  border-radius: var(--aboutpage-radius-xl);
   overflow: hidden;
+  box-shadow: var(--aboutpage-shadow-lg);
+  width: 100%;
 }
 
-/* Background decorations */
-.aboutpage-timeline-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -10%;
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 70%);
-  border-radius: 50%;
-}
-
-.aboutpage-timeline-section::after {
-  content: '';
-  position: absolute;
-  bottom: -10%;
-  right: -10%;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(102, 126, 234, 0.05) 0%, transparent 70%);
-  border-radius: 50%;
-}
-
-.aboutpage-section-content {
-  position: relative;
-  z-index: 1;
-}
-
-/* Timeline Wrapper */
-.aboutpage-timeline-wrapper {
-  position: relative;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 2rem;
-}
-
-/* Timeline Container */
-.aboutpage-timeline-container {
-  position: relative;
-  height: 600px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scroll-behavior: smooth;
-  border-radius: 0;
-  background: transparent;
-  
-  /* Hide scrollbar */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.aboutpage-timeline-container::-webkit-scrollbar {
-  display: none;
-}
-
-/* Timeline Track */
-.aboutpage-timeline-track {
-  position: relative;
-  padding: 200px 0;
-  min-height: calc(350px * var(--milestone-count, 5) + 400px);
-}
-
-/* Timeline Item - Grid Layout 3 columns */
-.aboutpage-timeline-item {
-  display: grid;
-  grid-template-columns: 1fr 120px 1fr;
-  gap: 3rem;
-  align-items: center;
-  padding: 0 3rem;
+.aboutpage-zigzag-image img {
+  width: 100%;
   height: 350px;
-  margin-bottom: 0;
-  position: relative;
-  opacity: 0.4;
-  filter: blur(2px);
-  transform: scale(0.85);
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
+  object-fit: cover;
+  display: block;
 }
 
-/* Active item - To hơn và nổi bật */
-.aboutpage-timeline-item.active {
-  opacity: 1;
-  filter: blur(0);
-  transform: scale(1.05);
-  z-index: 2;
-}
-
-/* Adjacent items - Mờ nhẹ hơn */
-.aboutpage-timeline-item.adjacent {
-  opacity: 0.6;
-  filter: blur(1px);
-  transform: scale(0.92);
-}
-
-/* Left Column */
-.aboutpage-timeline-left {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  grid-column: 1;
-}
-
-/* Center Column - Year Badge */
-.aboutpage-timeline-center {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  grid-column: 2;
-  z-index: 3;
-}
-
-/* Right Column */
-.aboutpage-timeline-right {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  grid-column: 3;
-}
-
-/* Year Badge - Không phóng to */
-.aboutpage-timeline-year {
-  width: 100px;
-  height: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--aboutpage-primary) 0%, #667eea 100%);
-  border-radius: 50%;
-  color: white;
-  font-size: 1.5rem;
-  font-weight: 800;
-  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
-  transition: all 0.4s ease;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.aboutpage-timeline-year::before {
-  content: '';
+.aboutpage-zigzag-icon {
   position: absolute;
-  inset: -8px;
+  bottom: -1rem;
+  right: -1rem;
+  background: white;
+  color: var(--aboutpage-primary);
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(102, 126, 234, 0.3) 100%);
-  z-index: -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+.aboutpage-zigzag-row.reverse .aboutpage-zigzag-icon {
+  right: auto; left: -1rem;
 }
 
-/* Active: Chỉ thay đổi shadow và animation */
-.aboutpage-timeline-item.active .aboutpage-timeline-year {
-  box-shadow: 0 15px 40px rgba(16, 185, 129, 0.7);
-  animation: pulse 2s ease-in-out infinite;
+/* ==================== GALLERY CAROUSEL (LỊCH SỬ PHÁT TRIỂN 50/50) ==================== */
+.aboutpage-gallery-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr; 
+  gap: 2.5rem;
+  width: 100%;
+  background: transparent;
+  box-shadow: none;
+  padding: 0; 
 }
 
-@keyframes pulse {
-  0%, 100% { 
-    box-shadow: 0 15px 40px rgba(16, 185, 129, 0.7);
-  }
-  50% { 
-    box-shadow: 0 20px 50px rgba(16, 185, 129, 0.9);
-  }
-}
-
-/* Image Wrapper */
-.aboutpage-timeline-image-wrapper {
-  width: 320px;
-  height: 220px;
-  border-radius: 15px;
-  overflow: hidden;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+/* Khung Ảnh Lớn */
+.aboutpage-gallery-main {
   position: relative;
-  flex-shrink: 0;
+  border-radius: var(--aboutpage-radius-xl);
+  overflow: hidden;
+  height: 400px;
+  box-shadow: var(--aboutpage-shadow);
+  width: 100%;
 }
 
-/* Active: Ảnh to hơn */
-.aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper {
-  width: 440px;
-  height: 310px;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
-}
-
-/* Khi ảnh ở bên trái (index lẻ), dịch sang phải khi phóng to */
-.aboutpage-timeline-item:nth-child(odd).active .aboutpage-timeline-left .aboutpage-timeline-image-wrapper {
-  transform: translateX(50px);
-}
-
-/* Khi ảnh ở bên phải (index chẵn), dịch sang trái khi phóng to */
-.aboutpage-timeline-item:nth-child(even).active .aboutpage-timeline-right .aboutpage-timeline-image-wrapper {
-  transform: translateX(-50px);
-}
-
-.aboutpage-timeline-image-wrapper img {
+.gallery-main-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.6s ease;
-  filter: grayscale(40%);
+  animation: galleryFadeIn 0.5s ease-in-out;
 }
 
-.aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper img {
-  transform: scale(1.05);
-  filter: grayscale(0%);
+@keyframes galleryFadeIn {
+  from { opacity: 0; transform: scale(1.02); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-.aboutpage-timeline-image-wrapper::after {
-  content: '';
+.gallery-nav-btn {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.5) 100%);
-  opacity: 0.8;
-  transition: opacity 0.3s ease;
-}
-
-.aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper::after {
-  opacity: 0.3;
-}
-
-/* Icon Badge */
-.aboutpage-timeline-icon {
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  width: 50px;
-  height: 50px;
-  background: rgba(255, 255, 255, 0.95);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--aboutpage-primary);
-  font-size: 1.5rem;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  z-index: 2;
-  transition: all 0.3s ease;
-  opacity: 0;
-}
-
-.aboutpage-timeline-item.active .aboutpage-timeline-icon {
-  opacity: 1;
-  transform: rotate(360deg) scale(1.15);
-}
-
-/* Content - Text dịch chuyển ngược với ảnh */
-.aboutpage-timeline-content {
-  max-width: 420px;
-  padding: 1rem 1.5rem;
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Active: Content to hơn */
-.aboutpage-timeline-item.active .aboutpage-timeline-content {
-  max-width: 480px;
-  padding: 1.5rem 2rem;
-}
-
-/* Index lẻ: Ảnh trái, Text phải - Text dịch sang TRÁI khi active (ngược với ảnh) */
-.aboutpage-timeline-item:nth-child(odd).active .aboutpage-timeline-right .aboutpage-timeline-content {
-  transform: translateX(-40px);
-}
-
-/* Index chẵn: Text trái, Ảnh phải - Text dịch sang PHẢI khi active (ngược với ảnh) */
-.aboutpage-timeline-item:nth-child(even).active .aboutpage-timeline-left .aboutpage-timeline-content {
-  transform: translateX(40px);
-}
-
-/* Title */
-.aboutpage-timeline-title {
-  font-size: 1.3rem;
-  font-weight: 700;
-  margin-bottom: 0.8rem;
-  color: var(--aboutpage-text-dark);
-  transition: all 0.4s ease;
-  line-height: 1.4;
-}
-
-/* Active: Title to hơn */
-.aboutpage-timeline-item.active .aboutpage-timeline-title {
-  font-size: 1.8rem;
-  color: var(--aboutpage-primary);
-  margin-bottom: 1rem;
-}
-
-/* Description */
-.aboutpage-timeline-desc {
-  font-size: 0.95rem;
-  color: var(--aboutpage-text-gray);
-  line-height: 1.7;
-  margin-bottom: 0.8rem;
-  transition: all 0.4s ease;
-}
-
-/* Active: Description to hơn */
-.aboutpage-timeline-item.active .aboutpage-timeline-desc {
-  font-size: 1.15rem;
-  line-height: 1.8;
-  margin-bottom: 1rem;
-  color: #4b5563;
-}
-
-/* Tags */
-.aboutpage-timeline-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  transition: all 0.4s ease;
-}
-
-.aboutpage-timeline-tag {
-  padding: 0.35rem 0.8rem;
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  color: #047857;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  opacity: 0.7;
-}
-
-/* Active: Tags to hơn và rõ hơn */
-.aboutpage-timeline-item.active .aboutpage-timeline-tag {
-  padding: 0.45rem 1rem;
-  font-size: 0.9rem;
-  background: linear-gradient(135deg, var(--aboutpage-primary) 0%, #059669 100%);
-  color: white;
-  opacity: 1;
-}
-
-/* Text alignment - NGƯỢC LẠI */
-/* Index lẻ: Ảnh trái, Text phải - Căn TRÁI */
-.aboutpage-timeline-item:nth-child(odd) .aboutpage-timeline-right .aboutpage-timeline-content {
-  text-align: left;
-}
-
-.aboutpage-timeline-item:nth-child(odd) .aboutpage-timeline-right .aboutpage-timeline-tags {
-  justify-content: flex-start;
-}
-
-/* Index chẵn: Text trái, Ảnh phải - Căn PHẢI */
-.aboutpage-timeline-item:nth-child(even) .aboutpage-timeline-left .aboutpage-timeline-content {
-  text-align: right;
-}
-
-.aboutpage-timeline-item:nth-child(even) .aboutpage-timeline-left .aboutpage-timeline-tags {
-  justify-content: flex-end;
-}
-
-/* Navigation Buttons */
-.aboutpage-timeline-nav {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 50px;
-  height: 50px;
-  background: white;
-  border: 2px solid var(--aboutpage-primary);
-  border-radius: 50%;
-  color: var(--aboutpage-primary);
-  font-size: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: var(--aboutpage-primary-dark);
+  font-size: 1.2rem;
   cursor: pointer;
   transition: all 0.3s ease;
   z-index: 10;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
-
-.aboutpage-timeline-nav:hover:not(:disabled) {
+.gallery-nav-btn:hover {
   background: var(--aboutpage-primary);
   color: white;
-  transform: translateX(-50%) scale(1.1);
 }
+.gallery-nav-btn.left { left: 1rem; }
+.gallery-nav-btn.right { right: 1rem; }
 
-.aboutpage-timeline-nav:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.aboutpage-nav-up {
-  top: -25px;
-}
-
-.aboutpage-nav-down {
-  bottom: -25px;
-}
-
-/* Dots Indicator */
-.aboutpage-timeline-dots {
+/* Khung Nội Dung & Thumbnails Bên Phải */
+.aboutpage-gallery-info {
   display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 2rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  width: 100%;
 }
 
-.aboutpage-timeline-dot {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  padding: 0;
+.aboutpage-gallery-text {
+  animation: galleryFadeIn 0.5s ease-in-out;
+  padding-bottom: 1rem;
 }
 
-.aboutpage-timeline-dot span {
+.gallery-year {
   display: inline-block;
-  padding: 0.4rem 0.8rem;
-  background: #e5e7eb;
-  color: #6b7280;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--aboutpage-primary-dark);
+  border-bottom: 4px solid var(--aboutpage-primary-light);
+  padding-bottom: 0.2rem;
+  margin-bottom: 1rem;
 }
 
-.aboutpage-timeline-dot.active span,
-.aboutpage-timeline-dot:hover span {
-  background: var(--aboutpage-primary);
-  color: white;
-  transform: scale(1.1);
-}
-
-/* Stats Summary */
-.aboutpage-timeline-summary {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(102, 126, 234, 0.05) 100%);
-  border-radius: 25px;
-  padding: 3rem 2rem;
-  max-width: 1200px;
-  margin: 4rem auto 0;
-  backdrop-filter: blur(10px);
-  border: 2px solid rgba(16, 185, 129, 0.1);
-}
-
-.aboutpage-summary-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 2rem;
-  text-align: center;
-}
-
-.aboutpage-summary-stat {
-  padding: 1.5rem;
-  position: relative;
-  transition: transform 0.3s ease;
-}
-
-.aboutpage-summary-stat:hover {
-  transform: translateY(-5px);
-}
-
-.aboutpage-summary-stat::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 2px;
-  height: 60%;
-  background: linear-gradient(180deg, transparent 0%, rgba(16, 185, 129, 0.3) 50%, transparent 100%);
-}
-
-.aboutpage-summary-stat:last-child::after {
-  display: none;
-}
-
-.aboutpage-summary-stat h4 {
-  font-size: 3rem;
+.gallery-title {
+  font-size: 1.5rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--aboutpage-primary) 0%, #667eea 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 0.5rem;
-}
-
-.aboutpage-summary-stat p {
-  font-size: 1rem;
-  color: var(--aboutpage-text-gray);
-  font-weight: 600;
-}
-
-/* ==================== RESPONSIVE ==================== */
-@media (max-width: 1024px) {
-  .aboutpage-timeline-wrapper {
-    max-width: 1100px;
-  }
-
-  .aboutpage-timeline-container {
-    height: 550px;
-  }
-
-  .aboutpage-timeline-item {
-    grid-template-columns: 1fr 100px 1fr;
-    gap: 2rem;
-    height: 320px;
-    padding: 0 2rem;
-  }
-
-  .aboutpage-timeline-image-wrapper {
-    width: 280px;
-    height: 190px;
-  }
-
-  .aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper {
-    width: 380px;
-    height: 260px;
-  }
-
-  .aboutpage-timeline-item:nth-child(odd).active .aboutpage-timeline-left .aboutpage-timeline-image-wrapper {
-    transform: translateX(30px);
-  }
-
-  .aboutpage-timeline-item:nth-child(even).active .aboutpage-timeline-right .aboutpage-timeline-image-wrapper {
-    transform: translateX(-30px);
-  }
-
-  .aboutpage-timeline-item:nth-child(odd).active .aboutpage-timeline-right .aboutpage-timeline-content {
-    transform: translateX(-20px);
-  }
-
-  .aboutpage-timeline-item:nth-child(even).active .aboutpage-timeline-left .aboutpage-timeline-content {
-    transform: translateX(20px);
-  }
-
-  .aboutpage-timeline-content {
-    max-width: 340px;
-    padding: 0.8rem 1.2rem;
-  }
-
-  .aboutpage-timeline-item.active .aboutpage-timeline-content {
-    max-width: 400px;
-    padding: 1.2rem 1.5rem;
-  }
-
-  .aboutpage-timeline-title {
-    font-size: 1.2rem;
-  }
-
-  .aboutpage-timeline-item.active .aboutpage-timeline-title {
-    font-size: 1.6rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .aboutpage-timeline-wrapper {
-    padding: 0 1rem;
-  }
-
-  .aboutpage-timeline-container {
-    height: 520px;
-  }
-
-  /* Mobile: Single column layout - Năm → Ảnh → Text */
-  .aboutpage-timeline-item {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    height: auto;
-    min-height: 450px;
-    padding: 2rem 1rem;
-    text-align: center;
-    align-items: center;
-  }
-
-  /* Thứ tự: Year → Image → Content */
-  .aboutpage-timeline-center {
-    order: 1;
-    margin-bottom: 0;
-  }
-
-  .aboutpage-timeline-left,
-  .aboutpage-timeline-right {
-    order: 2;
-    margin-bottom: 0;
-  }
-
-  /* Kiểm tra xem có phải là ảnh hay content */
-  .aboutpage-timeline-left:has(.aboutpage-timeline-image-wrapper),
-  .aboutpage-timeline-right:has(.aboutpage-timeline-image-wrapper) {
-    order: 2;
-  }
-
-  .aboutpage-timeline-left:has(.aboutpage-timeline-content),
-  .aboutpage-timeline-right:has(.aboutpage-timeline-content) {
-    order: 3;
-  }
-
-  /* Mobile: Căn giữa tất cả */
-  .aboutpage-timeline-left,
-  .aboutpage-timeline-right {
-    justify-content: center;
-  }
-
-  .aboutpage-timeline-item:nth-child(even) .aboutpage-timeline-left .aboutpage-timeline-content,
-  .aboutpage-timeline-item:nth-child(odd) .aboutpage-timeline-right .aboutpage-timeline-content {
-    text-align: center;
-  }
-
-  .aboutpage-timeline-item:nth-child(even) .aboutpage-timeline-left .aboutpage-timeline-tags,
-  .aboutpage-timeline-item:nth-child(odd) .aboutpage-timeline-right .aboutpage-timeline-tags {
-    justify-content: center;
-  }
-
-  /* Bỏ transform trên mobile */
-  .aboutpage-timeline-item.active .aboutpage-timeline-left .aboutpage-timeline-image-wrapper,
-  .aboutpage-timeline-item.active .aboutpage-timeline-right .aboutpage-timeline-image-wrapper,
-  .aboutpage-timeline-item.active .aboutpage-timeline-left .aboutpage-timeline-content,
-  .aboutpage-timeline-item.active .aboutpage-timeline-right .aboutpage-timeline-content {
-    transform: none;
-  }
-
-  /* Image full width on mobile */
-  .aboutpage-timeline-image-wrapper {
-    width: 100%;
-    max-width: 380px;
-    height: 220px;
-    margin: 0 auto;
-  }
-
-  .aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper {
-    width: 100%;
-    max-width: 450px;
-    height: 280px;
-  }
-
-  /* Content full width */
-  .aboutpage-timeline-content {
-    max-width: 100%;
-    text-align: center;
-  }
-
-  .aboutpage-timeline-item.active .aboutpage-timeline-content {
-    max-width: 100%;
-  }
-
-  .aboutpage-timeline-year {
-    width: 90px;
-    height: 90px;
-    font-size: 1.4rem;
-  }
-
-  /* Navigation arrows smaller */
-  .aboutpage-timeline-nav {
-    width: 45px;
-    height: 45px;
-    font-size: 1.3rem;
-  }
-
-  .aboutpage-nav-up {
-    top: -22px;
-  }
-
-  .aboutpage-nav-down {
-    bottom: -22px;
-  }
-
-  /* Dots smaller */
-  .aboutpage-timeline-dots {
-    gap: 0.4rem;
-  }
-
-  .aboutpage-timeline-dot span {
-    padding: 0.35rem 0.7rem;
-    font-size: 0.8rem;
-  }
-
-  /* Stats 2 columns */
-  .aboutpage-summary-stats {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
-  }
-
-  .aboutpage-summary-stat::after {
-    display: none;
-  }
-}
-
-@media (max-width: 480px) {
-  .aboutpage-timeline-section {
-    padding: 3rem 0;
-  }
-
-  .aboutpage-timeline-container {
-    height: 480px;
-  }
-
-  .aboutpage-timeline-item {
-    min-height: 420px;
-    padding: 1.5rem 0.75rem;
-    gap: 1.2rem;
-  }
-
-  .aboutpage-timeline-year {
-    width: 80px;
-    height: 80px;
-    font-size: 1.3rem;
-  }
-
-  .aboutpage-timeline-image-wrapper {
-    height: 200px;
-    max-width: 100%;
-  }
-
-  .aboutpage-timeline-item.active .aboutpage-timeline-image-wrapper {
-    height: 250px;
-  }
-
-  .aboutpage-timeline-title {
-    font-size: 1.15rem;
-  }
-
-  .aboutpage-timeline-item.active .aboutpage-timeline-title {
-    font-size: 1.5rem;
-  }
-
-  .aboutpage-timeline-desc {
-    font-size: 0.9rem;
-  }
-
-  .aboutpage-timeline-item.active .aboutpage-timeline-desc {
-    font-size: 1.05rem;
-  }
-
-  .aboutpage-timeline-nav {
-    width: 40px;
-    height: 40px;
-    font-size: 1.2rem;
-  }
-
-  /* Stats 1 column */
-  .aboutpage-summary-stats {
-    grid-template-columns: 1fr;
-  }
-
-  .aboutpage-summary-stat h4 {
-    font-size: 2.5rem;
-  }
-}
-
-/* Values Section */
-.aboutpage-values-section {
-  background: var(--aboutpage-bg-gray-50);
-  padding: 5rem 0;
-}
-
-.aboutpage-values-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2rem;
-}
-
-.aboutpage-value-card {
-  background: white;
-  border-radius: var(--aboutpage-radius-xl);
-  padding: 2rem;
-  text-align: center;
-  box-shadow: var(--aboutpage-shadow-md);
-  transition: var(--aboutpage-transition);
-  opacity: 1;
-  transform: translateY(20px);
-}
-
-.aboutpage-value-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--aboutpage-shadow-xl);
-}
-
-.aboutpage-value-icon {
-  font-size: 3rem;
-  color: var(--aboutpage-primary);
-  margin-bottom: 1.5rem;
-}
-
-.aboutpage-value-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-}
-
-.aboutpage-value-desc {
-  font-size: 1rem;
-  color: var(--aboutpage-text-gray);
-}
-
-/* Leadership Section */
-.aboutpage-leadership-section {
-  padding: 5rem 0;
-}
-
-.aboutpage-leadership-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-}
-
-.aboutpage-leader-card {
-  background: white;
-  border-radius: var(--aboutpage-radius-xl);
-  overflow: hidden;
-  box-shadow: var(--aboutpage-shadow-md);
-  transition: var(--aboutpage-transition);
-  opacity: 1;
-  transform: scale(0.95);
-}
-
-.aboutpage-leader-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--aboutpage-shadow-xl);
-}
-
-.aboutpage-leader-image {
-  width: 100%;
-  height: 350px;
-  object-fit: cover;
-  transition: var(--aboutpage-transition);
-}
-
-.aboutpage-leader-card:hover .aboutpage-leader-image {
-  transform: scale(1.05);
-}
-
-.aboutpage-leader-info {
-  padding: 1.5rem 2rem;
-}
-
-.aboutpage-leader-name {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-}
-
-.aboutpage-leader-position {
-  font-size: 1rem;
-  color: var(--aboutpage-primary);
-  font-weight: 600;
-  margin-bottom: 1rem;
-}
-
-.aboutpage-leader-desc {
-  font-size: 1rem;
-  color: var(--aboutpage-text-gray);
-  line-height: 1.7;
-}
-
-/* ==================== ACHIEVEMENTS SECTION ==================== */
-.aboutpage-achievements-section {
-  background: var(--aboutpage-bg-gray-50);
-  padding: 5rem 0;
-}
-
-.aboutpage-achievements-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2rem;
-}
-
-.aboutpage-achievement-card {
-  background: white;
-  border-radius: var(--aboutpage-radius-xl);
-  overflow: hidden;
-  box-shadow: var(--aboutpage-shadow-md);
-  transition: var(--aboutpage-transition);
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.aboutpage-achievement-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--aboutpage-shadow-xl);
-}
-
-.aboutpage-achievement-image {
-  width: 100%;
-  height: 200px;
-  overflow: hidden;
-  position: relative;
-}
-
-.aboutpage-achievement-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.4s ease;
-}
-
-.aboutpage-achievement-card:hover .aboutpage-achievement-image img {
-  transform: scale(1.1);
-}
-
-.aboutpage-achievement-content {
-  padding: 2rem;
-  text-align: center;
-}
-
-.aboutpage-achievement-icon {
-  font-size: 3rem;
-  color: var(--aboutpage-primary);
-  margin-bottom: 1rem;
-}
-
-.aboutpage-achievement-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
   color: var(--aboutpage-text-dark);
+  margin-bottom: 0.8rem;
 }
 
-.aboutpage-achievement-year {
-  font-size: 0.875rem;
-  color: var(--aboutpage-text-gray);
-  font-weight: 600;
-}
-
-/* ==================== FACILITIES SECTION ==================== */
-.aboutpage-facilities-section {
-  padding: 5rem 0;
-}
-
-.aboutpage-facilities-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2rem;
-}
-
-.aboutpage-facility-card {
-  background: white;
-  border-radius: var(--aboutpage-radius-xl);
-  overflow: hidden;
-  box-shadow: var(--aboutpage-shadow-md);
-  transition: var(--aboutpage-transition);
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.aboutpage-facility-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--aboutpage-shadow-xl);
-}
-
-.aboutpage-facility-image {
-  width: 100%;
-  height: 200px;
-  overflow: hidden;
-  position: relative;
-}
-
-.aboutpage-facility-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.4s ease;
-}
-
-.aboutpage-facility-card:hover .aboutpage-facility-image img {
-  transform: scale(1.1);
-}
-
-.aboutpage-facility-content {
-  padding: 2rem;
-  text-align: center;
-}
-
-.aboutpage-facility-icon {
-  font-size: 3rem;
-  color: var(--aboutpage-primary);
-  margin-bottom: 1.5rem;
-}
-
-.aboutpage-facility-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  color: var(--aboutpage-text-dark);
-}
-
-.aboutpage-facility-desc {
+.gallery-desc {
   font-size: 1rem;
   color: var(--aboutpage-text-gray);
   line-height: 1.6;
 }
 
-/* Section Footer - Nút xem tất cả */
-.aboutpage-section-footer {
-  margin-top: 3rem;
-  text-align: center;
-}
-
-/* ==================== RESPONSIVE ==================== */
-@media (max-width: 1024px) {
-  .aboutpage-achievements-grid,
-  .aboutpage-facilities-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .aboutpage-achievements-grid,
-  .aboutpage-facilities-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
-  }
-
-  .aboutpage-achievement-image,
-  .aboutpage-facility-image {
-    height: 180px;
-  }
-}
-
-@media (max-width: 480px) {
-  .aboutpage-achievements-grid,
-  .aboutpage-facilities-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .aboutpage-achievement-image,
-  .aboutpage-facility-image {
-    height: 200px;
-  }
-
-  .aboutpage-achievement-content,
-  .aboutpage-facility-content {
-    padding: 1.5rem;
-  }
-}
-
-/* Doctors Section */
-.aboutpage-doctors-section {
-  background: var(--aboutpage-bg-gray-50);
-  padding: 5rem 0;
-}
-
-.aboutpage-doctors-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-}
-
-.aboutpage-doctor-card {
-  background: white;
-  border-radius: var(--aboutpage-radius-xl);
-  overflow: hidden;
-  box-shadow: var(--aboutpage-shadow-md);
-  transition: var(--aboutpage-transition);
-  opacity: 1;
-  transform: scale(0.95);
-}
-
-.aboutpage-doctor-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--aboutpage-shadow-xl);
-}
-
-.aboutpage-doctor-image {
+/* 3 Thumbnails Grid */
+.aboutpage-gallery-thumbnails-wrapper {
+  margin-top: auto;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1.5rem;
   width: 100%;
-  height: 350px;
-  object-fit: cover;
-  transition: var(--aboutpage-transition);
 }
 
-.aboutpage-doctor-card:hover .aboutpage-doctor-image {
-  transform: scale(1.05);
-}
-
-.aboutpage-doctor-info {
-  padding: 1.5rem 2rem;
-}
-
-.aboutpage-doctor-name {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-}
-
-.aboutpage-doctor-specialty, .aboutpage-doctor-experience {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1rem;
-  color: var(--aboutpage-text-gray);
-  margin-bottom: 0.5rem;
-}
-
-.aboutpage-doctor-specialty svg, .aboutpage-doctor-experience svg {
-  color: var(--aboutpage-primary);
-}
-
-.aboutpage-section-footer {
-  margin-top: 3rem;
-  text-align: center;
-}
-
-/* CTA Section */
-.aboutpage-cta-section {
-  background: linear-gradient(135deg, var(--aboutpage-primary) 0%, var(--aboutpage-primary-dark) 100%);
-  color: white;
-  padding: 5rem 0;
-  text-align: center;
-}
-
-.aboutpage-cta-content {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-}
-
-.aboutpage-cta-title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin-bottom: 1rem;
-}
-
-.aboutpage-cta-text {
-  font-size: 1.125rem;
-  margin-bottom: 2rem;
-  opacity: 0.9;
-}
-
-.aboutpage-cta-buttons {
-  display: flex;
-  justify-content: center;
+.aboutpage-gallery-thumbnails {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* Ép hiển thị đúng 3 ô */
   gap: 1rem;
+  width: 100%;
 }
 
-.aboutpage-btn-primary, .aboutpage-btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem 2rem;
-  border-radius: 50px;
-  font-weight: 600;
-  transition: var(--aboutpage-transition);
-  text-decoration: none;
+.gallery-thumb {
+  height: 90px;
+  border-radius: 0.5rem;
+  overflow: hidden;
   cursor: pointer;
+  position: relative;
+  opacity: 0.5;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
 }
 
-.aboutpage-btn-primary {
-  background: white;
-  color: var(--aboutpage-primary);
+.gallery-thumb:hover {
+  opacity: 0.8;
 }
 
-.aboutpage-btn-primary:hover {
-  background: #f9fafb;
+/* Ảnh đang xem (Index 0) sẽ sáng rực */
+.gallery-thumb.active {
+  opacity: 1;
+  border-color: var(--aboutpage-primary);
   transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
 }
 
-.aboutpage-btn-secondary {
-  background: rgba(255,255,255,0.2);
+.gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gallery-thumb.active .gallery-thumb-overlay {
+  background: rgba(76, 175, 80, 0.2);
+}
+
+.gallery-thumb-overlay span {
   color: white;
-  border: 1px solid rgba(255,255,255,0.3);
+  font-weight: 700;
+  font-size: 1rem;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.6);
 }
 
-.aboutpage-btn-secondary:hover {
-  background: rgba(255,255,255,0.3);
-  transform: translateY(-2px);
+
+/* ==================== CORE VALUES ==================== */
+.aboutpage-values-mini-row {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
 }
 
-/* Responsive Design */
+.aboutpage-value-mini-card {
+  flex: 0 0 140px; 
+  text-align: center;
+  padding: 0.5rem;
+  scroll-snap-align: center;
+}
+
+.aboutpage-value-mini-icon {
+  width: 45px;
+  height: 45px;
+  background: var(--aboutpage-bg-gray-50);
+  color: var(--aboutpage-primary-dark);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  margin: 0 auto 0.5rem;
+}
+
+.aboutpage-value-mini-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  color: var(--aboutpage-primary-dark);
+}
+
+.aboutpage-value-mini-desc {
+  font-size: 0.85rem;
+  color: var(--aboutpage-text-gray);
+  line-height: 1.3;
+}
+
+/* ==================== CARDS GRID ==================== */
+.aboutpage-horizontal-grid {
+  display: grid;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.leader-grid, .facility-grid, .doctor-grid { grid-template-columns: repeat(3, 1fr); }
+.achievement-grid { grid-template-columns: repeat(4, 1fr); }
+
+.aboutpage-mini-card {
+  background: white;
+  border-radius: var(--aboutpage-radius);
+  overflow: hidden;
+  box-shadow: var(--aboutpage-shadow);
+  border: 1px solid #f3f4f6;
+  display: flex;
+  flex-direction: column;
+}
+
+.aboutpage-mini-img-wrapper {
+  height: 200px;
+  overflow: hidden;
+}
+.aboutpage-mini-img-wrapper.achievement, .aboutpage-mini-img-wrapper.facility {
+  height: 160px;
+}
+.aboutpage-mini-img-wrapper img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+
+.aboutpage-mini-info {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.aboutpage-mini-info.center { text-align: center; }
+
+.aboutpage-mini-name {
+  font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; color: var(--aboutpage-primary-dark);
+}
+.aboutpage-mini-position, .aboutpage-mini-specialty, .aboutpage-mini-year {
+  font-size: 0.9rem; color: var(--aboutpage-text-gray); margin-bottom: 0.25rem;
+}
+.aboutpage-mini-position { color: var(--aboutpage-primary); font-weight: 600; }
+.aboutpage-mini-specialty svg { color: var(--aboutpage-primary); margin-right: 0.25rem;}
+
+.aboutpage-mini-icon-large {
+  font-size: 2.5rem; color: #fbbf24; text-align: center; padding: 1.5rem 0 0;
+}
+
+/* ==================== BUTTONS & FOOTER ==================== */
+.aboutpage-section-footer { text-align: center; margin-top: 2.5rem; }
+.aboutpage-btn-outline {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--aboutpage-primary); color: var(--aboutpage-primary);
+  border-radius: 2rem; font-size: 0.9rem; font-weight: 600;
+  text-decoration: none; transition: var(--aboutpage-transition);
+}
+.aboutpage-btn-outline:hover { background: var(--aboutpage-primary); color: white; }
+
+/* ==================== CTA SECTION ==================== */
+.aboutpage-cta-section {
+  background: linear-gradient(135deg, var(--aboutpage-primary), var(--aboutpage-primary-dark));
+  padding: 4rem 0; color: white; text-align: center;
+}
+.aboutpage-cta-title { font-size: 2.2rem; font-weight: 800; margin-bottom: 1rem; }
+.aboutpage-cta-text { font-size: 1.1rem; margin-bottom: 1.5rem; opacity: 0.9; }
+.aboutpage-cta-buttons { display: flex; justify-content: center; gap: 1rem; }
+.aboutpage-btn-primary {
+  background: white; color: var(--aboutpage-primary-dark);
+  padding: 0.7rem 1.5rem; border-radius: 2rem; font-size: 0.95rem; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;
+}
+.aboutpage-btn-secondary {
+  background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5);
+  padding: 0.7rem 1.5rem; border-radius: 2rem; font-size: 0.95rem; font-weight: 600; text-decoration: none;
+}
+
+/* ========================================================
+   RESPONSIVE DESIGN (MOBILE & TABLET SIÊU GỌN - CHỐNG TRÀN)
+   ======================================================== */
+
 @media (max-width: 1024px) {
-  .aboutpage-hero-title {
-    font-size: 2.5rem;
-  }
-
-  .aboutpage-section-title {
-    font-size: 2rem;
-  }
-
-  .aboutpage-mission-grid {
-    grid-template-columns: 1fr;
-  }
+  .aboutpage-zigzag-row { gap: 2rem; }
+  .aboutpage-hero-title { font-size: 2.5rem; }
+  .aboutpage-gallery-container { gap: 1.5rem; padding: 1.5rem; }
+  .aboutpage-gallery-main { height: 350px; }
 }
 
 @media (max-width: 768px) {
-  .aboutpage-hero {
-    height: 400px;
-  }
+  .aboutpage-section-container { padding: 2.5rem 0; width: 100%; overflow: hidden; }
+  .aboutpage-section-content { padding: 0 1rem; }
+  
+  .aboutpage-hero { height: auto; min-height: 350px; padding: 4rem 0; }
+  .aboutpage-hero-title { font-size: 1.8rem; line-height: 1.2; margin-bottom: 0.5rem;}
+  .aboutpage-hero-subtitle { font-size: 1.1rem; margin-bottom: 0.5rem;}
+  .aboutpage-hero-description { font-size: 0.9rem; padding: 0 1rem;}
+  .aboutpage-section-title, .aboutpage-section-title-left { font-size: 1.5rem; margin-bottom: 1.5rem; }
 
-  .aboutpage-hero-title {
-    font-size: 2rem;
-  }
+  /* Stats */
+  .aboutpage-stats-banner { padding: 2rem 0; }
+  .aboutpage-stats-grid { gap: 0.5rem; }
+  .aboutpage-stat-item { padding: 0 0.5rem; flex: 1; }
+  .aboutpage-stat-item h4 { font-size: 1.8rem; }
+  .aboutpage-stat-item p { font-size: 0.8rem; }
 
-  .aboutpage-hero-subtitle {
-    font-size: 1.2rem;
-  }
+  /* Zigzag sang 1 cột gọn gàng */
+  .aboutpage-zigzag-row, .aboutpage-zigzag-row.reverse { grid-template-columns: 1fr; gap: 1rem; margin-bottom: 2rem; }
+  .aboutpage-zigzag-image img { height: 200px; border-radius: 0.5rem;}
+  .aboutpage-zigzag-icon { width: 50px; height: 50px; font-size: 1.5rem; bottom: -0.5rem; right: -0.5rem;}
+  .aboutpage-section-desc { font-size: 0.9rem; line-height: 1.5; }
 
-  .aboutpage-section-title {
-    font-size: 1.75rem;
+  /* Lịch sử phát triển - Dàn dọc thành 1 cột để không tràn ngang */
+  .aboutpage-gallery-container { 
+    grid-template-columns: 1fr; 
+    gap: 1rem; 
+    padding: 1rem; 
+    width: 100%; 
   }
+  .aboutpage-gallery-main { height: 220px; width: 100%; }
+  .gallery-year { font-size: 1.3rem; margin-bottom: 0.5rem;}
+  .gallery-title { font-size: 1.1rem; margin-bottom: 0.5rem;}
+  .gallery-desc { font-size: 0.85rem; }
+  .aboutpage-gallery-thumbnails-wrapper { padding-top: 1rem; }
+  .aboutpage-gallery-thumbnails { gap: 0.5rem; } /* Thu nhỏ khe hở 3 ảnh */
+  .gallery-thumb { height: 70px; }
+  .gallery-thumb-overlay span { font-size: 0.85rem; }
 
-  /* Timeline Vertical on Mobile */
-  .aboutpage-timeline-slider {
-    padding: 0;
-  }
+  /* Giá trị cốt lõi */
+  .aboutpage-value-mini-card { flex: 0 0 100px; padding: 0.25rem; }
+  .aboutpage-value-mini-icon { width: 35px; height: 35px; font-size: 1rem; margin-bottom: 0.25rem; }
+  .aboutpage-value-mini-title { font-size: 0.8rem; }
+  .aboutpage-value-mini-desc { display: none; }
 
-  .aboutpage-timeline-nav {
-    display: none;
-  }
-
-  .aboutpage-timeline-track {
-    overflow: visible;
-  }
-
-  .aboutpage-timeline-items {
-    flex-direction: column;
-    transform: none !important;
-  }
-
-  .aboutpage-timeline-slide {
-    margin-bottom: 2rem;
-  }
-
-  .aboutpage-timeline-dots {
-    display: none;
-  }
-
-  .aboutpage-summary-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .aboutpage-summary-stat {
-    border-right: none;
-    border-bottom: 2px solid #e5e7eb;
-    padding: 1.5rem 0.5rem;
-  }
-
-  .aboutpage-summary-stat:nth-child(2n) {
-    border-right: none;
-  }
-
-  .aboutpage-summary-stat:nth-last-child(-n+2) {
-    border-bottom: none;
-  }
-
-  .aboutpage-summary-stat h4 {
-    font-size: 2rem;
-  }
-
-  .aboutpage-cta-title {
-    font-size: 1.75rem;
-  }
-
-  .aboutpage-cta-buttons {
-    flex-direction: column;
-  }
-
-  .aboutpage-btn-primary,
-  .aboutpage-btn-secondary,
-  .aboutpage-btn-outline {
+  /* CARDS GRID CUỘN NGANG - ÉP CHỈNH LẠI FLEX TRÁNH TRÀN */
+  .aboutpage-horizontal-grid {
+    display: flex; flex-wrap: nowrap; overflow-x: auto;
+    scroll-snap-type: x mandatory; padding-bottom: 1rem; gap: 0.75rem;
     width: 100%;
-    justify-content: center;
   }
+  .aboutpage-mini-card { flex: 0 0 45%; scroll-snap-align: center; border-radius: 0.5rem; }
+  
+  .aboutpage-mini-img-wrapper { height: 110px; }
+  .aboutpage-mini-img-wrapper.achievement, .aboutpage-mini-img-wrapper.facility { height: 90px; }
+  .aboutpage-mini-info { padding: 0.5rem; }
+  .aboutpage-mini-name { font-size: 0.8rem; margin-bottom: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+  .aboutpage-mini-position, .aboutpage-mini-specialty, .aboutpage-mini-year { font-size: 0.7rem; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+  .aboutpage-mini-icon-large { font-size: 1.8rem; padding: 0.8rem 0 0; }
+
+  /* CTA */
+  .aboutpage-cta-title { font-size: 1.5rem; }
+  .aboutpage-cta-text { font-size: 0.9rem; }
+  .aboutpage-cta-buttons { flex-direction: column; gap: 0.5rem;}
+  .aboutpage-btn-primary, .aboutpage-btn-secondary { width: 100%; justify-content: center; font-size: 0.9rem;}
 }
 
 @media (max-width: 480px) {
-  .aboutpage-hero-title {
-    font-size: 1.75rem;
-  }
-
-  .aboutpage-section-title {
-    font-size: 1.5rem;
-  }
-
-  .aboutpage-values-grid,
-  .aboutpage-leadership-grid,
-  .aboutpage-achievements-grid,
-  .aboutpage-facilities-grid,
-  .aboutpage-doctors-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .aboutpage-timeline-image {
-    height: 250px;
-  }
-
-  .aboutpage-summary-stat h4 {
-    font-size: 1.75rem;
-  }
+  /* Ép 3 Card mini hiển thị trên các máy rất nhỏ */
+  .aboutpage-mini-card { flex: 0 0 31vw; }
+  .aboutpage-gallery-main { height: 180px; }
+  .gallery-thumb { height: 60px; }
+  .aboutpage-mini-img-wrapper { height: 90px; }
+  .aboutpage-mini-img-wrapper.achievement, .aboutpage-mini-img-wrapper.facility { height: 70px; }
+  .aboutpage-mini-name { font-size: 0.75rem; }
+  .aboutpage-mini-position, .aboutpage-mini-specialty, .aboutpage-mini-year { font-size: 0.65rem; }
+  .aboutpage-stat-item h4 { font-size: 1.4rem; }
 }
