@@ -1,50 +1,247 @@
 // client/src/pages/QuestionDetailPage.js
 import React, {
-  useState,
-  useEffect,
-  useContext,
-  useCallback,
-  useMemo,
-  useRef,
+  useState, useEffect, useContext, useCallback, useMemo, useRef,
 } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
 import forumService from '../services/forumService';
-import Breadcrumb from '../components/Breadcrumb';
 import ForumBanner from '../components/ForumBanner';
 import { FORUM_ROUTE } from '../utils/constants';
 import './QuestionDetailPage.css';
 import {
   FaArrowLeft, FaHeart, FaRegHeart, FaComments, FaShare, FaFlag,
   FaUserMd, FaReply, FaEye, FaBookmark, FaRegBookmark,
-  FaCheckCircle, FaTimesCircle, FaFileAlt, FaFilePdf, FaFileWord,
-  FaFileExcel, FaImage, FaPaperclip
+  FaCheckCircle, FaFileAlt, FaFilePdf, FaFileWord,
+  FaFileExcel, FaImage, FaPaperclip,
+  FaShieldAlt, FaTimes, FaInfoCircle,
 } from 'react-icons/fa';
 
 const REPLY_PREFIX = /^\[@reply:(\d+)\]\s*/i;
+const ensureArray = (v) => (Array.isArray(v) ? v : []);
 
-// Helper: Ensure Array
-const ensureArray = (value) => {
-  if (Array.isArray(value)) return value;
-  return [];
-};
-
-// Helper: Format Time
 const formatRelativeTime = (dateValue) => {
-  if (!dateValue) return 'Chưa cập nhật';
+  if (!dateValue) return '–';
   const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return 'Chưa cập nhật';
+  if (Number.isNaN(date.getTime())) return '–';
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 0) return date.toLocaleDateString('vi-VN');
+  const mins = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMs / 3600000);
+  const days = Math.floor(diffMs / 86400000);
+  if (mins < 1) return 'vừa xong';
+  if (mins < 60) return `${mins} phút trước`;
+  if (hours < 24) return `${hours} giờ trước`;
+  if (days < 7) return `${days} ngày trước`;
   return date.toLocaleDateString('vi-VN');
 };
 
+// ────────────────────────────────────────────
+// UserAvatar
+// ────────────────────────────────────────────
+const UserAvatar = ({ user, size = 32, isAnonymous = false }) => {
+  const initial = isAnonymous ? 'A' : (user?.full_name?.charAt(0) || 'U');
+  const avatarUrl = isAnonymous ? null : user?.avatar_url;
+  return (
+    <div className="qdp-avatar" style={{ width: size, height: size, minWidth: size, fontSize: size * 0.44 }}>
+      {avatarUrl
+        ? <img src={avatarUrl} alt={user?.full_name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+        : <span>{initial.toUpperCase()}</span>}
+    </div>
+  );
+};
+
+// ────────────────────────────────────────────
+// ReportModal
+// ────────────────────────────────────────────
+const ReportModal = ({ show, onClose, reportData, setReportData, onSubmit }) => {
+  if (!show) return null;
+  return (
+    <div className="qdp-modal-overlay" onClick={onClose}>
+      <div className="qdp-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="qdp-modal-header">
+          <h3><FaFlag style={{ color: '#e74c3c' }} /> Báo cáo vi phạm</h3>
+          <button type="button" className="qdp-modal-close" onClick={onClose}><FaTimes /></button>
+        </div>
+        <div className="qdp-modal-body">
+          <label className="qdp-form-label">Lý do báo cáo</label>
+          <div className="qdp-select-wrap">
+            <select value={reportData.reason} onChange={(e) => setReportData({ ...reportData, reason: e.target.value })}>
+              <option value="spam">Spam / Quảng cáo</option>
+              <option value="offensive">Xúc phạm / Thô tục</option>
+              <option value="misleading">Thông tin sai lệch</option>
+              <option value="other">Lý do khác</option>
+            </select>
+          </div>
+          <label className="qdp-form-label" style={{ marginTop: 14 }}>Mô tả thêm <span style={{ color: '#aaa', fontWeight: 400 }}>(tùy chọn)</span></label>
+          <textarea
+            className="qdp-textarea"
+            rows={3}
+            placeholder="Mô tả chi tiết..."
+            value={reportData.description}
+            onChange={(e) => setReportData({ ...reportData, description: e.target.value })}
+          />
+        </div>
+        <div className="qdp-modal-footer">
+          <button type="button" className="qdp-btn-ghost" onClick={onClose}>Hủy</button>
+          <button type="button" className="qdp-btn-danger" onClick={onSubmit}>Gửi báo cáo</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ────────────────────────────────────────────
+// AnswerThread — đệ quy kiểu Reddit, clean indent
+// ────────────────────────────────────────────
+const AnswerThread = ({
+  answer, depth = 0, user,
+  activeReply, setActiveReply,
+  replyDrafts, setReplyDrafts,
+  replySubmitting,
+  onLike, onReply, onReport,
+}) => {
+  const isDeleted = answer.isDeleted;
+  const isReplying = activeReply === answer.id;
+  const contentDisplay = isDeleted
+    ? <i className="qdp-deleted-text">Bình luận đã bị xóa.</i>
+    : answer.content.replace(REPLY_PREFIX, '');
+
+  const isDoctor = answer.author?.role === 'doctor';
+  // Optimistic like count: dùng state local để tránh nhảy số
+  const [localLiked, setLocalLiked] = useState(!!answer.liked || !!answer.isLiked);
+  const [localCount, setLocalCount] = useState(
+    typeof answer.likesCount === 'number' ? answer.likesCount : 0
+  );
+  // Đồng bộ khi answer prop thay đổi (sau khi refetch)
+  useEffect(() => {
+    setLocalLiked(!!answer.liked || !!answer.isLiked);
+    setLocalCount(typeof answer.likesCount === 'number' ? answer.likesCount : 0);
+  }, [answer.liked, answer.isLiked, answer.likesCount]);
+
+  const handleLocalLike = async () => {
+    // Optimistic update trước
+    const newLiked = !localLiked;
+    const newCount = newLiked ? localCount + 1 : Math.max(0, localCount - 1);
+    setLocalLiked(newLiked);
+    setLocalCount(newCount);
+    // Gọi API — nếu lỗi thì rollback
+    try {
+      await onLike('answer', answer.id);
+    } catch {
+      setLocalLiked(localLiked);
+      setLocalCount(localCount);
+    }
+  };
+
+  return (
+    <div className={`qdp-thread-item ${depth > 0 ? 'qdp-thread-item--reply' : ''}`}>
+      {/* Author row */}
+      <div className="qdp-comment-header">
+        <UserAvatar user={answer.author} size={30} />
+        <span className={`qdp-comment-author ${isDoctor ? 'doctor' : ''}`}>
+          {answer.author?.full_name || 'Người dùng'}
+          {isDoctor && <span className="qdp-badge-doctor"><FaUserMd /> Bác sĩ</span>}
+          {answer.isVerified && <span className="qdp-badge-verified"><FaCheckCircle /> Xác nhận</span>}
+          {answer.isPinned && <span className="qdp-badge-pinned">📌 Nổi bật</span>}
+        </span>
+        <span className="qdp-comment-time">{formatRelativeTime(answer.createdAt)}</span>
+      </div>
+
+      {/* Content */}
+      <div className={`qdp-comment-content ${isDeleted ? 'deleted' : ''}`}>{contentDisplay}</div>
+
+      {/* Actions */}
+      {!isDeleted && (
+        <div className="qdp-comment-actions">
+          <button
+            type="button"
+            className={`qdp-comment-action-btn ${localLiked ? 'liked' : ''}`}
+            onClick={handleLocalLike}
+          >
+            {localLiked ? <FaHeart /> : <FaRegHeart />}
+            <span>{localCount}</span>
+          </button>
+          <button
+            type="button"
+            className="qdp-comment-action-btn"
+            onClick={() => setActiveReply(isReplying ? null : answer.id)}
+          >
+            <FaReply /> Phản hồi
+          </button>
+          <button
+            type="button"
+            className="qdp-comment-action-btn qdp-comment-action-btn--report"
+            onClick={() => onReport('answer', answer.id)}
+            title="Báo cáo"
+          >
+            <FaFlag />
+          </button>
+        </div>
+      )}
+
+      {/* Reply form */}
+      {isReplying && (
+        <div className="qdp-reply-form">
+          <UserAvatar user={user} size={26} />
+          <div className="qdp-reply-form-inner">
+            <textarea
+              className="qdp-textarea qdp-textarea--sm"
+              placeholder={`Phản hồi ${answer.author?.full_name || ''}...`}
+              rows={2}
+              value={replyDrafts[answer.id] || ''}
+              onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [answer.id]: e.target.value }))}
+              autoFocus
+            />
+            <div className="qdp-reply-form-footer">
+              <button type="button" className="qdp-btn-ghost qdp-btn-xs" onClick={() => setActiveReply(null)}>Hủy</button>
+              <button
+                type="button"
+                className="qdp-btn-primary qdp-btn-xs"
+                disabled={replySubmitting[answer.id]}
+                onClick={() => onReply(answer.id)}
+              >
+                {replySubmitting[answer.id] ? 'Đang gửi...' : 'Gửi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nested replies — chỉ thụt lề bằng border-left, không dùng padding lồng nhau */}
+      {answer.replies && answer.replies.length > 0 && (
+        <div className="qdp-replies-block">
+          {answer.replies.map((reply) => (
+            <AnswerThread
+              key={reply.id}
+              answer={reply}
+              depth={depth + 1}
+              user={user}
+              activeReply={activeReply}
+              setActiveReply={setActiveReply}
+              replyDrafts={replyDrafts}
+              setReplyDrafts={setReplyDrafts}
+              replySubmitting={replySubmitting}
+              onLike={onLike}
+              onReply={onReply}
+              onReport={onReport}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ────────────────────────────────────────────
+// QuestionDetailPage — Main
+// ────────────────────────────────────────────
 const QuestionDetailPage = () => {
   const { id } = useParams();
   const authContext = useContext(AuthContext);
   const user = authContext?.user || JSON.parse(localStorage.getItem('user') || 'null');
   const navigate = useNavigate();
 
-  // State
   const [question, setQuestion] = useState(null);
   const [answers, setAnswers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,42 +251,50 @@ const QuestionDetailPage = () => {
   const [replySubmitting, setReplySubmitting] = useState({});
   const [activeReply, setActiveReply] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [sortBy, setSortBy] = useState('best');
+  const [toast, setToast] = useState({ show: false, msg: '', type: 'success' });
+  const [lightboxImg, setLightboxImg] = useState(null);
+  const composeRef = useRef(null);
 
-  // Report Data
+  // Optimistic like state cho question
+  const [qLiked, setQLiked] = useState(false);
+  const [qLikeCount, setQLikeCount] = useState(0);
+
   const [reportData, setReportData] = useState({
-    entityType: 'question',
-    entityId: null,
-    reason: 'spam',
-    description: '',
+    entityType: 'question', entityId: null, reason: 'spam', description: '',
   });
 
-  // Fetch Detail
+  const showToast = (msg, type = 'success') => {
+    setToast({ show: true, msg, type });
+    setTimeout(() => setToast((p) => ({ ...p, show: false })), 3000);
+  };
+
   const fetchQuestionDetail = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true);
     try {
       const payload = await forumService.getQuestionDetail(id);
       if (payload.success) {
-        setQuestion(payload.data);
-        setAnswers(payload.data.answers || []);
+        const q = payload.data;
+        setQuestion(q);
+        setAnswers(q.answers || []);
+        // Đồng bộ like state sau mỗi fetch
+        setQLiked(!!q.liked || !!q.isLiked);
+        setQLikeCount(typeof q.likesCount === 'number' ? q.likesCount : 0);
       }
     } catch (error) {
-      console.error('Error fetching detail:', error);
       navigate(FORUM_ROUTE);
     } finally {
       if (showSpinner) setLoading(false);
     }
   }, [id, navigate]);
 
-  useEffect(() => {
-    if (id) fetchQuestionDetail(true);
-  }, [id, fetchQuestionDetail]);
+  useEffect(() => { if (id) fetchQuestionDetail(true); }, [id, fetchQuestionDetail]);
 
-  // Real-time updates (Giữ nguyên logic cũ của bạn)
   useEffect(() => {
     const handler = (e) => {
       const payload = e.detail || {};
       if (payload.entity_type === 'question' && String(payload.entity_id) === String(id)) {
-        setQuestion(prev => prev ? { ...prev, ...payload } : prev);
+        setQuestion((prev) => (prev ? { ...prev, ...payload } : prev));
         if (payload.interaction_type === 'comment') fetchQuestionDetail(false);
       }
     };
@@ -97,385 +302,412 @@ const QuestionDetailPage = () => {
     return () => window.removeEventListener('forum:interaction', handler);
   }, [id, fetchQuestionDetail]);
 
-  // Thread Logic
+  // Build threaded comment tree
   const buildThread = (flatAnswers) => {
     const map = new Map();
-    flatAnswers.forEach(a => map.set(a.id, { ...a, replies: [] }));
+    flatAnswers.forEach((a) => map.set(a.id, { ...a, replies: [] }));
     const roots = [];
-    flatAnswers.forEach(a => {
-        // Parse reply prefix logic
-        const match = a.content && a.content.match(REPLY_PREFIX);
-        let parentId = null;
-        if(match) parentId = Number(match[1]);
-        
-        if (parentId && map.has(parentId)) {
-            map.get(parentId).replies.push(map.get(a.id));
-        } else {
-            roots.push(map.get(a.id));
-        }
+    flatAnswers.forEach((a) => {
+      const match = a.content && a.content.match(REPLY_PREFIX);
+      const parentId = match ? Number(match[1]) : null;
+      if (parentId && map.has(parentId)) {
+        map.get(parentId).replies.push(map.get(a.id));
+      } else {
+        roots.push(map.get(a.id));
+      }
     });
     return roots;
   };
 
-  const threadedAnswers = useMemo(() => buildThread(answers), [answers]);
+  const threadedAnswers = useMemo(() => {
+    const tree = buildThread(answers);
+    if (sortBy === 'best') return [...tree].sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0));
+    if (sortBy === 'new') return [...tree].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    if (sortBy === 'old') return [...tree].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    return tree;
+  }, [answers, sortBy]);
 
-  // Handlers
   const handleLike = async (targetType, targetId) => {
-      if(!user) return alert("Vui lòng đăng nhập");
-      const endpoint = targetType === 'question' ? `/forum/questions/${id}/like` : `/forum/answers/${targetId}/like`;
+    if (!user) { showToast('Vui lòng đăng nhập', 'warning'); return; }
+    if (targetType === 'question') {
+      // Optimistic update ngay lập tức
+      const newLiked = !qLiked;
+      const newCount = newLiked ? qLikeCount + 1 : Math.max(0, qLikeCount - 1);
+      setQLiked(newLiked);
+      setQLikeCount(newCount);
       try {
-          const res = await api.post(endpoint);
-          if(res.data.success) {
-              if(targetType === 'question') {
-                  setQuestion(prev => ({...prev, liked: res.data.data.liked, likesCount: res.data.data.likesCount}));
-              } else {
-                  // Update answer in flat array - threadedAnswers sẽ tự động rebuild từ useMemo
-                  setAnswers(prev => prev.map(a => 
-                      a.id === targetId 
-                          ? {...a, liked: res.data.data.liked, likesCount: res.data.data.likesCount} 
-                          : a
-                  ));
-              }
-          }
-      } catch(e) { console.error(e); }
+        const res = await api.post(`/forum/questions/${id}/like`);
+        if (res.data.success) {
+          // Đồng bộ số thật từ server
+          setQLiked(!!res.data.data.liked);
+          setQLikeCount(res.data.data.likesCount ?? newCount);
+        }
+      } catch (e) {
+        // Rollback nếu lỗi
+        setQLiked(qLiked);
+        setQLikeCount(qLikeCount);
+      }
+    } else {
+      // Với answer: AnswerThread tự xử lý optimistic, đây chỉ gọi API
+      try {
+        const res = await api.post(`/forum/answers/${targetId}/like`);
+        if (res.data.success) {
+          // Cập nhật answers array để AnswerThread sync lại sau refetch
+          setAnswers((prev) => prev.map((a) =>
+            a.id === targetId
+              ? { ...a, liked: res.data.data.liked, isLiked: res.data.data.liked, likesCount: res.data.data.likesCount }
+              : a
+          ));
+        }
+      } catch (e) { console.error(e); }
+    }
   };
 
   const handleSave = async () => {
-      if(!user) return alert("Vui lòng đăng nhập");
-      try {
-          const res = await api.post(`/forum/questions/${id}/save`);
-          if(res.data.success) {
-              setQuestion(prev => ({...prev, saved: res.data.data.saved}));
-              alert(res.data.data.saved ? 'Đã lưu câu hỏi' : 'Đã bỏ lưu');
-          }
-      } catch(e) { 
-          console.error(e);
-          alert("Lỗi thao tác");
+    if (!user) { showToast('Vui lòng đăng nhập', 'warning'); return; }
+    try {
+      const res = await api.post(`/forum/questions/${id}/save`);
+      if (res.data.success) {
+        setQuestion((prev) => ({ ...prev, saved: res.data.data.saved }));
+        showToast(res.data.data.saved ? 'Đã lưu câu hỏi' : 'Đã bỏ lưu');
       }
+    } catch (e) { showToast('Có lỗi xảy ra', 'error'); }
   };
 
   const handleSubmitAnswer = async () => {
-      if(!user) return alert("Vui lòng đăng nhập");
-      if(!answerContent.trim()) return;
-      setSubmitting(true);
-      try {
-          await api.post(`/forum/questions/${id}/answers`, { content: answerContent });
-          setAnswerContent('');
-          fetchQuestionDetail(false);
-      } catch(e) { alert("Lỗi gửi câu trả lời"); }
-      finally { setSubmitting(false); }
+    if (!user) { showToast('Vui lòng đăng nhập', 'warning'); return; }
+    if (!answerContent.trim()) return;
+    setSubmitting(true);
+    try {
+      await api.post(`/forum/questions/${id}/answers`, { content: answerContent });
+      setAnswerContent('');
+      showToast('Bình luận đã được gửi!');
+      fetchQuestionDetail(false);
+    } catch (e) { showToast('Lỗi gửi bình luận', 'error'); }
+    finally { setSubmitting(false); }
   };
 
   const handleSubmitReply = async (parentId) => {
-      const draft = replyDrafts[parentId];
-      if(!user) return alert("Vui lòng đăng nhập");
-      if(!draft?.trim()) return;
-      
-      setReplySubmitting(prev => ({...prev, [parentId]: true}));
-      try {
-          await api.post(`/forum/questions/${id}/answers`, { content: `[@reply:${parentId}] ${draft}` });
-          setReplyDrafts(prev => ({...prev, [parentId]: ''}));
-          setActiveReply(null);
-          fetchQuestionDetail(false);
-      } catch(e) { alert("Lỗi gửi phản hồi"); }
-      finally { setReplySubmitting(prev => ({...prev, [parentId]: false})); }
+    const draft = replyDrafts[parentId];
+    if (!user) { showToast('Vui lòng đăng nhập', 'warning'); return; }
+    if (!draft?.trim()) return;
+    setReplySubmitting((prev) => ({ ...prev, [parentId]: true }));
+    try {
+      await api.post(`/forum/questions/${id}/answers`, { content: `[@reply:${parentId}] ${draft}` });
+      setReplyDrafts((prev) => ({ ...prev, [parentId]: '' }));
+      setActiveReply(null);
+      showToast('Phản hồi đã được gửi!');
+      fetchQuestionDetail(false);
+    } catch (e) { showToast('Lỗi gửi phản hồi', 'error'); }
+    finally { setReplySubmitting((prev) => ({ ...prev, [parentId]: false })); }
   };
 
   const handleReport = async () => {
-      try {
-          await api.post('/forum/reports', reportData);
-          setShowReportModal(false);
-          alert("Đã gửi báo cáo");
-      } catch(e) { alert("Lỗi gửi báo cáo"); }
-  }
-
-  // Render Single Answer
-  const renderAnswerCard = (answer, depth = 0) => {
-    const isDeleted = answer.isDeleted;
-    const isReplying = activeReply === answer.id;
-    const contentDisplay = isDeleted ? <i>Bình luận đã bị xóa.</i> : answer.content.replace(REPLY_PREFIX, '');
-
-    return (
-      <div key={answer.id} className={`QuestionDetail-answer-card depth-${Math.min(depth, 2)} ${isDeleted ? 'deleted' : ''}`}>
-        <div className="QuestionDetail-answer-header">
-            <div className="QuestionDetail-user-box">
-                <div className="QuestionDetail-user-avatar-sm">
-                    {answer.author?.avatar_url ? (
-                        <img src={answer.author.avatar_url} alt={answer.author.full_name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                    ) : (
-                        answer.author?.full_name?.charAt(0) || 'U'
-                    )}
-                </div>
-                <div>
-                    <div className="QuestionDetail-user-name">
-                        {answer.author?.full_name || 'Người dùng'}
-                        {answer.author?.role === 'doctor' && <span className="QuestionDetail-badge-doctor"><FaUserMd/> Bác sĩ</span>}
-                    </div>
-                    <div className="QuestionDetail-time">{formatRelativeTime(answer.createdAt)}</div>
-                </div>
-            </div>
-        </div>
-        <div className="QuestionDetail-answer-content">{contentDisplay}</div>
-        
-        {!isDeleted && (
-            <div className="QuestionDetail-answer-actions">
-                <button className={`QuestionDetail-link-btn ${answer.liked ? 'liked' : ''}`} onClick={() => handleLike('answer', answer.id)}>
-                    {answer.liked ? <FaHeart/> : <FaRegHeart/>} {answer.likesCount || 0}
-                </button>
-                <button className="QuestionDetail-link-btn" onClick={() => setActiveReply(isReplying ? null : answer.id)}>
-                    <FaReply/> Phản hồi
-                </button>
-                <button className="QuestionDetail-link-btn" onClick={() => { setReportData({entityType:'answer', entityId: answer.id, reason:'spam', description:''}); setShowReportModal(true); }}>
-                    <FaFlag/>
-                </button>
-            </div>
-        )}
-
-        {isReplying && (
-            <div className="QuestionDetail-reply-form">
-                <textarea 
-                    className="QuestionDetail-textarea" 
-                    placeholder="Viết phản hồi..." 
-                    value={replyDrafts[answer.id] || ''} 
-                    onChange={e => setReplyDrafts({...replyDrafts, [answer.id]: e.target.value})}
-                />
-                <div style={{display:'flex', justifyContent:'flex-end', gap:10}}>
-                    <button className="QuestionDetail-action-btn" onClick={() => setActiveReply(null)}>Hủy</button>
-                    <button className="QuestionDetail-btn-submit" disabled={replySubmitting[answer.id]} onClick={() => handleSubmitReply(answer.id)}>
-                        {replySubmitting[answer.id] ? 'Đang gửi...' : 'Gửi'}
-                    </button>
-                </div>
-            </div>
-        )}
-
-        {answer.replies.map(reply => renderAnswerCard(reply, depth + 1))}
-      </div>
-    );
+    try {
+      await api.post('/forum/reports', reportData);
+      setShowReportModal(false);
+      showToast('Đã gửi báo cáo');
+    } catch (e) { showToast('Lỗi gửi báo cáo', 'error'); }
   };
 
-  if (loading) return <div style={{textAlign:'center', padding:60}}>Đang tải nội dung...</div>;
+  const openReport = (entityType, entityId) => {
+    setReportData({ entityType, entityId, reason: 'spam', description: '' });
+    setShowReportModal(true);
+  };
+
+  const handleShare = () => {
+    const url = window.location.href;
+    if (navigator.clipboard) { navigator.clipboard.writeText(url); showToast('Đã sao chép link!'); }
+  };
+
+  if (loading) return (
+    <div className="qdp-root">
+      <ForumBanner />
+      <div className="qdp-loading">
+        <div className="qdp-spinner" />
+        <span>Đang tải nội dung...</span>
+      </div>
+    </div>
+  );
   if (!question) return null;
 
-  // Generate breadcrumb items
-  const getBreadcrumbItems = () => {
-    if (!question) return [];
-    const items = [
-      { label: 'Trang chủ', url: '/' },
-      { label: 'Diễn đàn sức khỏe', url: '/dien-dan-suc-khoe' }
-    ];
-    if (question.topic) {
-      items.push({ 
-        label: question.topic.title, 
-        url: `/dien-dan-suc-khoe?topic=${question.topic.id}` 
-      });
-    }
-    if (question.specialty) {
-      items.push({ 
-        label: question.specialty.name, 
-        url: `/dien-dan-suc-khoe?specialty=${question.specialty.id}` 
-      });
-    }
-    items.push({ label: question.title, url: null });
-    return items;
+  const getFileIcon = (url) => {
+    const ext = url.split('.').pop().toLowerCase();
+    if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) return { Icon: FaImage, color: '#FF6B6B' };
+    if (ext === 'pdf') return { Icon: FaFilePdf, color: '#e74c3c' };
+    if (['doc','docx'].includes(ext)) return { Icon: FaFileWord, color: '#2B579A' };
+    if (['xls','xlsx'].includes(ext)) return { Icon: FaFileExcel, color: '#217346' };
+    return { Icon: FaFileAlt, color: '#888' };
   };
 
   return (
-    <div className="QuestionDetail-page">
-      {/* HEADER HERO */}
+    <div className="qdp-root">
       <ForumBanner />
 
-      {/* BREADCRUMB */}
-      <div className="QuestionDetail-container" style={{ marginTop: '20px' }}>
-        <div className="detail-article-breadcrumb" style={{ marginBottom: '20px' }}>
-          <Breadcrumb items={getBreadcrumbItems()} />
+      {/* Toast */}
+      {toast.show && (
+        <div className={`qdp-toast qdp-toast--${toast.type}`}>{toast.msg}</div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxImg && (
+        <div className="qdp-lightbox" onClick={() => setLightboxImg(null)}>
+          <img src={lightboxImg} alt="preview" />
+          <button type="button" className="qdp-lightbox-close"><FaTimes /></button>
         </div>
-      </div>
+      )}
 
-      {/* MAIN CONTAINER (2 COLUMNS) */}
-      <div className="QuestionDetail-container">
-        {/* LEFT COLUMN */}
-        <div className="QuestionDetail-main">
-            <div className="QuestionDetail-nav">
-                <button className="QuestionDetail-btn-back" onClick={() => navigate(FORUM_ROUTE)}>
-                    <FaArrowLeft/> Quay lại diễn đàn
-                </button>
-            </div>
-
-            {/* Question Card */}
-            <div className="QuestionDetail-card">
-                <div className="QuestionDetail-meta">
-                    <div className="QuestionDetail-avatar">
-                        {question.isAnonymous ? (
-                            'A'
-                        ) : question.author?.avatar_url ? (
-                            <img src={question.author.avatar_url} alt={question.author.full_name} />
-                        ) : (
-                            question.author?.full_name?.charAt(0) || 'U'
-                        )}
-                    </div>
-                    <div className="QuestionDetail-author-info">
-                        <span className="QuestionDetail-author-name">
-                            {question.isAnonymous ? 'Ẩn danh' : (question.author?.full_name || 'Người dùng')}
-                        </span>
-                        <span className="QuestionDetail-time">{formatRelativeTime(question.createdAt)}</span>
-                    </div>
-                    {/* Hiển thị nhiều specialties */}
-                    {question.specialties && question.specialties.length > 0 && (
-                        <div className="QuestionDetail-specialties">
-                            {question.specialties.map(spec => (
-                                <span key={spec.id} className="QuestionDetail-badge">{spec.name}</span>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <h1 className="QuestionDetail-title">{question.title}</h1>
-                <div className="QuestionDetail-content">{question.content}</div>
-
-                {ensureArray(question.images).length > 0 && (
-                    <div className="QuestionDetail-gallery">
-                        {ensureArray(question.images).map((img, i) => (
-                            <img key={i} src={img} className="QuestionDetail-image" alt="illustration"/>
-                        ))}
-                    </div>
-                )}
-
-                {/* Hiển thị files đính kèm */}
-                {question.attachments && question.attachments.length > 0 && (
-                    <div className="QuestionDetail-attachments">
-                        <div className="QuestionDetail-attachments-title">
-                            <FaPaperclip /> Tài liệu đính kèm:
-                        </div>
-                        <div className="QuestionDetail-attachments-list">
-                            {question.attachments.map((file, idx) => {
-                                const fileName = file.split('/').pop();
-                                const fileExt = fileName.split('.').pop().toLowerCase();
-                                
-                                // Chọn icon React phù hợp với loại file
-                                let IconComponent = FaFileAlt;
-                                let iconColor = '#666';
-                                
-                                if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExt)) {
-                                    IconComponent = FaImage;
-                                    iconColor = '#FF6B6B';
-                                } else if (['pdf'].includes(fileExt)) {
-                                    IconComponent = FaFilePdf;
-                                    iconColor = '#E74C3C';
-                                } else if (['doc', 'docx'].includes(fileExt)) {
-                                    IconComponent = FaFileWord;
-                                    iconColor = '#2B579A';
-                                } else if (['xls', 'xlsx'].includes(fileExt)) {
-                                    IconComponent = FaFileExcel;
-                                    iconColor = '#217346';
-                                }
-                                
-                                return (
-                                    <a 
-                                        key={idx} 
-                                        href={file} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="QuestionDetail-attachment-item"
-                                    >
-                                        <IconComponent className="attachment-icon" style={{ color: iconColor }} />
-                                        <span className="attachment-name">{fileName}</span>
-                                    </a>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                <div className="QuestionDetail-tags">
-                    {ensureArray(question.tags).map(t => <span key={t} className="QuestionDetail-tag">#{t}</span>)}
-                </div>
-
-                <div className="QuestionDetail-actions">
-                    <button className={`QuestionDetail-action-btn ${question.liked ? 'active' : ''}`} onClick={() => handleLike('question')}>
-                        {question.liked ? <FaHeart/> : <FaRegHeart/>} {question.likesCount || 0} Thích
-                    </button>
-                    <button className={`QuestionDetail-action-btn ${question.saved ? 'active' : ''}`} onClick={handleSave}>
-                        {question.saved ? <FaBookmark/> : <FaRegBookmark/>} Lưu
-                    </button>
-                    <button className="QuestionDetail-action-btn QuestionDetail-report-btn" onClick={() => { setReportData({entityType:'question', entityId:id, reason:'spam', description:''}); setShowReportModal(true); }}>
-                        <FaFlag/> Báo cáo
-                    </button>
-                </div>
-            </div>
-
-            {/* Compose Answer */}
-            <div className="QuestionDetail-compose">
-                <div className="QuestionDetail-section-title"><FaComments/> Bình luận của bạn</div>
-                <textarea 
-                    className="QuestionDetail-textarea" 
-                    rows={4}
-                    placeholder="Chia sẻ ý kiến, kinh nghiệm hoặc lời khuyên..."
-                    value={answerContent}
-                    onChange={e => setAnswerContent(e.target.value)}
-                />
-                <button className="QuestionDetail-btn-submit" disabled={submitting} onClick={handleSubmitAnswer}>
-                    {submitting ? 'Đang gửi...' : 'Gửi bình luận'}
-                </button>
-            </div>
-
-            {/* Thread List */}
-            <div className="QuestionDetail-answers-section">
-                <div className="QuestionDetail-section-title">{answers.length} Thảo luận</div>
-                {threadedAnswers.length === 0 ? (
-                    <div style={{textAlign:'center', padding:20, color:'#999'}}>Chưa có bình luận nào.</div>
-                ) : (
-                    threadedAnswers.map(ans => renderAnswerCard(ans))
-                )}
-            </div>
+      <div className="qdp-container">
+        {/* Back button only */}
+        <div className="qdp-nav-row">
+          <button type="button" className="qdp-back-btn" onClick={() => navigate(FORUM_ROUTE)}>
+            <FaArrowLeft /> Quay lại diễn đàn
+          </button>
         </div>
 
-        {/* RIGHT COLUMN: SIDEBAR */}
-        <div className="QuestionDetail-sidebar">
-            <div className="QuestionDetail-widget">
-                <h3>Thống kê bài viết</h3>
-                <ul className="QuestionDetail-stat-list">
-                    <li><span>Lượt xem</span><strong>{question.viewsCount || 0}</strong></li>
-                    <li><span>Trả lời</span><strong>{question.answerCount || 0}</strong></li>
-                    <li><span>Ngày đăng</span><strong>{question.createdAt ? new Date(question.createdAt).toLocaleDateString('vi-VN') : 'N/A'}</strong></li>
-                </ul>
+        {/* Main layout: 2 col (center + sidebar) */}
+        <div className="qdp-layout">
+
+        {/* ── CENTER: Post + Comments ── */}
+        <main className="qdp-center">
+
+            {/* ════ POST CARD ════ */}
+            <article className="qdp-post">
+              {/* Post meta */}
+              <div className="qdp-post-meta">
+                {question.topic && (
+                  <span className="qdp-post-subreddit">
+                    <img
+                      src={question.topic.avatar || `https://ui-avatars.com/api/?name=${question.topic.title}&background=4CAF50&color=fff&size=20`}
+                      alt={question.topic.title}
+                      className="qdp-topic-icon"
+                    />
+                    {question.topic.title}
+                  </span>
+                )}
+                <span className="qdp-meta-sep">•</span>
+                <span className="qdp-post-author-line">
+                  Đăng bởi{' '}
+                  <UserAvatar user={question.author} size={18} isAnonymous={question.isAnonymous} />
+                  <strong>{question.isAnonymous ? 'Ẩn danh' : (question.author?.full_name || 'Người dùng')}</strong>
+                </span>
+                <span className="qdp-meta-sep">•</span>
+                <span className="qdp-post-time">{formatRelativeTime(question.createdAt)}</span>
+                {ensureArray(question.specialties).map((sp) => (
+                  <span key={sp.id} className="qdp-specialty-badge">{sp.name}</span>
+                ))}
+              </div>
+
+              {/* Title */}
+              <h1 className="qdp-post-title">{question.title}</h1>
+
+              {/* Tags */}
+              {ensureArray(question.tags).length > 0 && (
+                <div className="qdp-post-tags">
+                  {ensureArray(question.tags).map((t) => (
+                    <span key={t} className="qdp-tag">#{t}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Content */}
+              <div className="qdp-post-content">{question.content}</div>
+
+              {/* Images */}
+              {ensureArray(question.images).length > 0 && (
+                <div className={`qdp-post-gallery count-${Math.min(ensureArray(question.images).length, 4)}`}>
+                  {ensureArray(question.images).map((img, i) => (
+                    <img
+                      key={i}
+                      src={img.startsWith('http') ? img : `http://localhost:3001${img.startsWith('/') ? '' : '/'}${img}`}
+                      alt={`Hình ${i + 1}`}
+                      className="qdp-gallery-img"
+                      onClick={() => setLightboxImg(img.startsWith('http') ? img : `http://localhost:3001${img.startsWith('/') ? '' : '/'}${img}`)}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Attachments */}
+              {ensureArray(question.attachments).length > 0 && (
+                <div className="qdp-attachments">
+                  <div className="qdp-attachments-label"><FaPaperclip /> Tài liệu đính kèm</div>
+                  <div className="qdp-attachments-list">
+                    {ensureArray(question.attachments).map((file, idx) => {
+                      const name = file.split('/').pop();
+                      const { Icon, color } = getFileIcon(file);
+                      return (
+                        <a key={idx} href={file} target="_blank" rel="noopener noreferrer" className="qdp-attachment-item">
+                          <Icon style={{ color }} />
+                          <span>{name}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Post action bar */}
+              <div className="qdp-post-actions">
+                <button
+                  type="button"
+                  className={`qdp-action-pill qdp-action-pill--like ${qLiked ? 'active' : ''}`}
+                  onClick={() => handleLike('question')}
+                >
+                  {qLiked ? <FaHeart /> : <FaRegHeart />}
+                  <span>{qLikeCount} Thích</span>
+                </button>
+
+                <button type="button" className="qdp-action-pill" onClick={() => composeRef.current?.focus()}>
+                  <FaComments /> <span>{answers.length} Bình luận</span>
+                </button>
+                <button type="button" className="qdp-action-pill" onClick={handleShare}>
+                  <FaShare /> <span>Chia sẻ</span>
+                </button>
+                <button type="button" className={`qdp-action-pill ${question.saved ? 'active' : ''}`} onClick={handleSave}>
+                  {question.saved ? <FaBookmark /> : <FaRegBookmark />}
+                  <span>{question.saved ? 'Đã lưu' : 'Lưu'}</span>
+                </button>
+                <button type="button" className="qdp-action-pill qdp-action-pill--report" onClick={() => openReport('question', id)}>
+                  <FaFlag /> <span className="qdp-action-label-hide">Báo cáo</span>
+                </button>
+                <div className="qdp-post-stats">
+                  <span><FaEye /> {question.viewsCount || 0}</span>
+                </div>
+              </div>
+            </article>
+
+            {/* ════ COMPOSE ════ */}
+            <div className="qdp-compose">
+              <div className="qdp-compose-header">
+                <UserAvatar user={user} size={34} />
+                <span className="qdp-compose-label">
+                  {user ? `Bình luận với tư cách ${user.full_name || 'bạn'}` : 'Đăng nhập để bình luận'}
+                </span>
+              </div>
+              <textarea
+                ref={composeRef}
+                className="qdp-textarea"
+                rows={4}
+                placeholder="Chia sẻ ý kiến, kinh nghiệm hoặc lời khuyên của bạn..."
+                value={answerContent}
+                onChange={(e) => setAnswerContent(e.target.value)}
+                disabled={!user}
+              />
+              <div className="qdp-compose-footer">
+                <span className="qdp-compose-hint"><FaInfoCircle /> Nội dung cần lịch sự, đúng sự thật.</span>
+                <button
+                  type="button"
+                  className="qdp-btn-primary"
+                  disabled={submitting || !user || !answerContent.trim()}
+                  onClick={handleSubmitAnswer}
+                >
+                  {submitting ? 'Đang gửi...' : 'Gửi bình luận'}
+                </button>
+              </div>
             </div>
 
-            <div className="QuestionDetail-widget">
-                <h3>Mẹo hỏi đáp</h3>
-                <ul className="QuestionDetail-tips-list">
-                    <li>Mô tả triệu chứng chi tiết.</li>
-                    <li>Đính kèm hình ảnh nếu cần thiết.</li>
-                    <li>Giữ thái độ lịch sự, tôn trọng.</li>
-                    <li>Không chia sẻ thông tin cá nhân nhạy cảm.</li>
-                </ul>
+            {/* ════ COMMENTS ════ */}
+            <div className="qdp-comments-section">
+              {/* Sort bar */}
+              <div className="qdp-sort-bar">
+                <span className="qdp-sort-label">Sắp xếp:</span>
+                {[['best', 'Tốt nhất'], ['new', 'Mới nhất'], ['old', 'Cũ nhất']].map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    className={`qdp-sort-btn ${sortBy === val ? 'active' : ''}`}
+                    onClick={() => setSortBy(val)}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <span className="qdp-comments-count">{answers.length} bình luận</span>
+              </div>
+
+              {/* Comment tree */}
+              {threadedAnswers.length === 0 ? (
+                <div className="qdp-empty-comments">
+                  <FaComments size={36} />
+                  <p>Chưa có bình luận nào. Hãy là người đầu tiên!</p>
+                </div>
+              ) : (
+                <div className="qdp-comment-list">
+                  {threadedAnswers.map((ans) => (
+                    <AnswerThread
+                      key={ans.id}
+                      answer={ans}
+                      depth={0}
+                      user={user}
+                      activeReply={activeReply}
+                      setActiveReply={setActiveReply}
+                      replyDrafts={replyDrafts}
+                      setReplyDrafts={setReplyDrafts}
+                      replySubmitting={replySubmitting}
+                      onLike={handleLike}
+                      onReply={handleSubmitReply}
+                      onReport={(type, eid) => openReport(type, eid)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
+
+          </main>
+
+          {/* ── RIGHT: Sidebar ── */}
+          <aside className="qdp-sidebar">
+            {/* About topic */}
+            {question.topic && (
+              <div className="qdp-widget">
+                <div className="qdp-widget-header" style={{ background: 'linear-gradient(135deg, #2E7D32, #4CAF50)' }}>
+                  <FaComments /> {question.topic.title}
+                </div>
+                <div className="qdp-widget-body">
+                  {question.topic.description && (
+                    <p className="qdp-widget-desc">{question.topic.description}</p>
+                  )}
+                  <div className="qdp-widget-stat-row">
+                    <div className="qdp-widget-stat"><strong>{question.viewsCount || 0}</strong><span>Lượt xem</span></div>
+                    <div className="qdp-widget-stat"><strong>{answers.length}</strong><span>Bình luận</span></div>
+                    <div className="qdp-widget-stat"><strong>{qLikeCount}</strong><span>Thích</span></div>
+                  </div>
+                  <div className="qdp-widget-date">
+                    Đăng: {question.createdAt ? new Date(question.createdAt).toLocaleDateString('vi-VN') : '–'}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Community rules */}
+            <div className="qdp-widget">
+              <div className="qdp-widget-header">
+                <FaShieldAlt /> Quy tắc cộng đồng
+              </div>
+              <div className="qdp-widget-body">
+                <ol className="qdp-rules-list">
+                  <li>Mô tả triệu chứng đầy đủ, chính xác.</li>
+                  <li>Không tự ý chẩn đoán hay kê đơn thuốc.</li>
+                  <li>Giữ thái độ lịch sự, tôn trọng.</li>
+                  <li>Không chia sẻ thông tin cá nhân nhạy cảm.</li>
+                  <li>Nội dung y tế nên tham khảo chuyên gia.</li>
+                </ol>
+              </div>
+            </div>
+          </aside>
+
         </div>
       </div>
 
       {/* Report Modal */}
-      {showReportModal && (
-          <div className="QuestionDetail-modal-overlay" onClick={() => setShowReportModal(false)}>
-              <div className="QuestionDetail-modal" onClick={e => e.stopPropagation()}>
-                  <h3>Báo cáo vi phạm</h3>
-                  <select value={reportData.reason} onChange={e => setReportData({...reportData, reason: e.target.value})}>
-                      <option value="spam">Spam / Quảng cáo</option>
-                      <option value="offensive">Xúc phạm / Thô tục</option>
-                      <option value="misleading">Thông tin sai lệch</option>
-                      <option value="other">Lý do khác</option>
-                  </select>
-                  <textarea 
-                    className="QuestionDetail-textarea" 
-                    placeholder="Mô tả thêm chi tiết..." 
-                    value={reportData.description} 
-                    onChange={e => setReportData({...reportData, description: e.target.value})}
-                  />
-                  <div className="QuestionDetail-modal-actions">
-                      <button className="QuestionDetail-action-btn" onClick={() => setShowReportModal(false)}>Hủy</button>
-                      <button className="QuestionDetail-btn-submit" onClick={handleReport}>Gửi báo cáo</button>
-                  </div>
-              </div>
-          </div>
-      )}
+      <ReportModal
+        show={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        reportData={reportData}
+        setReportData={setReportData}
+        onSubmit={handleReport}
+      />
     </div>
   );
 };

@@ -1,5 +1,5 @@
 /* * Tệp: HomePage.js
- * Mô tả: Trang chủ với chức năng Lướt ngang có Mũi tên Hover và Vòng lặp
+ * Mô tả: Trang chủ với chức năng Lướt ngang và FIX lỗi hiển thị thông tin bác sĩ
  */
 import EventPopup from '../components/common/EventPopup';
 import React, { useEffect, useState, useRef } from 'react';
@@ -35,9 +35,9 @@ const ScrollWrapper = ({ children, className }) => {
     let newScroll = container.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
 
     if (direction === 'right' && Math.ceil(container.scrollLeft) >= maxScroll - 10) {
-      newScroll = 0; // Quay về đầu
+      newScroll = 0; 
     } else if (direction === 'left' && container.scrollLeft <= 10) {
-      newScroll = maxScroll; // Tới cuối cùng
+      newScroll = maxScroll; 
     }
     container.scrollTo({ left: newScroll, behavior: 'smooth' });
   };
@@ -136,17 +136,22 @@ const HomePage = () => {
       } catch (error) {}
     };
 
+    // ĐÃ SỬA: Hàm fetchDoctors dùng axios và không qua normalizeUserList để giữ đủ dữ liệu
     const fetchDoctors = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const response = await fetch('http://localhost:3001/api/users/doctors?limit=3&random=true', { headers });
-        const data = await response.json();
-        if (data.success && data.doctors) {
-          const { normalizeUserList } = await import('../utils/normalizeUser');
-          setDoctors(normalizeUserList(data.doctors || [], 'doctor'));
+        const response = await axios.get('http://localhost:3001/api/users/doctors', {
+          params: { limit: 3, random: true }
+        });
+        
+        if (response.data.success && response.data.doctors) {
+          setDoctors(response.data.doctors);
+        } else {
+          setDoctors([]);
         }
-      } catch (error) {}
+      } catch (error) {
+        console.error('Lỗi khi lấy dữ liệu bác sĩ:', error);
+        setDoctors([]);
+      }
     };
 
     const fetchHospitalServices = async () => {
@@ -293,7 +298,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* 3. Về chúng tôi (Ẩn bớt để Code nhẹ, bạn giữ nguyên form) */}
+      {/* 3. Về chúng tôi */}
       {homeSettings.aboutSection && homeSettings.aboutSection.title && (
         <section className="homepage-section-container homepage-intro-section homepage-animate-section" id="intro">
           <div className="homepage-container">
@@ -424,7 +429,7 @@ const HomePage = () => {
       <section className="homepage-section-container homepage-doctors-section homepage-animate-section" id="doctors">
         <div className="homepage-container">
           <h2 className="homepage-section-title">Bác sĩ nổi bật</h2>
-          {doctors.length > 0 && (
+          {doctors.length > 0 ? (
             <>
               <ScrollWrapper className="homepage-doctors-grid">
                 {doctors.map((doctor, index) => (
@@ -443,6 +448,8 @@ const HomePage = () => {
                 ))}
               </ScrollWrapper>
             </>
+          ) : (
+            <p className="homepage-loading-text">Đang tải dữ liệu bác sĩ...</p>
           )}
         </div>
       </section>
@@ -466,10 +473,10 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* 7. Đặt lịch khám bệnh (Giữ nguyên giao diện của bạn) */}
+      {/* 7. Đặt lịch khám bệnh */}
       {homeSettings.bookingSection && homeSettings.bookingSection.title && (
         <section className="homepage-section-container homepage-booking-section homepage-animate-section" id="booking">
-          {/* HTML Form đặt lịch - Giữ nguyên của bạn */}
+          {/* Nội dung Form giữ nguyên */}
         </section>
       )}
       

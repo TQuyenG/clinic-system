@@ -393,28 +393,18 @@ const AboutPage = () => {
               {doctors.map((doctor) => (
                 <div key={doctor.id} className="aboutpage-mini-card">
                   <div className="aboutpage-mini-img-wrapper">
-                    <img 
-                      src={doctor.avatar_url} 
-                      alt={doctor.full_name} 
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f0f0f0" width="400" height="300"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="18" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3EDoctor%3C/text%3E%3C/svg%3E';
-                      }}
-                    />
+                    <img src={doctor.avatar_url} alt={doctor.full_name} />
                   </div>
                   <div className="aboutpage-mini-info">
                     <h3 className="aboutpage-mini-name">{doctor.full_name}</h3>
-                    <p className="aboutpage-mini-specialty">
-                      <FaIcons.FaStethoscope /> {doctor.specialty_name}
-                    </p>
+                    <p className="aboutpage-mini-specialty"><FaIcons.FaStethoscope /> {doctor.specialty_name}</p>
+                    <p className="aboutpage-mini-year"><FaIcons.FaAward /> {doctor.experience_years} năm kinh nghiệm</p>
                   </div>
                 </div>
               ))}
             </ScrollWrapper>
             <div className="aboutpage-section-footer">
-              <Link to="/bac-si" className="aboutpage-btn-outline">
-                Xem tất cả bác sĩ <FaIcons.FaArrowRight />
-              </Link>
+              <Link to="/bac-si" className="aboutpage-btn-outline">Xem tất cả bác sĩ <FaIcons.FaArrowRight /></Link>
             </div>
           </div>
         </section>

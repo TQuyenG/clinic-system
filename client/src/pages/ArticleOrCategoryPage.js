@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import ArticleDetailPage from './ArticleDetailPage';
-import CategoryArticlesPage from './CategoryArticlesPage';
+import ArticlesListPage from './ArticlesListPage'; // Đổi import thành file chính
 import './ArticlesListPage.css';
 
 const ArticleOrCategoryPage = ({ type }) => {
@@ -22,20 +22,14 @@ const ArticleOrCategoryPage = ({ type }) => {
   const fetchContent = async () => {
     try {
       setLoading(true);
-      
-      const response = await axios.get(
-        `${API_BASE_URL}/api/articles/${type}/${slug}`
-      );
-
+      const response = await axios.get(`${API_BASE_URL}/api/articles/${type}/${slug}`);
       if (response.data.success) {
         setContent(response.data.data);
         setContentType(response.data.type);
       }
     } catch (error) {
       console.error('Error fetching content:', error);
-      if (error.response?.status === 404) {
-        navigate('/404');
-      }
+      if (error.response?.status === 404) navigate('/404');
     } finally {
       setLoading(false);
     }
@@ -43,9 +37,9 @@ const ArticleOrCategoryPage = ({ type }) => {
 
   if (loading) {
     return (
-      <div className="article-list-loading-state">
+      <div className="article-list-loading">
         <div className="article-list-spinner"></div>
-        <p>Đang tải...</p>
+        <p>Đang tải dữ liệu...</p>
       </div>
     );
   }
@@ -55,7 +49,12 @@ const ArticleOrCategoryPage = ({ type }) => {
   }
 
   if (contentType === 'category') {
-    return <CategoryArticlesPage category={content} categoryType={type} />;
+    // Map type URL ('tin-tuc') sang type Database ('tin_tuc')
+    const typeMap = { 'tin-tuc': 'tin_tuc', 'thuoc': 'thuoc', 'benh-ly': 'benh_ly' };
+    const dbType = typeMap[type] || null;
+    
+    // TRẢ VỀ TRANG ARTICLES LIST CHÍNH KÈM THÔNG TIN DANH MỤC
+    return <ArticlesListPage type={dbType} categoryData={content} />;
   }
 
   return null;

@@ -9,6 +9,11 @@ body {
   line-height: 1.6;
   color: #333;
 }
+html, body {
+  overflow-x: clip;
+  margin: 0;
+  padding: 0;
+}
 
 .app-container {
   display: flex;

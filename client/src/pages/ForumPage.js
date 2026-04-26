@@ -1,62 +1,646 @@
 // client/src/pages/ForumPage.js
-import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
 import forumService from '../services/forumService';
 import communityService from '../services/communityService';
 import { FORUM_QUESTION_ROUTE } from '../utils/constants';
-import CustomAlert from '../components/CustomAlert'; // ✅ Import CustomAlert
-import ForumBanner from '../components/ForumBanner';
 import './ForumPage.css';
+
 import {
-  FaSearch,
-  FaQuestionCircle,
-  FaEye,
-  FaTags,
-  FaStar,
-  FaComments,
-  FaArrowUp,
-  FaArrowDown,
-  FaExclamationTriangle,
-  FaTimes,
-  FaBookmark,
-  FaHeart,
-  FaRegBookmark,
-  FaRegHeart,
-  FaUsers
+  FaSearch, FaQuestionCircle, FaEye, FaTags, FaStar, FaComments, FaArrowUp,
+  FaArrowDown, FaExclamationTriangle, FaTimes, FaBookmark, FaHeart,
+  FaRegBookmark, FaRegHeart, FaUsers, FaHospital, FaCheckCircle,
+  FaInfoCircle, FaTimesCircle, FaBrain, FaDumbbell, FaStethoscope,
+  FaAppleAlt, FaLeaf, FaRunning, FaTooth, FaBaby, FaVial, FaPills,
+  FaShieldAlt, FaFilter, FaChevronDown, FaImage, FaPaperclip, FaUserSecret,
+  FaClipboardCheck
 } from 'react-icons/fa';
 
+const GROUP_ICONS_MAP = {
+  FaUsers: <FaUsers />, FaHeart: <FaHeart />, FaBrain: <FaBrain />,
+  FaDumbbell: <FaDumbbell />, FaStethoscope: <FaStethoscope />, FaAppleAlt: <FaAppleAlt />,
+  FaLeaf: <FaLeaf />, FaRunning: <FaRunning />, FaTooth: <FaTooth />,
+  FaBaby: <FaBaby />, FaVial: <FaVial />, FaPills: <FaPills />
+};
+
+// ==========================================
+// COMPONENT: CustomAlert
+// ==========================================
+const CustomAlert = ({ type = 'info', title = '', message = '', show = false, onClose = () => {}, autoCloseDuration = 5000 }) => {
+  useEffect(() => {
+    if (show && autoCloseDuration > 0) {
+      const timer = setTimeout(() => onClose(), autoCloseDuration);
+      return () => clearTimeout(timer);
+    }
+  }, [show, autoCloseDuration, onClose]);
+
+  if (!show) return null;
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success': return <FaCheckCircle className="forumpage-alert-icon" />;
+      case 'error': return <FaTimesCircle className="forumpage-alert-icon" />;
+      case 'warning': return <FaExclamationTriangle className="forumpage-alert-icon" />;
+      default: return <FaInfoCircle className="forumpage-alert-icon" />;
+    }
+  };
+
+  return (
+    <div className="forumpage-alert-overlay" onClick={onClose}>
+      <div className={`forumpage-alert forumpage-alert--${type}`} onClick={(e) => e.stopPropagation()}>
+        <button className="forumpage-alert-close" onClick={onClose} aria-label="Đóng"><FaTimes /></button>
+        <div className="forumpage-alert-header">
+          {getIcon()}
+          <h3 className="forumpage-alert-title">{title}</h3>
+        </div>
+        {message && <p className="forumpage-alert-message">{message}</p>}
+        <div className="forumpage-alert-actions">
+          <button className={`forumpage-btn-primary forumpage-alert-btn--${type}`} onClick={onClose}>Đóng</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// COMPONENT: ForumBanner (không có nút Đăng câu hỏi)
+// ==========================================
+const ForumBanner = () => {
+  const [overview, setOverview] = useState({ totalQuestions: 0, totalAnswers: 0, topicCount: 0 });
+
+  useEffect(() => {
+    const fetchOverview = async () => {
+      try {
+        const res = await api.get('/forum/stats/overview');
+        if (res.data && res.data.data) setOverview(res.data.data);
+      } catch (error) {
+        setOverview({ totalQuestions: 0, totalAnswers: 0, topicCount: 0 });
+      }
+    };
+    fetchOverview();
+  }, []);
+
+  return (
+    <header className="forumpage-banner">
+      <div className="forumpage-banner-bg"></div>
+      <div className="forumpage-banner-inner forumpage-container">
+        <div className="forumpage-banner-content">
+          <div className="forumpage-banner-brand"><FaStar color="#FFC107" /> Cộng đồng đã kiểm duyệt</div>
+          <h1 className="forumpage-banner-title">Diễn đàn sức khỏe</h1>
+          <p className="forumpage-banner-desc">
+            Hỏi đáp cùng cộng đồng, kết nối bác sĩ – bệnh nhân và lan tỏa kiến thức y khoa.
+          </p>
+          <div className="forumpage-banner-stats-row">
+            <div className="forumpage-banner-stat-box">
+              <span className="forumpage-banner-stat-val">{overview.totalQuestions.toLocaleString('vi-VN')}</span>
+              <span className="forumpage-banner-stat-lbl">Câu hỏi</span>
+            </div>
+            <div className="forumpage-banner-stat-box">
+              <span className="forumpage-banner-stat-val">{overview.totalAnswers.toLocaleString('vi-VN')}</span>
+              <span className="forumpage-banner-stat-lbl">Câu trả lời</span>
+            </div>
+            <div className="forumpage-banner-stat-box">
+              <span className="forumpage-banner-stat-val">{overview.topicCount}</span>
+              <span className="forumpage-banner-stat-lbl">Chủ đề</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="forumpage-banner-cards">
+          <div className="forumpage-banner-action-card">
+            <div className="forumpage-banner-action-icon"><FaHospital size={22} /></div>
+            <div>
+              <span className="forumpage-banner-action-label">TƯ VẤN BÁC SĨ</span>
+              <strong className="forumpage-banner-action-value">Trực tuyến 24/7</strong>
+              <span className="forumpage-banner-action-sub">Đội ngũ chuyên gia sẵn sàng hỗ trợ</span>
+            </div>
+          </div>
+          <div className="forumpage-banner-action-card">
+            <div className="forumpage-banner-action-icon forumpage-banner-action-icon--blue"><FaClipboardCheck size={22} /></div>
+            <div>
+              <span className="forumpage-banner-action-label">KIỂM DUYỆT DIỄN ĐÀN</span>
+              <strong className="forumpage-banner-action-value">Nội dung được xét duyệt</strong>
+              <span className="forumpage-banner-action-sub">Mọi câu hỏi qua kiểm duyệt y khoa</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+// ==========================================
+// COMPONENT: FilterBar (responsive, có menu ẩn trên mobile)
+// ==========================================
+const FilterBar = ({
+  searchTerm, setSearchTerm, handleSearch,
+  selectedTopic, setSelectedTopic,
+  selectedSpecialty, setSelectedSpecialty,
+  topics, specialties,
+  clearFilters,
+  activeSearchTerm, selectedSpecialtyName,
+  selectedTags, handleClearSearch, handleClearSpecialty, toggleFilterTag,
+}) => {
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const menuRef = useRef(null);
+  const hasActiveFilters = !!(activeSearchTerm || selectedSpecialtyName || selectedTopic || selectedTags.length > 0);
+
+  useEffect(() => {
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setShowFilterMenu(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <section className="forumpage-filterbar forumpage-container">
+      {/* Search */}
+      <form className="forumpage-filterbar-search" onSubmit={handleSearch}>
+        <FaSearch className="forumpage-filterbar-search-icon" />
+        <input
+          type="text"
+          placeholder="Tìm kiếm câu hỏi, triệu chứng..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        {searchTerm && (
+          <button type="button" className="forumpage-filterbar-clear-btn" onClick={() => { setSearchTerm(''); handleClearSearch(); }}>
+            <FaTimes />
+          </button>
+        )}
+        <button type="submit" className="forumpage-filterbar-search-btn">Tìm</button>
+      </form>
+
+      {/* Desktop selects */}
+      <div className="forumpage-filterbar-selects">
+        <div className="forumpage-filterbar-select-wrap">
+          <select
+            value={selectedTopic}
+            onChange={(e) => { setSelectedTopic(e.target.value); }}
+          >
+            <option value="">Tất cả chủ đề</option>
+            {topics.map((topic) => (
+              <option key={topic.id} value={topic.id}>{topic.title}</option>
+            ))}
+          </select>
+          <FaChevronDown className="forumpage-select-arrow" />
+        </div>
+
+        <div className="forumpage-filterbar-select-wrap">
+          <select
+            value={selectedSpecialty}
+            onChange={(e) => { setSelectedSpecialty(e.target.value); }}
+          >
+            <option value="">Tất cả chuyên khoa</option>
+            {specialties.map((specialty) => (
+              <option key={specialty.id} value={specialty.id}>{specialty.name}</option>
+            ))}
+          </select>
+          <FaChevronDown className="forumpage-select-arrow" />
+        </div>
+
+        {hasActiveFilters && (
+          <button type="button" className="forumpage-filterbar-reset" onClick={clearFilters}>
+            <FaTimes /> Xóa lọc
+          </button>
+        )}
+      </div>
+
+      {/* Mobile filter toggle */}
+      <div className="forumpage-filterbar-mobile" ref={menuRef}>
+        <button
+          type="button"
+          className={`forumpage-filterbar-toggle ${hasActiveFilters ? 'has-active' : ''}`}
+          onClick={() => setShowFilterMenu(v => !v)}
+        >
+          <FaFilter />
+          {hasActiveFilters && <span className="forumpage-filterbar-dot"></span>}
+          <FaChevronDown style={{ transition: 'transform 0.2s', transform: showFilterMenu ? 'rotate(180deg)' : 'rotate(0)' }} />
+        </button>
+
+        {showFilterMenu && (
+          <div className="forumpage-filterbar-dropdown">
+            <div className="forumpage-filterbar-dropdown-group">
+              <label>Chủ đề</label>
+              <div className="forumpage-filterbar-select-wrap">
+                <select value={selectedTopic} onChange={(e) => { setSelectedTopic(e.target.value); setShowFilterMenu(false); }}>
+                  <option value="">Tất cả chủ đề</option>
+                  {topics.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                </select>
+                <FaChevronDown className="forumpage-select-arrow" />
+              </div>
+            </div>
+            <div className="forumpage-filterbar-dropdown-group">
+              <label>Chuyên khoa</label>
+              <div className="forumpage-filterbar-select-wrap">
+                <select value={selectedSpecialty} onChange={(e) => { setSelectedSpecialty(e.target.value); setShowFilterMenu(false); }}>
+                  <option value="">Tất cả chuyên khoa</option>
+                  {specialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <FaChevronDown className="forumpage-select-arrow" />
+              </div>
+            </div>
+            {hasActiveFilters && (
+              <button type="button" className="forumpage-filterbar-reset forumpage-filterbar-reset--full" onClick={() => { clearFilters(); setShowFilterMenu(false); }}>
+                <FaTimes /> Xóa tất cả bộ lọc
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Active filter chips */}
+      {hasActiveFilters && (
+        <div className="forumpage-filterbar-chips">
+          {activeSearchTerm && (
+            <button type="button" className="forumpage-filter-chip" onClick={handleClearSearch}>
+              Từ khóa: <strong>{activeSearchTerm}</strong> <FaTimes />
+            </button>
+          )}
+          {selectedTopic && (
+            <button type="button" className="forumpage-filter-chip" onClick={() => setSelectedTopic('')}>
+              Chủ đề: <strong>{topics.find(t => String(t.id) === String(selectedTopic))?.title}</strong> <FaTimes />
+            </button>
+          )}
+          {selectedSpecialtyName && (
+            <button type="button" className="forumpage-filter-chip" onClick={handleClearSpecialty}>
+              Chuyên khoa: <strong>{selectedSpecialtyName}</strong> <FaTimes />
+            </button>
+          )}
+          {selectedTags.map((tag) => (
+            <button type="button" key={tag} className="forumpage-filter-chip forumpage-filter-chip--tag" onClick={() => toggleFilterTag(tag)}>
+              #{tag} <FaTimes />
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+};
+
+// ==========================================
+// COMPONENT: AskQuestionModal
+// ==========================================
+const AskQuestionModal = ({
+  show, onClose, onSubmit,
+  questionForm, setQuestionForm,
+  topics, specialties,
+  formTags, toggleTag, toggleSpecialty,
+  previewImages, setPreviewImages,
+  uploading, setUploading,
+  previewFiles, setPreviewFiles,
+  setAlert
+}) => {
+  if (!show) return null;
+
+  // Upload ảnh theo pattern ServiceManagementPage (fetch + token, nhận data.url)
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    if (previewImages.length + files.length > 5) {
+      setAlert({ show: true, type: 'warning', title: 'Giới hạn upload', message: 'Chỉ được upload tối đa 5 ảnh' });
+      return;
+    }
+    setUploading(true);
+    try {
+      const uploadedUrls = [];
+      const newPreviews = [];
+      for (const file of files) {
+        // Hiện preview tạm ngay lập tức
+        const localUrl = URL.createObjectURL(file);
+        newPreviews.push(localUrl);
+
+        const formData = new FormData();
+        formData.append('image', file);
+        const response = await fetch('http://localhost:3001/api/upload/image', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+          body: formData,
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (data.success) {
+          // Ưu tiên data.url, fallback data.imageUrl
+          uploadedUrls.push(data.url || data.imageUrl);
+        }
+      }
+      setPreviewImages(prev => [...prev, ...uploadedUrls]);
+      setQuestionForm(prev => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
+    } catch (error) {
+      setAlert({ show: true, type: 'error', title: 'Lỗi upload', message: 'Có lỗi khi upload ảnh. Vui lòng thử lại!' });
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const removeImage = (index) => {
+    const newImages = previewImages.filter((_, i) => i !== index);
+    setPreviewImages(newImages);
+    setQuestionForm(prev => ({ ...prev, images: newImages }));
+  };
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (questionForm.attachments.length + files.length > 5) {
+      setAlert({ show: true, type: 'warning', title: 'Giới hạn files', message: 'Chỉ được upload tối đa 5 files!' });
+      return;
+    }
+    setUploading(true);
+    try {
+      const uploadedUrls = [];
+      const uploadedFileNames = [];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('image', file);
+        const response = await fetch('http://localhost:3001/api/upload/image', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+          body: formData,
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (data.success && (data.url || data.imageUrl)) {
+          uploadedUrls.push(data.url || data.imageUrl);
+          uploadedFileNames.push(file.name);
+        }
+      }
+      setQuestionForm(prev => ({ ...prev, attachments: [...prev.attachments, ...uploadedUrls] }));
+      setPreviewFiles(prev => [...prev, ...uploadedFileNames]);
+    } catch (error) {
+      setAlert({ show: true, type: 'error', title: 'Lỗi upload', message: 'Không thể upload files. Vui lòng thử lại!' });
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const removeFile = (index) => {
+    setQuestionForm(prev => ({ ...prev, attachments: prev.attachments.filter((_, i) => i !== index) }));
+    setPreviewFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const selectedTopicObj = topics.find(t => String(t.id) === String(questionForm.topicId));
+
+  return (
+    <div className="forumpage-modal-overlay" onClick={onClose}>
+      <div className="forumpage-modal forumpage-modal--ask" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="forumpage-modal__header">
+          <div className="forumpage-modal__header-info">
+            <FaQuestionCircle className="forumpage-modal__header-icon" />
+            <div>
+              <h2 className="forumpage-modal__title">Đặt câu hỏi mới</h2>
+              <p className="forumpage-modal__subtitle">Câu hỏi sẽ được kiểm duyệt trước khi đăng lên cộng đồng</p>
+            </div>
+          </div>
+          <button className="forumpage-modal__close" onClick={onClose}><FaTimes /></button>
+        </div>
+
+        <form className="forumpage-modal__form" onSubmit={onSubmit}>
+          {/* Section 1: Nội dung chính */}
+          <div className="forumpage-form-section">
+            <div className="forumpage-form-section-title">
+              <span className="forumpage-form-section-num">1</span> Nội dung câu hỏi
+            </div>
+            <div className="forumpage-form-group">
+              <label>Tiêu đề câu hỏi <span className="forumpage-required">*</span></label>
+              <input
+                type="text"
+                placeholder="Ví dụ: Đau đầu buổi sáng kéo dài 3 ngày có nguy hiểm không?"
+                value={questionForm.title}
+                onChange={(e) => setQuestionForm(prev => ({ ...prev, title: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="forumpage-form-group">
+              <label>Mô tả chi tiết <span className="forumpage-required">*</span></label>
+              <textarea
+                placeholder="Mô tả triệu chứng, thời gian, mức độ, tiền sử bệnh... càng chi tiết càng tốt để nhận tư vấn chính xác."
+                value={questionForm.content}
+                onChange={(e) => setQuestionForm(prev => ({ ...prev, content: e.target.value }))}
+                rows="5"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Section 2: Phân loại */}
+          <div className="forumpage-form-section">
+            <div className="forumpage-form-section-title">
+              <span className="forumpage-form-section-num">2</span> Phân loại câu hỏi
+            </div>
+            <div className="forumpage-form-row">
+              <div className="forumpage-form-group">
+                <label>Chủ đề <span className="forumpage-required">*</span></label>
+                <div className="forumpage-filterbar-select-wrap">
+                  <select
+                    value={questionForm.topicId}
+                    onChange={(e) => setQuestionForm(prev => ({ ...prev, topicId: e.target.value }))}
+                    required
+                  >
+                    <option value="">-- Chọn chủ đề --</option>
+                    {topics.map((topic) => (
+                      <option key={topic.id} value={topic.id}>{topic.title}</option>
+                    ))}
+                  </select>
+                  <FaChevronDown className="forumpage-select-arrow" />
+                </div>
+              </div>
+
+              <div className="forumpage-form-group">
+                <label>Chuyên khoa <span className="forumpage-form-label-optional">(không bắt buộc, chọn nhiều)</span></label>
+                <div className="forumpage-specialty-chips">
+                  {specialties.slice(0, 10).map((specialty) => {
+                    const isSelected = questionForm.specialtyIds.includes(specialty.id);
+                    return (
+                      <button
+                        key={specialty.id}
+                        type="button"
+                        className={`forumpage-specialty-chip ${isSelected ? 'selected' : ''}`}
+                        onClick={() => toggleSpecialty(specialty.id)}
+                      >
+                        {specialty.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Tags */}
+          <div className="forumpage-form-section">
+            <div className="forumpage-form-section-title">
+              <span className="forumpage-form-section-num">3</span> Thẻ tag <span className="forumpage-form-label-optional">(không bắt buộc)</span>
+            </div>
+            {formTags.length > 0 && (
+              <div className="forumpage-form-group">
+                <label>Chọn tag phổ biến</label>
+                <div className="forumpage-tag-grid">
+                  {formTags.slice(0, 20).map((tag) => {
+                    const isSelected = questionForm.tagList.includes(tag);
+                    return (
+                      <button
+                        type="button"
+                        key={tag}
+                        className={`forumpage-tag-option ${isSelected ? 'selected' : ''}`}
+                        onClick={() => toggleTag(tag)}
+                      >
+                        <FaTags size={11} /> {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="forumpage-form-group">
+              <label>Thêm tag khác <span className="forumpage-form-label-optional">(phân cách bằng dấu phẩy)</span></label>
+              <input
+                type="text"
+                placeholder="Ví dụ: đau đầu, mất ngủ, stress"
+                value={questionForm.tags}
+                onChange={(e) => setQuestionForm(prev => ({ ...prev, tags: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          {/* Section 4: Upload ảnh và file */}
+          <div className="forumpage-form-section">
+            <div className="forumpage-form-section-title">
+              <span className="forumpage-form-section-num">4</span> Đính kèm tài liệu <span className="forumpage-form-label-optional">(không bắt buộc)</span>
+            </div>
+            <div className="forumpage-upload-row">
+              {/* Upload ảnh */}
+              <div className="forumpage-form-group">
+                <label><FaImage size={13} /> Ảnh minh họa <span className="forumpage-form-label-optional">(tối đa 5 ảnh)</span></label>
+                <input
+                  type="file"
+                  id="forum-image-upload"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  style={{ display: 'none' }}
+                  disabled={uploading || previewImages.length >= 5}
+                />
+                <label
+                  htmlFor="forum-image-upload"
+                  className={`forumpage-upload-zone ${uploading || previewImages.length >= 5 ? 'disabled' : ''}`}
+                >
+                  <FaImage size={24} />
+                  <span>{uploading ? 'Đang upload...' : 'Nhấn để chọn ảnh'}</span>
+                  <span className="forumpage-upload-zone-sub">JPG, PNG, GIF – tối đa 5MB mỗi file</span>
+                </label>
+                {previewImages.length > 0 && (
+                  <div className="forumpage-image-preview-grid">
+                    {previewImages.map((url, index) => (
+                      <div key={index} className="forumpage-image-preview-item">
+                        <img
+                          src={url && url.startsWith('http') ? url : `http://localhost:3001${url?.startsWith('/') ? '' : '/'}${url}`}
+                          alt={`Preview ${index + 1}`}
+                          onError={(e) => { e.target.src = 'https://via.placeholder.com/100x100?text=Lỗi'; }}
+                        />
+                        <button type="button" className="forumpage-remove-image-btn" onClick={() => removeImage(index)}>
+                          <FaTimes />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Upload file */}
+              <div className="forumpage-form-group">
+                <label><FaPaperclip size={13} /> Files đính kèm <span className="forumpage-form-label-optional">(tối đa 5 files)</span></label>
+                <input
+                  type="file"
+                  id="forum-file-upload"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  multiple
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                  disabled={uploading || questionForm.attachments.length >= 5}
+                />
+                <label
+                  htmlFor="forum-file-upload"
+                  className={`forumpage-upload-zone ${uploading || questionForm.attachments.length >= 5 ? 'disabled' : ''}`}
+                >
+                  <FaPaperclip size={24} />
+                  <span>{uploading ? 'Đang upload...' : 'Nhấn để chọn file'}</span>
+                  <span className="forumpage-upload-zone-sub">PDF, DOC, XLS – tối đa 5MB mỗi file</span>
+                </label>
+                {previewFiles.length > 0 && (
+                  <div className="forumpage-file-preview-list">
+                    {previewFiles.map((fileName, index) => (
+                      <div key={index} className="forumpage-file-preview-item">
+                        <FaPaperclip size={14} />
+                        <span>{fileName}</span>
+                        <button type="button" className="forumpage-remove-file-btn" onClick={() => removeFile(index)}>
+                          <FaTimes />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Tùy chọn ẩn danh */}
+          {questionForm.topicId && selectedTopicObj?.requiresApproval && (
+            <div className="forumpage-form-section forumpage-form-section--compact">
+              <label className="forumpage-anonymous-toggle">
+                <input
+                  type="checkbox"
+                  checked={questionForm.isAnonymous}
+                  onChange={(e) => setQuestionForm(prev => ({ ...prev, isAnonymous: e.target.checked }))}
+                />
+                <FaUserSecret size={16} />
+                <div>
+                  <span className="forumpage-anonymous-label">Đặt câu hỏi ẩn danh</span>
+                  <span className="forumpage-anonymous-sub">Tên của bạn sẽ được ẩn với cộng đồng, chỉ admin mới thấy</span>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="forumpage-modal__actions">
+            <button type="button" className="forumpage-btn-muted" onClick={onClose}>Hủy</button>
+            <button type="submit" className="forumpage-btn-primary" disabled={uploading}>
+              {uploading ? 'Đang xử lý...' : <><FaQuestionCircle /> Gửi câu hỏi</>}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// COMPONENT: ForumPage (Chính)
+// ==========================================
 const ForumPage = () => {
   const authContext = useContext(AuthContext);
   const storedUser = (() => {
-    try {
-      const raw = localStorage.getItem('user');
-      return raw ? JSON.parse(raw) : null;
-    } catch (err) {
-      console.warn('Không thể parse user từ localStorage:', err);
-      return null;
-    }
+    try { const raw = localStorage.getItem('user'); return raw ? JSON.parse(raw) : null; }
+    catch (err) { return null; }
   })();
   const user = authContext?.user || storedUser;
   const userRole = typeof user?.role === 'object' ? user?.role?.name?.toLowerCase() : user?.role?.toLowerCase();
   const canCreateGroup = user && userRole && ['doctor', 'staff', 'admin'].includes(userRole);
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Tự động mở Modal nếu có lệnh từ trang khác truyền tới
+
   useEffect(() => {
     if (location.state?.openAskModal) {
       setShowAskModal(true);
-      // Xóa state để form không tự mở lại khi refresh trang
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
-  // Tab chính
-const [activeTab, setActiveTab] = useState('forum'); // 'forum' | 'community' | 'my_groups'
-
-// Community states
+  const [activeTab, setActiveTab] = useState('forum');
   const [groups, setGroups] = useState([]);
   const [myGroups, setMyGroups] = useState([]);
   const [groupSearch, setGroupSearch] = useState('');
@@ -66,15 +650,14 @@ const [activeTab, setActiveTab] = useState('forum'); // 'forum' | 'community' | 
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [availableDoctors, setAvailableDoctors] = useState([]);
   const [createGroupForm, setCreateGroupForm] = useState({
-  name: '', description: '', privacy: 'public',
-  doctor_id: '', icon: '👥', requires_post_approval: true,
-  avatar: '', cover_image: '' // Thêm 2 trường lưu URL ảnh
+    name: '', description: '', privacy: 'public',
+    doctor_id: '', icon: 'FaUsers', requires_post_approval: true,
+    avatar: '', cover_image: ''
   });
   const [createGroupError, setCreateGroupError] = useState('');
   const [createGroupSubmitting, setCreateGroupSubmitting] = useState(false);
-  const [groupUploading, setGroupUploading] = useState(false); // Trạng thái đang tải ảnh lên
+  const [groupUploading, setGroupUploading] = useState(false);
 
-  // Hàm xử lý gọi API upload ảnh cho form tạo nhóm
   const handleGroupImageUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -82,149 +665,92 @@ const [activeTab, setActiveTab] = useState('forum'); // 'forum' | 'community' | 
     try {
       const formData = new FormData();
       formData.append('image', file);
-      const res = await api.post('/upload/image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/upload/image', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       if (res.data.success) {
-        // Hỗ trợ cả key imageUrl hoặc url trả về từ server
-        const url = res.data.imageUrl || res.data.url; 
+        const url = res.data.url || res.data.imageUrl;
         setCreateGroupForm(prev => ({ ...prev, [type]: url }));
       }
     } catch (error) {
-      console.error('Lỗi upload ảnh:', error);
       setAlert({ show: true, type: 'error', title: 'Lỗi', message: 'Không thể upload ảnh, thử lại nhé!' });
-    } finally {
-      setGroupUploading(false);
-    }
+    } finally { setGroupUploading(false); }
   };
 
   const [questions, setQuestions] = useState([]);
   const [specialties, setSpecialties] = useState([]);
-  const [topics, setTopics] = useState([]); // ✅ Thêm state topics
+  const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
-  const [selectedTopic, setSelectedTopic] = useState(''); // ✅ Thêm filter topic
+  const [selectedTopic, setSelectedTopic] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showAskModal, setShowAskModal] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
   const [tagSearchTerm, setTagSearchTerm] = useState('');
   const [activeSearchTerm, setActiveSearchTerm] = useState('');
-  
-  // ✅ Report modal states
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportTarget, setReportTarget] = useState({ type: '', id: null, title: '' });
   const [reportForm, setReportForm] = useState({ reason: '', description: '' });
-  
-  // ✅ CustomAlert state
-  const [alert, setAlert] = useState({
-    show: false,
-    type: 'info',
-    title: '',
-    message: ''
-  });
-  
-  // Form state
+  const [alert, setAlert] = useState({ show: false, type: 'info', title: '', message: '' });
+
   const defaultQuestionForm = {
-    title: '',
-    content: '',
-    topicId: '', // ✅ Chủ đề - BẮT BUỘC
-    specialtyIds: [], // ✅ Chuyên khoa - Chọn nhiều, không bắt buộc
-    tags: '',
-    tagList: [],
-    isAnonymous: false,
-    images: [],
-    attachments: [], // ✅ Files đính kèm - tối đa 5
+    title: '', content: '', topicId: '', specialtyIds: [],
+    tags: '', tagList: [], isAnonymous: false, images: [], attachments: []
   };
   const [questionForm, setQuestionForm] = useState(defaultQuestionForm);
-  const [previewFiles, setPreviewFiles] = useState([]); // ✅ Preview files
-  const fallbackTags = useMemo(
-    () => [
-      'Tổng quan',
-      'Nội khoa',
-      'Ngoại khoa',
-      'Tim mạch',
-      'Tiêu hoá',
-      'Da liễu',
-      'Nhi khoa',
-      'Sản phụ khoa',
-      'Thần kinh',
-      'Dinh dưỡng',
-      'Sức khỏe tinh thần',
-      'Phòng bệnh',
-      'Thuốc',
-      'Xét nghiệm',
-    ],
-    []
-  );
-
-  const specialtyTagMap = useMemo(
-    () => ({
-      'Nội khoa': ['Nội khoa', 'Điều trị nội trú', 'Cao huyết áp', 'Đái tháo đường', 'Chăm sóc tổng quát'],
-      'Ngoại khoa': ['Ngoại khoa', 'Phẫu thuật', 'Hậu phẫu', 'Chấn thương', 'Nội soi'],
-      'Tim mạch': ['Tim mạch', 'Cao huyết áp', 'Nhồi máu cơ tim', 'Loạn nhịp', 'Thay van tim'],
-      'Tiêu hoá': ['Tiêu hoá', 'Dạ dày', 'Gan mật', 'Đại tràng', 'Hội chứng ruột kích thích'],
-      'Da liễu': ['Da liễu', 'Mụn', 'Viêm da', 'Thẩm mỹ da', 'Chăm sóc da'],
-      'Nhi khoa': ['Nhi khoa', 'Tiêm chủng', 'Sốt ở trẻ', 'Dinh dưỡng trẻ', 'Phát triển trẻ nhỏ'],
-      'Sản phụ khoa': ['Sản phụ khoa', 'Thai kỳ', 'Tiền sản', 'Kế hoạch gia đình', 'Phụ khoa'],
-      'Thần kinh': ['Thần kinh', 'Đột quỵ', 'Đau đầu', 'Mất ngủ', 'Rối loạn thần kinh'],
-      'Dinh dưỡng': ['Dinh dưỡng', 'Chế độ ăn', 'Thực đơn lành mạnh', 'Giảm cân', 'Tăng cân'],
-      'Sức khỏe tinh thần': ['Sức khỏe tinh thần', 'Lo âu', 'Stress', 'Trầm cảm', 'Tư vấn tâm lý'],
-      'Phòng bệnh': ['Phòng bệnh', 'Tiêm phòng', 'Khám định kỳ', 'Tư vấn sức khỏe', 'Dự phòng bệnh'],
-      'Xét nghiệm': ['Xét nghiệm', 'Xét nghiệm máu', 'Xét nghiệm nước tiểu', 'Chẩn đoán hình ảnh', 'Theo dõi điều trị'],
-    }),
-    []
-  );
-
-  const [availableTags, setAvailableTags] = useState(fallbackTags);
-  const [formTags, setFormTags] = useState(fallbackTags);
+  const [previewFiles, setPreviewFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [previewImages, setPreviewImages] = useState([]);
+
+  // Tags từ database: lấy từ questions đã load (20 tags gần nhất)
+  const [recentTags, setRecentTags] = useState([]);
+  const [formTags, setFormTags] = useState([]);
+
   useEffect(() => {
-    if (typeof document === 'undefined') {
-      return undefined;
-    }
+    if (typeof document === 'undefined') return undefined;
     const body = document.body;
     const html = document.documentElement;
     const originalOverflow = body.style.overflow;
-
     if (showAskModal) {
       body.style.overflow = 'hidden';
-      body.classList.add('forum-modal-open');
-      if (html) {
-        html.classList.add('forum-modal-open');
-      }
+      body.classList.add('forumpage-modal-open');
+      if (html) html.classList.add('forumpage-modal-open');
     } else {
       body.style.overflow = originalOverflow;
-      body.classList.remove('forum-modal-open');
-      if (html) {
-        html.classList.remove('forum-modal-open');
-      }
+      body.classList.remove('forumpage-modal-open');
+      if (html) html.classList.remove('forumpage-modal-open');
     }
-
     return () => {
       body.style.overflow = originalOverflow;
-      body.classList.remove('forum-modal-open');
-      if (html) {
-        html.classList.remove('forum-modal-open');
-      }
+      body.classList.remove('forumpage-modal-open');
+      if (html) html.classList.remove('forumpage-modal-open');
     };
   }, [showAskModal]);
+
   const selectedSpecialtyName = useMemo(() => {
     if (!selectedSpecialty) return '';
-    const specialty = specialties.find(
-      (item) => String(item.id) === String(selectedSpecialty)
-    );
+    const specialty = specialties.find((item) => String(item.id) === String(selectedSpecialty));
     return specialty ? specialty.name : '';
   }, [selectedSpecialty, specialties]);
 
-  const fetchQuestions = useCallback(async ({
-    page,
-    specialty,
-    search,
-    tags
-  } = {}) => {
+  // Lấy tags từ questions hiện tại (20 tags gần nhất, không hardcode)
+  const extractTagsFromQuestions = useCallback((questionList) => {
+    const tagMap = new Map();
+    questionList.forEach(q => {
+      const tags = Array.isArray(q.tags) ? q.tags : [];
+      tags.forEach(tag => {
+        const t = tag.trim();
+        if (t) tagMap.set(t, (tagMap.get(t) || 0) + 1);
+      });
+    });
+    // Sắp xếp theo tần suất, lấy 20 tags
+    return Array.from(tagMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .map(([tag]) => tag);
+  }, []);
+
+  const fetchQuestions = useCallback(async ({ page, specialty, topic, search, tags } = {}) => {
     const targetPage = page ?? currentPage;
     const targetSpecialty = specialty ?? selectedSpecialty;
     const targetSearch = search ?? activeSearchTerm;
@@ -232,29 +758,49 @@ const [activeTab, setActiveTab] = useState('forum'); // 'forum' | 'community' | 
 
     setLoading(true);
     try {
-      const payload = await forumService.getPublicQuestions({
-        page: targetPage,
-        limit: 10,
+      const params = {
+        page: targetPage, limit: 10,
         search: targetSearch,
         specialty: targetSpecialty,
         tags: targetTags,
-      });
-
+      };
+      const payload = await forumService.getPublicQuestions(params);
       if (payload.success) {
-        const fetchedQuestions = payload.data?.questions || [];
-        setQuestions(fetchedQuestions);
+        const qs = payload.data?.questions || [];
+        setQuestions(qs);
+        // Cập nhật tags từ câu hỏi thực tế
+        const extracted = extractTagsFromQuestions(qs);
+        if (extracted.length > 0) {
+          setRecentTags(extracted);
+          setFormTags(extracted);
+        }
         const pagination = payload.data?.pagination || {};
         setTotalPages(pagination.totalPages || 1);
-        if (typeof pagination.page === 'number' && pagination.page !== targetPage) {
-          setCurrentPage(pagination.page);
-        }
+        if (typeof pagination.page === 'number' && pagination.page !== targetPage) setCurrentPage(pagination.page);
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
     } finally {
       setLoading(false);
     }
-  }, [currentPage, activeSearchTerm, selectedSpecialty, selectedTags]);
+  }, [currentPage, activeSearchTerm, selectedSpecialty, selectedTags, extractTagsFromQuestions]);
+
+  // Fetch tags gần nhất riêng (lấy nhiều hơn để có đủ tags cho bộ lọc)
+  const fetchRecentTags = useCallback(async () => {
+    try {
+      const payload = await forumService.getPublicQuestions({ page: 1, limit: 50 });
+      if (payload.success) {
+        const qs = payload.data?.questions || [];
+        const extracted = extractTagsFromQuestions(qs);
+        if (extracted.length > 0) {
+          setRecentTags(extracted);
+          setFormTags(extracted);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching recent tags:', error);
+    }
+  }, [extractTagsFromQuestions]);
 
   const fetchSpecialties = useCallback(async () => {
     try {
@@ -262,470 +808,178 @@ const [activeTab, setActiveTab] = useState('forum'); // 'forum' | 'community' | 
       if (response.data.success) {
         const fetched = response.data.specialties || [];
         setSpecialties(fetched);
-
-        const derivedTags = fetched
-          .map((spec) => specialtyTagMap[spec.name] || [])
-          .flat()
-          .map((tag) => tag.trim())
-          .filter((tag) => tag.length > 0);
-
-        const uniqueTags = derivedTags.length > 0 ? Array.from(new Set(derivedTags)) : fallbackTags;
-        setAvailableTags(uniqueTags);
-        setFormTags(uniqueTags);
       }
-    } catch (error) {
-      console.error('Error fetching specialties:', error);
-      setAvailableTags(fallbackTags);
-      setFormTags(fallbackTags);
-    }
-  }, [fallbackTags, specialtyTagMap]);
+    } catch (error) {}
+  }, []);
 
-  // ✅ Fetch topics
   const fetchTopics = useCallback(async () => {
     try {
       const response = await api.get('/forum/topics');
-      if (response.data.success || response.data.data) {
-        setTopics(response.data.data || response.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching topics:', error);
-    }
+      if (response.data.success || response.data.data) setTopics(response.data.data || response.data || []);
+    } catch (error) {}
   }, []);
 
-  // Load specialties and topics
-useEffect(() => {
-  fetchSpecialties();
-  fetchTopics();
-}, [fetchSpecialties, fetchTopics]);
-
-// Fetch community groups
-useEffect(() => {
-  if (activeTab !== 'community' && activeTab !== 'my_groups') return;
-  const fetchGroups = async () => {
-    setGroupLoading(true);
-    try {
-      const params = { limit: 20, page: 1 };
-      if (groupSearch) params.search = groupSearch;
-      if (groupFilter !== 'all') params.type = groupFilter;
-      const res = await communityService.getGroups(params);
-      const list = res?.data?.data?.groups || res?.data?.groups || [];
-      setGroups(list);
-      if (user) {
-        const map = {};
-        list.forEach(g => {
-          if (g.members?.some(m => m.user_id === user.id)) map[g.id] = true;
-        });
-        setMembershipMap(map);
-      }
-    } catch (e) {
-      console.error('Lỗi tải nhóm:', e);
-    } finally {
-      setGroupLoading(false);
-    }
-  };
-  fetchGroups();
-}, [activeTab, groupSearch, groupFilter, user]);
-
-// Fetch doctors khi mở modal tạo nhóm
-useEffect(() => {
-  if (!showCreateGroupModal) return;
-  const fetchDoctors = async () => {
-    try {
-      const res = await api.get('/users/doctors', { params: { limit: 100, work_status: 'active' } });
-      let docs = [];
-      if (Array.isArray(res.data)) docs = res.data;
-      else if (Array.isArray(res.data?.data)) docs = res.data.data;
-      else if (Array.isArray(res.data?.data?.doctors)) docs = res.data.data.doctors;
-      else if (Array.isArray(res.data?.doctors)) docs = res.data.doctors;
-      setAvailableDoctors(docs);
-    } catch (err) {
-      console.error('Lỗi tải DS bác sĩ:', err);
-      setAvailableDoctors([]);
-    }
-  };
-  fetchDoctors();
-}, [showCreateGroupModal]);
-
-// Fetch nhóm của tôi
-useEffect(() => {
-  if (activeTab !== 'my_groups' || !user) return;
-  const fetchMyGroups = async () => {
-    setGroupLoading(true);
-    try {
-      const res = await communityService.getGroups({ limit: 100, page: 1 });
-      const allGroups = res?.data?.data?.groups || res?.data?.groups || [];
-      const map = {};
-      allGroups.forEach(g => {
-        if (g.members?.some(m => m.user_id === user.id)) map[g.id] = true;
-      });
-      setMembershipMap(map);
-      setMyGroups(allGroups.filter(g => map[g.id] === true));
-    } catch (e) {
-      console.error('Lỗi tải nhóm của tôi:', e);
-      setMyGroups([]);
-    } finally {
-      setGroupLoading(false);
-    }
-  };
-  fetchMyGroups();
-}, [activeTab, user]);
+  useEffect(() => {
+    fetchSpecialties();
+    fetchTopics();
+    fetchRecentTags();
+  }, [fetchSpecialties, fetchTopics, fetchRecentTags]);
 
   useEffect(() => {
-    if (!questionForm.specialtyId) {
-      setFormTags((prev) => (prev.length ? prev : fallbackTags));
-      return;
-    }
-
-    const selected = specialties.find(
-      (spec) => String(spec.id) === String(questionForm.specialtyId)
-    );
-
-    const tagsForSpecialty = selected ? specialtyTagMap[selected.name] : null;
-    if (tagsForSpecialty && tagsForSpecialty.length > 0) {
-      setFormTags(tagsForSpecialty);
-      setQuestionForm((prev) => ({
-        ...prev,
-        tagList: prev.tagList.filter((tag) => tagsForSpecialty.includes(tag)),
-      }));
-    } else {
-      setFormTags(fallbackTags);
-    }
-  }, [questionForm.specialtyId, specialties, specialtyTagMap, fallbackTags]);
-
-  // Load questions
-  useEffect(() => {
-    fetchQuestions({
-      page: currentPage,
-      specialty: selectedSpecialty,
-      search: activeSearchTerm,
-      tags: selectedTags
-    });
-  }, [currentPage, selectedSpecialty, selectedTags, activeSearchTerm, fetchQuestions]);
-
-  // Real-time updates from WebSocket (forum interactions)
-  useEffect(() => {
-    const handler = (e) => {
-      const payload = e.detail || {};
-      if (!payload || !payload.entity_type) return;
-
-      if (payload.entity_type === 'question') {
-        setQuestions((prev) =>
-          prev.map((q) => {
-            if (String(q.id) !== String(payload.entity_id)) return q;
-            const updated = { ...q };
-            if (typeof payload.likesCount === 'number') updated.likesCount = payload.likesCount;
-            if (typeof payload.viewsCount === 'number') updated.viewsCount = payload.viewsCount;
-            if (typeof payload.answersCount === 'number') updated.answerCount = payload.answersCount;
-            return updated;
-          })
-        );
-
-        // Note: Overview stats are now managed by ForumBanner component
-        // No need to update local state
-      }
+    if (activeTab !== 'community' && activeTab !== 'my_groups') return;
+    const fetchGroups = async () => {
+      setGroupLoading(true);
+      try {
+        const params = { limit: 20, page: 1 };
+        if (groupSearch) params.search = groupSearch;
+        if (groupFilter !== 'all') params.type = groupFilter;
+        const res = await communityService.getGroups(params);
+        const list = res?.data?.data?.groups || res?.data?.groups || [];
+        setGroups(list);
+        if (user) {
+          const map = {};
+          list.forEach(g => { if (g.members?.some(m => m.user_id === user.id)) map[g.id] = true; });
+          setMembershipMap(map);
+        }
+      } catch (e) {} finally { setGroupLoading(false); }
     };
+    fetchGroups();
+  }, [activeTab, groupSearch, groupFilter, user]);
 
-    window.addEventListener('forum:interaction', handler);
-    return () => window.removeEventListener('forum:interaction', handler);
-  }, []);
+  useEffect(() => {
+    if (!showCreateGroupModal) return;
+    const fetchDoctors = async () => {
+      try {
+        const res = await api.get('/users/doctors', { params: { limit: 100, work_status: 'active' } });
+        let docs = [];
+        if (Array.isArray(res.data)) docs = res.data;
+        else if (Array.isArray(res.data?.data)) docs = res.data.data;
+        else if (Array.isArray(res.data?.data?.doctors)) docs = res.data.data.doctors;
+        else if (Array.isArray(res.data?.doctors)) docs = res.data.doctors;
+        setAvailableDoctors(docs);
+      } catch (err) { setAvailableDoctors([]); }
+    };
+    fetchDoctors();
+  }, [showCreateGroupModal]);
+
+  useEffect(() => {
+    if (activeTab !== 'my_groups' || !user) return;
+    const fetchMyGroups = async () => {
+      setGroupLoading(true);
+      try {
+        const res = await communityService.getGroups({ limit: 100, page: 1 });
+        const allGroups = res?.data?.data?.groups || res?.data?.groups || [];
+        const map = {};
+        allGroups.forEach(g => { if (g.members?.some(m => m.user_id === user.id)) map[g.id] = true; });
+        setMembershipMap(map);
+        setMyGroups(allGroups.filter(g => map[g.id] === true));
+      } catch (e) { setMyGroups([]); } finally { setGroupLoading(false); }
+    };
+    fetchMyGroups();
+  }, [activeTab, user]);
+
+  useEffect(() => {
+    fetchQuestions({ page: currentPage, specialty: selectedSpecialty, topic: selectedTopic, search: activeSearchTerm, tags: selectedTags });
+  }, [currentPage, selectedSpecialty, selectedTopic, selectedTags, activeSearchTerm]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    const keyword = searchTerm.trim();
     setCurrentPage(1);
-    setActiveSearchTerm(keyword);
-    fetchQuestions({ page: 1, search: keyword });
+    setActiveSearchTerm(searchTerm.trim());
+    fetchQuestions({ page: 1, search: searchTerm.trim() });
   };
 
   const filteredTagOptions = useMemo(() => {
     const keyword = tagSearchTerm.trim().toLowerCase();
-    if (!keyword) {
-      return availableTags;
-    }
-    return availableTags.filter((tag) =>
-      tag.toLowerCase().includes(keyword)
-    );
-  }, [availableTags, tagSearchTerm]);
+    if (!keyword) return recentTags;
+    return recentTags.filter((tag) => tag.toLowerCase().includes(keyword));
+  }, [recentTags, tagSearchTerm]);
 
   const toggleFilterTag = (tag) => {
     setSelectedTags((prev) => {
-      if (prev.includes(tag)) {
-        return prev.filter((item) => item !== tag);
-      }
-      return [...prev, tag];
+      const newTags = prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag];
+      // Gọi fetchQuestions ngay với newTags (không chờ state update)
+      fetchQuestions({ page: 1, search: activeSearchTerm, specialty: selectedSpecialty, topic: selectedTopic, tags: newTags });
+      return newTags;
     });
     setCurrentPage(1);
   };
 
   const clearFilters = () => {
-    setSearchTerm('');
-    setSelectedSpecialty('');
-    setSelectedTopic(''); // ✅ Clear topic filter
-    setSelectedTags([]);
-    setTagSearchTerm('');
-    setActiveSearchTerm('');
-    setCurrentPage(1);
-    fetchQuestions({
-      page: 1,
-      search: '',
-      specialty: '',
-      tags: []
-    });
+    setSearchTerm(''); setSelectedSpecialty(''); setSelectedTopic(''); setSelectedTags([]);
+    setTagSearchTerm(''); setActiveSearchTerm(''); setCurrentPage(1);
+    fetchQuestions({ page: 1, search: '', specialty: '', topic: '', tags: [] });
   };
 
   const handleClearSearch = useCallback(() => {
-    setSearchTerm('');
-    setActiveSearchTerm('');
-    setCurrentPage(1);
-    fetchQuestions({
-      page: 1,
-      specialty: selectedSpecialty,
-      search: '',
-      tags: selectedTags,
-    });
+    setSearchTerm(''); setActiveSearchTerm(''); setCurrentPage(1);
+    fetchQuestions({ page: 1, specialty: selectedSpecialty, search: '', tags: selectedTags });
   }, [fetchQuestions, selectedSpecialty, selectedTags]);
 
   const handleClearSpecialty = useCallback(() => {
-    setSelectedSpecialty('');
-    setCurrentPage(1);
-    fetchQuestions({
-      page: 1,
-      search: activeSearchTerm,
-      specialty: '',
-      tags: selectedTags,
-    });
+    setSelectedSpecialty(''); setCurrentPage(1);
+    fetchQuestions({ page: 1, search: activeSearchTerm, specialty: '', tags: selectedTags });
   }, [fetchQuestions, activeSearchTerm, selectedTags]);
-
-  const handleImageUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
-    if (previewImages.length + files.length > 5) {
-      setAlert({
-        show: true,
-        type: 'warning',
-        title: 'Giới hạn upload',
-        message: 'Chỉ được upload tối đa 5 ảnh'
-      });
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const uploadedUrls = [];
-
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append('image', file);
-
-        const response = await api.post('/upload/image', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-        });
-
-        if (response.data.success) {
-          uploadedUrls.push(response.data.imageUrl);
-        }
-      }
-
-      setPreviewImages([...previewImages, ...uploadedUrls]);
-      setQuestionForm({
-        ...questionForm,
-        images: [...questionForm.images, ...uploadedUrls],
-      });
-    } catch (error) {
-      console.error('Error uploading images:', error);
-      setAlert({
-        show: true,
-        type: 'error',
-        title: 'Lỗi upload',
-        message: 'Có lỗi khi upload ảnh. Vui lòng thử lại!'
-      });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const removeImage = (index) => {
-    const newImages = previewImages.filter((_, i) => i !== index);
-    setPreviewImages(newImages);
-    setQuestionForm({ ...questionForm, images: newImages });
-  };
 
   const toggleTag = (tag) => {
     setQuestionForm((prev) => {
-      const exists = prev.tagList.includes(tag);
-      const newTags = exists
-        ? prev.tagList.filter((t) => t !== tag)
-        : [...prev.tagList, tag];
-      return {
-        ...prev,
-        tagList: newTags,
-        tags: newTags.join(', '),
-      };
+      const newTags = prev.tagList.includes(tag) ? prev.tagList.filter((t) => t !== tag) : [...prev.tagList, tag];
+      return { ...prev, tagList: newTags, tags: newTags.join(', ') };
     });
   };
 
-  // ✅ Toggle specialty (multi-select)
   const toggleSpecialty = (specialtyId) => {
     setQuestionForm((prev) => {
       const id = Number(specialtyId);
-      const exists = prev.specialtyIds.includes(id);
-      const newSpecialties = exists
-        ? prev.specialtyIds.filter((s) => s !== id)
-        : [...prev.specialtyIds, id];
-      return {
-        ...prev,
-        specialtyIds: newSpecialties,
-      };
+      const newSpecialties = prev.specialtyIds.includes(id) ? prev.specialtyIds.filter((s) => s !== id) : [...prev.specialtyIds, id];
+      return { ...prev, specialtyIds: newSpecialties };
     });
-  };
-
-  // ✅ Handle file upload (max 5 files) - Sử dụng lại API /upload/image
-  const handleFileUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    
-    if (questionForm.attachments.length + files.length > 5) {
-      setAlert({
-        show: true,
-        type: 'warning',
-        title: 'Giới hạn files',
-        message: 'Chỉ được upload tối đa 5 files!'
-      });
-      return;
-    }
-
-    try {
-      setUploading(true);
-      const uploadedUrls = [];
-      const uploadedFileNames = [];
-
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append('image', file); // ✅ Dùng 'image' như route /upload/image yêu cầu
-        
-        const uploadRes = await api.post('/upload/image', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        
-        if (uploadRes.data.success && uploadRes.data.url) {
-          uploadedUrls.push(uploadRes.data.url);
-          uploadedFileNames.push(file.name);
-        }
-      }
-
-      setQuestionForm(prev => ({
-        ...prev,
-        attachments: [...prev.attachments, ...uploadedUrls]
-      }));
-      setPreviewFiles(prev => [...prev, ...uploadedFileNames]);
-    } catch (error) {
-      console.error('Error uploading files:', error);
-      setAlert({
-        show: true,
-        type: 'error',
-        title: 'Lỗi upload',
-        message: 'Không thể upload files. Vui lòng thử lại!'
-      });
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  const removeFile = (index) => {
-    const newAttachments = questionForm.attachments.filter((_, i) => i !== index);
-    const newPreviewFiles = previewFiles.filter((_, i) => i !== index);
-    setQuestionForm({ ...questionForm, attachments: newAttachments });
-    setPreviewFiles(newPreviewFiles);
   };
 
   const handleAskQuestion = async (e) => {
     e.preventDefault();
-    
     if (!user) {
-      setAlert({
-        show: true,
-        type: 'warning',
-        title: 'Yêu cầu đăng nhập',
-        message: 'Vui lòng đăng nhập để đặt câu hỏi'
-      });
+      setAlert({ show: true, type: 'warning', title: 'Yêu cầu đăng nhập', message: 'Vui lòng đăng nhập để đặt câu hỏi' });
       setTimeout(() => navigate('/login'), 2000);
       return;
     }
-
-    // ✅ Validate topicId
     if (!questionForm.topicId) {
-      setAlert({
-        show: true,
-        type: 'warning',
-        title: 'Thiếu thông tin',
-        message: 'Vui lòng chọn chủ đề (Topic) cho câu hỏi'
-      });
+      setAlert({ show: true, type: 'warning', title: 'Thiếu thông tin', message: 'Vui lòng chọn chủ đề cho câu hỏi' });
       return;
     }
-
     try {
-      const manualTags = questionForm.tags
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag);
-      const combinedTags = Array.from(
-        new Set([...questionForm.tagList, ...manualTags])
-      );
-
-      const response = await api.post(
-        '/forum/questions',
-        {
-          title: questionForm.title,
-          content: questionForm.content,
-          topicId: Number(questionForm.topicId), // ✅ Chủ đề - BẮT BUỘC
-          specialtyIds: questionForm.specialtyIds, // ✅ Chuyên khoa - Array
-          tags: combinedTags,
-          isAnonymous: questionForm.isAnonymous,
-          images: questionForm.images,
-          attachments: questionForm.attachments, // ✅ Files đính kèm
-        }
-      );
-
+      const manualTags = questionForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+      const combinedTags = Array.from(new Set([...questionForm.tagList, ...manualTags]));
+      const response = await api.post('/forum/questions', {
+        title: questionForm.title,
+        content: questionForm.content,
+        topicId: Number(questionForm.topicId),
+        specialtyIds: questionForm.specialtyIds,
+        tags: combinedTags,
+        isAnonymous: questionForm.isAnonymous,
+        images: questionForm.images,
+        attachments: questionForm.attachments
+      });
       if (response.data.success) {
-        const statusMsg = response.data.data?.status === 'pending' 
+        const statusMsg = response.data.data?.status === 'pending'
           ? 'Câu hỏi của bạn đã được gửi và đang chờ duyệt!'
           : 'Câu hỏi của bạn đã được đăng thành công!';
-        setAlert({
-          show: true,
-          type: 'success',
-          title: 'Thành công!',
-          message: statusMsg
-        });
+        setAlert({ show: true, type: 'success', title: 'Thành công!', message: statusMsg });
         setShowAskModal(false);
         setQuestionForm(defaultQuestionForm);
         setPreviewImages([]);
-        setPreviewFiles([]); // ✅ Reset files
+        setPreviewFiles([]);
         setCurrentPage(1);
         await fetchQuestions({ page: 1 });
       }
     } catch (error) {
-      console.error('Error creating question:', error);
-      setAlert({
-        show: true,
-        type: 'error',
-        title: 'Lỗi',
-        message: 'Có lỗi xảy ra khi gửi câu hỏi. Vui lòng thử lại!'
-      });
+      setAlert({ show: true, type: 'error', title: 'Lỗi', message: 'Có lỗi xảy ra khi gửi câu hỏi. Vui lòng thử lại!' });
     }
   };
 
-  // ✅ Handle Report
   const handleOpenReport = (type, id, title) => {
     if (!user) {
-      setAlert({
-        show: true,
-        type: 'warning',
-        title: 'Yêu cầu đăng nhập',
-        message: 'Bạn cần đăng nhập để báo cáo vi phạm'
-      });
+      setAlert({ show: true, type: 'warning', title: 'Yêu cầu đăng nhập', message: 'Bạn cần đăng nhập để báo cáo vi phạm' });
       setTimeout(() => navigate('/login'), 2000);
       return;
     }
@@ -736,17 +990,7 @@ useEffect(() => {
 
   const handleSubmitReport = async (e) => {
     e.preventDefault();
-    
-    if (!reportForm.reason) {
-      setAlert({
-        show: true,
-        type: 'warning',
-        title: 'Thiếu thông tin',
-        message: 'Vui lòng chọn lý do báo cáo'
-      });
-      return;
-    }
-
+    if (!reportForm.reason) return setAlert({ show: true, type: 'warning', title: 'Thiếu thông tin', message: 'Vui lòng chọn lý do báo cáo' });
     try {
       const response = await api.post('/forum/reports', {
         entityType: reportTarget.type,
@@ -754,170 +998,92 @@ useEffect(() => {
         reason: reportForm.reason,
         description: reportForm.description
       });
-
       if (response.data.success) {
         setShowReportModal(false);
         setReportForm({ reason: '', description: '' });
-        setAlert({
-          show: true,
-          type: 'success',
-          title: 'Báo cáo thành công!',
-          message: response.data.message || 'Báo cáo của bạn đã được gửi đến quản trị viên. Cảm ơn bạn đã góp phần giữ gìn cộng đồng lành mạnh!'
-        });
+        setAlert({ show: true, type: 'success', title: 'Báo cáo thành công!', message: response.data.message || 'Báo cáo đã được gửi đến quản trị viên.' });
       }
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'Có lỗi xảy ra khi gửi báo cáo';
-      setAlert({
-        show: true,
-        type: 'error',
-        title: 'Lỗi',
-        message: errorMsg
-      });
+      setAlert({ show: true, type: 'error', title: 'Lỗi', message: error.response?.data?.message || 'Có lỗi xảy ra khi gửi báo cáo' });
     }
   };
 
-  // ✅ Handle Like Question
   const handleLikeQuestion = async (questionId, e) => {
     e.stopPropagation();
-    
     if (!user) {
-      setAlert({
-        show: true,
-        type: 'warning',
-        title: 'Yêu cầu đăng nhập',
-        message: 'Bạn cần đăng nhập để thích câu hỏi'
-      });
+      setAlert({ show: true, type: 'warning', title: 'Yêu cầu đăng nhập', message: 'Bạn cần đăng nhập để thích câu hỏi' });
       setTimeout(() => navigate('/login'), 2000);
       return;
     }
-
     try {
       const response = await api.post(`/forum/questions/${questionId}/like`);
       if (response.data.success) {
-        // Cập nhật lại danh sách câu hỏi
-        setQuestions(prev => prev.map(q => 
-          q.id === questionId 
-            ? { ...q, likesCount: response.data.data.likesCount, isLiked: response.data.data.liked }
-            : q
+        setQuestions(prev => prev.map(q =>
+          q.id === questionId ? { ...q, likesCount: response.data.data.likesCount, isLiked: response.data.data.liked } : q
         ));
-        
-        setAlert({
-          show: true,
-          type: 'success',
-          title: response.data.data.liked ? 'Đã thích!' : 'Đã bỏ thích',
-          message: response.data.data.liked ? 'Bạn đã thích câu hỏi này' : 'Đã bỏ thích câu hỏi'
-        });
       }
     } catch (error) {
-      setAlert({
-        show: true,
-        type: 'error',
-        title: 'Lỗi',
-        message: error.response?.data?.message || 'Không thể thực hiện'
-      });
+      setAlert({ show: true, type: 'error', title: 'Lỗi', message: error.response?.data?.message || 'Không thể thực hiện' });
     }
   };
 
-  // ✅ Handle Save Question
   const handleSaveQuestion = async (questionId, e) => {
     e.stopPropagation();
-    
     if (!user) {
-      setAlert({
-        show: true,
-        type: 'warning',
-        title: 'Yêu cầu đăng nhập',
-        message: 'Bạn cần đăng nhập để lưu câu hỏi'
-      });
+      setAlert({ show: true, type: 'warning', title: 'Yêu cầu đăng nhập', message: 'Bạn cần đăng nhập để lưu câu hỏi' });
       setTimeout(() => navigate('/login'), 2000);
       return;
     }
-
     try {
       const response = await api.post(`/forum/questions/${questionId}/save`);
       if (response.data.success) {
-        // Cập nhật lại danh sách câu hỏi
-        setQuestions(prev => prev.map(q => 
-          q.id === questionId 
-            ? { ...q, savesCount: response.data.data.savesCount, isSaved: response.data.data.saved }
-            : q
+        setQuestions(prev => prev.map(q =>
+          q.id === questionId ? { ...q, savesCount: response.data.data.savesCount, isSaved: response.data.data.saved } : q
         ));
-        
-        setAlert({
-          show: true,
-          type: 'success',
-          title: response.data.data.saved ? 'Đã lưu!' : 'Đã bỏ lưu',
-          message: response.data.message || (response.data.data.saved ? 'Đã lưu câu hỏi vào danh sách của bạn' : 'Đã bỏ lưu câu hỏi')
-        });
       }
     } catch (error) {
-      setAlert({
-        show: true,
-        type: 'error',
-        title: 'Lỗi',
-        message: error.response?.data?.message || error.message || 'Có lỗi xảy ra khi lưu câu hỏi'
-      });
+      setAlert({ show: true, type: 'error', title: 'Lỗi', message: error.response?.data?.message || 'Có lỗi xảy ra' });
     }
   };
 
   const handleCreateGroup = async () => {
-  if (!createGroupForm.name.trim()) return setCreateGroupError('Tên nhóm không được trống');
-  if (!createGroupForm.doctor_id) return setCreateGroupError('Vui lòng chọn bác sĩ phụ trách');
-  setCreateGroupSubmitting(true);
-  setCreateGroupError('');
-  try {
-    await communityService.createGroup({
-      ...createGroupForm,
-      doctor_id: parseInt(createGroupForm.doctor_id)
-    });
-    setAlert({ show: true, type: 'success', title: 'Thành công!', message: 'Tạo nhóm thành công! Đang chờ Admin duyệt.' });
-    setShowCreateGroupModal(false);
-    setCreateGroupForm({ name: '', description: '', privacy: 'public', doctor_id: '', icon: '👥', requires_post_approval: true });
-  } catch (e) {
-    setCreateGroupError(e?.response?.data?.message || 'Tạo nhóm thất bại');
-  } finally {
-    setCreateGroupSubmitting(false);
-  }
-};
+    if (!createGroupForm.name.trim()) return setCreateGroupError('Tên nhóm không được trống');
+    if (!createGroupForm.doctor_id) return setCreateGroupError('Vui lòng chọn bác sĩ phụ trách');
+    setCreateGroupSubmitting(true); setCreateGroupError('');
+    try {
+      await communityService.createGroup({ ...createGroupForm, doctor_id: parseInt(createGroupForm.doctor_id) });
+      setAlert({ show: true, type: 'success', title: 'Thành công!', message: 'Tạo nhóm thành công! Đang chờ Admin duyệt.' });
+      setShowCreateGroupModal(false);
+      setCreateGroupForm({ name: '', description: '', privacy: 'public', doctor_id: '', icon: 'FaUsers', requires_post_approval: true });
+    } catch (e) {
+      setCreateGroupError(e?.response?.data?.message || 'Tạo nhóm thất bại');
+    } finally { setCreateGroupSubmitting(false); }
+  };
 
-const handleJoinGroup = async (group) => {
-  if (!user) {
-    navigate('/login');
-    return;
-  }
-  try {
-    const res = await communityService.joinGroup(group.id);
-    setAlert({ show: true, type: 'success', title: 'Thành công', message: res?.data?.message || 'Tham gia nhóm thành công!' });
-    setMembershipMap(prev => ({ ...prev, [group.id]: true }));
-    setGroups(prev => prev.map(g => g.id === group.id ? { ...g, members_count: (g.members_count || 0) + 1 } : g));
-  } catch (e) {
-    setAlert({ show: true, type: 'error', title: 'Lỗi', message: e?.response?.data?.message || 'Lỗi khi tham gia nhóm' });
-  }
-};
+  const handleJoinGroup = async (group) => {
+    if (!user) { navigate('/login'); return; }
+    try {
+      const res = await communityService.joinGroup(group.id);
+      setAlert({ show: true, type: 'success', title: 'Thành công', message: res?.data?.message || 'Tham gia nhóm thành công!' });
+      setMembershipMap(prev => ({ ...prev, [group.id]: true }));
+      setGroups(prev => prev.map(g => g.id === group.id ? { ...g, members_count: (g.members_count || 0) + 1 } : g));
+    } catch (e) {
+      setAlert({ show: true, type: 'error', title: 'Lỗi', message: e?.response?.data?.message || 'Lỗi khi tham gia nhóm' });
+    }
+  };
 
-const handleViewGroup = (group) => {
-  navigate(`/cong-dong/nhom/${group.slug}`);
-};
-
-const handleQuestionClick = (questionId) => {
-  navigate(`${FORUM_QUESTION_ROUTE}/${questionId}`);
-};
+  const handleViewGroup = (group) => { navigate(`/cong-dong/nhom/${group.slug}`); };
+  const handleQuestionClick = (questionId) => { navigate(`${FORUM_QUESTION_ROUTE}/${questionId}`); };
 
   const formatDate = (dateValue) => {
     if (!dateValue) return 'Chưa cập nhật';
     const date = new Date(dateValue);
-    if (Number.isNaN(date.getTime())) {
-      return 'Chưa cập nhật';
-    }
-    const now = new Date();
-    const diffMs = now - date;
-    if (diffMs < 0) {
-      return date.toLocaleDateString('vi-VN');
-    }
+    if (Number.isNaN(date.getTime())) return 'Chưa cập nhật';
+    const now = new Date(); const diffMs = now - date;
+    if (diffMs < 0) return date.toLocaleDateString('vi-VN');
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-
     if (diffMins < 60) return `${diffMins} phút trước`;
     if (diffHours < 24) return `${diffHours} giờ trước`;
     if (diffDays < 7) return `${diffDays} ngày trước`;
@@ -925,938 +1091,496 @@ const handleQuestionClick = (questionId) => {
   };
 
   return (
-  <div className="forum-page">
-    {/* HEADER HERO */}
-    <ForumBanner />
+    <div className="forumpage-root">
+      <ForumBanner />
 
-    {/* TABS ĐIỀU HƯỚNG */}
-    <div className="forum-main-tabs">
-      <button
-        className={`forum-main-tab ${activeTab === 'forum' ? 'active' : ''}`}
-        onClick={() => setActiveTab('forum')}
-      >
-        💬 Diễn đàn Q&A
-      </button>
-      <button
-        className={`forum-main-tab ${activeTab === 'community' ? 'active' : ''}`}
-        onClick={() => setActiveTab('community')}
-      >
-        <FaUsers /> Nhóm cộng đồng
-      </button>
-      {user && (
-        <button
-          className={`forum-main-tab ${activeTab === 'my_groups' ? 'active' : ''}`}
-          onClick={() => setActiveTab('my_groups')}
-        >
-          👤 Nhóm của tôi
+      {/* Tabs */}
+      <div className="forumpage-main-tabs forumpage-container">
+        <button className={`forumpage-main-tab ${activeTab === 'forum' ? 'active' : ''}`} onClick={() => setActiveTab('forum')}>
+          <FaComments /> Diễn đàn Q&amp;A
         </button>
-      )}
-    </div>
-
-    {/* TAB: NHÓM CỘNG ĐỒNG */}
-    {activeTab === 'community' && (
-      <div className="forum-community-tab container">
-        <div className="forum-community-toolbar">
-          <input
-            type="text"
-            placeholder="Tìm nhóm theo tên..."
-            value={groupSearch}
-            onChange={e => setGroupSearch(e.target.value)}
-            className="forum-community-search"
-          />
-          <div className="forum-community-filters">
-            {[['all','Tất cả'],['official','Chính thống ✓'],['community','Cộng đồng']].map(([v,l]) => (
-              <button
-                key={v}
-                className={`forum-community-filter-btn ${groupFilter === v ? 'active' : ''}`}
-                onClick={() => setGroupFilter(v)}
-              >{l}</button>
-            ))}
-          </div>
-          {canCreateGroup && (
-            <button className="btn-primary" style={{padding:'9px 18px',fontSize:'14px'}} onClick={() => setShowCreateGroupModal(true)}>
-              + Tạo nhóm mới
-            </button>
-          )}
-        </div>
-
-        {groupLoading && <div className="panel--loading">Đang tải nhóm...</div>}
-
-        {!groupLoading && groups.length === 0 && (
-          <div className="empty-state">
-            <FaUsers size={48} />
-            <h3>Chưa có nhóm nào</h3>
-            <p>Hãy quay lại sau.</p>
-          </div>
-        )}
-
-        {!groupLoading && groups.length > 0 && (
-          <div className="forum-groups-grid">
-            {groups.map(g => (
-              <div key={g.id} className="forum-group-card">
-                <div
-                  className="forum-group-cover"
-                  style={{ background: g.cover_image ? `url(${g.cover_image}) center/cover` : 'linear-gradient(135deg,#2fbf71,#1a8f52)' }}
-                >
-                  <span className="forum-group-icon">{g.icon || '👥'}</span>
-                  {g.type === 'official' && <span className="forum-group-official">✓ Chính thống</span>}
-                </div>
-                <div className="forum-group-body">
-                  <h4>{g.name}</h4>
-                  <p>{g.description || 'Nhóm cộng đồng sức khỏe'}</p>
-                  <div className="forum-group-meta">
-                    <span>{g.privacy === 'public' ? '🔓 Công khai' : '🔒 Riêng tư'}</span>
-                    <span><FaUsers /> {g.members_count || 0} thành viên</span>
-                  </div>
-                  <div className="forum-group-actions">
-                    <button className="btn-outline" onClick={() => handleViewGroup(g)}>Xem nhóm</button>
-                    {!membershipMap[g.id] && g.privacy !== 'invite_only' && (
-                      <button className="btn-primary" onClick={() => handleJoinGroup(g)}>
-                        {g.privacy === 'public' ? 'Tham gia' : 'Gửi yêu cầu'}
-                      </button>
-                    )}
-                    {membershipMap[g.id] && (
-                      <span className="forum-group-joined">✓ Đã tham gia</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )}
-
-    {/* TAB: NHÓM CỦA TÔI */}
-    {activeTab === 'my_groups' && user && (
-      <div className="forum-community-tab container">
-        {groupLoading && <div className="panel--loading">Đang tải...</div>}
-        {!groupLoading && myGroups.length === 0 && (
-          <div className="empty-state">
-            <FaUsers size={48} />
-            <h3>Bạn chưa tham gia nhóm nào</h3>
-            <button className="btn-outline" onClick={() => setActiveTab('community')}>
-              → Khám phá nhóm ngay
-            </button>
-          </div>
-        )}
-        {!groupLoading && myGroups.length > 0 && (
-          <div className="forum-groups-grid">
-            {myGroups.map(g => (
-              <div key={g.id} className="forum-group-card">
-                <div
-                  className="forum-group-cover"
-                  style={{ background: g.cover_image ? `url(${g.cover_image}) center/cover` : 'linear-gradient(135deg,#2fbf71,#1a8f52)' }}
-                >
-                  <span className="forum-group-icon">{g.icon || '👥'}</span>
-                </div>
-                <div className="forum-group-body">
-                  <h4>{g.name}</h4>
-                  <p>{g.description || 'Nhóm cộng đồng sức khỏe'}</p>
-                  <div className="forum-group-meta">
-                    <span><FaUsers /> {g.members_count || 0} thành viên</span>
-                  </div>
-                  <div className="forum-group-actions">
-                    <button className="btn-primary" onClick={() => handleViewGroup(g)}>Vào nhóm</button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )}
-
-    {/* TAB: DIỄN ĐÀN Q&A — chỉ render khi activeTab === 'forum' */}
-    {activeTab === 'forum' && (
-      <>
-        {/* CTA Section - Đăng câu hỏi */}
-        <div className="forum-cta-section">
-        <div className="container">
-          <button className="btn-primary btn-ask-question" onClick={() => setShowAskModal(true)}>
-            <FaQuestionCircle /> Đăng câu hỏi
+        <button className={`forumpage-main-tab ${activeTab === 'community' ? 'active' : ''}`} onClick={() => setActiveTab('community')}>
+          <FaUsers /> Nhóm cộng đồng
+        </button>
+        {user && (
+          <button className={`forumpage-main-tab ${activeTab === 'my_groups' ? 'active' : ''}`} onClick={() => setActiveTab('my_groups')}>
+            <FaUsers /> Nhóm của tôi
           </button>
-          <span className="cta-hint">Miễn phí - được phản hồi trong vài phút</span>
-        </div>
+        )}
       </div>
 
-      <section className="forum-toolbar container">
-        <form className="toolbar-search" onSubmit={handleSearch}>
-          <FaSearch />
-          <input
-            type="text"
-            placeholder="Tìm kiếm bài viết, triệu chứng hoặc bác sĩ..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </form>
-        <div className="toolbar-actions">
-          {/* ✅ Filter theo Topic */}
-          <select
-            value={selectedTopic}
-            onChange={(e) => {
-              setSelectedTopic(e.target.value);
-              setCurrentPage(1);
-            }}
-          >
-            <option value="">Tất cả chủ đề</option>
-            {topics.map((topic) => (
-              <option key={topic.id} value={topic.id}>
-                {topic.title}
-              </option>
-            ))}
-          </select>
-          
-          <select
-            value={selectedSpecialty}
-            onChange={(e) => {
-              setSelectedSpecialty(e.target.value);
-              setCurrentPage(1);
-            }}
-          >
-            <option value="">Tất cả chuyên khoa</option>
-            {specialties.map((specialty) => (
-              <option key={specialty.id} value={specialty.id}>
-                {specialty.name}
-              </option>
-            ))}
-          </select>
-          <button type="button" onClick={clearFilters}>
-            Làm mới
-          </button>
+      {/* TAB: Community */}
+      {activeTab === 'community' && (
+        <div className="forumpage-community-tab forumpage-container">
+          <div className="forumpage-community-toolbar">
+            <input type="text" placeholder="Tìm nhóm theo tên..." value={groupSearch} onChange={e => setGroupSearch(e.target.value)} className="forumpage-community-search" />
+            <div className="forumpage-community-filters">
+              {[['all', 'Tất cả'], ['official', 'Chính thống ✓'], ['community', 'Cộng đồng']].map(([v, l]) => (
+                <button key={v} className={`forumpage-community-filter-btn ${groupFilter === v ? 'active' : ''}`} onClick={() => setGroupFilter(v)}>{l}</button>
+              ))}
+            </div>
+            {canCreateGroup && (
+              <button className="forumpage-btn-primary" style={{ padding: '9px 18px', fontSize: '14px' }} onClick={() => setShowCreateGroupModal(true)}>
+                + Tạo nhóm mới
+              </button>
+            )}
+          </div>
+          {groupLoading && <div className="forumpage-panel--loading">Đang tải nhóm...</div>}
+          {!groupLoading && groups.length === 0 && (
+            <div className="forumpage-empty-state"><FaUsers size={48} /><h3>Chưa có nhóm nào</h3><p>Hãy quay lại sau.</p></div>
+          )}
+          {!groupLoading && groups.length > 0 && (
+            <div className="forumpage-groups-grid">
+              {groups.map(g => (
+                <div key={g.id} className="forumpage-group-card">
+                  <div className="forumpage-group-cover" style={{ background: g.cover_image ? `url(${g.cover_image}) center/cover` : 'linear-gradient(135deg,#4CAF50,#2E7D32)' }}>
+                    <span className="forumpage-group-icon">{GROUP_ICONS_MAP[g.icon] || <FaUsers />}</span>
+                    {g.type === 'official' && <span className="forumpage-group-official">✓ Chính thống</span>}
+                  </div>
+                  <div className="forumpage-group-body">
+                    <h4>{g.name}</h4><p>{g.description || 'Nhóm cộng đồng sức khỏe'}</p>
+                    <div className="forumpage-group-meta">
+                      <span>{g.privacy === 'public' ? '🔓 Công khai' : '🔒 Riêng tư'}</span>
+                      <span><FaUsers /> {g.members_count || 0} thành viên</span>
+                    </div>
+                    <div className="forumpage-group-actions">
+                      <button className="forumpage-btn-outline" onClick={() => handleViewGroup(g)}>Xem nhóm</button>
+                      {!membershipMap[g.id] && g.privacy !== 'invite_only' && (
+                        <button className="forumpage-btn-primary" onClick={() => handleJoinGroup(g)}>
+                          {g.privacy === 'public' ? 'Tham gia' : 'Gửi yêu cầu'}
+                        </button>
+                      )}
+                      {membershipMap[g.id] && <span className="forumpage-group-joined">✓ Đã tham gia</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </section>
-
-      {(activeSearchTerm || selectedSpecialtyName || selectedTopic || selectedTags.length > 0) && (
-        <section className="active-filters container">
-          <span className="filter-label">Đang áp dụng:</span>
-          {activeSearchTerm && (
-            <button type="button" className="filter-chip" onClick={handleClearSearch}>
-              Từ khóa: {activeSearchTerm} ×
-            </button>
-          )}
-          {selectedTopic && (
-            <button type="button" className="filter-chip" onClick={() => {
-              setSelectedTopic('');
-              setCurrentPage(1);
-            }}>
-              Chủ đề: {topics.find(t => t.id === Number(selectedTopic))?.title} ×
-            </button>
-          )}
-          {selectedSpecialtyName && (
-            <button type="button" className="filter-chip" onClick={handleClearSpecialty}>
-              Chuyên khoa: {selectedSpecialtyName} ×
-            </button>
-          )}
-          {selectedTags.map((tag) => (
-            <button
-              type="button"
-              key={tag}
-              className="filter-chip"
-              onClick={() => toggleFilterTag(tag)}
-            >
-              #{tag} ×
-            </button>
-          ))}
-        </section>
       )}
 
-      <section className="forum-content container">
-        <main className="forum-feed">
-          <div className="create-card">
-            <div className="create-card__icon">
-              <FaQuestionCircle />
-            </div>
-            <button
-              type="button"
-              className="create-card__prompt"
-              onClick={() => setShowAskModal(true)}
-            >
-              Chia sẻ điều bạn đang thắc mắc với cộng đồng...
-            </button>
-            <button
-              type="button"
-              className="create-card__submit"
-              onClick={() => setShowAskModal(true)}
-            >
-              Đăng
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="panel--loading">Đang tải dữ liệu...</div>
-          ) : questions.length === 0 ? (
-            <div className="empty-state">
-              <FaQuestionCircle size={56} />
-              <h3>Chưa có bài viết nào phù hợp</h3>
-              <p>Hãy trở thành người đầu tiên chia sẻ câu hỏi về chủ đề này.</p>
-              <button className="btn-outline" onClick={() => setShowAskModal(true)}>
-                Tạo bài viết mới
-              </button>
-            </div>
-          ) : (
-            <div className="post-feed">
-              {questions
-                .filter(q => {
-                  // ✅ Client-side filter theo selectedTopic
-                  if (selectedTopic && q.topicId !== Number(selectedTopic)) {
-                    return false;
-                  }
-                  return true;
-                })
-                .map((question) => {
-                const rawContent = (question.content || '').trim();
-                const preview =
-                  rawContent.length > 260 ? `${rawContent.substring(0, 260)}...` : rawContent;
-                const questionDate =
-                  question.createdAt ||
-                  question.created_at ||
-                  question.approvedAt ||
-                  question.approved_at;
-                return (
-                  <article
-                    key={question.id}
-                    className="post-card"
-                    onClick={() => handleQuestionClick(question.id)}
-                  >
-                    <div className="post-card__vote" onClick={(e) => e.stopPropagation()}>
-                      <button type="button" onClick={(e) => e.stopPropagation()}>
-                        <FaArrowUp />
-                      </button>
-                      <span>{question.answerCount || 0}</span>
-                      <button type="button" onClick={(e) => e.stopPropagation()}>
-                        <FaArrowDown />
-                      </button>
-                    </div>
-
-                    <div className="post-card__body">
-                      <header className="post-card__meta">
-                        <span className="post-card__community">r/health-forum</span>
-                        <span className="dot">•</span>
-                        <span className="post-card__author">
-                          {question.isAnonymous ? 'Ẩn danh' : question.author?.fullName}
-                        </span>
-                        <span className="dot">•</span>
-                        <span className="post-card__time">{formatDate(questionDate)}</span>
-                        {question.isPinned && (
-                          <span className="post-card__pinned">
-                            <FaStar /> Nổi bật
-                          </span>
-                        )}
-                      </header>
-
-                      <h3 className="post-card__title">{question.title}</h3>
-
-                      {preview && <p className="post-card__excerpt">{preview}</p>}
-
-                      {Array.isArray(question.images) && question.images.length > 0 && (
-                        <div className="post-card__gallery">
-                          {question.images.slice(0, 3).map((img, idx) => (
-                            <img
-                              key={idx}
-                              src={
-                                img && img.startsWith('http')
-                                  ? img
-                                  : `http://localhost:3001${img?.startsWith('/') ? '' : '/'}${img}`
-                              }
-                              alt={`Minh họa ${idx + 1}`}
-                              onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/300x200?text=Anh+Loi'; }}
-                            />
-                          ))}
-                          {question.images.length > 3 && (
-                            <span className="gallery-count">+{question.images.length - 3}</span>
-                          )}
-                        </div>
-                      )}
-
-                      <footer className="post-card__footer">
-                        <span>
-                          <FaComments /> {question.answerCount || 0} bình luận
-                        </span>
-                        <span>
-                          <FaEye /> {question.viewsCount || 0} lượt xem
-                        </span>
-                        {question.specialty && (
-                          <span className="post-card__specialty">{question.specialty.name}</span>
-                        )}
-                        
-                        {/* ✅ Nút Like */}
-                        <button
-                          type="button"
-                          className={`post-card__action-btn ${question.isLiked ? 'active' : ''}`}
-                          onClick={(e) => handleLikeQuestion(question.id, e)}
-                          title={question.isLiked ? 'Bỏ thích' : 'Thích'}
-                        >
-                          {question.isLiked ? <FaHeart /> : <FaRegHeart />}
-                          <span>{question.likesCount || 0}</span>
-                        </button>
-                        
-                        {/* ✅ Nút Save */}
-                        <button
-                          type="button"
-                          className={`post-card__action-btn ${question.isSaved ? 'active' : ''}`}
-                          onClick={(e) => handleSaveQuestion(question.id, e)}
-                          title={question.isSaved ? 'Bỏ lưu' : 'Lưu'}
-                        >
-                          {question.isSaved ? <FaBookmark /> : <FaRegBookmark />}
-                        </button>
-                        
-                        {/* ✅ Nút Report */}
-                        <button
-                          type="button"
-                          className="post-card__report-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenReport('question', question.id, question.title);
-                          }}
-                          title="Báo cáo vi phạm"
-                        >
-                          <FaExclamationTriangle /> Báo cáo
-                        </button>
-                      </footer>
-
-                      {Array.isArray(question.tags) && question.tags.length > 0 && (
-                        <div className="post-card__tags">
-                          {question.tags.map((tag, index) => (
-                            <span key={index}>#{tag}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+      {/* TAB: My Groups */}
+      {activeTab === 'my_groups' && user && (
+        <div className="forumpage-community-tab forumpage-container">
+          {groupLoading && <div className="forumpage-panel--loading">Đang tải...</div>}
+          {!groupLoading && myGroups.length === 0 && (
+            <div className="forumpage-empty-state">
+              <FaUsers size={48} /><h3>Bạn chưa tham gia nhóm nào</h3>
+              <button className="forumpage-btn-outline" onClick={() => setActiveTab('community')}>→ Khám phá nhóm ngay</button>
             </div>
           )}
-
-          {totalPages > 1 && !loading && (
-            <div className="pagination">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                Trang trước
-              </button>
-              <span>
-                Trang {currentPage} / {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Trang sau
-              </button>
+          {!groupLoading && myGroups.length > 0 && (
+            <div className="forumpage-groups-grid">
+              {myGroups.map(g => (
+                <div key={g.id} className="forumpage-group-card">
+                  <div className="forumpage-group-cover" style={{ background: g.cover_image ? `url(${g.cover_image}) center/cover` : 'linear-gradient(135deg,#4CAF50,#2E7D32)' }}>
+                    <span className="forumpage-group-icon">{GROUP_ICONS_MAP[g.icon] || <FaUsers />}</span>
+                  </div>
+                  <div className="forumpage-group-body">
+                    <h4>{g.name}</h4><p>{g.description || 'Nhóm cộng đồng sức khỏe'}</p>
+                    <div className="forumpage-group-meta"><span><FaUsers /> {g.members_count || 0} thành viên</span></div>
+                    <div className="forumpage-group-actions">
+                      <button className="forumpage-btn-primary" onClick={() => handleViewGroup(g)}>Vào nhóm</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-        </main>
+        </div>
+      )}
 
-        <aside className="forum-sidebar">
-          <div className="sidebar-card">
-            <h3>Bộ lọc theo thẻ</h3>
-            <p>Tìm nhanh chủ đề bạn quan tâm.</p>
-            <div className="sidebar-search">
-              <FaTags />
-              <input
-                type="text"
-                placeholder="Tìm tag: tim mạch, dinh dưỡng..."
-                value={tagSearchTerm}
-                onChange={(e) => setTagSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="sidebar-tags">
-              {filteredTagOptions.length === 0 ? (
-                <span className="sidebar-tags__empty">Không tìm thấy tag phù hợp</span>
+      {/* TAB: Forum Q&A */}
+      {activeTab === 'forum' && (
+        <>
+          {/* Filter Bar */}
+          <FilterBar
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            handleSearch={handleSearch}
+            selectedTopic={selectedTopic}
+            setSelectedTopic={(val) => {
+              setSelectedTopic(val);
+              setCurrentPage(1);
+              fetchQuestions({ page: 1, search: activeSearchTerm, specialty: selectedSpecialty, topic: val, tags: selectedTags });
+            }}
+            selectedSpecialty={selectedSpecialty}
+            setSelectedSpecialty={(val) => {
+              setSelectedSpecialty(val);
+              setCurrentPage(1);
+              fetchQuestions({ page: 1, search: activeSearchTerm, specialty: val, topic: selectedTopic, tags: selectedTags });
+            }}
+            topics={topics}
+            specialties={specialties}
+            clearFilters={clearFilters}
+            activeSearchTerm={activeSearchTerm}
+            selectedSpecialtyName={selectedSpecialtyName}
+            selectedTags={selectedTags}
+            handleClearSearch={handleClearSearch}
+            handleClearSpecialty={handleClearSpecialty}
+            toggleFilterTag={toggleFilterTag}
+          />
+
+          <section className="forumpage-content forumpage-container">
+            {/* Main feed */}
+            <main className="forumpage-feed">
+              {/* Quick post card */}
+              <div className="forumpage-create-card">
+                <div className="forumpage-create-card__icon"><FaQuestionCircle /></div>
+                <button type="button" className="forumpage-create-card__prompt" onClick={() => setShowAskModal(true)}>
+                  Chia sẻ điều bạn đang thắc mắc với cộng đồng...
+                </button>
+                <button type="button" className="forumpage-create-card__submit" onClick={() => setShowAskModal(true)}>Đăng</button>
+              </div>
+
+              {loading ? (
+                <div className="forumpage-panel--loading">
+                  <div className="forumpage-spinner"></div>
+                  Đang tải dữ liệu...
+                </div>
+              ) : questions.length === 0 ? (
+                <div className="forumpage-empty-state">
+                  <FaQuestionCircle size={56} />
+                  <h3>Chưa có bài viết nào phù hợp</h3>
+                  <p>Hãy trở thành người đầu tiên chia sẻ câu hỏi về chủ đề này.</p>
+                  <button className="forumpage-btn-outline" onClick={() => setShowAskModal(true)}>Tạo bài viết mới</button>
+                </div>
               ) : (
-                filteredTagOptions.slice(0, 18).map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    className={`sidebar-tag ${selectedTags.includes(tag) ? 'active' : ''}`}
-                    onClick={() => toggleFilterTag(tag)}
-                  >
-                    #{tag}
-                  </button>
-                ))
+                <div className="forumpage-post-feed">
+                  {questions.map((question) => {
+                      const rawContent = (question.content || '').trim();
+                      const preview = rawContent.length > 220 ? `${rawContent.substring(0, 220)}...` : rawContent;
+                      const questionDate = question.createdAt || question.created_at || question.approvedAt || question.approved_at;
+                      return (
+                        <article key={question.id} className="forumpage-post-card" onClick={() => handleQuestionClick(question.id)}>
+                          {/* Vote column */}
+                          <div className="forumpage-post-card__vote" onClick={(e) => e.stopPropagation()}>
+                            <button type="button"><FaArrowUp /></button>
+                            <span>{question.answersCount || question.answerCount || 0}</span>
+                            <button type="button"><FaArrowDown /></button>
+                          </div>
+
+                          {/* Body */}
+                          <div className="forumpage-post-card__body">
+                            <header className="forumpage-post-card__meta">
+                              {question.topic && (
+                                <span className="forumpage-post-card__topic">{question.topic.title}</span>
+                              )}
+                              <span className="dot">•</span>
+                              <span className="forumpage-post-card__author">
+                                {question.isAnonymous ? 'Ẩn danh' : (question.author?.full_name || question.author?.fullName || 'Người dùng')}
+                              </span>
+                              <span className="dot">•</span>
+                              <span className="forumpage-post-card__time">{formatDate(questionDate)}</span>
+                              {question.isPinned && (
+                                <span className="forumpage-post-card__pinned"><FaStar /> Nổi bật</span>
+                              )}
+                            </header>
+
+                            <h3 className="forumpage-post-card__title">{question.title}</h3>
+                            {preview && <p className="forumpage-post-card__excerpt">{preview}</p>}
+
+                            {Array.isArray(question.images) && question.images.length > 0 && (
+                              <div className="forumpage-post-card__gallery">
+                                {question.images.slice(0, 3).map((img, idx) => (
+                                  <img
+                                    key={idx}
+                                    src={img && img.startsWith('http') ? img : `http://localhost:3001${img?.startsWith('/') ? '' : '/'}${img}`}
+                                    alt={`Minh họa ${idx + 1}`}
+                                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/300x200?text=Anh'; }}
+                                  />
+                                ))}
+                                {question.images.length > 3 && <span className="forumpage-gallery-count">+{question.images.length - 3}</span>}
+                              </div>
+                            )}
+
+                            <footer className="forumpage-post-card__footer">
+                              <span className="forumpage-post-card__stat"><FaComments /> {question.answersCount || question.answerCount || 0}</span>
+                              <span className="forumpage-post-card__stat"><FaEye /> {question.viewsCount || 0}</span>
+                              {question.specialty && (
+                                <span className="forumpage-post-card__specialty">{question.specialty.name}</span>
+                              )}
+                              <button
+                                type="button"
+                                className={`forumpage-post-card__action-btn ${question.isLiked ? 'active' : ''}`}
+                                onClick={(e) => handleLikeQuestion(question.id, e)}
+                                title={question.isLiked ? 'Bỏ thích' : 'Thích'}
+                              >
+                                {question.isLiked ? <FaHeart /> : <FaRegHeart />}
+                                <span>{question.likesCount || 0}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className={`forumpage-post-card__action-btn ${question.isSaved ? 'active' : ''}`}
+                                onClick={(e) => handleSaveQuestion(question.id, e)}
+                                title={question.isSaved ? 'Bỏ lưu' : 'Lưu'}
+                              >
+                                {question.isSaved ? <FaBookmark /> : <FaRegBookmark />}
+                              </button>
+                              <button
+                                type="button"
+                                className="forumpage-post-card__report-btn"
+                                onClick={(e) => { e.stopPropagation(); handleOpenReport('question', question.id, question.title); }}
+                                title="Báo cáo vi phạm"
+                              >
+                                <FaExclamationTriangle />
+                              </button>
+                            </footer>
+
+                            {Array.isArray(question.tags) && question.tags.length > 0 && (
+                              <div className="forumpage-post-card__tags">
+                                {question.tags.slice(0, 5).map((tag, index) => (
+                                  <button
+                                    key={index}
+                                    type="button"
+                                    className="forumpage-post-card__tag-btn"
+                                    onClick={(e) => { e.stopPropagation(); toggleFilterTag(tag); }}
+                                  >
+                                    #{tag}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                </div>
               )}
-            </div>
-          </div>
 
-          <div className="sidebar-card sidebar-tips">
-            <h3>Mẹo đăng bài hay</h3>
-            <ul>
-              <li>Nêu rõ triệu chứng, thời gian và mức độ ảnh hưởng.</li>
-              <li>Chia sẻ xét nghiệm hoặc hình ảnh để bác sĩ dễ tư vấn.</li>
-              <li>Chọn đúng chuyên khoa giúp câu hỏi được phản hồi nhanh.</li>
-            </ul>
-          </div>
-        </aside>
-      </section>
-      </>
-    )}
-
-      {showAskModal && (
-        <div className="forum-modal-overlay" onClick={() => setShowAskModal(false)}>
-          <div className="forum-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="forum-modal__header">
-              <h2>Đặt Câu Hỏi Mới</h2>
-              <button className="forum-modal__close" onClick={() => setShowAskModal(false)}>
-                ×
-              </button>
-            </div>
-            
-            <form className="forum-modal__form" onSubmit={handleAskQuestion}>
-              <section className="form-section">
-                <div className="form-grid form-grid--two">
-                  <div className="form-group">
-                    <label>Tiêu đề câu hỏi *</label>
-                    <input
-                      type="text"
-                      placeholder="Nhập tiêu đề câu hỏi..."
-                      value={questionForm.title}
-                      onChange={(e) =>
-                        setQuestionForm({ ...questionForm, title: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group form-group--textarea">
-                    <label>Nội dung chi tiết *</label>
-                    <textarea
-                      placeholder="Mô tả chi tiết vấn đề của bạn..."
-                      value={questionForm.content}
-                      onChange={(e) =>
-                        setQuestionForm({ ...questionForm, content: e.target.value })
-                      }
-                      rows="6"
-                      required
-                    />
-                  </div>
+              {/* Pagination */}
+              {totalPages > 1 && !loading && (
+                <div className="forumpage-pagination">
+                  <button onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))} disabled={currentPage === 1}>← Trang trước</button>
+                  <span>Trang <strong>{currentPage}</strong> / {totalPages}</span>
+                  <button onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>Trang sau →</button>
                 </div>
-              </section>
+              )}
+            </main>
 
-              <section className="form-section">
-                <div className="form-grid form-grid--two">
-                  {/* ✅ Thêm dropdown chọn Topic (BẮT BUỘC) */}
-                  <div className="form-group">
-                    <label>Chủ đề *</label>
-                    <select
-                      value={questionForm.topicId}
-                      onChange={(e) =>
-                        setQuestionForm({ ...questionForm, topicId: e.target.value })
-                      }
-                      required
-                    >
-                      <option value="">-- Chọn chủ đề --</option>
-                      {topics.map((topic) => (
-                        <option key={topic.id} value={topic.id}>
-                          {topic.title}
-                        </option>
-                      ))}
-                    </select>
-                    <small style={{ color: '#666', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                      Chọn chủ đề phù hợp giúp câu hỏi được trả lời nhanh hơn
-                    </small>
-                  </div>
-                  
-                  {/* ✅ Chuyên khoa - Multi-select (không bắt buộc) */}
-                  <div className="form-group">
-                    <label>Chuyên khoa (không bắt buộc - có thể chọn nhiều)</label>
-                    <div className="specialty-checkbox-grid">
-                      {specialties.slice(0, 8).map((specialty) => {
-                        const isSelected = questionForm.specialtyIds.includes(specialty.id);
-                        return (
-                          <label key={specialty.id} className="checkbox-option">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleSpecialty(specialty.id)}
-                            />
-                            <span>{specialty.name}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    <small style={{ color: '#666', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                      Chọn chuyên khoa giúp câu hỏi tiếp cận đúng chuyên gia
-                    </small>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Chọn tag phổ biến</label>
-                    <div className="tag-grid">
-                      {formTags.map((tag) => {
-                        const isSelected = questionForm.tagList.includes(tag);
-                        return (
-                          <button
-                            type="button"
-                            key={tag}
-                            className={`tag-option ${isSelected ? 'selected' : ''}`}
-                            onClick={() => toggleTag(tag)}
-                          >
-                            <FaTags /> {tag}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="form-section">
-                <div className="form-group">
-                  <label>Thêm tag khác (phân cách bằng dấu phẩy)</label>
+            {/* Sidebar */}
+            <aside className="forumpage-sidebar">
+              {/* Tags sidebar */}
+              <div className="forumpage-sidebar-card">
+                <h3><FaTags /> Tags phổ biến gần đây</h3>
+                <p>Lọc nhanh theo chủ đề bạn quan tâm</p>
+                <div className="forumpage-sidebar-search">
+                  <FaSearch />
                   <input
                     type="text"
-                    placeholder="Ví dụ: đau đầu, mất ngủ, stress"
-                    value={questionForm.tags}
-                    onChange={(e) =>
-                      setQuestionForm({ ...questionForm, tags: e.target.value })
-                    }
+                    placeholder="Tìm tag..."
+                    value={tagSearchTerm}
+                    onChange={(e) => setTagSearchTerm(e.target.value)}
                   />
                 </div>
-              </section>
-
-              <section className="form-section">
-                <div className="form-group">
-                  <label>Hình ảnh minh họa (tối đa 5 ảnh)</label>
-                  <div className="image-upload-container">
-                    <input
-                      type="file"
-                      id="image-upload"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageUpload}
-                      style={{ display: 'none' }}
-                      disabled={uploading || previewImages.length >= 5}
-                    />
-                    <label
-                      htmlFor="image-upload"
-                      className={`upload-button ${uploading || previewImages.length >= 5 ? 'disabled' : ''}`}
-                    >
-                      <FaComments /> {uploading ? 'Đang upload...' : 'Chọn ảnh'}
-                    </label>
-
-                    {previewImages.length > 0 && (
-                      <div className="image-preview-grid">
-                        {previewImages.map((url, index) => (
-                          <div key={index} className="image-preview-item">
-                            <img src={url} alt={`Preview ${index + 1}`} />
-                            <button
-                              type="button"
-                              className="remove-image-btn"
-                              onClick={() => removeImage(index)}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                <div className="forumpage-sidebar-tags">
+                  {filteredTagOptions.length === 0 ? (
+                    <span className="forumpage-sidebar-tags__empty">Không tìm thấy tag phù hợp</span>
+                  ) : (
+                    filteredTagOptions.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className={`forumpage-sidebar-tag ${selectedTags.includes(tag) ? 'active' : ''}`}
+                        onClick={() => toggleFilterTag(tag)}
+                      >
+                        #{tag}
+                      </button>
+                    ))
+                  )}
                 </div>
-              </section>
+              </div>
 
-              {/* ✅ Files đính kèm */}
-              <section className="form-section">
-                <div className="form-group">
-                  <label>Files đính kèm (tối đa 5 files - PDF, DOC, XLS...)</label>
-                  <div className="file-upload-container">
-                    <input
-                      type="file"
-                      id="file-upload"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
-                      multiple
-                      onChange={handleFileUpload}
-                      style={{ display: 'none' }}
-                      disabled={uploading || questionForm.attachments.length >= 5}
-                    />
-                    <label
-                      htmlFor="file-upload"
-                      className={`upload-button ${uploading || questionForm.attachments.length >= 5 ? 'disabled' : ''}`}
-                    >
-                      📎 {uploading ? 'Đang upload...' : 'Chọn files'}
-                    </label>
-                    <small style={{ color: '#666', fontSize: '12px', marginLeft: '12px' }}>
-                      ({questionForm.attachments.length}/5 files)
-                    </small>
-
-                    {previewFiles.length > 0 && (
-                      <div className="file-preview-list">
-                        {previewFiles.map((fileName, index) => (
-                          <div key={index} className="file-preview-item">
-                            <span>📄 {fileName}</span>
-                            <button
-                              type="button"
-                              className="remove-file-btn"
-                              onClick={() => removeFile(index)}
-                              title="Xóa file"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </section>
-
-              {/* ✅ Anonymous checkbox - Chỉ hiện khi topic requiresApproval */}
-              <section className="form-section">
-                {questionForm.topicId && (() => {
-                  const selectedTopic = topics.find(t => t.id === Number(questionForm.topicId));
-                  return selectedTopic && selectedTopic.requiresApproval ? (
-                    <div className="form-group checkbox-group">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={questionForm.isAnonymous}
-                          onChange={(e) =>
-                            setQuestionForm({ ...questionForm, isAnonymous: e.target.checked })
-                          }
-                        />
-                        Đặt câu hỏi ẩn danh
-                      </label>
-                      <small style={{ color: '#666', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                        Chỉ admin và người quản lý chủ đề mới thấy tên bạn. User khác sẽ thấy "Người dùng ẩn danh".
-                      </small>
-                    </div>
-                  ) : null;
-                })()}
-              </section>
-
-              <footer className="forum-modal__actions">
-                <button type="button" className="btn-muted" onClick={() => setShowAskModal(false)}>
-                  Hủy
-                </button>
-                <button type="submit" className="btn-primary">
-                  Gửi Câu Hỏi
-                </button>
-              </footer>
-            </form>
-          </div>
-        </div>
+              {/* Tips */}
+              <div className="forumpage-sidebar-card forumpage-sidebar-tips">
+                <h3>💡 Mẹo đăng bài hay</h3>
+                <ul>
+                  <li>Nêu rõ triệu chứng, thời gian và mức độ ảnh hưởng.</li>
+                  <li>Chia sẻ xét nghiệm hoặc hình ảnh để bác sĩ dễ tư vấn.</li>
+                  <li>Chọn đúng chuyên khoa giúp câu hỏi được phản hồi nhanh.</li>
+                </ul>
+              </div>
+            </aside>
+          </section>
+        </>
       )}
 
-      {/* ============================================================ */}
-      {/* ✅ MODAL BÁO CÁO VI PHẠM */}
-      {/* ============================================================ */}
+      {/* Modal: Đặt câu hỏi */}
+      <AskQuestionModal
+        show={showAskModal}
+        onClose={() => { setShowAskModal(false); setPreviewImages([]); setPreviewFiles([]); }}
+        onSubmit={handleAskQuestion}
+        questionForm={questionForm}
+        setQuestionForm={setQuestionForm}
+        topics={topics}
+        specialties={specialties}
+        formTags={formTags}
+        toggleTag={toggleTag}
+        toggleSpecialty={toggleSpecialty}
+        previewImages={previewImages}
+        setPreviewImages={setPreviewImages}
+        uploading={uploading}
+        setUploading={setUploading}
+        previewFiles={previewFiles}
+        setPreviewFiles={setPreviewFiles}
+        setAlert={setAlert}
+      />
+
+      {/* Modal: Báo cáo */}
       {showReportModal && (
-        <div className="forum-modal-overlay" onClick={() => setShowReportModal(false)}>
-          <div className="forum-modal" onClick={(e) => e.stopPropagation()}>
-            <header className="forum-modal__header">
-              <h2 className="forum-modal__title">
-                <FaExclamationTriangle /> Báo cáo vi phạm
-              </h2>
-              <button
-                type="button"
-                className="forum-modal__close"
-                onClick={() => setShowReportModal(false)}
-              >
-                <FaTimes />
-              </button>
+        <div className="forumpage-modal-overlay" onClick={() => setShowReportModal(false)}>
+          <div className="forumpage-modal" onClick={(e) => e.stopPropagation()}>
+            <header className="forumpage-modal__header">
+              <div className="forumpage-modal__header-info">
+                <FaExclamationTriangle className="forumpage-modal__header-icon" style={{ color: '#e74c3c' }} />
+                <div>
+                  <h2 className="forumpage-modal__title">Báo cáo vi phạm</h2>
+                </div>
+              </div>
+              <button type="button" className="forumpage-modal__close" onClick={() => setShowReportModal(false)}><FaTimes /></button>
             </header>
-
-            <form onSubmit={handleSubmitReport} className="forum-modal__form">
-              <section className="form-section">
-                <div className="form-group">
-                  <label className="form-label--info">
-                    Bạn đang báo cáo: <strong>{reportTarget.title}</strong>
-                  </label>
+            <form onSubmit={handleSubmitReport} className="forumpage-modal__form">
+              <div className="forumpage-form-section">
+                <div className="forumpage-form-group">
+                  <label>Bạn đang báo cáo</label>
+                  <div className="forumpage-report-target">"{reportTarget.title}"</div>
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="report-reason">
-                    Lý do báo cáo <span className="required">*</span>
-                  </label>
-                  <select
-                    id="report-reason"
-                    value={reportForm.reason}
-                    onChange={(e) => setReportForm({ ...reportForm, reason: e.target.value })}
-                    required
-                  >
-                    <option value="">-- Chọn lý do --</option>
-                    <option value="spam">Spam / Quảng cáo</option>
-                    <option value="inappropriate">Nội dung không phù hợp</option>
-                    <option value="misleading">Thông tin sai lệch</option>
-                    <option value="offensive">Xúc phạm / Thô tục</option>
-                    <option value="other">Lý do khác</option>
-                  </select>
+                <div className="forumpage-form-group">
+                  <label>Lý do báo cáo <span className="forumpage-required">*</span></label>
+                  <div className="forumpage-filterbar-select-wrap">
+                    <select value={reportForm.reason} onChange={(e) => setReportForm({ ...reportForm, reason: e.target.value })} required>
+                      <option value="">-- Chọn lý do --</option>
+                      <option value="spam">Spam / Quảng cáo</option>
+                      <option value="inappropriate">Nội dung không phù hợp</option>
+                      <option value="misleading">Thông tin sai lệch</option>
+                      <option value="offensive">Xúc phạm / Thô tục</option>
+                      <option value="other">Lý do khác</option>
+                    </select>
+                    <FaChevronDown className="forumpage-select-arrow" />
+                  </div>
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="report-description">
-                    Mô tả chi tiết (tùy chọn)
-                  </label>
-                  <textarea
-                    id="report-description"
-                    rows="4"
-                    placeholder="Vui lòng mô tả rõ hơn về vấn đề bạn gặp phải..."
-                    value={reportForm.description}
-                    onChange={(e) => setReportForm({ ...reportForm, description: e.target.value })}
-                  />
-                  <small className="form-text">
-                    Thông tin chi tiết giúp quản trị viên xử lý nhanh hơn
-                  </small>
+                <div className="forumpage-form-group">
+                  <label>Mô tả chi tiết <span className="forumpage-form-label-optional">(tùy chọn)</span></label>
+                  <textarea rows="4" placeholder="Vui lòng mô tả rõ hơn về vấn đề..." value={reportForm.description} onChange={(e) => setReportForm({ ...reportForm, description: e.target.value })} />
                 </div>
-              </section>
-
-              <footer className="forum-modal__actions">
-                <button
-                  type="button"
-                  className="btn-muted"
-                  onClick={() => setShowReportModal(false)}
-                >
-                  Hủy
-                </button>
-                <button type="submit" className="btn-primary">
-                  Gửi báo cáo
-                </button>
-              </footer>
+              </div>
+              <div className="forumpage-modal__actions">
+                <button type="button" className="forumpage-btn-muted" onClick={() => setShowReportModal(false)}>Hủy</button>
+                <button type="submit" className="forumpage-btn-primary">Gửi báo cáo</button>
+              </div>
             </form>
           </div>
         </div>
       )}
-      
-      {/* ============================================================ */}
-      {/* ✅ CUSTOM ALERT POPUP */}
-      {/* ============================================================ */}
-      {/* MODAL TẠO NHÓM */}
+
+      {/* Modal: Tạo nhóm */}
       {showCreateGroupModal && canCreateGroup && (
-        <div className="forum-modal-overlay" onClick={() => setShowCreateGroupModal(false)}>
-          <div className="forum-modal" onClick={e => e.stopPropagation()}>
-            <div className="forum-modal__header">
-              <h2>Tạo nhóm cộng đồng mới</h2>
-              <button className="forum-modal__close" onClick={() => setShowCreateGroupModal(false)}>×</button>
+        <div className="forumpage-modal-overlay" onClick={() => setShowCreateGroupModal(false)}>
+          <div className="forumpage-modal" onClick={e => e.stopPropagation()}>
+            <div className="forumpage-modal__header">
+              <div className="forumpage-modal__header-info">
+                <FaUsers className="forumpage-modal__header-icon" />
+                <div>
+                  <h2 className="forumpage-modal__title">Tạo nhóm cộng đồng mới</h2>
+                </div>
+              </div>
+              <button className="forumpage-modal__close" onClick={() => setShowCreateGroupModal(false)}><FaTimes /></button>
             </div>
-            <div className="forum-modal__form">
+            <div className="forumpage-modal__form">
               {createGroupError && (
-                <div style={{background:'#fff0f0',color:'#c0392b',padding:'10px 14px',borderRadius:'8px',borderLeft:'3px solid #c0392b',fontSize:'14px'}}>
+                <div style={{ background: '#fff0f0', color: '#c0392b', padding: '10px 14px', borderRadius: '8px', borderLeft: '3px solid #c0392b', fontSize: '14px' }}>
                   {createGroupError}
                 </div>
               )}
-              <section className="form-section">
-                <div className="form-grid form-grid--two">
-                  <div className="form-group">
-                    <label>Tên nhóm *</label>
-                    <input
-                      type="text"
-                      placeholder="VD: Hội bệnh nhân tiểu đường"
-                      value={createGroupForm.name}
-                      onChange={e => setCreateGroupForm({...createGroupForm, name: e.target.value})}
-                    />
+              <div className="forumpage-form-section">
+                <div className="forumpage-form-row">
+                  <div className="forumpage-form-group">
+                    <label>Tên nhóm <span className="forumpage-required">*</span></label>
+                    <input type="text" placeholder="VD: Hội bệnh nhân tiểu đường" value={createGroupForm.name} onChange={e => setCreateGroupForm({ ...createGroupForm, name: e.target.value })} />
                   </div>
-                  <div className="form-group">
-                    <label>Bác sĩ phụ trách *</label>
-                    <select
-                      value={createGroupForm.doctor_id}
-                      onChange={e => setCreateGroupForm({...createGroupForm, doctor_id: e.target.value})}
-                    >
-                      <option value="">-- Chọn bác sĩ --</option>
-                      {availableDoctors.map(d => (
-                        <option key={d.id} value={d.id}>
-                          BS. {d.user?.full_name || d.full_name || 'Ẩn danh'} — {d.specialty?.name || 'Đa khoa'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group form-group--textarea">
-                    <label>Mô tả</label>
-                    <textarea
-                      rows="3"
-                      placeholder="Mô tả mục đích và đối tượng của nhóm..."
-                      value={createGroupForm.description}
-                      onChange={e => setCreateGroupForm({...createGroupForm, description: e.target.value})}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Quyền riêng tư</label>
-                    <select
-                      value={createGroupForm.privacy}
-                      onChange={e => setCreateGroupForm({...createGroupForm, privacy: e.target.value})}
-                    >
-                      <option value="public">Công khai — Ai cũng join được</option>
-                      <option value="private">Riêng tư — Cần duyệt khi join</option>
-                      <option value="invite_only">Chỉ mời</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Icon nhóm / Ảnh đại diện (Avatar)</label>
-                    <div style={{display:'flex', alignItems:'center', gap: '15px'}}>
-                      <div style={{flex: 1, display:'flex',flexWrap:'wrap',gap:'6px',marginTop:'4px'}}>
-                        {['👥','❤️','🧠','💪','🩺','🥗','🌿','🏃','🦷','👶','🧬','💊'].map(ic => (
-                          <button
-                            type="button"
-                            key={ic}
-                            onClick={() => setCreateGroupForm({...createGroupForm, icon: ic})}
-                            style={{
-                              padding:'6px 10px', border: createGroupForm.icon === ic ? '2px solid #2fbf71' : '1.5px solid #ddd',
-                              borderRadius:'8px', fontSize:'18px', cursor:'pointer',
-                              background: createGroupForm.icon === ic ? '#f0fff4' : '#fff'
-                            }}
-                          >{ic}</button>
+                  <div className="forumpage-form-group">
+                    <label>Bác sĩ phụ trách <span className="forumpage-required">*</span></label>
+                    <div className="forumpage-filterbar-select-wrap">
+                      <select value={createGroupForm.doctor_id} onChange={e => setCreateGroupForm({ ...createGroupForm, doctor_id: e.target.value })}>
+                        <option value="">-- Chọn bác sĩ --</option>
+                        {availableDoctors.map(d => (
+                          <option key={d.id} value={d.id}>BS. {d.user?.full_name || d.full_name || 'Ẩn danh'} — {d.specialty?.name || 'Đa khoa'}</option>
                         ))}
-                      </div>
-                      
-                      {/* Vùng chọn Avatar */}
-                      <div className="image-upload-wrapper" style={{textAlign: 'center'}}>
-                         <input type="file" id="group-avatar" accept="image/*" style={{display: 'none'}} onChange={(e) => handleGroupImageUpload(e, 'avatar')} disabled={groupUploading} />
-                         <label htmlFor="group-avatar" style={{cursor: 'pointer', display: 'inline-block'}}>
-                            {createGroupForm.avatar ? (
-                               <img src={createGroupForm.avatar} alt="Avatar" style={{width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #2fbf71'}} />
-                            ) : (
-                               <div style={{width: '60px', height: '60px', borderRadius: '50%', background: '#f0f8f4', border: '1px dashed #2fbf71', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px'}}>{createGroupForm.icon}</div>
-                            )}
-                            <div style={{fontSize: '11px', color: '#666', marginTop: '4px'}}>{groupUploading ? 'Đang tải...' : 'Đổi Avatar'}</div>
-                         </label>
-                      </div>
+                      </select>
+                      <FaChevronDown className="forumpage-select-arrow" />
                     </div>
                   </div>
-
-                  {/* Vùng chọn Ảnh bìa (Cover) */}
-                  <div className="form-group">
-                    <label>Ảnh bìa (Cover Image)</label>
-                    <input type="file" id="group-cover" accept="image/*" style={{display: 'none'}} onChange={(e) => handleGroupImageUpload(e, 'cover_image')} disabled={groupUploading} />
-                    <label htmlFor="group-cover" style={{
-                      display: 'block', width: '100%', height: '120px', borderRadius: '12px', cursor: 'pointer',
-                      background: createGroupForm.cover_image ? `url(${createGroupForm.cover_image}) center/cover` : '#f4faf6',
-                      border: createGroupForm.cover_image ? 'none' : '1.5px dashed #a9d9c2',
-                      position: 'relative', overflow: 'hidden'
-                    }}>
-                      {!createGroupForm.cover_image && (
-                        <div style={{position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2fbf71', fontWeight: '600'}}>
-                          {groupUploading ? 'Đang tải ảnh...' : '+ Chọn ảnh bìa'}
-                        </div>
-                      )}
-                    </label>
+                </div>
+                <div className="forumpage-form-group">
+                  <label>Mô tả</label>
+                  <textarea rows="3" placeholder="Mục đích và đối tượng của nhóm..." value={createGroupForm.description} onChange={e => setCreateGroupForm({ ...createGroupForm, description: e.target.value })} />
+                </div>
+                <div className="forumpage-form-row">
+                  <div className="forumpage-form-group">
+                    <label>Quyền riêng tư</label>
+                    <div className="forumpage-filterbar-select-wrap">
+                      <select value={createGroupForm.privacy} onChange={e => setCreateGroupForm({ ...createGroupForm, privacy: e.target.value })}>
+                        <option value="public">Công khai — Ai cũng join được</option>
+                        <option value="private">Riêng tư — Cần duyệt khi join</option>
+                        <option value="invite_only">Chỉ mời</option>
+                      </select>
+                      <FaChevronDown className="forumpage-select-arrow" />
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label style={{display:'flex',alignItems:'center',gap:'8px',cursor:'pointer'}}>
-                      <input
-                        type="checkbox"
-                        checked={createGroupForm.requires_post_approval}
-                        onChange={e => setCreateGroupForm({...createGroupForm, requires_post_approval: e.target.checked})}
-                      />
+                  <div className="forumpage-form-group">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'normal' }}>
+                      <input type="checkbox" style={{ accentColor: '#4CAF50', width: '18px', height: '18px' }} checked={createGroupForm.requires_post_approval} onChange={e => setCreateGroupForm({ ...createGroupForm, requires_post_approval: e.target.checked })} />
                       Yêu cầu duyệt bài trước khi đăng
                     </label>
-                    <small style={{color:'#888',fontSize:'12px'}}>
-                      Nhóm sẽ được Admin duyệt trước khi hiển thị công khai.
-                    </small>
                   </div>
                 </div>
-              </section>
-              <footer className="forum-modal__actions">
-                <button type="button" className="btn-muted" onClick={() => setShowCreateGroupModal(false)}>Hủy</button>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={handleCreateGroup}
-                  disabled={createGroupSubmitting}
-                >
+                {/* Avatar upload */}
+                <div className="forumpage-form-group">
+                  <label>Icon / Avatar nhóm</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {Object.keys(GROUP_ICONS_MAP).map(icKey => (
+                        <button type="button" key={icKey} onClick={() => setCreateGroupForm({ ...createGroupForm, icon: icKey })}
+                          style={{ padding: '6px 10px', border: createGroupForm.icon === icKey ? '2px solid #4CAF50' : '1.5px solid #c5e6d6', borderRadius: '8px', fontSize: '18px', cursor: 'pointer', background: createGroupForm.icon === icKey ? '#F1F8F4' : '#fff' }}>
+                          {GROUP_ICONS_MAP[icKey]}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <input type="file" id="group-avatar" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleGroupImageUpload(e, 'avatar')} disabled={groupUploading} />
+                      <label htmlFor="group-avatar" style={{ cursor: 'pointer', display: 'inline-block' }}>
+                        {createGroupForm.avatar ? (
+                          <img src={createGroupForm.avatar} alt="Avatar" style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #4CAF50' }} />
+                        ) : (
+                          <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#F1F8F4', border: '1px dashed #4CAF50', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
+                            {GROUP_ICONS_MAP[createGroupForm.icon] || <FaUsers />}
+                          </div>
+                        )}
+                        <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{groupUploading ? 'Đang tải...' : 'Đổi Avatar'}</div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                {/* Cover image */}
+                <div className="forumpage-form-group">
+                  <label>Ảnh bìa (Cover Image)</label>
+                  <input type="file" id="group-cover" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleGroupImageUpload(e, 'cover_image')} disabled={groupUploading} />
+                  <label htmlFor="group-cover" style={{ display: 'block', width: '100%', height: '120px', borderRadius: '12px', cursor: 'pointer', background: createGroupForm.cover_image ? `url(${createGroupForm.cover_image}) center/cover` : '#F1F8F4', border: createGroupForm.cover_image ? 'none' : '1.5px dashed #4CAF50', position: 'relative', overflow: 'hidden' }}>
+                    {!createGroupForm.cover_image && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4CAF50', fontWeight: '600' }}>
+                        {groupUploading ? 'Đang tải ảnh...' : '+ Chọn ảnh bìa'}
+                      </div>
+                    )}
+                  </label>
+                </div>
+              </div>
+              <div className="forumpage-modal__actions">
+                <button type="button" className="forumpage-btn-muted" onClick={() => setShowCreateGroupModal(false)}>Hủy</button>
+                <button type="button" className="forumpage-btn-primary" onClick={handleCreateGroup} disabled={createGroupSubmitting}>
                   {createGroupSubmitting ? 'Đang tạo...' : 'Tạo nhóm'}
                 </button>
-              </footer>
+              </div>
             </div>
           </div>
         </div>
