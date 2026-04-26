@@ -165,7 +165,7 @@ const sendEmail = async (emailData) => {
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: `"${process.env.HOSPITAL_NAME || 'Clinic System'}" <${process.env.GMAIL_USER}>`,
+      from: `"${process.env.HOSPITAL_NAME || 'Easy Medify'}" <${process.env.GMAIL_USER}>`,
       to: to,
       subject: subject,
       html: emailContent.html,
@@ -213,7 +213,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
           <div class="header"><h1>Kích hoạt tài khoản</h1></div>
           <div class="content">
             <p>Xin chào <strong>${data.userName || 'Quý khách'}</strong>,</p>
-            <p>Cảm ơn bạn đã tin tưởng và đăng ký tài khoản tại hệ thống <strong>Clinic System</strong>. Để đảm bảo tính bảo mật và bắt đầu sử dụng các dịch vụ y tế trực tuyến, vui lòng xác thực địa chỉ email của bạn.</p>
+            <p>Cảm ơn bạn đã tin tưởng và đăng ký tài khoản tại hệ thống <strong>Easy Medify</strong>. Để đảm bảo tính bảo mật và bắt đầu sử dụng các dịch vụ y tế trực tuyến, vui lòng xác thực địa chỉ email của bạn.</p>
             
             <div class="info-box">
               <p style="margin:0"><strong>Lưu ý:</strong> Link xác thực này chỉ có hiệu lực trong vòng <strong>24 giờ</strong>.</p>
@@ -229,7 +229,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
             <p style="margin-top: 20px; font-size: 0.9rem; color: #666;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
           </div>
           <div class="footer">
-            <p><strong>Clinic System</strong> - Nền tảng Y tế Thông minh<br/>Hotline: 1900 1234 | Email: support@clinicsystem.vn</p>
+            <p><strong>Easy Medify</strong> - Nền tảng Y tế Thông minh<br/>Hotline: 1900 1234 | Email: support@clinicsystem.vn</p>
           </div>
         </div></body></html>`,
 
@@ -252,7 +252,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
             <p class="warning">Lưu ý: Link này sẽ hết hạn sau 1 giờ.</p>
             <p style="font-size:0.9rem; color:#666">Nếu bạn không yêu cầu, vui lòng bỏ qua email này. Tài khoản của bạn vẫn an toàn.</p>
           </div>
-          <div class="footer"><p>Clinic System Security Team</p></div>
+          <div class="footer"><p>Easy Medify Security Team</p></div>
         </div></body></html>`,
 
     // --- 3. THÔNG BÁO RESET PASS THÀNH CÔNG (Code 2) ---
@@ -267,7 +267,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
             <p>Bây giờ bạn có thể đăng nhập vào hệ thống bằng mật khẩu mới.</p>
             <p class="warning">Nếu bạn không thực hiện thay đổi này, vui lòng liên hệ với chúng tôi ngay lập tức!</p>
           </div>
-          <div class="footer"><p>Clinic System</p></div>
+          <div class="footer"><p>Easy Medify</p></div>
         </div></body></html>`,
 
     // --- 4. TÀI KHOẢN ĐÃ KÍCH HOẠT (Code 2) ---
@@ -289,14 +289,14 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
               <a href="${process.env.CLIENT_URL}/login" class="button">ĐĂNG NHẬP NGAY</a>
             </div>
           </div>
-          <div class="footer"><p>Chào mừng bạn đến với Clinic System</p></div>
+          <div class="footer"><p>Chào mừng bạn đến với Easy Medify</p></div>
         </div></body></html>`,
 
     // --- 5. WELCOME EMAIL (Code 2) ---
     welcome_email: `
       <!DOCTYPE html><html><head>${BASE_STYLE}</head><body>
         <div class="container">
-          <div class="header"><h1>Chào mừng đến với Clinic System!</h1></div>
+          <div class="header"><h1>Chào mừng đến với Easy Medify!</h1></div>
           <div class="content">
             <p>Xin chào <strong>${data.userName}</strong>,</p>
             <p>Cảm ơn bạn đã tham gia cùng chúng tôi. Giờ đây bạn có thể:</p>
@@ -308,7 +308,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
             </ul>
             <p>Chúng tôi cam kết mang lại trải nghiệm chăm sóc sức khỏe tốt nhất cho bạn.</p>
           </div>
-          <div class="footer"><p>Clinic System</p></div>
+          <div class="footer"><p>Easy Medify</p></div>
         </div></body></html>`,
 
     // --- 6. XÁC NHẬN LỊCH HẸN (Chi tiết từ Code 2) ---
@@ -329,7 +329,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
               <div class="info-row"><span class="label">Bác sĩ phụ trách:</span><span class="value">${data.doctorName}</span></div>
               <div class="info-row"><span class="label">Thời gian khám:</span><span class="value" style="color:#D32F2F; font-weight:bold;">${data.appointmentTime}</span></div>
               <div class="info-row"><span class="label">Chi phí dự kiến:</span><span class="value">${data.price ? new Intl.NumberFormat('vi-VN').format(data.price) + ' VNĐ' : 'Miễn phí'}</span></div>
-              <div class="info-row"><span class="label">Địa điểm:</span><span class="value">Tầng 2, Phòng khám Clinic System</span></div>
+              <div class="info-row"><span class="label">Địa điểm:</span><span class="value">Tầng 2, Phòng khám Easy Medify</span></div>
             </div>
 
             <p><strong>📝 Lưu ý quan trọng:</strong></p>
@@ -366,7 +366,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
             
             <p>Vui lòng chuẩn bị giấy tờ và có mặt đúng giờ để được phục vụ tốt nhất.</p>
           </div>
-          <div class="footer"><p>Clinic System</p></div>
+          <div class="footer"><p>Easy Medify</p></div>
         </div></body></html>`,
 
     // --- 8. THÔNG BÁO HỦY LỊCH (Code 2) ---
@@ -390,7 +390,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
             </div>
             <p>Thành thật xin lỗi vì sự bất tiện này!</p>
           </div>
-          <div class="footer"><p>Trân trọng, Clinic System</p></div>
+          <div class="footer"><p>Trân trọng, Easy Medify</p></div>
         </div></body></html>`,
 
     // --- 9. HÓA ĐƠN THANH TOÁN (Đầy đủ, đẹp) ---
@@ -443,7 +443,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
               <a href="${data.chatLink}" class="button" style="background-color: ${headerColors.info};">VÀO PHÒNG CHAT NGAY</a>
             </div>
           </div>
-          <div class="footer"><p>Clinic System Telehealth</p></div>
+          <div class="footer"><p>Easy Medify Telehealth</p></div>
         </div></body></html>`,
 
     // --- 11. OTP VIDEO CALL (Code 2) ---
@@ -487,7 +487,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
             </div>
             <p>Vui lòng sử dụng mã này để tra cứu kết quả.</p>
           </div>
-          <div class="footer"><p>Clinic System</p></div>
+          <div class="footer"><p>Easy Medify</p></div>
         </div></body></html>`,
 
     // --- 13. THÔNG BÁO KẾT QUẢ KHÁM (MỚI - QUAN TRỌNG) ---
@@ -511,7 +511,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
               <a href="${data.lookupUrl}" class="button" style="background-color:#0288D1;">XEM KẾT QUẢ NGAY</a>
             </div>
           </div>
-          <div class="footer"><p>Clinic System</p></div>
+          <div class="footer"><p>Easy Medify</p></div>
         </div></body></html>`,
         
     // --- 14. NHẮC ĐÁNH GIÁ ---
@@ -530,7 +530,7 @@ const generateHTMLFromTemplate = (templateName, data = {}) => {
               <a href="${data.reviewLink}" class="button">ĐÁNH GIÁ NGAY</a>
             </div>
           </div>
-          <div class="footer"><p>Clinic System</p></div>
+          <div class="footer"><p>Easy Medify</p></div>
         </div></body></html>`
   };
 
@@ -550,7 +550,7 @@ const generateTextFromTemplate = (templateName, data = {}) => {
     
     account_verified: `TÀI KHOẢN ĐÃ ĐƯỢC XÁC THỰC\nXin chào ${data.userName},\nTài khoản của bạn đã được kích hoạt. Bạn có thể đăng nhập ngay.`,
     
-    welcome_email: `CHÀO MỪNG ĐẾN VỚI CLINIC SYSTEM\nXin chào ${data.userName},\nCảm ơn bạn đã tham gia hệ thống.`,
+    welcome_email: `CHÀO MỪNG ĐẾN VỚI Easy Medify\nXin chào ${data.userName},\nCảm ơn bạn đã tham gia hệ thống.`,
     
     appointment_confirmation: `XÁC NHẬN LỊCH HẸN\nMã: ${data.appointmentCode}\nBệnh nhân: ${data.patientName}\nDịch vụ: ${data.serviceName}\nThời gian: ${data.appointmentTime}\nChi phí: ${data.price ? new Intl.NumberFormat('vi-VN').format(data.price) + ' VNĐ' : 'Miễn phí'}\nVui lòng đến trước 15 phút.`,
     
@@ -570,7 +570,7 @@ const generateTextFromTemplate = (templateName, data = {}) => {
     
     appointment_code_recovery: `KHÔI PHỤC MÃ LỊCH HẸN\nCác mã lịch hẹn của bạn: ${(data.appointments || []).map(a => a.code).join(', ')}`
   };
-  return templates[templateName] || `Thông báo từ Clinic System.`;
+  return templates[templateName] || `Thông báo từ Easy Medify.`;
 };
 
 // =============================================================================
@@ -580,7 +580,7 @@ const generateTextFromTemplate = (templateName, data = {}) => {
 const sendVerificationEmail = async (toEmail, userName, verificationLink) => {
   return await sendEmail({
     to: toEmail,
-    subject: 'Xác thực tài khoản - Clinic System',
+    subject: 'Xác thực tài khoản - Easy Medify',
     template: 'verification_email',
     data: { userName, verificationLink }
   });
@@ -589,7 +589,7 @@ const sendVerificationEmail = async (toEmail, userName, verificationLink) => {
 const sendPasswordResetRequestEmail = async (toEmail, userName, resetLink) => {
   return await sendEmail({
     to: toEmail,
-    subject: 'Yêu cầu đặt lại mật khẩu - Clinic System',
+    subject: 'Yêu cầu đặt lại mật khẩu - Easy Medify',
     template: 'password_reset_request',
     data: { userName, resetLink }
   });
@@ -609,7 +609,7 @@ const sendPasswordResetEmail = async (toEmail, userName) => {
 const sendWelcomeEmail = async (toEmail, userName) => {
   return await sendEmail({
     to: toEmail,
-    subject: 'Chào mừng đến với Clinic System!',
+    subject: 'Chào mừng đến với Easy Medify!',
     template: 'welcome_email',
     data: { userName }
   });

@@ -63,7 +63,7 @@ const sendAppointmentReminders = cron.schedule('0 * * * *', async () => {
         // Gửi email reminder
         await sendEmail({
           to: appointment.Patient.User.email,
-          subject: 'Nhắc nhở lịch hẹn - Clinic System',
+          subject: 'Nhắc nhở lịch hẹn - Easy Medify',
           template: 'appointment_reminder',
           data: {
             patientName: appointment.Patient.User.full_name,
@@ -486,7 +486,7 @@ const cancelUnpaidAppointments = cron.schedule('*/30 * * * *', async () => {
         // Gửi email thông báo
         await sendEmail({
           to: appointment.Patient.User.email,
-          subject: 'Lịch hẹn đã bị hủy - Clinic System',
+          subject: 'Lịch hẹn đã bị hủy - Easy Medify',
           template: 'appointment_cancelled',
           data: {
             patientName: appointment.Patient.User.full_name,
@@ -753,7 +753,7 @@ const sendReviewReminders = cron.schedule('0 18 * * *', async () => {
         // Gửi email nhắc nhở đánh giá
         await sendEmail({
           to: appointment.Patient.User.email,
-          subject: 'Đánh giá dịch vụ - Clinic System',
+          subject: 'Đánh giá dịch vụ - Easy Medify',
           template: 'review_reminder',
           data: {
             patientName: appointment.Patient.User.full_name,

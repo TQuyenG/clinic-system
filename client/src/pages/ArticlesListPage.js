@@ -1,10 +1,20 @@
 // client/src/pages/ArticlesListPage.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
-import { FaSearch, FaEye, FaCalendar, FaTimes, FaTags, FaChevronRight } from 'react-icons/fa';
+import { 
+  FaSearch, FaEye, FaCalendar, FaTimes, FaTags, 
+  FaChevronRight, FaChevronLeft, FaBars, FaNewspaper, FaHeartbeat, FaPills
+} from 'react-icons/fa';
 import './ArticlesListPage.css';
+
+// Helper xử lý URL thông minh cho quảng cáo/banner
+const formatAdLink = (url) => {
+  if (!url) return "#";
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return url.startsWith('/') ? url : `/${url}`;
+};
 
 const ArticlesListPage = ({ type, categoryData }) => { 
   const navigate = useNavigate();
@@ -18,12 +28,17 @@ const ArticlesListPage = ({ type, categoryData }) => {
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({});
 
+  // UI States
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isNavHovered, setIsNavHovered] = useState(false);
+  const navScrollRef = useRef(null);
+
   const [filters, setFilters] = useState({
     search: searchParams.get('search') || '',
     tag: searchParams.get('tag') || '',
     letter: searchParams.get('letter') || '', 
     page: parseInt(searchParams.get('page')) || 1,
-    limit: 14 // Lấy 14 bài: 1 Hero (Trái) + 2 Side (Phải) + 3 Bottom (Dưới) + 8 List dọc
+    limit: 14
   });
 
   const [searchInput, setSearchInput] = useState(filters.search);
@@ -31,6 +46,7 @@ const ArticlesListPage = ({ type, categoryData }) => {
 
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
+  // Lấy dữ liệu ban đầu
   useEffect(() => {
     fetchInitialData();
   }, [type, activeCategoryId]);
@@ -46,6 +62,32 @@ const ArticlesListPage = ({ type, categoryData }) => {
       setSearchInput('');
     }
   }, [categoryData]);
+
+  // XỬ LÝ AUTO-SCROLL THANH MENU XANH
+  useEffect(() => {
+    let animationFrameId;
+    const scrollElement = navScrollRef.current;
+
+    const scrollStep = () => {
+      if (scrollElement && !isNavHovered) {
+        scrollElement.scrollLeft += 1.5; // Tốc độ trượt
+        // Nếu cuộn đến cuối, quay lại đầu
+        if (Math.ceil(scrollElement.scrollLeft) >= scrollElement.scrollWidth - scrollElement.clientWidth) {
+          scrollElement.scrollLeft = 0;
+        }
+      }
+      animationFrameId = requestAnimationFrame(scrollStep);
+    };
+
+    animationFrameId = requestAnimationFrame(scrollStep);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isNavHovered]);
+
+  const scrollNavBy = (amount) => {
+    if (navScrollRef.current) {
+      navScrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+    }
+  };
 
   const fetchInitialData = async () => {
     try {
@@ -96,6 +138,7 @@ const ArticlesListPage = ({ type, categoryData }) => {
   };
 
   const handleCategoryClick = (cat) => {
+    setIsMenuOpen(false); // Đóng menu nếu đang mở
     if (!cat) {
       const route = type ? `/${type.replace('_', '-')}` : '/bai-viet';
       navigate(route);
@@ -161,11 +204,19 @@ const ArticlesListPage = ({ type, categoryData }) => {
     return items;
   };
 
-  // --- TÁCH LAYOUT BÁO CHÍ THEO ĐÚNG HÌNH ẢNH MẪU (1 + 2 + 3 + List) ---
-  const heroMain = articles.length > 0 ? articles[0] : null;       // Bài to bên trái
-  const heroRight = articles.slice(1, 3);                          // 2 Bài nhỏ bên phải
-  const heroBottom = articles.slice(3, 6);                         // 3 Bài xếp ngang ở dưới
-  const listArticles = articles.slice(6);                          // Các bài còn lại dạng list
+  // --- TÁCH LAYOUT BÁO CHÍ (1 Hero + 2 Dọc + 3 Ngang + List) ---
+  const heroMain = articles.length > 0 ? articles[0] : null;       
+  const heroRight = articles.slice(1, 3);                          
+  const heroBottom = articles.slice(3, 6);                         
+  const listArticles = articles.slice(6);                          
+
+  const currentBanner = categoryData?.banner_image_url 
+    ? categoryData 
+    : categories.find(c => c.banner_image_url);
+
+  const currentSidebarAd = categoryData?.sidebar_ad_image_url 
+    ? categoryData 
+    : categories.find(c => c.sidebar_ad_image_url);
 
   return (
     <div className="article-list-page-wrapper">
@@ -174,16 +225,29 @@ const ArticlesListPage = ({ type, categoryData }) => {
         <Breadcrumb items={getBreadcrumbItems()} />
       </div>
 
-      <div className="article-list-green-navbar">
-        <div className="article-list-container">
-          <div className="article-list-nav-scroll">
+      {/* --- THANH MENU XANH LÁ (MARQUEE CUỘN & MŨI TÊN) --- */}
+      <div 
+        className="article-list-green-navbar"
+        onMouseEnter={() => setIsNavHovered(true)}
+        onMouseLeave={() => setIsNavHovered(false)}
+      >
+        <div className="article-list-container article-list-marquee-wrapper">
+          {/* Mũi tên trái */}
+          {isNavHovered && (
+            <button className="article-list-nav-arrow left" onClick={() => scrollNavBy(-300)}>
+              <FaChevronLeft />
+            </button>
+          )}
+
+          <div className="article-list-nav-scroll" ref={navScrollRef}>
             <button 
               className={`article-list-nav-btn ${!activeCategoryId ? 'active' : ''}`}
               onClick={() => handleCategoryClick(null)}
             >
               TẤT CẢ
             </button>
-            {currentCategories.map(cat => (
+            {/* LƯU Ý: Sử dụng 'categories' (TOÀN BỘ) thay vì 'currentCategories' để thanh ngang không bao giờ bị thiếu danh mục */}
+            {categories.map(cat => (
               <button 
                 key={cat.id} 
                 className={`article-list-nav-btn ${activeCategoryId === cat.id ? 'active' : ''}`}
@@ -193,19 +257,41 @@ const ArticlesListPage = ({ type, categoryData }) => {
               </button>
             ))}
           </div>
+
+          {/* Mũi tên phải */}
+          {isNavHovered && (
+            <button className="article-list-nav-arrow right" onClick={() => scrollNavBy(300)}>
+              <FaChevronRight />
+            </button>
+          )}
         </div>
       </div>
 
+      {/* --- BANNER TRÀN VIỀN (FULL WIDTH 100VW) --- */}
+      {(!filters.search && !filters.tag && !filters.letter && currentBanner) && (
+        <div className="article-list-full-banner">
+          <a href={formatAdLink(currentBanner.banner_target_link)} target="_blank" rel="noreferrer">
+            <img 
+              src={currentBanner.banner_image_url} 
+              alt="Banner Y Tế" 
+              onError={(e) => e.target.style.display = 'none'} 
+            />
+          </a>
+        </div>
+      )}
+
       <div className="article-list-container">
         
+        {/* --- HEADER: TITLE, TABS CON, SEARCH & MEGA MENU --- */}
         <div className="article-list-header-section">
+          
           <h1 className="article-list-main-title">
             {categoryData ? categoryData.name : (type === 'tin_tuc' ? 'TIN TỨC Y TẾ' : type === 'thuoc' ? 'DANH MỤC THUỐC' : type === 'benh_ly' ? 'TỪ ĐIỂN BỆNH LÝ' : 'TẤT CẢ BÀI VIẾT')} 
             <FaChevronRight />
           </h1>
           
           <div className="article-list-sub-tabs">
-            {currentCategories.filter(c => c.id !== activeCategoryId).slice(0, 5).map(cat => (
+            {currentCategories.filter(c => c.id !== activeCategoryId).slice(0, 4).map(cat => (
               <button 
                 key={cat.id} 
                 className="article-list-tab-item"
@@ -216,15 +302,56 @@ const ArticlesListPage = ({ type, categoryData }) => {
             ))}
           </div>
 
-          <form className="article-list-search-mini" onSubmit={handleSearchSubmit}>
-            <input 
-              type="text" 
-              placeholder="Tìm bài viết..." 
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-            <button type="submit"><FaSearch /></button>
-          </form>
+          <div className="article-list-header-actions">
+            <form className="article-list-search-mini" onSubmit={handleSearchSubmit}>
+              <input 
+                type="text" 
+                placeholder="Tìm bài viết..." 
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+              <button type="submit"><FaSearch /></button>
+            </form>
+
+            <div className="article-list-mega-wrapper">
+              <button 
+                className={`article-list-menu-toggle-btn ${isMenuOpen ? 'active' : ''}`}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
+                {isMenuOpen ? <FaTimes /> : <FaBars />} DANH MỤC
+              </button>
+
+              {/* BẢNG MEGA MENU ẨN */}
+              {isMenuOpen && (
+                <div className="article-list-mega-menu">
+                  <div className="article-list-mega-col">
+                    <h3><FaNewspaper /> Tin tức Y tế</h3>
+                    <ul>
+                      {categories.filter(c => c.category_type === 'tin_tuc').map(cat => (
+                        <li key={cat.id} onClick={() => handleCategoryClick(cat)}>{cat.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="article-list-mega-col">
+                    <h3><FaHeartbeat /> Tra cứu Bệnh lý</h3>
+                    <ul>
+                      {categories.filter(c => c.category_type === 'benh_ly').map(cat => (
+                        <li key={cat.id} onClick={() => handleCategoryClick(cat)}>{cat.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="article-list-mega-col">
+                    <h3><FaPills /> Từ điển Thuốc</h3>
+                    <ul>
+                      {categories.filter(c => c.category_type === 'thuoc').map(cat => (
+                        <li key={cat.id} onClick={() => handleCategoryClick(cat)}>{cat.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {(type === 'thuoc' || type === 'benh_ly') && (
@@ -261,16 +388,15 @@ const ArticlesListPage = ({ type, categoryData }) => {
         ) : (
           <div className="article-list-layout-grid">
             
-            {/* --- CỘT TRÁI --- */}
+            {/* --- CỘT TRÁI (NỘI DUNG CHÍNH) --- */}
             <div className="article-list-main-content">
               
               {heroMain && (
                 <div className="article-list-magazine-top">
                   
-                  {/* --- KHỐI TRÊN: 1 LỚN BÊN TRÁI + 2 NHỎ BÊN PHẢI --- */}
+                  {/* Khối Trên: 1 Lớn + 2 Nhỏ */}
                   <div className="article-list-hero-split">
                     
-                    {/* Nửa Trái: Bài Đinh Siêu To */}
                     <div className="article-list-hero-main" onClick={() => navigate(getCategoryTypeUrl(heroMain))}>
                       <div className="article-list-hero-main-img">
                         <img src={getFirstImage(heroMain.content)} alt={heroMain.title} />
@@ -283,7 +409,6 @@ const ArticlesListPage = ({ type, categoryData }) => {
                       <p className="article-list-hero-main-excerpt">{truncateContent(heroMain.content, 220)}</p>
                     </div>
 
-                    {/* Nửa Phải: 2 Bài Nhỏ Xếp Dọc */}
                     <div className="article-list-hero-side">
                       {heroRight.map(article => (
                         <div key={article.id} className="article-list-side-item" onClick={() => navigate(getCategoryTypeUrl(article))}>
@@ -303,7 +428,7 @@ const ArticlesListPage = ({ type, categoryData }) => {
 
                   </div>
 
-                  {/* --- KHỐI DƯỚI: 3 BÀI NHỎ XẾP NGANG --- */}
+                  {/* Khối Dưới: 3 Xếp Ngang */}
                   {heroBottom.length > 0 && (
                     <div className="article-list-hero-bottom">
                       {heroBottom.map(article => (
@@ -377,9 +502,19 @@ const ArticlesListPage = ({ type, categoryData }) => {
 
             {/* --- CỘT PHẢI (SIDEBAR) --- */}
             <div className="article-list-sidebar">
-              <div className="article-list-ad-box">
-                <img src="https://suckhoedoisong.qltns.mediacdn.vn/324455921873985536/2024/4/25/an-oc-17140228307611084227367.jpg" alt="Quảng cáo" />
-              </div>
+              
+              {/* QUẢNG CÁO SIDEBAR */}
+              {currentSidebarAd && (
+                <div className="article-list-ad-box">
+                  <a href={formatAdLink(currentSidebarAd.sidebar_ad_target_link)} target="_blank" rel="noreferrer">
+                    <img 
+                      src={currentSidebarAd.sidebar_ad_image_url} 
+                      alt="Quảng cáo" 
+                      onError={(e) => e.target.style.display = 'none'}
+                    />
+                  </a>
+                </div>
+              )}
 
               <div className="article-list-widget">
                 <h3 className="article-list-widget-title">ĐỌC NHIỀU NHẤT</h3>

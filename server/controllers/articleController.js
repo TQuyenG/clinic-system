@@ -279,12 +279,29 @@ const createReviewHistory = async (
 exports.getCategories = async (req, res) => {
   try {
     const categories = await Category.findAll({
-      order: [['category_type', 'ASC'], ['name', 'ASC']]
+      attributes: [
+        'id', 
+        'name', 
+        'slug', 
+        'category_type', 
+        'description',
+        'banner_image_url', 
+        'banner_target_link', 
+        'sidebar_ad_image_url', 
+        'sidebar_ad_target_link'
+      ],
+      order: [['name', 'ASC']]
     });
-    res.json({ success: true, categories });
+
+    res.json({
+      success: true,
+      categories
+    });
   } catch (error) {
-    console.error('ERROR: Lỗi khi lấy danh mục:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -324,87 +341,77 @@ exports.getArticleBySlug = async (req, res) => {
  */
 exports.getPublicArticles = async (req, res) => {
   try {
-    const { 
-      category_id, 
-      category_type, 
-      search, 
-      tag,
-      letter,
-      sort_by = 'created_at',
-      sort_order = 'DESC',
-      page = 1, 
-      limit = 12 
-    } = req.query;
-    
+    const { category_id, category_type, search, tag, letter, page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
-    const where = { status: 'approved' };
 
-    // Search
+    let whereClause = { status: 'approved' };
+
+    if (category_id) {
+      whereClause.category_id = category_id;
+    }
+
+    if (category_type) {
+      whereClause['$category.category_type$'] = category_type;
+    }
+
     if (search) {
-      where[Op.or] = [
+      whereClause[Op.or] = [
         { title: { [Op.like]: `%${search}%` } },
         { content: { [Op.like]: `%${search}%` } }
       ];
     }
 
-    // Letter filter (chữ cái đầu)
+    if (tag) {
+      whereClause.tags = { [Op.like]: `%${tag}%` };
+    }
+
     if (letter) {
-      where.title = { [Op.like]: `${letter}%` };
+      whereClause.title = { [Op.like]: `${letter}%` };
     }
 
-    // Category filter
-    if (category_id) where.category_id = category_id;
-
-    const categoryInclude = {
-      model: Category,
-      as: 'category',
-      attributes: ['id', 'name', 'category_type', 'slug']
-    };
-
-    if (category_type) {
-      categoryInclude.where = { category_type };
-    }
-
-    // Fetch articles
-    let { count, rows } = await Article.findAndCountAll({
-      where,
+    const { count, rows } = await Article.findAndCountAll({
+      where: whereClause,
       include: [
-        categoryInclude,
-        { model: User, as: 'author', attributes: ['id', 'full_name'] },
-        { model: Medicine, as: 'medicine', required: false },
-        { model: Disease, as: 'disease', required: false }
+        { 
+          model: Category, 
+          as: 'category',
+          attributes: [
+            'id', 
+            'name', 
+            'category_type', 
+            'banner_image_url', 
+            'banner_target_link', 
+            'sidebar_ad_image_url', 
+            'sidebar_ad_target_link'
+          ]
+        },
+        { 
+          model: User, 
+          as: 'author', 
+          attributes: ['full_name'] 
+        }
       ],
-      order: [[sort_by, sort_order]],
+      order: [['created_at', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset),
       distinct: true
     });
 
-    // Filter by tag nếu có
-    if (tag) {
-      rows = rows.filter(article => 
-        article.tags_json && Array.isArray(article.tags_json) && article.tags_json.includes(tag)
-      );
-      count = rows.length;
-    }
-
-    // Load entity data
-    const articlesWithEntity = await Promise.all(
-      rows.map(article => loadEntityData(article))
-    );
-
     res.json({
       success: true,
-      articles: articlesWithEntity,
+      articles: rows,
       pagination: {
-        currentPage: parseInt(page),
+        totalItems: count,
         totalPages: Math.ceil(count / limit),
-        totalItems: count
+        currentPage: parseInt(page)
       }
     });
   } catch (error) {
-    console.error('Error fetching public articles:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Lỗi lấy bài viết công khai:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -415,63 +422,90 @@ exports.getPublicArticles = async (req, res) => {
 exports.getByTypeAndSlug = async (req, res) => {
   try {
     const { categoryType, slug } = req.params;
-
+    
     const typeMap = {
       'tin-tuc': 'tin_tuc',
       'thuoc': 'thuoc',
       'benh-ly': 'benh_ly'
     };
+    
+    const dbType = typeMap[categoryType];
 
-    const dbCategoryType = typeMap[categoryType] || categoryType;
-
-    // Tìm bài viết trước
+    // 1. Tìm xem đây có phải là Slug của một bài viết không
     const article = await Article.findOne({
-      where: { slug, status: 'approved' },
+      where: { 
+        slug: slug,
+        status: 'approved'
+      },
       include: [
         { 
           model: Category, 
           as: 'category',
-          where: { category_type: dbCategoryType }
+          attributes: [
+            'id', 
+            'name', 
+            'category_type', 
+            'banner_image_url', 
+            'banner_target_link', 
+            'sidebar_ad_image_url', 
+            'sidebar_ad_target_link'
+          ]
         },
-        { model: User, as: 'author', attributes: ['id', 'username', 'full_name', 'avatar_url'] },
-        { model: Medicine, as: 'medicine', required: false },
-        { model: Disease, as: 'disease', required: false }
+        { 
+          model: User, 
+          as: 'author', 
+          attributes: ['full_name', 'avatar_url'] 
+        }
       ]
     });
 
     if (article) {
-      const articleData = await loadEntityData(article);
-      return res.json({ 
-        success: true, 
-        type: 'article', 
-        data: articleData 
+      return res.json({
+        success: true,
+        type: 'article',
+        data: article
       });
     }
 
-    // Không tìm thấy bài viết -> tìm category
+    // 2. Nếu không phải bài viết, kiểm tra xem có phải Slug của danh mục không
     const category = await Category.findOne({
       where: { 
-        slug, 
-        category_type: dbCategoryType 
-      }
+        slug: slug,
+        category_type: dbType
+      },
+      attributes: [
+        'id', 
+        'name', 
+        'slug', 
+        'category_type', 
+        'description',
+        'banner_image_url', 
+        'banner_target_link', 
+        'sidebar_ad_image_url', 
+        'sidebar_ad_target_link'
+      ]
     });
 
     if (category) {
-      return res.json({ 
-        success: true, 
-        type: 'category', 
-        data: category 
+      return res.json({
+        success: true,
+        type: 'category',
+        data: category
       });
     }
 
-    return res.status(404).json({ 
-      success: false, 
-      message: 'Không tìm thấy bài viết hoặc danh mục' 
+    // 3. Nếu không tìm thấy cả hai
+    res.status(404).json({
+      success: false,
+      message: 'Không tìm thấy nội dung yêu cầu'
     });
 
   } catch (error) {
-    console.error('Error in getByTypeAndSlug:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Lỗi lấy nội dung theo type và slug:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 

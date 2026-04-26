@@ -15,10 +15,7 @@ const { authenticateToken, authorize } = require('../middleware/authMiddleware')
 router.get('/', categoryController.getAllCategories);
 router.get('/types', categoryController.getCategoryTypes);
 router.get('/by-type/:type', categoryController.getCategoriesByType);
-
-// ➕ MỚI: Lấy category theo slug
 router.get('/slug/:slug', categoryController.getCategoryBySlug);
-
 router.get('/:id', categoryController.getCategoryById);
 
 // ============================================
@@ -30,6 +27,13 @@ router.post(
   authenticateToken,
   authorize('admin'),
   categoryController.createCategory
+);
+
+router.put(
+  '/bulk/bulk-ads', 
+  authenticateToken,
+  authorize('admin'),
+  categoryController.bulkUpdateAds
 );
 
 router.put(
