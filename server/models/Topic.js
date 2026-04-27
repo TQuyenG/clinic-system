@@ -109,15 +109,15 @@ module.exports = (sequelize) => {
     Topic.belongsTo(models.User, { foreignKey: 'createdBy', as: 'creator' });
   };
 
-  // ✅ Tự động tạo bảng nếu chưa tồn tại
+  //  Tự động tạo bảng nếu chưa tồn tại
   Topic.sync({ alter: false })
     .then(() => {
-      console.log('✅ Bảng topics đã sẵn sàng (sync completed)');
+      console.log(' Bảng topics đã sẵn sàng (sync completed)');
     })
     .catch((error) => {
       console.error('❌ Lỗi sync bảng topics:', error.message);
     });
 
-  console.log('✅ Model Topic đã được định nghĩa.');
+  console.log(' Model Topic đã được định nghĩa.');
   return Topic;
 };

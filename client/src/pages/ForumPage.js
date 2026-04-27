@@ -1140,7 +1140,7 @@ const ForumPage = () => {
                   <div className="forumpage-group-body">
                     <h4>{g.name}</h4><p>{g.description || 'Nhóm cộng đồng sức khỏe'}</p>
                     <div className="forumpage-group-meta">
-                      <span>{g.privacy === 'public' ? '🔓 Công khai' : '🔒 Riêng tư'}</span>
+                      <span>{g.privacy === 'public' ? 'Công khai' : 'Riêng tư'}</span>
                       <span><FaUsers /> {g.members_count || 0} thành viên</span>
                     </div>
                     <div className="forumpage-group-actions">

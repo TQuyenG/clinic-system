@@ -126,6 +126,6 @@ module.exports = (sequelize) => {
     GroupPost.belongsTo(models.User, { foreignKey: 'approved_by', as: 'approver' });
   };
 
-  console.log('✅ Model GroupPost đã được định nghĩa.');
+  console.log(' Model GroupPost đã được định nghĩa.');
   return GroupPost;
 };

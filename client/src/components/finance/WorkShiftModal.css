@@ -39,7 +39,7 @@
   align-items: center;
 }
 .ws-header.start {
-  background: linear-gradient(135deg, #0d6efd, #0043a8); /* Xanh dương */
+  background: linear-gradient(135deg, #2e7d32, #1b5e20); /* Xanh lá */
 }
 .ws-header.end {
   background: linear-gradient(135deg, #dc3545, #a30011); /* Đỏ */
@@ -94,16 +94,16 @@
   padding: 12px 15px;
   font-size: 24px;
   font-weight: bold;
-  color: #0d6efd;
+  color: #2e7d32;
   border: 2px solid #ced4da;
   border-radius: 8px;
   text-align: right;
   transition: all 0.2s;
 }
 .ws-money-input:focus {
-  border-color: #0d6efd;
+  border-color: #2e7d32;
   outline: none;
-  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.15);
+  box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.15);
 }
 .ws-money-input.error {
   border-color: #dc3545;
@@ -153,7 +153,7 @@
   transition: opacity 0.2s;
 }
 .ws-btn-cancel { background: #e9ecef; color: #495057; }
-.ws-btn-submit { background: #0d6efd; color: white; box-shadow: 0 4px 6px rgba(13, 110, 253, 0.2); }
+.ws-btn-submit { background: #2e7d32; color: white; box-shadow: 0 4px 6px rgba(46, 125, 50, 0.2); }
 .ws-btn-submit.danger { background: #dc3545; box-shadow: 0 4px 6px rgba(220, 53, 69, 0.2); }
 .ws-btn:hover { opacity: 0.9; }
 

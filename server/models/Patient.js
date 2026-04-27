@@ -38,7 +38,7 @@ module.exports = (sequelize) => {
       console.log(`SUCCESS: Đã gán username ${patient.username} cho Patient`);
 
       // Tạo code
-      // ✅ SỬA: Tạo code dựa trên mã lớn nhất
+      //  SỬA: Tạo code dựa trên mã lớn nhất
     if (!patient.code) {
       const lastPatient = await Patient.findOne({
         attributes: ['code'],

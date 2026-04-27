@@ -1900,7 +1900,7 @@ exports.getArticleInteractions = async (req, res) => {
 
 /**
  * GET /api/articles/:id/comments
- * Lấy danh sách comment của bài viết
+ * Lấy danh sách comment nội bộ của bài viết
  */
 exports.getArticleComments = async (req, res) => {
   try {
@@ -1911,11 +1911,10 @@ exports.getArticleComments = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
     }
 
-    // PHÂN QUYỀN: Admin, Tác giả, hoặc người có quyền approve mới xem comments
+    // PHÂN QUYỀN: Admin, Tác giả, hoặc người có quyền approve mới xem comments nội bộ
     const isAuthor = article.author_id === req.user.id;
     const isAdmin = req.user.role === 'admin';
     
-    // Check if user has approve permission
     let hasApprovePermission = false;
     if (req.user.role === 'staff') {
       const staff = await Staff.findOne({ where: { user_id: req.user.id } });
@@ -1928,14 +1927,15 @@ exports.getArticleComments = async (req, res) => {
     if (!isAdmin && !isAuthor && !hasApprovePermission) {
       return res.status(403).json({ 
         success: false, 
-        message: 'Bạn không có quyền xem comment của bài viết này' 
+        message: 'Bạn không có quyền xem comment nội bộ của bài viết này' 
       });
     }
 
     const comments = await ArticleComment.findAll({
       where: { 
         article_id: id,
-        is_deleted: false
+        is_deleted: false,
+        is_public: false // CHỈ LẤY COMMENT NỘI BỘ
       },
       include: [
         { 
@@ -1960,7 +1960,7 @@ exports.getArticleComments = async (req, res) => {
 
 /**
  * POST /api/articles/:id/comments
- * Thêm comment vào bài viết
+ * Thêm comment nội bộ vào bài viết
  * Body: { comment_text: string }
  */
 exports.addCommentToArticle = async (req, res) => {
@@ -1980,11 +1980,10 @@ exports.addCommentToArticle = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
     }
 
-    // PHÂN QUYỀN: Admin, Tác giả, hoặc người có quyền approve mới comment được
+    // PHÂN QUYỀN: Admin, Tác giả, hoặc người có quyền approve mới comment nội bộ được
     const isAuthor = article.author_id === req.user.id;
     const isAdmin = req.user.role === 'admin';
     
-    // Check if user has approve permission
     let hasApprovePermission = false;
     if (req.user.role === 'staff') {
       const staff = await Staff.findOne({ where: { user_id: req.user.id } });
@@ -2004,7 +2003,8 @@ exports.addCommentToArticle = async (req, res) => {
     const comment = await ArticleComment.create({
       article_id: id,
       user_id: req.user.id,
-      comment_text: comment_text.trim()
+      comment_text: comment_text.trim(),
+      is_public: false // ĐÁNH DẤU LÀ COMMENT NỘI BỘ
     });
 
     // Gửi thông báo cho người còn lại
@@ -2018,7 +2018,6 @@ exports.addCommentToArticle = async (req, res) => {
         `/articles/review/${id}`
       );
     } else if (req.user.role !== 'admin') {
-      // Staff comment -> gửi cho tất cả admin
       await notifyAllAdmins(
         'article',
         `${req.user.full_name} đã comment trong bài viết "${article.title}"`,
@@ -2038,7 +2037,7 @@ exports.addCommentToArticle = async (req, res) => {
 
     res.json({ 
       success: true, 
-      message: 'Đã thêm comment', 
+      message: 'Đã thêm comment nội bộ', 
       comment: commentWithUser 
     });
   } catch (error) {
@@ -2077,6 +2076,94 @@ exports.deleteComment = async (req, res) => {
     res.json({ success: true, message: 'Đã xóa comment' });
   } catch (error) {
     console.error('Error deleting comment:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * GET /api/articles/:id/public-comments
+ * Lấy danh sách comment CÔNG KHAI của độc giả
+ */
+exports.getPublicComments = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const article = await Article.findByPk(id);
+    if (!article) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
+    }
+
+    const comments = await ArticleComment.findAll({
+      where: { 
+        article_id: id,
+        is_deleted: false,
+        is_public: true // CHỈ LẤY COMMENT CÔNG KHAI
+      },
+      include: [
+        { 
+          model: User, 
+          as: 'user', 
+          // Chỉ lấy các thông tin cơ bản, KHÔNG tiết lộ role của user cho public
+          attributes: ['id', 'full_name', 'avatar_url'] 
+        }
+      ],
+      order: [['created_at', 'DESC']] // Comment mới nhất lên đầu
+    });
+
+    res.json({
+      success: true,
+      comments,
+      count: comments.length
+    });
+  } catch (error) {
+    console.error('Error fetching public comments:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * POST /api/articles/:id/public-comments
+ * Độc giả thêm comment CÔNG KHAI vào bài viết
+ */
+exports.addPublicComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment_text } = req.body;
+
+    if (!comment_text || !comment_text.trim()) {
+      return res.status(400).json({ success: false, message: 'Vui lòng nhập nội dung bình luận' });
+    }
+
+    const article = await Article.findByPk(id);
+    // Chỉ cho phép bình luận trên bài đã được duyệt (approved)
+    if (!article || article.status !== 'approved') {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết hoặc bài viết chưa được hiển thị' });
+    }
+
+    const comment = await ArticleComment.create({
+      article_id: id,
+      user_id: req.user.id,
+      comment_text: comment_text.trim(),
+      is_public: true // ĐÁNH DẤU LÀ COMMENT CÔNG KHAI
+    });
+
+    const commentWithUser = await ArticleComment.findByPk(comment.id, {
+      include: [
+        { 
+          model: User, 
+          as: 'user', 
+          attributes: ['id', 'full_name', 'avatar_url'] 
+        }
+      ]
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Đã gửi bình luận thành công', 
+      comment: commentWithUser 
+    });
+  } catch (error) {
+    console.error('Error adding public comment:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

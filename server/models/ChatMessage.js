@@ -266,7 +266,7 @@ module.exports = (sequelize) => {
     this.is_read = true;
     this.read_at = new Date();
     await this.save();
-    console.log(`✅ Tin nhắn ${this.id} đã được đánh dấu là đã đọc`);
+    console.log(` Tin nhắn ${this.id} đã được đánh dấu là đã đọc`);
   };
   
   /**
@@ -337,7 +337,7 @@ module.exports = (sequelize) => {
       }
     );
     
-    console.log(`✅ Đã đánh dấu ${count} tin nhắn là đã đọc`);
+    console.log(` Đã đánh dấu ${count} tin nhắn là đã đọc`);
     return count;
   };
   
@@ -376,6 +376,6 @@ module.exports = (sequelize) => {
     });
   };
 
-  console.log('✅ Model ChatMessage đã được định nghĩa thành công');
+  console.log(' Model ChatMessage đã được định nghĩa thành công');
   return ChatMessage;
 };

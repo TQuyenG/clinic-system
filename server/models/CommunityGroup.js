@@ -1,10 +1,4 @@
 // server/models/CommunityGroup.js
-// Nghiệp vụ:
-// - Chỉ Doctor, Staff, Admin tạo được nhóm (kiểm tra ở controller/middleware)
-// - Mỗi nhóm BẮT BUỘC có 1 doctor_id (bác sĩ phụ trách)
-// - type='official': do Clinic/Doctor tạo, có tích xanh, ưu tiên hiển thị
-// - type='community': do staff tạo thay mặt cộng đồng, có disclaimer
-// - status='pending': chờ admin duyệt trước khi hiển thị public
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -14,97 +8,104 @@ module.exports = (sequelize) => {
     name: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      comment: 'Tên nhóm cộng đồng'
     },
     slug: {
       type: DataTypes.STRING(255),
       allowNull: true,
       unique: true,
-      comment: 'URL-friendly slug, auto-generate từ name'
     },
     description: {
       type: DataTypes.TEXT,
-      allowNull: true
+      allowNull: true,
     },
     cover_image: {
-      type: DataTypes.STRING(255),
+      type: DataTypes.STRING(500),
       allowNull: true,
-      comment: 'URL ảnh bìa nhóm'
+      comment: 'URL ảnh bìa nhóm',
+    },
+    //  THÊM MỚI: ảnh đại diện riêng biệt với ảnh bìa
+    avatar_image: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      comment: 'URL ảnh đại diện nhóm (avatar, khác ảnh bìa)',
     },
     icon: {
       type: DataTypes.STRING(10),
       allowNull: true,
-      comment: 'Emoji icon đại diện'
+      comment: 'Emoji icon dự phòng khi không có avatar_image',
     },
 
-    // Loại nhóm — ảnh hưởng UI badge và ưu tiên hiển thị
     type: {
       type: DataTypes.ENUM('official', 'community'),
       defaultValue: 'community',
       allowNull: false,
-      comment: 'official=do Clinic/Doctor tạo có tích xanh, community=nhóm cộng đồng'
     },
-
-    // Quyền riêng tư
     privacy: {
       type: DataTypes.ENUM('public', 'private', 'invite_only'),
       defaultValue: 'public',
       allowNull: false,
-      comment: 'public=join ngay, private=gửi request, invite_only=chỉ qua link'
     },
-
-    // Trạng thái — pending cho đến khi admin duyệt
     status: {
       type: DataTypes.ENUM('pending', 'active', 'suspended'),
       defaultValue: 'pending',
       allowNull: false,
-      comment: 'pending=chờ admin duyệt, active=đang hoạt động, suspended=bị đình chỉ'
     },
 
-    // RÀNG BUỘC CORE: Mỗi nhóm BẮT BUỘC có bác sĩ phụ trách
     requires_doctor: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,
-      comment: 'Luôn true — nhóm bị suspend nếu bác sĩ rời đi'
     },
-
-    // Người tạo nhóm (Owner)
     owner_id: {
       type: DataTypes.BIGINT,
       allowNull: false,
-      comment: 'FK → users.id — Doctor hoặc Staff tạo nhóm'
     },
-
-    // Bác sĩ phụ trách (bắt buộc)
     doctor_id: {
       type: DataTypes.BIGINT,
       allowNull: false,
-      comment: 'FK → doctors.id — BẮT BUỘC, nhóm suspend nếu null'
     },
-
-    // Cấu hình kiểm duyệt bài đăng trong nhóm
     requires_post_approval: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,
-      comment: 'true=bài đăng phải được duyệt trước khi hiển thị'
     },
 
-    // Cached counters — cập nhật sau mỗi join/post
     members_count: { type: DataTypes.INTEGER, defaultValue: 0 },
-    posts_count: { type: DataTypes.INTEGER, defaultValue: 0 },
+    posts_count:   { type: DataTypes.INTEGER, defaultValue: 0 },
 
-    // Admin duyệt
-    approved_by: {
+    // Admin duyệt nhóm
+    approved_by: { type: DataTypes.BIGINT, allowNull: true },
+    approved_at:  { type: DataTypes.DATE,   allowNull: true },
+    rejection_reason: { type: DataTypes.TEXT, allowNull: true },
+
+    //  THÊM MỚI: Yêu cầu ẩn nhóm (gửi lên admin duyệt thay vì xóa thẳng)
+    hide_requested_by: {
       type: DataTypes.BIGINT,
       allowNull: true,
-      comment: 'FK → users.id — admin duyệt nhóm'
+      comment: 'FK → users.id — owner gửi yêu cầu ẩn nhóm',
     },
-    approved_at: { type: DataTypes.DATE, allowNull: true },
-    rejection_reason: { type: DataTypes.TEXT, allowNull: true },
+    hide_requested_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    hide_reason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Lý do muốn ẩn nhóm',
+    },
+
+    //  THÊM MỚI: Yêu cầu chuyển bác sĩ phụ trách (cần admin duyệt)
+    transfer_doctor_requested: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      comment: 'doctor_id mới đang đề xuất — chờ admin duyệt',
+    },
+    transfer_doctor_reason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
 
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-    deleted_at: { type: DataTypes.DATE, allowNull: true }
+    deleted_at: { type: DataTypes.DATE, allowNull: true },
   }, {
     tableName: 'community_groups',
     timestamps: true,
@@ -112,17 +113,17 @@ module.exports = (sequelize) => {
     paranoid: true,
     createdAt: 'created_at',
     updatedAt: 'updated_at',
-    deletedAt: 'deleted_at'
+    deletedAt: 'deleted_at',
   });
 
   CommunityGroup.associate = (models) => {
-    CommunityGroup.belongsTo(models.User, { foreignKey: 'owner_id', as: 'owner' });
+    CommunityGroup.belongsTo(models.User,   { foreignKey: 'owner_id', as: 'owner' });
     CommunityGroup.belongsTo(models.Doctor, { foreignKey: 'doctor_id', as: 'doctor' });
-    CommunityGroup.hasMany(models.GroupMember, { foreignKey: 'group_id', as: 'members' });
-    CommunityGroup.hasMany(models.GroupPost, { foreignKey: 'group_id', as: 'posts' });
-    CommunityGroup.hasMany(models.GroupJoinRequest, { foreignKey: 'group_id', as: 'joinRequests' });
+    CommunityGroup.hasMany(models.GroupMember,     { foreignKey: 'group_id', as: 'members' });
+    CommunityGroup.hasMany(models.GroupPost,       { foreignKey: 'group_id', as: 'posts' });
+    CommunityGroup.hasMany(models.GroupJoinRequest,{ foreignKey: 'group_id', as: 'joinRequests' });
   };
 
-  console.log('✅ Model CommunityGroup đã được định nghĩa.');
+  console.log('Model CommunityGroup đã được định nghĩa.');
   return CommunityGroup;
 };

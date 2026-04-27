@@ -1,47 +1,71 @@
 // client/src/pages/ArticleDetailPage.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
 import { 
-  FaCalendar, FaUser, FaEye, FaThumbsUp, FaShareAlt, 
-  FaBookmark, FaArrowLeft, FaTag, FaLink, FaFlag, FaRedo, // Giữ FaRedo trong import icons, nhưng không dùng
-  FaTimes, FaExclamationTriangle, FaPaperPlane, FaSpinner
+  FaCalendar, FaUser, FaEye, FaThumbsUp, FaBookmark, FaShareAlt, 
+  FaFlag, FaTag, FaChevronRight, FaChevronLeft, FaSearch, FaBars, FaTimes, 
+  FaCommentDots, FaEllipsisV, FaNewspaper, FaHeartbeat, FaPills, FaExclamationTriangle
 } from 'react-icons/fa';
 import './ArticleDetailPage.css';
+
+const formatAdLink = (url) => {
+  if (!url) return "#";
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return url.startsWith('/') ? url : `/${url}`;
+};
 
 const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryType }) => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const API_BASE_URL = 'http://localhost:3001';
 
+  // Core States
   const [article, setArticle] = useState(propArticle || null);
   const [loading, setLoading] = useState(!propArticle);
   const [user, setUser] = useState(null);
+  
+  // UI States
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  
+  // Auto-scroll States
+  const navScrollRef = useRef(null);
+  const [isNavHovered, setIsNavHovered] = useState(false);
+  
+  // Interaction & Meta States
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [stats, setStats] = useState({ likes: 0, shares: 0, saves: 0, views: 0 });
+  
+  // Global Data (Sidebar & Menu)
+  const [categories, setCategories] = useState([]);
+  const [popularArticles, setPopularArticles] = useState([]);
+  const [relatedArticles, setRelatedArticles] = useState([]);
+  
+  // Comment States
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+
+  // Report States
   const [showReportPopup, setShowReportPopup] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
-  const [relatedArticles, setRelatedArticles] = useState([]);
-  const [loadingRelated, setLoadingRelated] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
-  const [linkedEntity, setLinkedEntity] = useState(null); // Thuốc hoặc bệnh lý được liên kết
 
-  const reportReasons = [
-    'Nội dung không chính xác',
-    'Thông tin gây hiểu lầm',
-    'Thiếu nguồn tham khảo',
-    'Ngôn từ không phù hợp',
-    'Spam hoặc quảng cáo',
-    'Vi phạm bản quyền',
-    'Lý do khác'
+  const reportReasonsList = [
+    'Nội dung không chính xác', 'Thông tin gây hiểu lầm', 
+    'Thiếu nguồn tham khảo', 'Ngôn từ không phù hợp', 
+    'Spam hoặc quảng cáo', 'Vi phạm bản quyền', 'Lý do khác'
   ];
+
+  const actionMenuRef = useRef(null);
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user') || 'null');
     setUser(userData);
+    fetchGlobalData();
 
     if (!propArticle && slug) {
       fetchArticle();
@@ -49,7 +73,9 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
       trackView();
       fetchInteractions();
       fetchRelatedArticles();
+      fetchComments();
     }
+    window.scrollTo(0, 0);
   }, [slug, propArticle]);
 
   useEffect(() => {
@@ -57,254 +83,208 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
       trackView();
       fetchInteractions();
       fetchRelatedArticles();
+      fetchComments();
     }
   }, [article?.id]);
 
-  const trackView = async () => {
-    if (!article?.id) return;
-    
-    try {
-      await axios.post(`${API_BASE_URL}/api/articles/${article.id}/view`);
-    } catch (error) {
-      console.error('Lỗi khi theo dõi lượt xem:', error);
+  // Handle click outside Kebab Menu
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target)) {
+        setIsActionMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Xử lý cuộn mượt cho Thanh Menu xanh
+  useEffect(() => {
+    let animationFrameId;
+    const scrollElement = navScrollRef.current;
+
+    const scrollStep = () => {
+      if (scrollElement && !isNavHovered) {
+        scrollElement.scrollLeft += 1.5;
+        if (Math.ceil(scrollElement.scrollLeft) >= scrollElement.scrollWidth - scrollElement.clientWidth) {
+          scrollElement.scrollLeft = 0;
+        }
+      }
+      animationFrameId = requestAnimationFrame(scrollStep);
+    };
+
+    animationFrameId = requestAnimationFrame(scrollStep);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isNavHovered]);
+
+  const scrollNavBy = (amount) => {
+    if (navScrollRef.current) {
+      navScrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
     }
   };
 
-  const getFirstImageFromContent = (html) => {
-    if (!html) return null;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const img = doc.querySelector('img');
-    return img ? img.src : null;
+  const fetchGlobalData = async () => {
+    try {
+      const [catsRes, popRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/articles/categories`),
+        axios.get(`${API_BASE_URL}/api/articles/public?limit=5&sort_by=views&sort_order=DESC`)
+      ]);
+      if (catsRes.data.success) setCategories(catsRes.data.categories || []);
+      if (popRes.data.success) setPopularArticles(popRes.data.articles || []);
+    } catch (error) { console.error('Lỗi tải dữ liệu:', error); }
   };
 
   const fetchArticle = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/articles/slug/${slug}`);
-      
-      if (response.data.success) {
-        setArticle(response.data.article);
-      }
+      if (response.data.success) setArticle(response.data.article);
     } catch (error) {
-      console.error('Lỗi khi tải bài viết:', error);
-      if (error.response?.status === 404) {
-        navigate('/404');
-      }
+      if (error.response?.status === 404) navigate('/404');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchRelatedArticles = async () => {
+  const trackView = async () => {
     if (!article?.id) return;
-    
-    try {
-      setLoadingRelated(true);
-
-      const params = {
-        category_id: article.category_id
-      };
-
-      if (article.tags_json && Array.isArray(article.tags_json) && article.tags_json.length > 0) {
-        params.tags = JSON.stringify(article.tags_json);
-      }
-
-      const response = await axios.get(
-        `${API_BASE_URL}/api/articles/related/${article.id}`,
-        { params }
-      );
-      
-      if (response.data.success) {
-        setRelatedArticles(response.data.articles || []);
-      }
-    } catch (error) {
-      console.error('Lỗi khi tải bài viết liên quan:', error);
-    } finally {
-      setLoadingRelated(false);
-    }
+    try { await axios.post(`${API_BASE_URL}/api/articles/${article.id}/view`); } catch (e) {}
   };
 
   const fetchInteractions = async () => {
     if (!article?.id) return;
-
     try {
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      
-      const response = await axios.get(
-        `${API_BASE_URL}/api/articles/${article.id}/interactions`,
-        { headers }
-      );
-
+      const response = await axios.get(`${API_BASE_URL}/api/articles/${article.id}/interactions`, { headers });
       if (response.data.success) {
         setStats(response.data.stats);
-        const userInt = response.data.userInteractions || {};
-        setIsLiked(userInt.like || false);
-        setIsSaved(userInt.save || false);
+        setIsLiked(response.data.userInteractions?.like || false);
+        setIsSaved(response.data.userInteractions?.save || false);
       }
-    } catch (error) {
-      console.error('Lỗi khi tải tương tác:', error);
+    } catch (e) {}
+  };
+
+  const fetchRelatedArticles = async () => {
+    if (!article?.id) return;
+    try {
+      const params = { category_id: article.category_id };
+      if (article.tags_json?.length > 0) params.tags = JSON.stringify(article.tags_json);
+      const response = await axios.get(`${API_BASE_URL}/api/articles/related/${article.id}`, { params });
+      if (response.data.success) setRelatedArticles(response.data.articles || []);
+    } catch (e) {}
+  };
+
+  // Fetch Public Comments (API mới dự kiến)
+  const fetchComments = async () => {
+    if (!article?.id) return;
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/articles/${article.id}/public-comments`);
+      if (response.data.success) setComments(response.data.comments || []);
+    } catch (e) {
+      // Fallback tạm về luồng cũ nếu backend chưa update
+      console.warn('Vui lòng tạo API /public-comments trong backend để phân biệt comment nội bộ/công khai');
     }
   };
 
   const handleInteraction = async (type) => {
+    setIsActionMenuOpen(false); 
     const token = localStorage.getItem('token');
-    if (!token) {
-      alert('Vui lòng đăng nhập để thực hiện hành động này');
-      navigate('/login');
-      return;
-    }
-
+    if (!token) { alert('Vui lòng đăng nhập!'); navigate('/login'); return; }
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/api/articles/${article.id}/interact`,
-        { type },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
+      const response = await axios.post(`${API_BASE_URL}/api/articles/${article.id}/interact`, { type }, { headers: { Authorization: `Bearer ${token}` } });
       if (response.data.success) {
         if (type === 'like') {
           setIsLiked(!isLiked);
-          setStats(prev => ({ 
-            ...prev, 
-            likes: isLiked ? prev.likes - 1 : prev.likes + 1
-          }));
+          setStats(p => ({ ...p, likes: isLiked ? p.likes - 1 : p.likes + 1 }));
         } else if (type === 'save') {
           setIsSaved(!isSaved);
+          setStats(p => ({ ...p, saves: isSaved ? p.saves - 1 : p.saves + 1 }));
           alert(isSaved ? 'Đã hủy lưu bài viết' : 'Đã lưu bài viết');
-          setStats(prev => ({
-            ...prev,
-            saves: isSaved ? prev.saves - 1 : prev.saves + 1
-          }));
         }
       }
-    } catch (error) {
-      console.error('Lỗi khi tương tác:', error);
-      alert('Lỗi: ' + (error.response?.data?.message || error.message));
-    }
+    } catch (e) { alert('Lỗi tương tác'); }
   };
 
-  const handleShare = async (platform) => {
-    const url = window.location.href;
-    const title = article.title;
-
-    let shareUrl = '';
-    switch(platform) {
-      case 'facebook':
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-        break;
-      case 'twitter':
-        shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`;
-        break;
-      case 'zalo':
-        shareUrl = `https://sp.zalo.me/share?url=${encodeURIComponent(url)}`;
-        break;
-      case 'copy':
-        navigator.clipboard.writeText(url);
-        alert('Đã sao chép link bài viết!');
-        setShowShareMenu(false);
-        
-        const token = localStorage.getItem('token');
-        if (token) {
-          await axios.post(
-            `${API_BASE_URL}/api/articles/${article.id}/interact`,
-            { type: 'share', metadata: { platform: 'copy' } },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          setStats(prev => ({ ...prev, shares: prev.shares + 1 }));
-        }
-        return;
-      default:
-        return;
-    }
-
-    if (shareUrl) {
-      window.open(shareUrl, '_blank', 'width=600,height=400');
-      setShowShareMenu(false);
-      
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          await axios.post(
-            `${API_BASE_URL}/api/articles/${article.id}/interact`,
-            { type: 'share', metadata: { platform } },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          setStats(prev => ({ ...prev, shares: prev.shares + 1 }));
-        } catch (error) {
-          console.error('Lỗi khi theo dõi share:', error);
-        }
-      }
-    }
+  const handleShare = () => {
+    setIsActionMenuOpen(false);
+    navigator.clipboard.writeText(window.location.href);
+    alert('Đã sao chép link bài viết!');
   };
-
-  // ❌ ĐÃ XÓA HÀM handleRequestEdit
 
   const handleSubmitReport = async (e) => {
     e.preventDefault();
-    
     const token = localStorage.getItem('token');
-    if (!token) {
-      alert('Vui lòng đăng nhập để báo cáo');
-      navigate('/login');
-      return;
-    }
-
-    if (!reportReason.trim()) {
-      alert('Vui lòng nhập lý do báo cáo');
-      return;
-    }
+    if (!token) { alert('Vui lòng đăng nhập để báo cáo'); navigate('/login'); return; }
+    if (!reportReason.trim()) { alert('Vui lòng nhập lý do báo cáo'); return; }
 
     try {
       setSubmittingReport(true);
-      
       const response = await axios.post(
         `${API_BASE_URL}/api/articles/${article.id}/report`,
         { reason: reportReason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
       if (response.data.success) {
         alert('Đã gửi báo cáo thành công! Admin sẽ xem xét.');
         setShowReportPopup(false);
         setReportReason('');
       }
     } catch (error) {
-      console.error('Lỗi khi gửi báo cáo:', error);
       alert('Lỗi: ' + (error.response?.data?.message || error.message));
     } finally {
       setSubmittingReport(false);
     }
   };
 
-  const handleGoBack = () => {
-    if (article?.category?.category_type) {
-      const typeMap = {
-        'tin_tuc': '/tin-tuc',
-        'thuoc': '/thuoc',
-        'benh_ly': '/benh-ly'
-      };
-      navigate(typeMap[article.category.category_type] || '/bai-viet');
-    } else {
-      navigate(-1);
+  // Nộp Comment Công khai (Dùng API mới dự kiến)
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+    const token = localStorage.getItem('token');
+    if (!token) { alert('Vui lòng đăng nhập để bình luận!'); navigate('/login'); return; }
+    
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/articles/${article.id}/public-comments`, 
+        { comment_text: newComment }, 
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (response.data.success) {
+        setNewComment('');
+        fetchComments(); 
+      }
+    } catch (e) {
+      alert('Vui lòng đảm bảo bạn đã tạo API /public-comments bên phía Backend.');
     }
   };
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if(searchInput) navigate(`/bai-viet?search=${searchInput}`);
+  };
+
+  const handleCategoryClick = (cat) => {
+    setIsMenuOpen(false);
+    const routeType = cat.category_type === 'tin_tuc' ? 'tin-tuc' : cat.category_type === 'thuoc' ? 'thuoc' : 'benh-ly';
+    navigate(`/${routeType}/${cat.slug}`);
+  };
+
+  const getFirstImage = (html) => {
+    if (!html) return '/placeholder.jpg';
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const img = doc.querySelector('img');
+    return img ? img.src : '/placeholder.jpg';
+  };
+
+  // --- FIX BREADCRUMB: TÌM ĐÚNG SLUG TỪ GLOBAL CATEGORIES ---
   const getBreadcrumbItems = () => {
     if (!article) return [];
-
-    const typeLabels = {
-      'tin_tuc': 'Tin tức',
-      'thuoc': 'Thuốc',
-      'benh_ly': 'Bệnh lý'
-    };
-
-    const typeUrls = {
-      'tin_tuc': '/tin-tuc',
-      'thuoc': '/thuoc',
-      'benh_ly': '/benh-ly'
-    };
+    const typeMap = { 'tin_tuc': 'tin-tuc', 'thuoc': 'thuoc', 'benh_ly': 'benh-ly' };
+    const typeLabels = { 'tin_tuc': 'Tin tức', 'thuoc': 'Thuốc', 'benh_ly': 'Bệnh lý' };
+    
+    const catType = article.category?.category_type;
+    const mappedUrlPrefix = typeMap[catType] || 'tin-tuc';
 
     const items = [
       { label: 'Trang chủ', url: '/' },
@@ -312,459 +292,341 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
     ];
 
     if (article.category) {
-      items.push({
-        label: typeLabels[article.category.category_type] || article.category.category_type,
-        url: typeUrls[article.category.category_type]
-      });
-
-      items.push({
-        label: article.category.name,
-        url: `${typeUrls[article.category.category_type]}/${article.category.slug}`
-      });
+      items.push({ label: typeLabels[catType] || 'Danh mục', url: `/${mappedUrlPrefix}` });
+      
+      // Lấy category đầy đủ (có chứa slug) từ state categories thay vì từ article.category (thường thiếu slug do JOIN từ db)
+      const fullCategory = categories.find(c => c.id === article.category_id) || article.category;
+      
+      // Tránh việc slug bị undefined, fallback về id nếu thật sự mất slug
+      const catSlug = fullCategory?.slug || article.category_id;
+      
+      items.push({ label: article.category.name, url: `/${mappedUrlPrefix}/${catSlug}` });
     }
-
     items.push({ label: article.title, url: null });
-
     return items;
   };
 
-  if (loading) {
-    return (
-      <div className="detail-article-page">
-        <div className="detail-article-container">
-          <div className="detail-article-loading" style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            padding: '3rem',
-            background: 'white',
-            borderRadius: '12px',
-            boxShadow: '0 2px 12px rgba(134, 239, 172, 0.15)'
-          }}>
-            <div className="detail-article-spinner"></div>
-            <p style={{ marginTop: '1rem', color: '#64748b' }}>Đang tải bài viết...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div style={{textAlign: 'center', padding: '3rem'}}>Đang tải bài viết...</div>;
+  if (!article) return <div style={{textAlign: 'center', padding: '3rem'}}>Không tìm thấy bài viết</div>;
 
-  if (!article) {
-    return (
-      <div className="detail-article-page">
-        <div className="detail-article-container">
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '3rem',
-            background: 'white',
-            borderRadius: '12px'
-          }}>
-            <h2>Không tìm thấy bài viết</h2>
-            <button onClick={handleGoBack} className="detail-article-back-button">
-              <FaArrowLeft /> Quay lại
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Xử lý link cho nút "Xem thêm"
+  const catTypeMap = { 'tin_tuc': 'tin-tuc', 'thuoc': 'thuoc', 'benh_ly': 'benh-ly' };
+  const parentRoute = catTypeMap[article.category?.category_type] || 'tin-tuc';
+  const fullCat = categories.find(c => c.id === article.category_id) || article.category;
+  const subCategoryUrl = `/${parentRoute}/${fullCat?.slug || article.category_id}`;
 
-  const isAuthor = user && article.author_id === user.id;
-  const isApproved = article.status === 'approved';
+  const currentSidebarAd = article.category?.sidebar_ad_image_url ? article.category : categories.find(c => c.sidebar_ad_image_url);
 
   return (
-    <div className="detail-article-page">
-      <div className="detail-article-container">
-        <div className="detail-article-breadcrumb">
-          <Breadcrumb items={getBreadcrumbItems()} />
-        </div>
-        
-        <button onClick={handleGoBack} className="detail-article-back-button">
-          <FaArrowLeft /> Quay lại
-        </button>
+    <div className="detail-page-wrapper">
+      
+      {/* 1. BREADCRUMB Ở TRÊN CÙNG */}
+      <div className="detail-container detail-breadcrumb-wrapper">
+        <Breadcrumb items={getBreadcrumbItems()} />
+      </div>
 
-        <div className="detail-article-layout">
-          {/* LEFT COLUMN - ARTICLE CONTENT */}
-          <div className="detail-article-card">
-            {/* Header */}
-            <div className="detail-article-header">
+      {/* 2. THANH MENU XANH LÁ (CÓ AUTO-SCROLL NHƯ TRANG DANH SÁCH) */}
+      <div 
+        className="detail-green-navbar"
+        onMouseEnter={() => setIsNavHovered(true)}
+        onMouseLeave={() => setIsNavHovered(false)}
+      >
+        <div className="detail-container detail-marquee-wrapper">
+          {isNavHovered && (
+            <button className="detail-nav-arrow left" onClick={() => scrollNavBy(-300)}>
+              <FaChevronLeft />
+            </button>
+          )}
+
+          <div className="detail-nav-scroll" ref={navScrollRef}>
+            <button className="detail-nav-btn" onClick={() => navigate('/bai-viet')}>TẤT CẢ</button>
+            {categories.map(cat => (
+              <button 
+                key={cat.id} 
+                className={`detail-nav-btn ${article.category_id === cat.id ? 'active' : ''}`}
+                onClick={() => handleCategoryClick(cat)}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+
+          {isNavHovered && (
+            <button className="detail-nav-arrow right" onClick={() => scrollNavBy(300)}>
+              <FaChevronRight />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="detail-container">
+        
+        {/* 3. HEADER: DANH MỤC LỚN, SEARCH & MEGA MENU */}
+        <div className="detail-header-section">
+          <h1 className="detail-main-title">
+            {article.category?.name || 'CHI TIẾT BÀI VIẾT'} <FaChevronRight size={14} color="#cbd5e1"/>
+          </h1>
+          
+          <div className="detail-header-actions">
+            <form className="detail-search-mini" onSubmit={handleSearchSubmit}>
+              <input 
+                type="text" placeholder="Tìm bài viết..." 
+                value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
+              />
+              <button type="submit"><FaSearch /></button>
+            </form>
+
+            <div className="detail-mega-wrapper">
+              <button className="detail-menu-toggle-btn" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                {isMenuOpen ? <FaTimes /> : <FaBars />} DANH MỤC
+              </button>
+
+              {isMenuOpen && (
+                <div className="detail-mega-menu">
+                  <div className="detail-mega-col">
+                    <h3><FaNewspaper /> Tin tức Y tế</h3>
+                    <ul>
+                      {categories.filter(c => c.category_type === 'tin_tuc').map(cat => (
+                        <li key={cat.id} onClick={() => handleCategoryClick(cat)}>{cat.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="detail-mega-col">
+                    <h3><FaHeartbeat /> Tra cứu Bệnh lý</h3>
+                    <ul>
+                      {categories.filter(c => c.category_type === 'benh_ly').map(cat => (
+                        <li key={cat.id} onClick={() => handleCategoryClick(cat)}>{cat.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="detail-mega-col">
+                    <h3><FaPills /> Từ điển Thuốc</h3>
+                    <ul>
+                      {categories.filter(c => c.category_type === 'thuoc').map(cat => (
+                        <li key={cat.id} onClick={() => handleCategoryClick(cat)}>{cat.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="detail-layout-grid">
+          
+          {/* --- CỘT TRÁI (NỘI DUNG CHÍNH) --- */}
+          <div className="detail-main-content">
+            
+            <div className="detail-title-wrapper">
               <h1 className="detail-article-title">{article.title}</h1>
               
-              <div className="detail-article-meta">
-                <span className="detail-article-meta-item">
-                  <FaUser />
-                  {article.author?.full_name || 'Ẩn danh'}
-                </span>
-                <span className="detail-article-meta-item">
-                  <FaCalendar />
-                  {new Date(article.created_at).toLocaleDateString('vi-VN', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </span>
-                <span className="detail-article-meta-item">
-                  <FaEye />
-                  {stats.views || article.views || 0} lượt xem
-                </span>
-              </div>
-            </div>
-
-            {/* Action Bar - 1 HÀNG NGANG */}
-            <div className="detail-article-actions">
-              <button 
-                onClick={() => handleInteraction('like')}
-                className={`detail-article-btn-action ${isLiked ? 'detail-article-btn-liked' : ''}`}
-              >
-                <FaThumbsUp /> {stats.likes || 0}
-              </button>
-
-              <button 
-                onClick={() => handleInteraction('save')}
-                className={`detail-article-btn-action ${isSaved ? 'detail-article-btn-saved' : ''}`}
-              >
-                <FaBookmark /> {isSaved ? 'Đã lưu' : 'Lưu'}
-              </button>
-
-              <div className="detail-article-share-dropdown">
-                <button 
-                  className="detail-article-btn-action"
-                  onClick={() => setShowShareMenu(!showShareMenu)}
-                >
-                  <FaShareAlt /> Chia sẻ
+              {/* Nút 3 chấm gọn gàng */}
+              <div className="detail-action-dropdown-wrapper" ref={actionMenuRef}>
+                <button className="detail-kebab-btn" onClick={() => setIsActionMenuOpen(!isActionMenuOpen)}>
+                  <FaEllipsisV />
                 </button>
-                {showShareMenu && (
-                  <div className="detail-article-share-menu">
-                    <button 
-                      onClick={() => handleShare('facebook')}
-                      className="detail-article-share-option detail-article-share-facebook"
-                    >
-                      <FaShareAlt /> Facebook
+                
+                {isActionMenuOpen && (
+                  <div className="detail-action-menu">
+                    <button className={`detail-action-item ${isLiked ? 'active' : ''}`} onClick={() => handleInteraction('like')}>
+                      <FaThumbsUp /> {isLiked ? 'Đã thích' : 'Thích'} ({stats.likes || 0})
                     </button>
-                    <button 
-                      onClick={() => handleShare('twitter')}
-                      className="detail-article-share-option detail-article-share-twitter"
-                    >
-                      <FaShareAlt /> Twitter
+                    <button className={`detail-action-item ${isSaved ? 'active' : ''}`} onClick={() => handleInteraction('save')}>
+                      <FaBookmark /> {isSaved ? 'Đã lưu' : 'Lưu bài viết'}
                     </button>
-                    <button 
-                      onClick={() => handleShare('zalo')}
-                      className="detail-article-share-option detail-article-share-zalo"
-                    >
-                      <FaShareAlt /> Zalo
+                    <button className="detail-action-item" onClick={handleShare}>
+                      <FaShareAlt /> Chia sẻ
                     </button>
-                    <button 
-                      onClick={() => handleShare('copy')}
-                      className="detail-article-share-option detail-article-share-copy"
-                    >
-                      <FaLink /> Sao chép link
+                    <button className="detail-action-item report-item" onClick={() => { setIsActionMenuOpen(false); setShowReportPopup(true); }}>
+                      <FaFlag /> Báo cáo vi phạm
                     </button>
                   </div>
                 )}
               </div>
-
-              <button 
-                onClick={() => setShowReportPopup(true)}
-                className="detail-article-btn-action detail-article-btn-report"
-              >
-                <FaFlag /> Báo cáo
-              </button>
-
-              {/* ❌ ĐÃ XÓA NÚT YÊU CẦU SỬA:
-              {isAuthor && isApproved && (
-                <button 
-                  onClick={handleRequestEdit}
-                  className="detail-article-btn-action"
-                >
-                  <FaRedo /> Yêu cầu sửa
-                </button>
-              )}
-              */}
-
-              <div className="detail-article-stats">
-                <span><FaShareAlt /> {stats.shares || 0}</span>
-                <span><FaBookmark /> {stats.saves || 0}</span>
-              </div>
+            </div>
+            
+            <div className="detail-article-meta">
+              <span><FaUser color="#059669"/> {article.author?.full_name || 'Ẩn danh'}</span>
+              <span><FaCalendar color="#059669"/> {new Date(article.created_at).toLocaleDateString('vi-VN')}</span>
+              <span><FaEye color="#059669"/> {stats.views || article.views || 0} lượt xem</span>
             </div>
 
-            {/* Article Content */}
-            <div className="detail-article-content">
-              <div dangerouslySetInnerHTML={{ __html: article.content }} />
-            </div>
+            <div className="detail-article-body" dangerouslySetInnerHTML={{ __html: article.content }} />
 
-            {article.source && (
-              <div className="detail-article-tags">
-                <div className="detail-article-tags-label">
-                  <FaLink />
-                  <span>Nguồn:</span>
-                </div>
-                <a href={article.source} target="_blank" rel="noopener noreferrer" 
-                   style={{ color: '#4ade80', textDecoration: 'none' }}>
-                  {article.source}
-                </a>
+            {article.tags_json?.length > 0 && (
+              <div className="detail-tags">
+                <FaTag color="#6b7280" style={{marginTop: '4px'}}/>
+                {article.tags_json.map((tag, idx) => (
+                  <span key={idx} className="detail-tag-item">{tag}</span>
+                ))}
               </div>
             )}
 
-            {/* Tags */}
-            {article.tags_json && article.tags_json.length > 0 && (
-              <div className="detail-article-tags">
-                <div className="detail-article-tags-label">
-                  <FaTag />
-                  <span>Thẻ:</span>
+            {/* BÌNH LUẬN CÔNG KHAI */}
+            <div className="detail-comments-section">
+              <h3><FaCommentDots /> Bình luận ({comments.length})</h3>
+              <form className="detail-comment-form" onSubmit={handleSubmitComment}>
+                <textarea 
+                  rows="3" placeholder="Chia sẻ suy nghĩ của bạn về bài viết..." 
+                  value={newComment} onChange={(e) => setNewComment(e.target.value)}
+                />
+                <button type="submit" className="detail-comment-btn">Gửi bình luận</button>
+              </form>
+              
+              <div className="detail-comment-list">
+                {comments.map(c => (
+                  <div key={c.id} className="detail-comment-item">
+                    <div className="detail-comment-meta">{c.user?.full_name} • {new Date(c.created_at).toLocaleDateString('vi-VN')}</div>
+                    <p className="detail-comment-text">{c.comment_text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* BÀI VIẾT LIÊN QUAN */}
+            {relatedArticles.length > 0 && (
+              <div className="detail-related-section">
+                <div className="detail-related-header">
+                  <h2>CÁC BÀI VIẾT LIÊN QUAN</h2>
+                  <button className="detail-view-more-btn" onClick={() => navigate(subCategoryUrl)}>
+                    Xem thêm <FaChevronRight />
+                  </button>
                 </div>
-                <div className="detail-article-tags-list">
-                  {article.tags_json.map((tag, index) => (
-                    <span key={index} className="detail-article-tag">
-                      <FaTag /> {tag}
-                    </span>
+                
+                <div className="detail-related-list">
+                  {relatedArticles.slice(0, 6).map(related => (
+                    <div key={related.id} className="detail-related-item" onClick={() => {
+                        const rType = catTypeMap[related.category?.category_type] || 'tin-tuc';
+                        navigate(`/${rType}/${related.slug}`);
+                        window.scrollTo(0,0);
+                    }}>
+                      <div className="detail-related-img">
+                        <img src={getFirstImage(related.content)} alt={related.title} />
+                      </div>
+                      <div className="detail-related-info">
+                        <h4>{related.title}</h4>
+                        <span><FaCalendar /> {new Date(related.created_at).toLocaleDateString('vi-VN')}</span>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
+
           </div>
 
-          {/* RIGHT SIDEBAR - MEDICAL INFO */}
-          {((article.entity_type === 'medicine' && article.medicine) || 
-            (article.entity_type === 'disease' && article.disease)) && (
-            <div className="detail-article-sidebar">
-              <h3 className="detail-article-sidebar-title">Thông tin chuyên sâu</h3>
-              
-              {article.entity_type === 'medicine' && article.medicine && (
-                <div className="detail-article-medical-info detail-article-medicine-info">
-                  <h3>Thông tin thuốc: {article.medicine.name || article.title}</h3>
-                  
-                  {article.medicine.composition && (
-                    <div className="detail-article-info-section">
-                      <h4>Thành phần</h4>
-                      <p>{article.medicine.composition}</p>
-                    </div>
-                  )}
-
-                  {article.medicine.uses && (
-                    <div className="detail-article-info-section">
-                      <h4>Công dụng</h4>
-                      <p>{article.medicine.uses}</p>
-                    </div>
-                  )}
-
-                  {article.medicine.side_effects && (
-                    <div className="detail-article-info-section">
-                      <h4>Tác dụng phụ</h4>
-                      <p>{article.medicine.side_effects}</p>
-                    </div>
-                  )}
-
-                  {article.medicine.manufacturer && (
-                    <div className="detail-article-info-section">
-                      <h4>Nhà sản xuất</h4>
-                      <p>{article.medicine.manufacturer}</p>
-                    </div>
-                  )}
-
-                  {/*  NÚT XEM THÊM - THUỐC */}
-                  <button 
-                    className="detail-article-btn-view-more"
-                    onClick={() => navigate(`/tra-cuu-thuoc/${article.medicine.slug || article.medicine.id}`)}
-                  >
-                    Xem chi tiết thuốc
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-
-                </div>
-              )}
-
-              {article.entity_type === 'disease' && article.disease && (
-                <div className="detail-article-medical-info detail-article-disease-info">
-                  <h3>Thông tin bệnh lý: {article.disease.name || article.title}</h3>
-                  
-                  {article.disease.symptoms && (
-                    <div className="detail-article-info-section">
-                      <h4>Triệu chứng</h4>
-                      <p>{article.disease.symptoms}</p>
-                    </div>
-                  )}
-
-                  {article.disease.treatments && (
-                    <div className="detail-article-info-section">
-                      <h4>Điều trị</h4>
-                      <p>{article.disease.treatments}</p>
-                    </div>
-                  )}
-
-                  {article.disease.description && (
-                    <div className="detail-article-info-section">
-                      <h4>Mô tả</h4>
-                      <p>{article.disease.description}</p>
-                    </div>
-                  )}
-
-                  {/*  NÚT XEM THÊM - BỆNH LÝ */}
-                  <button 
-                    className="detail-article-btn-view-more"
-                    onClick={() => navigate(`/tra-cuu-benh-ly/${article.disease.slug || article.disease.id}`)}
-                  >
-                    Xem chi tiết bệnh lý
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* REPORT POPUP */}
-        {showReportPopup && (
-          <div className="detail-article-report-popup-overlay" onClick={() => setShowReportPopup(false)}>
-            <div className="detail-article-report-popup" onClick={(e) => e.stopPropagation()}>
-              <div className="detail-article-report-popup-header">
-                <div className="detail-article-report-header-content">
-                  <FaExclamationTriangle className="detail-article-report-icon" />
-                  <h3>Báo cáo bài viết</h3>
-                </div>
-                <button onClick={() => setShowReportPopup(false)} className="detail-article-button-close-popup">
-                  <FaTimes />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmitReport} className="detail-article-report-popup-body">
-                <div className="detail-article-report-info">
-                  <p>Vui lòng cho chúng tôi biết lý do báo cáo bài viết này. Admin sẽ xem xét và xử lý.</p>
-                </div>
-
-                <div className="detail-article-report-quick-reasons">
-                  <label className="detail-article-report-label">Lý do thường gặp:</label>
-                  <div className="detail-article-quick-reason-buttons">
-                    {reportReasons.map((r, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => setReportReason(r)}
-                        className={`detail-article-button-quick-reason ${reportReason === r ? 'active' : ''}`}
-                      >
-                        {r}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="detail-article-report-form-group">
-                  <label className="detail-article-report-label">
-                    Chi tiết lý do <span className="detail-article-required">*</span>
-                  </label>
-                  <textarea
-                    value={reportReason}
-                    onChange={(e) => setReportReason(e.target.value)}
-                    placeholder="Nhập chi tiết lý do báo cáo (tối đa 500 ký tự)..."
-                    maxLength={500}
-                    rows={5}
-                    className="detail-article-report-textarea"
-                    required
-                  />
-                  <small className="detail-article-char-count">{reportReason.length}/500 ký tự</small>
-                </div>
-
-                <div className="detail-article-report-popup-footer">
-                  <button
-                    type="button"
-                    onClick={() => setShowReportPopup(false)}
-                    className="detail-article-button-cancel"
-                    disabled={submittingReport}
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    className="detail-article-button-submit-report"
-                    disabled={submittingReport || !reportReason.trim()}
-                  >
-                    {submittingReport ? (
-                      <>
-                        <FaSpinner className="detail-article-spinner-icon" /> Đang gửi...
-                      </>
-                    ) : (
-                      <>
-                        <FaPaperPlane /> Gửi báo cáo
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* RELATED ARTICLES SECTION */}
-        <div className="detail-article-related-section">
-          <div className="detail-article-related-container">
-            <h2 className="detail-article-related-title">
-              Bài viết liên quan
-            </h2>
+          {/* --- CỘT PHẢI (SIDEBAR) --- */}
+          <div className="detail-sidebar">
             
-            {loadingRelated ? (
-              <div style={{ textAlign: 'center', padding: '3rem' }}>
-                <div className="detail-article-spinner"></div>
-                <p style={{ marginTop: '1rem', color: '#6b7280' }}>
-                  Đang tải bài viết liên quan...
-                </p>
+            {currentSidebarAd && (
+              <div className="detail-ad-box">
+                <a href={formatAdLink(currentSidebarAd.sidebar_ad_target_link)} target="_blank" rel="noreferrer">
+                  <img src={currentSidebarAd.sidebar_ad_image_url} alt="Quảng cáo" />
+                </a>
               </div>
-            ) : relatedArticles.length > 0 ? (
-              <div className="detail-article-related-grid">
-                {relatedArticles.map(related => (
-                  <div 
-                    key={related.id}
-                    className="detail-article-related-card"
-                    onClick={() => {
-                      const typeMap = {
-                        'tin_tuc': 'tin-tuc',
-                        'thuoc': 'thuoc',
-                        'benh_ly': 'benh-ly'
-                      };
-                      const relatedCategoryType = typeMap[related.category?.category_type] || 'tin-tuc';
-                      navigate(`/${relatedCategoryType}/${related.slug}`);
-                      window.scrollTo(0, 0);
-                    }}
-                  >
-                    <div className="detail-article-related-card-image">
-                      <img 
-                        src={getFirstImageFromContent(related.content) || '/placeholder.jpg'}
-                        alt={related.title}
-                        onError={(e) => {
-                          e.target.src = '/placeholder.jpg';
-                        }}
-                      />
-                    </div>
-                    <div className="detail-article-related-card-content">
-                      <span className="detail-article-related-card-category">
-                        {related.category?.name}
-                      </span>
-                      <h3 className="detail-article-related-card-title">
-                        {related.title}
-                      </h3>
-                      <div className="detail-article-related-card-meta">
-                        <span>
-                          <FaEye /> {related.views || 0}
-                        </span>
-                        <span>
-                          <FaCalendar /> {new Date(related.created_at).toLocaleDateString('vi-VN')}
-                        </span>
-                      </div>
+            )}
+
+            <div>
+              <h3 className="detail-widget-title">ĐỌC NHIỀU NHẤT</h3>
+              <div className="detail-popular-list">
+                {popularArticles.map((pop, index) => (
+                  <div key={pop.id} className="detail-popular-item" onClick={() => {
+                    const pType = catTypeMap[pop.category?.category_type] || 'tin-tuc';
+                    navigate(`/${pType}/${pop.slug}`);
+                    window.scrollTo(0,0);
+                  }}>
+                    <span className="detail-popular-rank">{index + 1}</span>
+                    <div className="detail-popular-content">
+                      <h4>{pop.title}</h4>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
-                <p>Không tìm thấy bài viết liên quan</p>
+            </div>
+
+            {/* THÔNG TIN THAM CHIẾU (THUỐC / BỆNH LÝ) */}
+            {((article.entity_type === 'medicine' && article.medicine) || 
+              (article.entity_type === 'disease' && article.disease)) && (
+              
+              <div className="detail-reference-box">
+                <div className="detail-ref-header">
+                  Thông tin chuyên sâu
+                </div>
+                
+                {article.entity_type === 'medicine' && article.medicine && (
+                  <>
+                    <div className="detail-ref-section">
+                      <strong>Thành phần:</strong> <p>{article.medicine.composition}</p>
+                    </div>
+                    <div className="detail-ref-section">
+                      <strong>Công dụng:</strong> <p>{article.medicine.uses}</p>
+                    </div>
+                    <button className="detail-ref-btn" onClick={() => navigate(`/tra-cuu-thuoc/${article.medicine.slug || article.medicine.id}`)}>
+                      Xem chi tiết thuốc
+                    </button>
+                  </>
+                )}
+
+                {article.entity_type === 'disease' && article.disease && (
+                  <>
+                    <div className="detail-ref-section">
+                      <strong>Triệu chứng:</strong> <p>{article.disease.symptoms}</p>
+                    </div>
+                    <div className="detail-ref-section">
+                      <strong>Điều trị:</strong> <p>{article.disease.treatments}</p>
+                    </div>
+                    <button className="detail-ref-btn" onClick={() => navigate(`/tra-cuu-benh-ly/${article.disease.slug || article.disease.id}`)}>
+                      Xem chi tiết bệnh lý
+                    </button>
+                  </>
+                )}
               </div>
             )}
+
           </div>
         </div>
       </div>
+
+      {/* POPUP BÁO CÁO */}
+      {showReportPopup && (
+        <div className="detail-report-overlay" onClick={() => setShowReportPopup(false)}>
+          <div className="detail-report-modal" onClick={e => e.stopPropagation()}>
+            <div className="detail-report-header">
+              <h3><FaExclamationTriangle color="#ef4444"/> Báo cáo vi phạm</h3>
+              <button className="detail-report-close" onClick={() => setShowReportPopup(false)}><FaTimes/></button>
+            </div>
+            <form onSubmit={handleSubmitReport} className="detail-report-body">
+              <p>Vui lòng chọn hoặc nhập lý do bạn muốn báo cáo bài viết này:</p>
+              
+              <div className="detail-report-reasons">
+                {reportReasonsList.map((r, idx) => (
+                  <button 
+                    key={idx} type="button"
+                    className={`detail-report-reason-btn ${reportReason === r ? 'active' : ''}`}
+                    onClick={() => setReportReason(r)}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+
+              <textarea 
+                rows="4" placeholder="Nhập chi tiết lý do..." required
+                value={reportReason} onChange={(e) => setReportReason(e.target.value)}
+              />
+
+              <div className="detail-report-footer">
+                <button type="button" className="detail-report-cancel" onClick={() => setShowReportPopup(false)} disabled={submittingReport}>Hủy</button>
+                <button type="submit" className="detail-report-submit" disabled={submittingReport || !reportReason.trim()}>
+                  {submittingReport ? 'Đang gửi...' : 'Gửi báo cáo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

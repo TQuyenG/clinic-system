@@ -19,14 +19,14 @@ module.exports = (sequelize) => {
       comment: 'Mã thanh toán'
     },
     
-    // ✅ CHO PHÉP NULL (Để thanh toán Tư vấn thì cái này null)
+    //  CHO PHÉP NULL (Để thanh toán Tư vấn thì cái này null)
     appointment_id: { 
       type: DataTypes.BIGINT, 
       allowNull: true, 
       comment: 'ID lịch hẹn (nếu có)'
     },
 
-    // ✅ CHO PHÉP NULL (Để thanh toán Lịch hẹn thì cái này null)
+    //  CHO PHÉP NULL (Để thanh toán Lịch hẹn thì cái này null)
     consultation_id: { 
       type: DataTypes.BIGINT, 
       allowNull: true, 

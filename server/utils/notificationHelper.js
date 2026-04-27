@@ -7,7 +7,7 @@ const { models } = require('../config/db');
 const createNotification = async ({ user_id, type, title, message, link, data }) => {
   try {
     if (!user_id || !type || !message) {
-      console.error('❌ createNotification: Thiếu thông tin bắt buộc');
+      console.error(' createNotification: Thiếu thông tin bắt buộc');
       return null;
     }
 
@@ -23,11 +23,11 @@ const createNotification = async ({ user_id, type, title, message, link, data })
       updated_at: new Date()
     });
 
-    console.log(`✅ Đã tạo thông báo cho user ${user_id}`);
+    console.log(`Đã tạo thông báo cho user ${user_id}`);
     return notification;
 
   } catch (error) {
-    console.error('❌ Lỗi khi tạo thông báo:', error.message);
+    console.error('Lỗi khi tạo thông báo:', error.message);
     return null;
   }
 };
@@ -42,7 +42,7 @@ const createNotifications = async (notifications) => {
     );
     return results.filter(r => r !== null);
   } catch (error) {
-    console.error('❌ Lỗi khi tạo nhiều thông báo:', error.message);
+    console.error(' Lỗi khi tạo nhiều thông báo:', error.message);
     return [];
   }
 };
@@ -61,7 +61,7 @@ const notifyAllAdmins = async (type, message, link = null) => {
     });
 
     if (admins.length === 0) {
-      console.warn('⚠️ Không tìm thấy admin nào đang hoạt động');
+      console.warn(' Không tìm thấy admin nào đang hoạt động');
       return [];
     }
 
@@ -75,7 +75,7 @@ const notifyAllAdmins = async (type, message, link = null) => {
     return await createNotifications(notifications);
 
   } catch (error) {
-    console.error('❌ Lỗi khi gửi thông báo đến admin:', error.message);
+    console.error(' Lỗi khi gửi thông báo đến admin:', error.message);
     return [];
   }
 };

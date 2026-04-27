@@ -1,47 +1,42 @@
 // client/src/pages/CommunityHomePage.jsx
-// ───────────────────────────────────────────────────────
-// Trang chính: Danh sách nhóm cộng đồng
-// - PUBLIC: Ai cũng xem được danh sách
-// - Bộ lọc: Official, Community, tìm kiếm
-// - CTA: Tạo nhóm (chỉ Doctor/Staff/Admin), Tham gia nhóm
-// ───────────────────────────────────────────────────────
-
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import communityService from '../services/communityService';
+import {
+  FaUsers, FaSearch, FaPlus, FaChevronLeft, FaChevronRight,
+  FaCheckCircle, FaLock, FaEnvelope, FaLockOpen, FaTimes,
+  FaUserMd, FaNewspaper, FaFilter, FaShieldAlt, FaSadTear,
+  FaSpinner, FaCheckSquare
+} from 'react-icons/fa';
 import './CommunityHomePage.css';
 
 const CommunityHomePage = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useContext(AuthContext);
 
-  // STATE
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalGroups, setTotalGroups] = useState(0);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState(''); // '' | 'official' | 'community'
+  const [typeFilter, setTypeFilter] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const LIMIT = 12;
 
-  // FETCH danh sách nhóm
   const fetchGroups = async (pageNum = 1, searchText = '', type = '') => {
     try {
       setLoading(true);
       const params = { page: pageNum, limit: LIMIT };
       if (searchText) params.search = searchText;
       if (type) params.type = type;
-
       const response = await communityService.getGroups(params);
       setGroups(response.data.groups);
       setTotalGroups(response.data.total);
       setPage(pageNum);
     } catch (error) {
       console.error('Lỗi tải danh sách nhóm:', error);
-      // Hiện error toast
     } finally {
       setLoading(false);
     }
@@ -51,7 +46,6 @@ const CommunityHomePage = () => {
     fetchGroups(1, search, typeFilter);
   }, []);
 
-  // SEARCH + FILTER
   const handleSearch = (e) => {
     e.preventDefault();
     setPage(1);
@@ -64,99 +58,84 @@ const CommunityHomePage = () => {
     fetchGroups(1, search, type);
   };
 
-  // PAGINATION
   const totalPages = Math.ceil(totalGroups / LIMIT);
-  const handleNextPage = () => {
-    if (page < totalPages) {
-      fetchGroups(page + 1, search, typeFilter);
-    }
-  };
-  const handlePrevPage = () => {
-    if (page > 1) {
-      fetchGroups(page - 1, search, typeFilter);
-    }
-  };
 
-  // ĐIỀU KIỆN hiển thị "Tạo nhóm": chỉ doctor, staff, admin
   const canCreateGroup = isAuthenticated && ['doctor', 'admin', 'staff'].includes(user?.role);
 
   return (
-    <div className="community-home-page">
-      {/* HEADER */}
-      <div className="community-header">
-        <div className="community-header-content">
-          <h1>👥 Cộng Đồng Y Tế</h1>
+    <div className="chp-page">
+      {/* ── HEADER ── */}
+      <div className="chp-header">
+        <FaUsers className="chp-header-icon" />
+        <div className="chp-header-content">
+          <h1>Cộng Đồng Y Tế</h1>
           <p>Tham gia nhóm cộng đồng, chia sẻ kinh nghiệm và học hỏi từ bác sĩ và cộng đồng</p>
         </div>
-
-        {/* CTA: Tạo nhóm */}
         {canCreateGroup && (
-          <button
-            className="btn-primary btn-lg"
-            onClick={() => setShowCreateModal(true)}
-          >
-            + Tạo Nhóm Mới
+          <button className="chp-btn-primary" onClick={() => setShowCreateModal(true)}>
+            <FaPlus /> Tạo Nhóm Mới
           </button>
         )}
       </div>
 
-      {/* SEARCH + FILTER */}
-      <div className="community-controls">
-        <form onSubmit={handleSearch} className="search-form">
-          <input
-            type="text"
-            placeholder="Tìm kiếm nhóm..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="search-input"
-          />
-          <button type="submit" className="btn-secondary">
-            🔍 Tìm
+      {/* ── SEARCH + FILTER ── */}
+      <div className="chp-controls">
+        <form onSubmit={handleSearch} className="chp-search-form">
+          <div className="chp-search-wrapper">
+            <FaSearch className="chp-search-icon" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm nhóm..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="chp-search-input"
+            />
+          </div>
+          <button type="submit" className="chp-btn-secondary">
+            <FaSearch /> Tìm
           </button>
         </form>
 
-        <div className="filter-tabs">
+        <div className="chp-filter-tabs">
           <button
-            className={`filter-tab ${!typeFilter ? 'active' : ''}`}
+            className={`chp-filter-tab${!typeFilter ? ' chp-filter-tab--active' : ''}`}
             onClick={() => handleTypeFilterChange('')}
           >
-            Tất Cả
+            <FaFilter /> Tất Cả
           </button>
           <button
-            className={`filter-tab ${typeFilter === 'official' ? 'active' : ''}`}
+            className={`chp-filter-tab${typeFilter === 'official' ? ' chp-filter-tab--active' : ''}`}
             onClick={() => handleTypeFilterChange('official')}
           >
-            ✅ Chính Thức
+            <FaShieldAlt /> Chính Thức
           </button>
           <button
-            className={`filter-tab ${typeFilter === 'community' ? 'active' : ''}`}
+            className={`chp-filter-tab${typeFilter === 'community' ? ' chp-filter-tab--active' : ''}`}
             onClick={() => handleTypeFilterChange('community')}
           >
-            👥 Cộng Đồng
+            <FaUsers /> Cộng Đồng
           </button>
         </div>
       </div>
 
-      {/* DANH SÁCH NHÓM */}
+      {/* ── DANH SÁCH NHÓM ── */}
       {loading ? (
-        <div className="loading-container">
-          <div className="spinner"></div>
+        <div className="chp-loading">
+          <div className="chp-spinner"></div>
           <p>Đang tải nhóm...</p>
         </div>
       ) : groups.length === 0 ? (
-        <div className="empty-state">
-          <p>😔 Không có nhóm nào được tìm thấy</p>
+        <div className="chp-empty">
+          <div className="chp-empty-icon"><FaSadTear /></div>
+          <p>Không có nhóm nào được tìm thấy</p>
           {canCreateGroup && (
-            <button
-              className="btn-primary"
-              onClick={() => setShowCreateModal(true)}
-            >
-              Tạo nhóm đầu tiên của bạn
+            <button className="chp-btn-primary" onClick={() => setShowCreateModal(true)}>
+              <FaPlus /> Tạo nhóm đầu tiên
             </button>
           )}
         </div>
       ) : (
-        <div className="groups-grid">
+        <div className="chp-groups-grid">
           {groups.map((group) => (
             <GroupCard
               key={group.id}
@@ -167,30 +146,28 @@ const CommunityHomePage = () => {
         </div>
       )}
 
-      {/* PAGINATION */}
+      {/* ── PAGINATION ── */}
       {totalPages > 1 && (
-        <div className="pagination">
+        <div className="chp-pagination">
           <button
-            className="btn-secondary"
+            className="chp-btn-secondary"
             disabled={page === 1}
-            onClick={handlePrevPage}
+            onClick={() => fetchGroups(page - 1, search, typeFilter)}
           >
-            ← Trang trước
+            <FaChevronLeft /> Trước
           </button>
-          <span className="pagination-info">
-            Trang {page} / {totalPages}
-          </span>
+          <span className="chp-pagination-info">Trang {page} / {totalPages}</span>
           <button
-            className="btn-secondary"
+            className="chp-btn-secondary"
             disabled={page === totalPages}
-            onClick={handleNextPage}
+            onClick={() => fetchGroups(page + 1, search, typeFilter)}
           >
-            Trang sau →
+            Sau <FaChevronRight />
           </button>
         </div>
       )}
 
-      {/* MODAL: Tạo nhóm */}
+      {/* ── MODAL TẠO NHÓM ── */}
       {showCreateModal && canCreateGroup && (
         <CreateGroupModal
           onClose={() => setShowCreateModal(false)}
@@ -208,59 +185,61 @@ const CommunityHomePage = () => {
 // COMPONENT: GroupCard
 // ───────────────────────────────────────────────────────
 const GroupCard = ({ group, onJoinClick }) => {
+  const privacyConfig = {
+    public:      { icon: <FaLockOpen />,  label: 'Công khai' },
+    private:     { icon: <FaLock />,      label: 'Riêng tư' },
+    invite_only: { icon: <FaEnvelope />,  label: 'Lời mời' },
+  };
+  const privacy = privacyConfig[group.privacy] || privacyConfig.public;
+
   return (
-    <div className="group-card">
-      {/* Cover image */}
-      <div className="group-card-cover">
+    <div className="chp-group-card">
+      <div className="chp-card-cover">
         {group.cover_image ? (
           <img src={group.cover_image} alt={group.name} />
         ) : (
-          <div className="placeholder-cover">{group.icon || '👥'}</div>
+          <div className="chp-card-cover-placeholder">
+            <FaUsers />
+          </div>
         )}
-
-        {/* Badge: Official hoặc Community */}
-        <div className={`group-badge ${group.type}`}>
-          {group.type === 'official' ? '✅ Chính Thức' : '👥 Cộng Đồng'}
+        <div className={`chp-card-badge ${group.type === 'official' ? 'chp-badge-official' : 'chp-badge-community'}`}>
+          {group.type === 'official'
+            ? <><FaShieldAlt /> Chính Thức</>
+            : <><FaUsers /> Cộng Đồng</>
+          }
         </div>
       </div>
 
-      {/* Nội dung card */}
-      <div className="group-card-content">
-        <h3 className="group-name">{group.name}</h3>
-        <p className="group-description">{group.description || 'Không có mô tả'}</p>
+      <div className="chp-card-content">
+        <h3 className="chp-card-name">{group.name}</h3>
+        <p className="chp-card-desc">{group.description || 'Không có mô tả'}</p>
 
-        {/* Thông tin bác sĩ phụ trách */}
         {group.doctor && (
-          <div className="group-doctor">
+          <div className="chp-card-doctor">
             <img
               src={group.doctor.user?.avatar_url || '/default-avatar.png'}
               alt={group.doctor.user?.full_name}
-              className="doctor-avatar"
+              className="chp-doctor-avatar"
             />
-            <div className="doctor-info">
-              <span className="doctor-label">Bác sĩ phụ trách</span>
-              <span className="doctor-name">{group.doctor.user?.full_name}</span>
+            <div className="chp-doctor-info">
+              <span className="chp-doctor-label">Bác sĩ phụ trách</span>
+              <span className="chp-doctor-name">{group.doctor.user?.full_name}</span>
             </div>
           </div>
         )}
 
-        {/* Stats: Members, Posts */}
-        <div className="group-stats">
-          <span>👥 {group.members_count} thành viên</span>
-          <span>📝 {group.posts_count} bài đăng</span>
+        <div className="chp-card-stats">
+          <span className="chp-stat-item"><FaUsers /> {group.members_count} thành viên</span>
+          <span className="chp-stat-item"><FaNewspaper /> {group.posts_count} bài đăng</span>
         </div>
 
-        {/* Privacy badge */}
-        <div className="group-privacy">
-          {group.privacy === 'public' && '🔓 Công khai'}
-          {group.privacy === 'private' && '🔒 Riêng tư'}
-          {group.privacy === 'invite_only' && '📨 Chỉ qua lời mời'}
+        <div className="chp-card-privacy">
+          {privacy.icon} {privacy.label}
         </div>
       </div>
 
-      {/* CTA: Join/View */}
-      <button className="btn-primary btn-full" onClick={onJoinClick}>
-        Xem Chi Tiết →
+      <button className="chp-btn-primary chp-btn-full" onClick={onJoinClick}>
+        Xem Chi Tiết <FaChevronRight />
       </button>
     </div>
   );
@@ -270,7 +249,6 @@ const GroupCard = ({ group, onJoinClick }) => {
 // MODAL: CreateGroupModal
 // ───────────────────────────────────────────────────────
 const CreateGroupModal = ({ onClose, onSuccess }) => {
-  const { user } = useContext(AuthContext);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -282,12 +260,9 @@ const CreateGroupModal = ({ onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch danh sách bác sĩ khi modal mở
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        // TODO: Tạo endpoint lấy danh sách bác sĩ active
-        // Tạm thời mock, bạn cần gọi API thực
         const response = await fetch('/api/doctors?status=active');
         const data = await response.json();
         setDoctors(data.data || []);
@@ -300,93 +275,55 @@ const CreateGroupModal = ({ onClose, onSuccess }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    // Validate
-    if (!formData.name.trim()) {
-      setError('Vui lòng nhập tên nhóm');
-      return;
-    }
-    if (!formData.doctor_id) {
-      setError('Vui lòng chọn bác sĩ phụ trách');
-      return;
-    }
+    if (!formData.name.trim()) { setError('Vui lòng nhập tên nhóm'); return; }
+    if (!formData.doctor_id)   { setError('Vui lòng chọn bác sĩ phụ trách'); return; }
 
     setLoading(true);
     try {
-      await communityService.createGroup({
-        ...formData,
-        doctor_id: parseInt(formData.doctor_id)
-      });
-
-      // Toast success
-      alert('✅ Tạo nhóm thành công! Nhóm đang chờ Admin duyệt.');
+      await communityService.createGroup({ ...formData, doctor_id: parseInt(formData.doctor_id) });
+      alert('Tạo nhóm thành công! Nhóm đang chờ Admin duyệt.');
       onSuccess();
     } catch (err) {
       setError(err.response?.data?.message || 'Lỗi tạo nhóm');
-      console.error('Lỗi:', err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Tạo Nhóm Cộng Đồng Mới</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+    <div className="chp-modal-overlay" onClick={onClose}>
+      <div className="chp-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="chp-modal-header">
+          <h2><FaUsers style={{ marginRight: 8 }} />Tạo Nhóm Cộng Đồng</h2>
+          <button className="chp-modal-close" onClick={onClose}><FaTimes /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="modal-form">
-          {error && <div className="error-message">{error}</div>}
+        <form onSubmit={handleSubmit} className="chp-modal-form">
+          {error && <div className="chp-error-msg">{error}</div>}
 
-          {/* Tên nhóm */}
-          <div className="form-group">
-            <label htmlFor="name">Tên Nhóm *</label>
-            <input
-              id="name"
-              type="text"
-              name="name"
+          <div className="chp-form-group">
+            <label htmlFor="name"><FaUsers /> Tên Nhóm *</label>
+            <input id="name" type="text" name="name"
               placeholder="Ví dụ: Nhóm Tư Vấn Sức Khỏe Tim Mạch"
-              value={formData.name}
-              onChange={handleChange}
-              maxLength="255"
-              required
-            />
+              value={formData.name} onChange={handleChange} maxLength="255" required />
           </div>
 
-          {/* Mô tả */}
-          <div className="form-group">
-            <label htmlFor="description">Mô Tả Nhóm</label>
-            <textarea
-              id="description"
-              name="description"
+          <div className="chp-form-group">
+            <label htmlFor="description"><FaNewspaper /> Mô Tả Nhóm</label>
+            <textarea id="description" name="description" rows="3"
               placeholder="Mô tả mục đích, quy tắc của nhóm..."
-              value={formData.description}
-              onChange={handleChange}
-              rows="4"
-            />
+              value={formData.description} onChange={handleChange} />
           </div>
 
-          {/* Bác sĩ phụ trách (BẮT BUỘC) */}
-          <div className="form-group">
-            <label htmlFor="doctor_id">Bác Sĩ Phụ Trách * (Bắt Buộc)</label>
-            <select
-              id="doctor_id"
-              name="doctor_id"
-              value={formData.doctor_id}
-              onChange={handleChange}
-              required
-            >
+          <div className="chp-form-group">
+            <label htmlFor="doctor_id"><FaUserMd /> Bác Sĩ Phụ Trách *</label>
+            <select id="doctor_id" name="doctor_id" value={formData.doctor_id} onChange={handleChange} required>
               <option value="">-- Chọn bác sĩ --</option>
               {doctors.map((doc) => (
                 <option key={doc.id} value={doc.id}>
@@ -394,54 +331,30 @@ const CreateGroupModal = ({ onClose, onSuccess }) => {
                 </option>
               ))}
             </select>
-            <small>Nhóm sẽ bị suspend nếu bác sĩ này rời đi</small>
+            <small>Nhóm sẽ bị tạm ngưng nếu bác sĩ này rời đi</small>
           </div>
 
-          {/* Quyền riêng tư */}
-          <div className="form-group">
-            <label htmlFor="privacy">Quyền Riêng Tư</label>
-            <select
-              id="privacy"
-              name="privacy"
-              value={formData.privacy}
-              onChange={handleChange}
-            >
-              <option value="public">🔓 Công khai (Ai cũng join được)</option>
-              <option value="private">🔒 Riêng tư (Cần phê duyệt)</option>
-              <option value="invite_only">📨 Chỉ qua lời mời</option>
+          <div className="chp-form-group">
+            <label htmlFor="privacy"><FaLock /> Quyền Riêng Tư</label>
+            <select id="privacy" name="privacy" value={formData.privacy} onChange={handleChange}>
+              <option value="public">Công khai — Ai cũng tham gia được</option>
+              <option value="private">Riêng tư — Cần phê duyệt</option>
+              <option value="invite_only">Chỉ qua lời mời</option>
             </select>
           </div>
 
-          {/* Kiểm duyệt bài đăng */}
-          <div className="form-group">
-            <label htmlFor="requires_post_approval">
-              <input
-                id="requires_post_approval"
-                type="checkbox"
-                name="requires_post_approval"
-                checked={formData.requires_post_approval}
-                onChange={handleChange}
-              />
-              <span>Yêu cầu duyệt bài đăng trước khi hiển thị</span>
-            </label>
-          </div>
+          <label className="chp-form-checkbox">
+            <input type="checkbox" name="requires_post_approval"
+              checked={formData.requires_post_approval} onChange={handleChange} />
+            <FaCheckSquare /> Yêu cầu duyệt bài đăng trước khi hiển thị
+          </label>
 
-          {/* Actions */}
-          <div className="modal-actions">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={onClose}
-              disabled={loading}
-            >
-              Hủy
+          <div className="chp-modal-actions">
+            <button type="button" className="chp-btn-secondary" onClick={onClose} disabled={loading}>
+              <FaTimes /> Hủy
             </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={loading}
-            >
-              {loading ? 'Đang tạo...' : '✓ Tạo Nhóm'}
+            <button type="submit" className="chp-btn-primary" disabled={loading}>
+              {loading ? <><FaSpinner /> Đang tạo...</> : <><FaCheckCircle /> Tạo Nhóm</>}
             </button>
           </div>
         </form>

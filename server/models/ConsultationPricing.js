@@ -115,6 +115,6 @@ module.exports = (sequelize) => {
     });
   };
 
-  console.log('✅ Model ConsultationPricing (LOGIC B) đã được định nghĩa');
+  console.log(' Model ConsultationPricing (LOGIC B) đã được định nghĩa');
   return ConsultationPricing;
 };

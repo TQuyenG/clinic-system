@@ -62,6 +62,6 @@ module.exports = (sequelize) => {
     GroupJoinRequest.belongsTo(models.User, { foreignKey: 'reviewed_by', as: 'reviewer' });
   };
 
-  console.log('✅ Model GroupJoinRequest đã được định nghĩa.');
+  console.log(' Model GroupJoinRequest đã được định nghĩa.');
   return GroupJoinRequest;
 };

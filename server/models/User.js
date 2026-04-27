@@ -22,7 +22,7 @@ module.exports = (sequelize) => {
     last_login: { type: DataTypes.DATE, allowNull: true },
     is_active: { type: DataTypes.BOOLEAN, defaultValue: false },
     
-    // ✅ OAUTH FIELDS - THÊM MỚI CHO GOOGLE + FACEBOOK
+    //  OAUTH FIELDS - THÊM MỚI CHO GOOGLE + FACEBOOK
     google_id: { type: DataTypes.STRING(255), allowNull: true, unique: true },
     facebook_id: { type: DataTypes.STRING(255), allowNull: true, unique: true },
     oauth_provider: { 
@@ -31,10 +31,10 @@ module.exports = (sequelize) => {
       allowNull: true 
     },
     
-    // ✅ THÊM MỚI: Cột lưu điểm tích lũy của user
+    //  THÊM MỚI: Cột lưu điểm tích lũy của user
     reward_points: { type: DataTypes.INTEGER, defaultValue: 0 },
 
-    // ✅ THÊM MỚI: Cột lưu điểm tích lũy của user
+    //  THÊM MỚI: Cột lưu điểm tích lũy của user
     reward_points: { type: DataTypes.INTEGER, defaultValue: 0 },
     last_checkin_date: { type: DataTypes.DATE, allowNull: true },
     
@@ -49,8 +49,8 @@ module.exports = (sequelize) => {
     indexes: [
       { fields: ['email'] }, 
       { fields: ['username'] },
-      { fields: ['google_id'] },    // ✅ Index cho OAuth
-      { fields: ['facebook_id'] }   // ✅ Index cho OAuth
+      { fields: ['google_id'] },    //  Index cho OAuth
+      { fields: ['facebook_id'] }   //  Index cho OAuth
     ]
   });
 
@@ -110,7 +110,7 @@ module.exports = (sequelize) => {
     if (models.SystemSetting) {
       User.hasMany(models.SystemSetting, { foreignKey: 'updated_by' });
     }
-    // ✅ COMMUNITY GROUPS
+    //  COMMUNITY GROUPS
     if (models.CommunityGroup) {
       User.hasMany(models.CommunityGroup, { foreignKey: 'owner_id', as: 'ownedGroups' });
     }

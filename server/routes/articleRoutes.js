@@ -16,6 +16,9 @@ router.post('/:id/view', articleController.trackArticleView);
 router.get('/search', articleController.searchArticles);
 router.get('/search/global', articleController.globalSearch);
 
+// [THÊM MỚI] Lấy danh sách bình luận công khai (ai cũng xem được)
+router.get('/:id/public-comments', articleController.getPublicComments);
+
 // ===== PROTECTED ROUTES - CẦN AUTH =====
 
 // --- TAGS & SAVED ARTICLES ---
@@ -171,6 +174,10 @@ router.post('/:id/duplicate', authenticateToken, roleMiddleware('articles:create
 router.get('/:id/comments', authenticateToken, articleController.getArticleComments);
 router.post('/:id/comments', authenticateToken, articleController.addCommentToArticle);
 router.delete('/:id/comments/:commentId', authenticateToken, articleController.deleteComment);
+
+// [THÊM MỚI] Gửi bình luận công khai (Cần đăng nhập)
+router.post('/:id/public-comments', authenticateToken, articleController.addPublicComment);
+
 router.get('/:id/reports', authenticateToken, roleMiddleware(['admin']), articleController.getArticleReports);
 router.post('/:id/report', authenticateToken, articleController.reportArticle);
 router.get('/:id/interactions', authenticateToken, articleController.getArticleInteractions);
@@ -195,13 +202,13 @@ router.get('/:categoryType/:slug', articleController.getByTypeAndSlug);
 
 // 4. Lấy danh sách bài viết (Admin/Staff/Doctor xem được bài liên quan)
 router.get('/',
-  authenticateToken, // Sửa từ authMiddleware.verifyToken thành authenticateToken
+  authenticateToken, 
   roleMiddleware(null, ['admin', 'staff', 'doctor']),
   articleController.getArticles
 );
 
 // ➕ TẠO BÀI VIẾT MỚI - Yêu cầu quyền 'articles:create'
 // Staff Content và Doctor có thể tạo bài viết
-router.post('/', authenticateToken, roleMiddleware('articles:create'), articleController.createArticle);// 🚨 Dòng này có thể là nguyên nhân lỗi 404 nếu thiếu controller trước đó!
+router.post('/', authenticateToken, roleMiddleware('articles:create'), articleController.createArticle);
 
-module.exports = router; 
+module.exports = router;

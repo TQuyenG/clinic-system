@@ -24,6 +24,11 @@ module.exports = (sequelize) => {
       allowNull: false,
       comment: 'Nội dung comment'
     },
+    is_public: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      comment: 'True: Bình luận công khai của độc giả | False: Bình luận nội bộ review'
+    },
     is_deleted: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
@@ -46,9 +51,10 @@ module.exports = (sequelize) => {
     indexes: [
       { fields: ['article_id'] },
       { fields: ['user_id'] },
-      { fields: ['created_at'] }
+      { fields: ['created_at'] },
+      { fields: ['is_public'] } // Thêm index để truy vấn lọc comment public/nội bộ nhanh hơn
     ],
-    comment: 'Bảng lưu comment trao đổi giữa admin và tác giả khi phê duyệt'
+    comment: 'Bảng lưu comment trao đổi giữa admin và tác giả khi phê duyệt VÀ bình luận công khai của độc giả'
   });
 
   ArticleComment.associate = (models) => {

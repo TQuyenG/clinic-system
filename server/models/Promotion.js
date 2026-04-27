@@ -52,7 +52,7 @@ module.exports = (sequelize) => {
     // SAU KHI SỬA
     // Game Config
     is_game_reward: { type: DataTypes.BOOLEAN, defaultValue: false },
-    // ✅ THÊM MỚI: CẤU HÌNH CHO CỬA HÀNG ĐỔI ĐIỂM
+    //  THÊM MỚI: CẤU HÌNH CHO CỬA HÀNG ĐỔI ĐIỂM
     is_exchange_reward: { type: DataTypes.BOOLEAN, defaultValue: false, comment: 'Đánh dấu là quà đổi điểm' },
     exchange_points: { type: DataTypes.INTEGER, defaultValue: 0, comment: 'Số điểm cần để đổi mã này' },
     
@@ -66,7 +66,7 @@ module.exports = (sequelize) => {
       defaultValue: 0, 
       comment: 'Tỷ lệ trúng thưởng (0-100%)' 
     },
-    // ✅ THÊM MỚI: PHÂN LOẠI PHẦN THƯỞNG GAME
+    //  THÊM MỚI: PHÂN LOẠI PHẦN THƯỞNG GAME
     reward_type: {
       type: DataTypes.ENUM('voucher', 'card', 'item'),
       defaultValue: 'voucher',
