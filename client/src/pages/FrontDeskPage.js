@@ -5,8 +5,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext'; // <--- THÊM DÒNG NÀY
 import WorkShiftModal from '../components/finance/WorkShiftModal'; // Giữ nguyên file này
-// Đảm bảo có dòng này
-import { Modal, Button } from 'react-bootstrap'; 
+// Custom Modal — không dùng Bootstrap
 // Thêm FaInfoCircle vào danh sách icon
 import { 
   FaUserPlus, FaMoneyBillWave, FaPills, FaSearch, FaPrint, FaEdit, 
@@ -22,7 +21,55 @@ import {
 import appointmentService from '../services/appointmentService'; // <--- Import Service
 import './FrontDeskPage.css';
 
-// --- MOCK DATA (Cấu trúc dữ liệu chuẩn hơn) ---
+// ─── CUSTOM MODAL (không dùng Bootstrap) ──────────────────────────────────
+// Render vào document.body qua Portal để tránh stacking context của layout cha
+import { createPortal } from 'react-dom';
+
+const FrdModal = ({ show, onHide, size = 'md', children, className = '' }) => {
+  useEffect(() => {
+    if (show) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [show]);
+
+  if (!show) return null;
+
+  const sizeClass = size === 'lg' ? 'frd-modal-lg' : size === 'xl' ? 'frd-modal-xl' : size === 'sm' ? 'frd-modal-sm' : '';
+
+  return createPortal(
+    <div className="frd-modal-backdrop" onClick={onHide}>
+      <div className={`frd-modal-dialog ${sizeClass} ${className}`} onClick={e => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+FrdModal.Header = ({ children, onHide, className = '' }) => (
+  <div className={`frd-modal-header ${className}`}>
+    <div className="frd-modal-title">{children}</div>
+    {onHide && (
+      <button className="frd-modal-close" onClick={onHide} type="button">
+        <FaTimes />
+      </button>
+    )}
+  </div>
+);
+
+FrdModal.Body = ({ children, className = '' }) => (
+  <div className={`frd-modal-body ${className}`}>{children}</div>
+);
+
+FrdModal.Footer = ({ children, className = '' }) => (
+  <div className={`frd-modal-footer ${className}`}>{children}</div>
+);
+// ──────────────────────────────────────────────────────────────────────────────
+
+// --- MOCK DATA ---
 // Data được load từ API — không dùng mock
 const ROOMS = [];
 const SERVICES = [];
@@ -598,6 +645,10 @@ const handleCashierNextDay = () => {
     } catch (e) { console.error('Load doctors error:', e); }
   };
 
+  useEffect(() => {
+    if (showNewPatientForm) loadWalkInDoctors();
+  }, [showNewPatientForm]);
+
   const loadWalkInSlots = async (doctorId, serviceId, date) => {
     if (!doctorId || !serviceId || !date) return;
     try {
@@ -922,13 +973,13 @@ const handlePayment = async () => {
               className={`frdeskpage-btn frdeskpage-btn-sm ${receptionTab === 'payment' ? 'frdeskpage-btn-primary' : 'frdeskpage-btn-secondary'}`}
               onClick={() => setReceptionTab('payment')}
             >
-              <FaMoneyBillWave/> CHỜ LẤY SỐ TT <span className="frdeskpage-badge-num" style={{marginLeft:6}}>{unpaidAppointments.length}</span>
+              <FaMoneyBillWave/> CHỜ LẤY SỐ TT <span className="frdeskpage-badge-num frd-ml6">{unpaidAppointments.length}</span>
             </button>
             <button 
               className={`frdeskpage-btn frdeskpage-btn-sm ${receptionTab === 'exam' ? 'frdeskpage-btn-primary' : 'frdeskpage-btn-secondary'}`}
               onClick={() => setReceptionTab('exam')}
             >
-              <FaStethoscope/> DANH SÁCH CHỜ KHÁM <span className="frdeskpage-badge-num" style={{marginLeft:6}}>{paidAppointments.length}</span>
+              <FaStethoscope/> DANH SÁCH CHỜ KHÁM <span className="frdeskpage-badge-num frd-ml6">{paidAppointments.length}</span>
             </button>
           </div>
 
@@ -950,7 +1001,7 @@ const handlePayment = async () => {
              </div>
 
              <select 
-                className="frdeskpage-select" style={{width: '150px'}}
+                className="frdeskpage-select frd-w150"
                 value={receptionFilter.status}
                 onChange={(e) => setReceptionFilter({...receptionFilter, status: e.target.value})}
              >
@@ -962,7 +1013,7 @@ const handlePayment = async () => {
              <div className="frdeskpage-search frdeskpage-flex-1">
                 <input 
                   type="text" 
-                  className="frdeskpage-input frdeskpage-flex-1" style={{}} 
+                  className="frdeskpage-input frdeskpage-flex-1"
                   placeholder="Tìm kiếm bệnh nhân (Tên, Mã, SĐT)..."
                   value={receptionFilter.keyword}
                   onChange={(e) => setReceptionFilter({...receptionFilter, keyword: e.target.value})}
@@ -974,7 +1025,7 @@ const handlePayment = async () => {
       </div>
 
       {/* 3. BẢNG DỮ LIỆU & VÙNG LẤY SỐ (2 CỘT) */}
-      <div className="frdeskpage-reception-layout">
+      <div className="frd-reception-grid">
         
         {/* CỘT TRÁI: BẢNG DANH SÁCH */}
         <div className="frdeskpage-panel frdeskpage-flex-1">
@@ -982,16 +1033,16 @@ const handlePayment = async () => {
             <table className="frdeskpage-table frdeskpage-table-compact">
               <thead >
                 <tr>
-                  <th style={{width: '40px', textAlign:"center"}}>#</th>
-                  <th style={{width: '90px'}}>Mã HS</th>
-                  <th style={{width: '80px', textAlign:"center"}}>STT</th> {/* ĐÂY LÀ SỐ PHIẾU IN RA */}
-                  <th style={{width: '200px'}}>Họ tên bệnh nhân</th>
-                  <th style={{width: '80px'}}>Năm sinh</th>
-                  <th style={{width: '100px'}}>SĐT</th>
+                  <th className="frd-th-idx">#</th>
+                  <th className="frd-th-code">Mã HS</th>
+                  <th className="frd-th-stt">STT</th>
+                  <th className="frd-th-name">Họ tên bệnh nhân</th>
+                  <th className="frd-th-dob">Năm sinh</th>
+                  <th className="frd-th-phone">SĐT</th>
                   <th>Dịch vụ đăng ký</th>
-                  <th style={{width: '70px'}}>Giờ</th>
-                  <th className="text-center" style={{width: '110px'}}>Trạng thái</th>
-                  <th className="text-end" style={{width: '130px'}}>Thao tác</th>
+                  <th className="frd-th-time">Giờ</th>
+                  <th className="frd-tc frd-th-status">Trạng thái</th>
+                  <th className="frd-tr frd-th-action">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -1002,40 +1053,30 @@ const handlePayment = async () => {
                    if (receptionTab === 'exam' && appt.queue_number) sttDisplay = appt.queue_number;
 
                    return (
-                   <tr key={appt.id} style={{fontSize: '12px'}}>
-                     {/* Cột #: Số thứ tự danh sách (Index + 1) */}
-                     <td style={{textAlign:"center",color:"var(--frd-gray-500)",fontWeight:700}}>{index + 1}</td>
-                     
-                     <td><span style={{fontWeight:700,color:"var(--frd-green-700)"}}>{appt.code}</span></td>
-                     
-                     {/* Cột STT: Số phiếu cấp ra (Nếu chưa cấp hiện 'Chưa có') */}
-                     <td style={{textAlign:"center"}}>
+                   <tr key={appt.id} className="frd-tr-sm">
+                     <td className="frd-tc frd-gray-bold">{index + 1}</td>
+                     <td><span className="frd-code-green">{appt.code}</span></td>
+                     <td className="frd-tc">
                         {sttDisplay ? (
                             <span className="frdeskpage-badge frdeskpage-badge-pill frdeskpage-badge-green">{sttDisplay}</span>
                         ) : (
                             <span className="frdeskpage-badge frdeskpage-badge-gray">Chưa có</span>
                         )}
                      </td>
-
-                     <td style={{fontWeight:700,textTransform:"uppercase"}}>
+                     <td className="frd-fw-700 frd-uppercase">
                         {appt.guest_name || appt.Patient?.User?.full_name}
                      </td>
-
-                     <td style={{color:"var(--frd-gray-500)"}}>
+                     <td className="frd-gray-text">
                         {appt.guest_dob ? new Date(appt.guest_dob).getFullYear() : (appt.Patient?.User?.dob ? new Date(appt.Patient.User.dob).getFullYear() : '--')}
                      </td>
-
                      <td>{appt.guest_phone || appt.Patient?.User?.phone}</td>
-
                      <td>
-                       <div style={{maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"var(--frd-blue-700)"}} title={appt.Service?.name}>
+                       <div className="frd-service-cell" title={appt.Service?.name}>
                           {appt.Service?.name}
                        </div>
                      </td>
-
-                     <td style={{fontWeight:700,fontFamily:"var(--frd-mono)"}}>{appt.appointment_start_time?.slice(0,5)}</td>
-
-                     <td style={{textAlign:"center"}}>
+                     <td className="frd-fw-700 frd-mono">{appt.appointment_start_time?.slice(0,5)}</td>
+                     <td className="frd-tc">
                        {receptionTab === 'payment' ? (
                           sttDisplay 
                           ? <span className="frdeskpage-badge frdeskpage-badge-pill frdeskpage-badge-amber">Chờ thanh toán</span>
@@ -1044,19 +1085,15 @@ const handlePayment = async () => {
                           <span className="frdeskpage-badge frdeskpage-badge-pill frdeskpage-badge-blue">Chờ khám</span>
                        )}
                      </td>
-
-                     <td style={{textAlign:"right"}}>
+                     <td className="frd-tr">
                        <div className="frdeskpage-flex-end frdeskpage-gap-2">
-                           {/* Nút Cấp số / In lại */}
                            {!sttDisplay ? (
-                               <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-xs" 
-                                  style={{height: '24px', fontSize: '11px'}}
+                               <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-xs frd-btn-action"
                                   onClick={() => handleCheckIn(appt, receptionTab === 'payment' ? 'payment' : 'clinical')}>
                                   <FaTicketAlt /> CẤP SỐ
                                </button>
                            ) : (
-                               <button className="frdeskpage-btn frdeskpage-btn-ghost frdeskpage-btn-xs"
-                                  style={{height: '24px', fontSize: '11px'}}
+                               <button className="frdeskpage-btn frdeskpage-btn-ghost frdeskpage-btn-xs frd-btn-action"
                                   onClick={() => {
                                       setPrintData({ 
                                           ...appt, 
@@ -1069,9 +1106,7 @@ const handlePayment = async () => {
                                   <FaPrint /> IN LẠI
                                </button>
                            )}
-                           
-                           <button className="frdeskpage-btn frdeskpage-btn-danger frdeskpage-btn-xs" 
-                              style={{height: '24px'}}
+                           <button className="frdeskpage-btn frdeskpage-btn-danger frdeskpage-btn-xs frd-btn-icon-sm"
                               onClick={(e) => { e.stopPropagation(); handleCancelAppt(appt.id); }} title="Hủy">
                                <FaTrash size={10}/>
                            </button>
@@ -1082,7 +1117,7 @@ const handlePayment = async () => {
                 
                 {(receptionTab === 'payment' ? unpaidAppointments : paidAppointments).length === 0 && (
                   <tr>
-                      <td colSpan="10" style={{textAlign:"center",padding:"32px 0",color:"var(--frd-gray-400)",fontSize:11}}>
+                      <td colSpan="10" className="frd-empty-cell">
                           <span>Không có dữ liệu cho ngày {new Date(receptionFilter.date).toLocaleDateString('vi-VN')}</span>
                       </td>
                   </tr>
@@ -1090,37 +1125,37 @@ const handlePayment = async () => {
               </tbody>
             </table>
           </div>
-          <div className="frdeskpage-panel-footer frdeskpage-text-muted" style={{textAlign:"right"}}>
+          <div className="frdeskpage-panel-footer frdeskpage-text-muted frd-tr">
               Tổng số: <strong>{(receptionTab === 'payment' ? unpaidAppointments : paidAppointments).length}</strong> hồ sơ
           </div>
         </div>
 
         {/* CỘT PHẢI: VÙNG LẤY SỐ (TICKET AREA) */}
-        <div className="frdeskpage-panel" style={{height: 'fit-content'}}>
+        <div className="frdeskpage-panel frd-ticket-panel">
           <div className="frdeskpage-panel-header">
             <FaTicketAlt/>
-            <h6 style={{margin: 0, fontWeight: 700, textTransform: 'uppercase', fontSize: 11}}>Lấy Số</h6>
+            <h6 className="frd-panel-h6">Lấy Số</h6>
           </div>
-          <div className="frdeskpage-p-12" style={{display: 'flex', flexDirection: 'column', gap: 8}}>
+          <div className="frd-ticket-body">
             {(receptionTab === 'payment' ? unpaidAppointments : paidAppointments).length > 0 ? (
               <>
-                <div className="frdeskpage-ticket-area-box">
-                  <div className="frdeskpage-ticket-area-label">Khách tiếp theo</div>
-                  <div className="frdeskpage-ticket-area-number">
+                <div className="frd-next-ticket-box">
+                  <div className="frd-next-ticket-label">Khách tiếp theo</div>
+                  <div className="frd-next-ticket-num">
                     {((receptionTab === 'payment' ? unpaidAppointments : paidAppointments)[0]?.payment_queue_number || (receptionTab === 'payment' ? unpaidAppointments : paidAppointments)[0]?.queue_number) || '--'}
                   </div>
                 </div>
-                <div className="frdeskpage-ticket-area-customer">
+                <div className="frd-next-ticket-customer">
                   <strong>Khách hàng:</strong> {((receptionTab === 'payment' ? unpaidAppointments : paidAppointments)[0]?.guest_name || (receptionTab === 'payment' ? unpaidAppointments : paidAppointments)[0]?.Patient?.User?.full_name) || 'N/A'}
                 </div>
-                <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-full" style={{fontSize: 12, padding: '8px 12px', marginTop: 8}}>
+                <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-full frd-ticket-call-btn">
                   <FaCheckCircle/> Gọi khách
                 </button>
               </>
             ) : (
-              <div className="frdeskpage-ticket-area-empty">
-                <div className="frdeskpage-ticket-area-empty-num">--</div>
-                <div className="frdeskpage-ticket-area-empty-text">Không có khách chờ</div>
+              <div className="frd-ticket-empty">
+                <div className="frd-ticket-empty-num">--</div>
+                <div className="frd-ticket-empty-text">Không có khách chờ</div>
               </div>
             )}
           </div>
@@ -1147,7 +1182,7 @@ const handlePayment = async () => {
           <div className="frdeskpage-call-box">
             <div>
               <div className="frdeskpage-call-label">
-                <FaHospital style={{marginRight: 5}}/> Đang mời thanh toán
+                <FaHospital className="frd-mr5"/> Đang mời thanh toán
               </div>
               <div className="frdeskpage-call-name">
                 {currentCalling
@@ -1158,8 +1193,8 @@ const handlePayment = async () => {
                 {currentCalling ? `Mã hồ sơ: ${currentCalling.code}` : 'Hàng đợi trống'}
               </div>
             </div>
-            <div style={{display: 'flex', alignItems: 'center', gap: 14}}>
-              <div style={{textAlign: 'center'}}>
+            <div className="frd-call-right">
+              <div className="frd-tc">
                 <div className="frdeskpage-call-number">{currentCalling?.payment_queue_number || '--'}</div>
                 <div className="frdeskpage-call-counter">Quầy 1</div>
               </div>
@@ -1189,8 +1224,7 @@ const handlePayment = async () => {
         
           {/* Status filter */}
           <select
-            className="frdeskpage-select"
-            style={{width: 148, height: 30}}
+            className="frdeskpage-select frd-select-cashier"
             value={cashierFilter.status}
             onChange={e => setCashierFilter({...cashierFilter, status: e.target.value})}
           >
@@ -1201,7 +1235,7 @@ const handlePayment = async () => {
         
           {/* Search */}
           <div className="frdeskpage-search">
-            <FaSearch size={11} style={{color: 'var(--frd-gray-500)', flexShrink: 0}}/>
+            <FaSearch size={11} className="frd-search-icon"/>
             <input
               placeholder="Tên BN, Mã hồ sơ, SĐT..."
               value={cashierFilter.keyword}
@@ -1214,69 +1248,53 @@ const handlePayment = async () => {
           </button>
         </div>
 
-          <div className="frdeskpage-panel-body p-0">
+          <div className="frdeskpage-panel-body frd-p0">
              <table className="frdeskpage-table">
                 <thead>
                     <tr>
-                        <th style={{width: '50px'}}>STT</th>
-                        <th style={{width: '100px'}}>Mã HS</th>
+                        <th className="frd-w50">STT</th>
+                        <th className="frd-w100">Mã HS</th>
                         <th>Họ tên</th>
-                        <th style={{width: '80px'}}>Giờ</th>
+                        <th className="frd-w80">Giờ</th>
                         <th>Bác sĩ</th>
                         <th>Dịch vụ</th>
-                        <th style={{textAlign:"right"}}>Số tiền</th>
-                        <th style={{textAlign:"center"}}>Trạng thái</th>
-                        <th style={{textAlign:"right"}}>Thao tác</th>
+                        <th className="frd-tr">Số tiền</th>
+                        <th className="frd-tc">Trạng thái</th>
+                        <th className="frd-tr">Thao tác</th>
                     </tr>
                 </thead>
                 <tbody>
                    {cashierList.map((p, index) => {
-                    // Kiểm tra xem đơn này đã thanh toán chưa
                     const isPaid = ['paid_at_clinic', 'paid_online', 'paid'].includes(p.payment_status);
-
                     return (
                     <tr key={p.id} 
-                        className={selectedBill?.id === p.id ? 'active' : ''}
-                        // SỬA: Bỏ điều kiện !isPaid để luôn cho phép click xem chi tiết
+                        className={`${selectedBill?.id === p.id ? 'active' : ''} ${isPaid ? 'frd-row-paid' : ''} frd-row-click`}
                         onClick={() => setSelectedBill(p)} 
-                        style={{cursor: 'pointer', backgroundColor: isPaid ? '#f0fdf4' : 'white'}} // Đổi màu xanh nhẹ nếu đã thu
                     >
                         <td>
                             <span className={`frdeskpage-badge ${isPaid ? 'frdeskpage-badge-gray' : 'frdeskpage-badge-num'}`}>
                               {index + 1}
                             </span>
                         </td>
-
-                        <td><span style={{fontWeight:700}}>{p.code}</span></td>
+                        <td><span className="frd-fw-700">{p.code}</span></td>
                         <td>{p.guest_name || p.Patient?.User?.full_name}</td>
-
                         <td>
-                          <div style={{fontWeight:700,fontSize:11}}>{p.appointment_start_time?.slice(0, 5)}</div>
+                          <div className="frd-fw-700 frd-fs11">{p.appointment_start_time?.slice(0, 5)}</div>
                         </td>
-
                         <td>
-                          <div style={{fontSize:11,color:"var(--frd-blue-700)",fontWeight:700}}>
-                              {p.Doctor?.user?.full_name || 'Chưa chỉ định'}
-                          </div>
+                          <div className="frd-doctor-name">{p.Doctor?.user?.full_name || 'Chưa chỉ định'}</div>
                         </td>
-
-                        <td><span style={{fontSize:10}}>{p.Service?.name}</span></td>
-                        
-                        {/* Cột số tiền: Nếu đã thu hiện màu xanh, chưa thu hiện màu đỏ */}
-                        <td style={{textAlign:"right",fontWeight:700,fontFamily:"var(--frd-mono)",color:isPaid?"var(--frd-green-700)":"var(--frd-red-700)"}}>
+                        <td><span className="frd-fs10">{p.Service?.name}</span></td>
+                        <td className={`frd-tr frd-fw-700 frd-mono ${isPaid ? 'frd-green-text' : 'frd-red-text'}`}>
                             {formatMoney(p.Service?.price)}
                         </td>
-                        
-                        {/* Cột trạng thái */}
-                        <td>
+                        <td className="frd-tc">
                             {isPaid ? (
                                 <span className="frdeskpage-badge frdeskpage-badge-pill frdeskpage-badge-green">Đã thu tiền</span>
                             ) : (
                                 <span className="frdeskpage-badge frdeskpage-badge-amber">Chờ thu</span>
                             )}
                         </td>
-
-                        {/* Cột thao tác: Hiện nút In hóa đơn nếu đã thu */}
                         <td>
                           <div className="frdeskpage-flex-end frdeskpage-gap-2">
                               <button 
@@ -1291,45 +1309,35 @@ const handlePayment = async () => {
                                   <button 
                                     className="frdeskpage-btn frdeskpage-btn-ghost frdeskpage-btn-xs"
                                     onClick={async (e) => { 
-                                    e.stopPropagation(); // Ngăn click nhầm vào dòng
+                                    e.stopPropagation();
                                     try {
                                         const token = localStorage.getItem('token');
-                                        // Gọi API lấy thông tin thanh toán chi tiết từ Database (đã sửa ở Bước 1)
                                         const res = await axios.get(`http://localhost:3001/api/payments/appointment/${p.id}`, {
                                             headers: { Authorization: `Bearer ${token}` }
                                         });
-                                        
-                                        // Chuẩn bị dữ liệu in mặc định (Dự phòng)
                                         let finalPrintData = { 
                                             ...p,
-                                            payment_status: 'paid_at_clinic', // Đảm bảo trạng thái đúng để in ra Hóa Đơn
+                                            payment_status: 'paid_at_clinic',
                                             printType: 'invoice'
                                         };
-
-                                        // Nếu API trả về dữ liệu thanh toán, gộp vào
                                         if (res.data.success && res.data.data) {
                                             const rawInfo = res.data.data.payment_info;
-                                            // Parse JSON chuỗi payment_info từ DB
                                             const infoObj = (typeof rawInfo === 'string') ? JSON.parse(rawInfo) : rawInfo;
-                                            
                                             finalPrintData.PaymentDetails = {
                                                 ...res.data.data,
                                                 info: infoObj || { amount_received: p.Service?.price, change_amount: 0 }
                                             };
                                         } else {
-                                            // Nếu không tìm thấy record thanh toán (lỗi DB), tự tạo dữ liệu giả để vẫn in được
                                             finalPrintData.PaymentDetails = {
                                                 method: 'cash',
                                                 transaction_id: `OFFLINE-${p.id}`,
                                                 info: { amount_received: p.Service?.price, change_amount: 0 }
                                             };
                                         }
-                                        
                                         setPrintData(finalPrintData);
-                                        setShowPrintModal(true); // Mở modal
+                                        setShowPrintModal(true);
                                     } catch (err) {
                                         console.error("Lỗi lấy thông tin in:", err);
-                                        // Trường hợp lỗi mạng, vẫn mở modal in với thông tin cơ bản
                                         setPrintData({
                                             ...p, 
                                             payment_status: 'paid_at_clinic',
@@ -1352,7 +1360,7 @@ const handlePayment = async () => {
                   )})}
                   
                    {cashierList.length === 0 && (
-                      <tr><td colSpan="9" style={{textAlign:"center",padding:"24px 0",color:"var(--frd-gray-400)"}}>Không tìm thấy dữ liệu phù hợp</td></tr>
+                      <tr><td colSpan="9" className="frd-empty-cell">Không tìm thấy dữ liệu phù hợp</td></tr>
                    )}
                 </tbody>
              </table>
@@ -1361,11 +1369,11 @@ const handlePayment = async () => {
 
        {/* CỘT PHẢI: FORM THANH TOÁN */}
        <div className="frdeskpage-panel">
-          <div className="frdeskpage-panel-header frdeskpage-panel-header-flex">
+          <div className="frdeskpage-panel-header frd-panel-header-flex">
               <span>THÔNG TIN THANH TOÁN</span>
               {selectedBill && (
                   <button 
-                      className="frdeskpage-btn frdeskpage-btn-danger frdeskpage-close-bill-btn" 
+                      className="frdeskpage-btn frdeskpage-btn-danger frd-close-btn"
                       onClick={() => setSelectedBill(null)}
                       title="Đóng bảng thanh toán"
                   >×</button>
@@ -1376,30 +1384,30 @@ const handlePayment = async () => {
               <div className="frdeskpage-payment-body">
           
                 {/* Header bệnh nhân */}
-                <div className="frdeskpage-patient-header-block">
+                <div className="frd-bill-patient-header">
                   <div className="frdeskpage-queue-num">{selectedBill.payment_queue_number || '--'}</div>
                   <div className="frdeskpage-patient-name">{selectedBill.guest_name || selectedBill.Patient?.User?.full_name}</div>
                   <div className="frdeskpage-patient-code">{selectedBill.code}</div>
                   {['paid','paid_at_clinic','paid_online'].includes(selectedBill.payment_status) && (
-                    <span className="frdeskpage-badge frdeskpage-badge-pill frdeskpage-badge-green">
+                    <span className="frdeskpage-badge frdeskpage-badge-pill frdeskpage-badge-green frd-mt6">
                       <FaCheckCircle size={9}/> Đã thanh toán
                     </span>
                   )}
                 </div>
           
                 {/* Thông tin dịch vụ */}
-                <div className="frdeskpage-service-info-block">
+                <div className="frd-service-info-box">
                   <div className="frdeskpage-bill-row">
-                    <span className="frdeskpage-bill-row-label-sm">Dịch vụ</span>
-                    <span className="frdeskpage-bill-row-value-sm">{selectedBill.Service?.name}</span>
+                    <span className="frd-bill-label">Dịch vụ</span>
+                    <span className="frd-bill-val-svc">{selectedBill.Service?.name}</span>
                   </div>
                   <div className="frdeskpage-bill-row">
-                    <span className="frdeskpage-bill-row-label-sm">Bác sĩ</span>
-                    <span className="frdeskpage-bill-row-value-doctor">{selectedBill.Doctor?.user?.full_name || '—'}</span>
+                    <span className="frd-bill-label">Bác sĩ</span>
+                    <span className="frd-bill-val-doc">{selectedBill.Doctor?.user?.full_name || '—'}</span>
                   </div>
                   <div className="frdeskpage-bill-row">
-                    <span className="frdeskpage-bill-row-label-sm">Giờ khám</span>
-                    <span className="frdeskpage-bill-row-value-time">{selectedBill.appointment_start_time?.slice(0,5)}</span>
+                    <span className="frd-bill-label">Giờ khám</span>
+                    <span className="frd-bill-val-time">{selectedBill.appointment_start_time?.slice(0,5)}</span>
                   </div>
                 </div>
           
@@ -1412,11 +1420,11 @@ const handlePayment = async () => {
                 {!['paid','paid_at_clinic','paid_online'].includes(selectedBill.payment_status) ? (
                   <>
                     {/* Mã giảm giá */}
-                    <div className="frdeskpage-voucher-section">
-                      <div className="frdeskpage-section-title-sm">Voucher / Mã giảm giá</div>
-                      <div className="frdeskpage-voucher-row">
+                    <div className="frd-section-block">
+                      <div className="frd-section-label">Voucher / Mã giảm giá</div>
+                      <div className="frd-voucher-row">
                         <input className="frdeskpage-input" placeholder="Nhập mã..." value={discountCode} onChange={e => setDiscountCode(e.target.value)}/>
-                        <button className="frdeskpage-btn frdeskpage-btn-outline frdeskpage-btn-sm frdeskpage-voucher-btn" onClick={() => toast.info('Đang cập nhật')}>
+                        <button className="frdeskpage-btn frdeskpage-btn-outline frdeskpage-btn-sm frd-shrink-0" onClick={() => toast.info('Đang cập nhật')}>
                           <FaTag/>
                         </button>
                       </div>
@@ -1425,8 +1433,8 @@ const handlePayment = async () => {
                     <div className="frdeskpage-divider"/>
           
                     {/* Phương thức */}
-                    <div className="frdeskpage-method-section">
-                      <div className="frdeskpage-section-title-sm">Phương thức</div>
+                    <div className="frd-section-block">
+                      <div className="frd-section-label">Phương thức</div>
                       <div className="frdeskpage-method-switcher">
                         <button className={`frdeskpage-method-btn ${paymentMethod==='cash'?'active':''}`} onClick={() => setPaymentMethod('cash')}>
                           <FaMoneyBillWave size={11}/> Tiền mặt
@@ -1439,49 +1447,45 @@ const handlePayment = async () => {
           
                     {/* Tiền khách đưa */}
                     {paymentMethod === 'cash' ? (
-                      <div className="frdeskpage-cash-section">
-                        <div className="frdeskpage-section-title-sm">Tiền khách đưa</div>
+                      <div className="frd-section-block">
+                        <div className="frd-section-label">Tiền khách đưa</div>
                         <input
                           type="number"
-                          className="frdeskpage-input frdeskpage-cash-input"
+                          className="frdeskpage-input frd-cash-input"
                           value={paymentAmount}
                           onChange={e => setPaymentAmount(e.target.value)}
                           placeholder="0"
                           autoFocus
                         />
                         {paymentAmount && (
-                          <div className="frdeskpage-change-box frdeskpage-change-box-mt">
-                            <span className="frdeskpage-change-label">Trả lại</span>
-                            <span className="frdeskpage-change-value">
+                          <div className="frdeskpage-change-box frd-mt6">
+                            <span className="frd-change-label">Trả lại</span>
+                            <span className="frd-change-val">
                               {formatMoney(Math.max(0, parseInt(paymentAmount) - (selectedBill.Service?.price || 0)))}
                             </span>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="frdeskpage-transfer-info">
-                        <FaInfoCircle/>
+                      <div className="frd-transfer-info">
+                        <FaInfoCircle className="frd-shrink-0"/>
                         <span>Yêu cầu khách quét QR hoặc chuyển khoản theo thông tin ngân hàng tại quầy.</span>
                       </div>
                     )}
           
-                    {/* Nút thu tiền */}
                     <button className="frdeskpage-checkout-btn" onClick={handlePayment}>
                       <FaCheckCircle size={13}/> XÁC NHẬN THANH TOÁN
                     </button>
-                    <button
-                      className="frdeskpage-btn frdeskpage-btn-outline frdeskpage-btn-cancel-full"
-                      onClick={() => setSelectedBill(null)}
-                    >
+                    <button className="frdeskpage-btn frdeskpage-btn-outline frd-btn-full frd-mt6" onClick={() => setSelectedBill(null)}>
                       Hủy bỏ
                     </button>
                   </>
                 ) : (
                   <div className="frdeskpage-success">
                     <div className="frdeskpage-success-icon"><FaCheckCircle/></div>
-                    <div className="frdeskpage-success-label">Giao dịch hoàn tất</div>
+                    <div className="frd-success-label">Giao dịch hoàn tất</div>
                     <button
-                      className="frdeskpage-btn frdeskpage-btn-outline frdeskpage-success-btn-full"
+                      className="frdeskpage-btn frdeskpage-btn-outline frd-btn-full frd-mt4"
                       onClick={async () => {
                         const token = localStorage.getItem('token');
                         let paymentData = null;
@@ -1575,7 +1579,7 @@ const handlePayment = async () => {
 
             {/* TAB: ĐƠN THUỐC */}
             {pharmacyTab === 'prescription' && (
-               <div className="frdeskpage-panel-body p-0">
+               <div className="frdeskpage-panel-body frd-p0">
                   <div className="frdeskpage-toolbar">
                      <div className="frdeskpage-search frdeskpage-flex-1">
                         <FaSearch className="frdeskpage-search-icon"/>
@@ -1590,29 +1594,23 @@ const handlePayment = async () => {
                         {prescriptions.map(pr => (
                            <tr 
                               key={pr.id} 
-                              className={selectedPrescription?.id === pr.id ? 'active' : ''}
-                              onClick={() => setSelectedPrescription(pr)} // [FIX] Luôn cho phép click
-                              style={{ cursor: 'pointer' }}
+                              className={`frd-row-click ${selectedPrescription?.id === pr.id ? 'active' : ''}`}
+                              onClick={() => setSelectedPrescription(pr)}
                            >
-                              <td><span style={{fontWeight:700}}>{pr.id}</span></td>
-                              <td>{pr.patientName}<br/><small style={{color:"var(--frd-gray-500)"}}>{pr.patientCode}</small></td>
+                              <td><span className="frd-fw-700">{pr.id}</span></td>
+                              <td>{pr.patientName}<br/><small className="frd-gray-text">{pr.patientCode}</small></td>
                               <td>{pr.doctor}</td>
                               <td>
-                                {/* [FIX] Hiển thị trạng thái dựa trên biến status mới */}
                                 {pr.status === 'sold' 
                                     ? <span className="frdeskpage-badge frdeskpage-badge-green">Đã bán</span>
                                     : <span className="frdeskpage-badge frdeskpage-badge-amber">Chờ bán</span>
                                 }
                               </td>
                               <td>
-                                 {/* Nút thao tác nhanh */}
                                  {pr.status !== 'sold' && (
                                    <button 
                                       className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-sm" 
-                                      onClick={(e) => {
-                                          e.stopPropagation(); 
-                                          setSelectedPrescription(pr);
-                                      }}
+                                      onClick={(e) => { e.stopPropagation(); setSelectedPrescription(pr); }}
                                    >
                                       Bán thuốc
                                    </button>
@@ -1627,7 +1625,7 @@ const handlePayment = async () => {
 
             {/* TAB: BÁN LẺ */}
             {pharmacyTab === 'retail' && (
-               <div className="frdeskpage-panel-body p-0">
+               <div className="frdeskpage-panel-body frd-p0">
                   {!showRetailForm ? (
                     /* LIST HÓA ĐƠN */
                     <div className="frdeskpage-p-12">
@@ -1637,38 +1635,38 @@ const handlePayment = async () => {
                           <FaPills /> Tạo đơn mới
                         </button>
                       </div>
-                      <table className="frdeskpage-table border rounded">
+                      <table className="frdeskpage-table">
                         <thead>
                           <tr><th>Mã HĐ</th><th>Khách hàng</th><th>SL</th><th>Tổng tiền</th><th>Ngày bán</th></tr>
                         </thead>
                         <tbody>
                           {retailInvoices.map(inv => (
                             <tr key={inv.id}>
-                              <td><span style={{fontWeight:700,color:"var(--frd-green-700)"}}>{inv.code}</span></td>
-                              <td>{inv.customer_name}<br/><small style={{color:"var(--frd-gray-500)"}}>{inv.customer_phone}</small></td>
-                              <td style={{textAlign:"center"}}>{inv.item_count}</td>
-                              <td style={{fontWeight:700,color:"var(--frd-red-700)"}}>{formatMoney(parseFloat(inv.amount))}</td>
+                              <td><span className="frd-code-green">{inv.code}</span></td>
+                              <td>{inv.customer_name}<br/><small className="frd-gray-text">{inv.customer_phone}</small></td>
+                              <td className="frd-tc">{inv.item_count}</td>
+                              <td className="frd-fw-700 frd-red-text">{formatMoney(parseFloat(inv.amount))}</td>
                               <td>{new Date(inv.created_at).toLocaleDateString('vi-VN')}</td>
                             </tr>
                           ))}
-                          {retailInvoices.length === 0 && <tr><td colSpan="5" style={{textAlign:"center",padding:"24px 0",color:"var(--frd-gray-400)"}}>Chưa có dữ liệu</td></tr>}
+                          {retailInvoices.length === 0 && <tr><td colSpan="5" className="frd-empty-cell">Chưa có dữ liệu</td></tr>}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    /* FORM TẠO ĐƠN MỚI - GIAO DIỆN CHUẨN PASTEL COMPACT */
-                    <div className="frdeskpage-flex frdeskpage-gap-4 frdeskpage-p-8" style={{height:"100%"}}>
-                      {/* CỘT TRÁI: DANH SÁCH THUỐC (GRID) */}
-                      <div className="frdeskpage-panel flex-grow-1" style={{flex: 6}}>
-                          <div className="frdeskpage-panel-header bg-white border-bottom p-2">
-                             <div className="frdeskpage-flex frdeskpage-gap-4" style={{width:"100%"}}>
+                    /* FORM TẠO ĐƠN MỚI */
+                    <div className="frd-retail-form-wrap">
+                      {/* CỘT TRÁI: DANH SÁCH THUỐC */}
+                      <div className="frdeskpage-panel frd-retail-med-col">
+                          <div className="frdeskpage-panel-header frd-retail-search-bar">
+                             <div className="frd-retail-search-inner">
                                 <button className="frdeskpage-btn frdeskpage-btn-outline" onClick={() => setShowRetailForm(false)}>
                                    <FaUndo /> Quay lại
                                 </button>
                                 <div className="frdeskpage-search frdeskpage-flex-1">
                                    <FaSearch className="frdeskpage-search-icon"/>
                                    <input 
-                                     className="frdeskpage-input ps-4" 
+                                     className="frdeskpage-input frd-search-padded" 
                                      placeholder="Tìm thuốc nhanh..." 
                                      value={medSearch} 
                                      onChange={e=>setMedSearch(e.target.value)}
@@ -1678,8 +1676,8 @@ const handlePayment = async () => {
                              </div>
                           </div>
                           
-                          <div className="frdeskpage-panel-body p-2 bg-light">
-                              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px', padding: '8px'}}>
+                          <div className="frdeskpage-panel-body frd-med-grid-wrap">
+                              <div className="frd-med-grid">
                                 {medicinesList
                                   .filter(m => (m.name || '').toLowerCase().includes(medSearch.toLowerCase()))
                                   .map(med => {
@@ -1688,8 +1686,7 @@ const handlePayment = async () => {
                                     return (
                                       <div
                                         key={med.id}
-                                        className="frdeskpage-med-card"
-                                        style={inCart ? {borderColor: 'var(--frd-green-500)', background: 'var(--frd-green-10)'} : {}}
+                                        className={`frdeskpage-med-card ${inCart ? 'frd-med-card-active' : ''}`}
                                         onClick={() => {
                                           if (stock <= 0) return toast.warning('Thuốc đã hết hàng!');
                                           const exist = retailCart.find(i => i.id === med.id);
@@ -1706,16 +1703,13 @@ const handlePayment = async () => {
                                         </div>
                                         <div className="frdeskpage-med-footer">
                                           <span className="frdeskpage-med-price">{formatMoney(med.price || med.export_price)}</span>
-                                          <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
+                                          <div className="frd-cart-badge-wrap">
                                             {inCart && (
-                                              <span style={{fontSize: 10, fontWeight: 700, color: 'var(--frd-green-700)', background: 'var(--frd-green-100)', borderRadius: 10, padding: '1px 6px'}}>
-                                                ×{inCart.qty}
-                                              </span>
+                                              <span className="frd-cart-badge">×{inCart.qty}</span>
                                             )}
                                             <button
                                               className="frdeskpage-add-btn"
                                               disabled={stock <= 0}
-                                              style={stock <= 0 ? {opacity: 0.35, cursor: 'not-allowed'} : {}}
                                               onClick={e => { e.stopPropagation(); }}
                                             >+</button>
                                           </div>
@@ -1725,48 +1719,40 @@ const handlePayment = async () => {
                                   })
                                 }
                                 {medicinesList.filter(m => (m.name || '').toLowerCase().includes(medSearch.toLowerCase())).length === 0 && (
-                                  <div style={{gridColumn: '1/-1', textAlign: 'center', color: 'var(--frd-gray-500)', padding: '40px 0', fontSize: 12}}>
-                                    Không tìm thấy thuốc phù hợp
-                                  </div>
+                                  <div className="frd-med-empty">Không tìm thấy thuốc phù hợp</div>
                                 )}
                               </div>
                           </div>
                       </div>
 
                       {/* CỘT PHẢI: GIỎ HÀNG & THANH TOÁN */}
-                      <div className="frdeskpage-panel" style={{flex: 4, minWidth: '320px'}}>
+                      <div className="frdeskpage-panel frd-retail-cart-col">
                           <div className="frdeskpage-panel-header">
                              <span><FaPills/> ĐƠN HÀNG ({retailCart.length})</span>
-                             <span style={{color:"var(--frd-red-700)"}}>{transactionCode}</span>
+                             <span className="frd-transaction-code">{transactionCode}</span>
                           </div>
 
-                          {/* LIST GIỎ HÀNG */}
-                          <div className="frdeskpage-panel-body p-0" style={{background: 'var(--frd-white)'}}>
+                          <div className="frdeskpage-panel-body frd-cart-table-wrap">
                             <table className="frdeskpage-table">
                               <thead>
                                 <tr>
                                   <th>Tên thuốc</th>
-                                  <th className="text-center" style={{width: 60}}>SL</th>
-                                  <th className="text-end" style={{width: 80}}>Tiền</th>
-                                  <th style={{width: 28}}></th>
+                                  <th className="frd-tc frd-w60">SL</th>
+                                  <th className="frd-tr frd-w80">Tiền</th>
+                                  <th className="frd-w28"></th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {retailCart.map((item, idx) => (
                                   <tr key={idx}>
                                     <td>
-                                      <div style={{fontWeight: 600, fontSize: 12, maxWidth: 130, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={item.name}>
-                                        {item.name}
-                                      </div>
-                                      <div style={{fontSize: 10, color: 'var(--frd-gray-500)', fontFamily: 'var(--frd-mono)'}}>
-                                        {formatMoney(item.price)}
-                                      </div>
+                                      <div className="frd-cart-item-name" title={item.name}>{item.name}</div>
+                                      <div className="frd-cart-item-price">{formatMoney(item.price)}</div>
                                     </td>
-                                    <td style={{textAlign:"center"}}>
+                                    <td className="frd-tc">
                                       <input
                                         type="number" min="1"
-                                        className="frdeskpage-input-compact"
-                                        style={{width: 44}}
+                                        className="frdeskpage-input-compact frd-w44"
                                         value={item.qty}
                                         onChange={e => {
                                           const val = Math.max(1, parseInt(e.target.value) || 1);
@@ -1774,14 +1760,9 @@ const handlePayment = async () => {
                                         }}
                                       />
                                     </td>
-                                    <td className="text-end" style={{fontWeight: 700, fontFamily: 'var(--frd-mono)', color: 'var(--frd-red-600)'}}>
-                                      {formatMoney(item.price * item.qty)}
-                                    </td>
+                                    <td className="frd-tr frd-cart-amount">{formatMoney(item.price * item.qty)}</td>
                                     <td>
-                                      <button
-                                        style={{background: 'none', border: 'none', cursor: 'pointer', color: 'var(--frd-red-600)', padding: 2}}
-                                        onClick={() => setRetailCart(retailCart.filter((_, i) => i !== idx))}
-                                      >
+                                      <button className="frd-remove-btn" onClick={() => setRetailCart(retailCart.filter((_, i) => i !== idx))}>
                                         <FaTrash size={10}/>
                                       </button>
                                     </td>
@@ -1789,9 +1770,7 @@ const handlePayment = async () => {
                                 ))}
                                 {retailCart.length === 0 && (
                                   <tr>
-                                    <td colSpan="4" style={{textAlign: 'center', padding: '36px 0', color: 'var(--frd-gray-500)', fontSize: 12, fontStyle: 'italic'}}>
-                                      Giỏ hàng trống
-                                    </td>
+                                    <td colSpan="4" className="frd-cart-empty">Giỏ hàng trống</td>
                                   </tr>
                                 )}
                               </tbody>
@@ -1799,9 +1778,8 @@ const handlePayment = async () => {
                           </div>
                           
                           {/* CHECKOUT FOOTER */}
-                          <div style={{padding: '12px', borderTop: '1px solid var(--frd-gray-300)', background: 'var(--frd-white)', flexShrink: 0}}>
-                            {/* Khách hàng */}
-                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8}}>
+                          <div className="frd-checkout-footer">
+                            <div className="frd-customer-grid">
                               <div>
                                 <div className="frdeskpage-label">Khách hàng</div>
                                 <input className="frdeskpage-input" placeholder="Tên khách..." value={retailCustomer.name} onChange={e => setRetailCustomer({...retailCustomer, name: e.target.value})}/>
@@ -1812,8 +1790,7 @@ const handlePayment = async () => {
                               </div>
                             </div>
                           
-                            {/* Phương thức */}
-                            <div className="frdeskpage-method-switcher" style={{marginBottom: 8}}>
+                            <div className="frdeskpage-method-switcher frd-mb-8">
                               <button className={`frdeskpage-method-btn ${paymentMethod==='cash'?'active':''}`} onClick={() => setPaymentMethod('cash')}>
                                 <FaMoneyBillWave size={11}/> Tiền mặt
                               </button>
@@ -1823,20 +1800,19 @@ const handlePayment = async () => {
                             </div>
                           
                             {paymentMethod === 'cash' && (
-                              <div style={{marginBottom: 8}}>
+                              <div className="frd-mb-8">
                                 <div className="frdeskpage-label">Tiền khách đưa</div>
                                 <input
                                   type="number"
-                                  className="frdeskpage-input"
-                                  style={{fontFamily: 'var(--frd-mono)', fontWeight: 700, fontSize: 14}}
+                                  className="frdeskpage-input frd-cash-input"
                                   placeholder="0"
                                   value={paymentAmount}
                                   onChange={e => setPaymentAmount(e.target.value)}
                                 />
                                 {paymentAmount && (
-                                  <div className="frdeskpage-change-box" style={{marginTop: 5}}>
-                                    <span style={{fontSize: 11}}>Trả lại</span>
-                                    <span style={{fontWeight: 700, fontFamily: 'var(--frd-mono)', color: 'var(--frd-green-700)'}}>
+                                  <div className="frdeskpage-change-box frd-mt-5">
+                                    <span className="frd-change-label">Trả lại</span>
+                                    <span className="frd-change-val">
                                       {formatMoney(Math.max(0, parseInt(paymentAmount) - retailCart.reduce((s,i) => s + i.price * i.qty, 0)))}
                                     </span>
                                   </div>
@@ -1844,11 +1820,10 @@ const handlePayment = async () => {
                               </div>
                             )}
                           
-                            {/* Tổng tiền */}
                             <div className="frdeskpage-cart-total">
                               <div>
                                 <div className="frdeskpage-cart-total-label">Tổng cộng</div>
-                                <div style={{fontSize: 10, color: 'rgba(255,255,255,0.6)'}}>{retailCart.length} sản phẩm</div>
+                                <div className="frd-cart-item-count">{retailCart.length} sản phẩm</div>
                               </div>
                               <div className="frdeskpage-cart-total-amount">{formatMoney(retailCart.reduce((s, i) => s + i.price * i.qty, 0))}</div>
                             </div>
@@ -1866,7 +1841,7 @@ const handlePayment = async () => {
 
          {/* CỘT PHẢI: CHI TIẾT THANH TOÁN - KHÔI PHỤC ĐẦY ĐỦ THÔNG TIN */}
          {(pharmacyTab === 'prescription' && selectedPrescription) && (
-         <div className="frdeskpage-panel d-flex flex-column h-100">
+         <div className="frdeskpage-panel frd-col-flex-h100">
             {/* 1. HEADER */}
             <div className="frdeskpage-panel-header">
                <span><FaFilePrescription/> CHI TIẾT ĐƠN THUỐC</span>
@@ -1877,7 +1852,7 @@ const handlePayment = async () => {
             </div>
             
             {/* BODY: Thông tin & Thuốc */}
-            <div className="frdeskpage-panel-body d-flex flex-column bg-light p-2">
+            <div className="frdeskpage-panel-body frd-presc-body">
                
                {/* 2. THÔNG TIN BỆNH NHÂN (Compact Card) */}
                <div className="frdeskpage-patient-card">
@@ -1887,77 +1862,60 @@ const handlePayment = async () => {
                   <div className="frdeskpage-patient-info">
                       <div className="frdeskpage-flex-between">
                           <h6 className="frdeskpage-patient-name-text">{selectedPrescription.patientName}</h6>
-                          <span style={{fontSize:10,color:"var(--frd-gray-500)"}}>{selectedPrescription.gender}</span>
+                          <span className="frd-gender-text">{selectedPrescription.gender}</span>
                       </div>
                       <div className="frdeskpage-flex-between frdeskpage-text-muted">
                           <span>Mã: {selectedPrescription.patientCode}</span>
                           <span>BS: {selectedPrescription.doctor}</span>
                       </div>
-                      <div className="frdeskpage-text-sm" style={{marginTop:5,paddingTop:5,borderTop:"1px solid var(--frd-gray-200)"}}>
+                      <div className="frd-diagnosis-row">
                           <strong>Chẩn đoán:</strong> {selectedPrescription.diagnosis}
                       </div>
                   </div>
                </div>
 
-               {/* 3. DANH SÁCH THUỐC (Table Compact - ĐÃ SỬA WIDTH) */ }
-               <div className="frdeskpage-panel-body" style={{minHeight:150}}>
+               <div className="frdeskpage-panel-body frd-presc-table-wrap">
                   <table className="frdeskpage-table">
                     <thead>
                         <tr>
-                            {/* Giảm cột tên thuốc xuống một chút để nhường chỗ */}
                             <th>Tên thuốc</th>
-                            {/* Tăng độ rộng cột ĐV và SL lên 70px và 60px */}
-                            <th className="text-center" style={{width: '70px'}}>ĐV</th>
-                            <th className="text-center" style={{width: '60px'}}>SL</th>
-                            <th className="text-end pe-2">Thành tiền</th>
+                            <th className="frd-tc frd-w70">ĐV</th>
+                            <th className="frd-tc frd-w60">SL</th>
+                            <th className="frd-tr frd-pe2">Thành tiền</th>
                         </tr>
                     </thead>
                     <tbody>
                         {selectedPrescription.items.map((it, i) => (
                             <tr key={i}>
                                 <td>
-                                    <div style={{fontWeight:700,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={it.name}>{it.name}</div>
-                                    <div style={{fontSize:10,color:"var(--frd-gray-400)"}}>Giá: {formatMoney(it.price)}</div>
+                                    <div className="frd-med-item-name" title={it.name}>{it.name}</div>
+                                    <div className="frd-med-item-price">Giá: {formatMoney(it.price)}</div>
                                 </td>
-                                <td style={{textAlign:"center"}}>
+                                <td className="frd-tc">
                                     {selectedPrescription.status !== 'sold' ? (
-                                      <input 
-                                        type="text" 
-                                        className="frdeskpage-input-compact" // Class mới thêm ở CSS
-                                        value={it.unit || ''} onChange={(e) => handleUpdatePrescriptionItem(i, 'unit', e.target.value)}
-                                      />
+                                      <input type="text" className="frdeskpage-input-compact" value={it.unit || ''} onChange={(e) => handleUpdatePrescriptionItem(i, 'unit', e.target.value)}/>
                                     ) : it.unit}
                                 </td>
-                                <td style={{textAlign:"center"}}>
+                                <td className="frd-tc">
                                     {selectedPrescription.status !== 'sold' ? (
-                                      <input 
-                                        type="number" min="1" 
-                                        className="frdeskpage-input-compact" // Class mới thêm ở CSS
-                                        value={it.quantity} onChange={(e) => handleUpdatePrescriptionItem(i, 'quantity', e.target.value)}
-                                      />
+                                      <input type="number" min="1" className="frdeskpage-input-compact" value={it.quantity} onChange={(e) => handleUpdatePrescriptionItem(i, 'quantity', e.target.value)}/>
                                     ) : it.quantity}
                                 </td>
-                                <td style={{textAlign:"right",fontWeight:700,color:"var(--frd-red-700)"}}>
-                                  {formatMoney(it.total)}
-                                </td>
+                                <td className="frd-tr frd-amount-red">{formatMoney(it.total)}</td>
                             </tr>
                         ))}
                     </tbody>
                   </table>
                </div>
 
-               {/* 4. THANH TOÁN (Khôi phục đầy đủ) */}
+               {/* 4. THANH TOÁN */}
                <div className="frdeskpage-panel-footer">
                    {selectedPrescription.status !== 'sold' ? (
-                       <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                       <div className="frd-presc-pay-col">
                            
                            {/* Mã giảm giá */}
-                           <div style={{display:"flex",gap:6}}>
-                               <input 
-                                  className="frdeskpage-input" 
-                                  placeholder="Nhập mã giảm giá..." 
-                                  value={discountCode} onChange={e => setDiscountCode(e.target.value)} 
-                               />
+                           <div className="frd-voucher-row">
+                               <input className="frdeskpage-input" placeholder="Nhập mã giảm giá..." value={discountCode} onChange={e => setDiscountCode(e.target.value)} />
                                <button className="frdeskpage-btn frdeskpage-btn-outline frdeskpage-btn-sm" onClick={() => toast.info('Tính năng đang phát triển')}>
                                  <FaTag/>
                                </button>
@@ -1965,83 +1923,75 @@ const handlePayment = async () => {
 
                            <div className="frdeskpage-divider"></div>
 
-                           {/* Tính toán tiền */}
-                           <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
-                               <span style={{color:"var(--frd-gray-500)"}}>Tổng tiền:</span>
-                               <span style={{fontWeight:700}}>{formatMoney(selectedPrescription.total)}</span>
+                           <div className="frd-sum-row">
+                               <span className="frd-sum-label">Tổng tiền:</span>
+                               <span className="frd-fw-700">{formatMoney(selectedPrescription.total)}</span>
                            </div>
                            {discountAmount > 0 && (
-                               <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--frd-green-700)"}}>
+                               <div className="frd-sum-row frd-discount-row">
                                    <span>Giảm giá:</span>
                                    <span>- {formatMoney(discountAmount)}</span>
                                </div>
                            )}
-                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
-                               <span style={{fontWeight:700,fontSize:11}}>KHÁCH CẦN TRẢ:</span>
-                               <span style={{color:"var(--frd-red-700)",fontWeight:800,fontSize:18,fontFamily:"var(--frd-mono)"}}>
+                           <div className="frd-sum-row frd-payable-row">
+                               <span className="frd-fw-700">KHÁCH CẦN TRẢ:</span>
+                               <span className="frd-payable-amount">
                                  {formatMoney(selectedPrescription.total - (discountAmount || 0))}
                                </span>
                            </div>
 
                            {/* Phương thức & Tiền khách đưa */}
-                           <div style={{background:"var(--frd-gray-100)",padding:"8px",borderRadius:6,border:"1px solid var(--frd-gray-300)"}}>
-                               <div style={{display:"flex",gap:6,marginBottom:8}}>
-                                  <button type="button" 
-                                    className={`flex-grow-1 frdeskpage-btn frdeskpage-btn-sm ${paymentMethod==='cash' ? 'frdeskpage-btn-primary' : 'frdeskpage-btn-outline'}`}
-                                    onClick={() => setPaymentMethod('cash')}
-                                  >
-                                    <FaMoneyBillWave/> Tiền mặt
-                                  </button>
-                                  <button type="button" 
-                                    className={`flex-grow-1 frdeskpage-btn frdeskpage-btn-sm ${paymentMethod==='transfer' ? 'frdeskpage-btn-primary' : 'frdeskpage-btn-outline'}`}
-                                    onClick={() => setPaymentMethod('transfer')}
-                                  >
-                                    <FaQrcode/> Chuyển khoản
-                                  </button>
-                               </div>
+                           <div className="frd-presc-method-box">
+                               <button type="button"
+                                 className={`frd-flex1 frdeskpage-btn frdeskpage-btn-sm ${paymentMethod==='cash' ? 'frdeskpage-btn-primary' : 'frdeskpage-btn-outline'}`}
+                                 onClick={() => setPaymentMethod('cash')}
+                               >
+                                 <FaMoneyBillWave/> Tiền mặt
+                               </button>
+                               <button type="button"
+                                 className={`frd-flex1 frdeskpage-btn frdeskpage-btn-sm ${paymentMethod==='transfer' ? 'frdeskpage-btn-primary' : 'frdeskpage-btn-outline'}`}
+                                 onClick={() => setPaymentMethod('transfer')}
+                               >
+                                 <FaQrcode/> Chuyển khoản
+                               </button>
 
                                {paymentMethod === 'cash' && (
-                                   <>
-                                   <div style={{display:"flex",alignItems:"center",marginBottom:4}}>
-                                       <span style={{fontSize:10,fontWeight:700,color:"var(--frd-gray-500)",marginRight:8,minWidth:70,flexShrink:0}}>Khách đưa:</span>
-                                       <input 
-                                          type="number" 
-                                          className="frdeskpage-input" style={{fontWeight:700,color:"var(--frd-green-700)"}} 
-                                          value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} 
-                                          placeholder="0" 
-                                       />
+                                 <>
+                                   <div className="frd-cash-row">
+                                     <span className="frd-cash-label">Khách đưa:</span>
+                                     <input
+                                       type="number"
+                                       className="frdeskpage-input frd-cash-input"
+                                       value={paymentAmount}
+                                       onChange={(e) => setPaymentAmount(e.target.value)}
+                                       placeholder="0"
+                                     />
                                    </div>
-                                   <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                       <span style={{fontSize:10,fontWeight:700,color:"var(--frd-gray-500)",marginRight:8,minWidth:70,flexShrink:0}}>Tiền thừa:</span>
-                                       <span style={{fontWeight:700,color:"var(--frd-green-700)"}}>
-                                           {paymentAmount ? formatMoney(parseInt(paymentAmount) - (selectedPrescription.total - discountAmount)) : '0 đ'}
-                                       </span>
+                                   <div className="frd-cash-row">
+                                     <span className="frd-cash-label">Tiền thừa:</span>
+                                     <span className="frd-change-green">
+                                       {paymentAmount ? formatMoney(parseInt(paymentAmount) - (selectedPrescription.total - discountAmount)) : '0 đ'}
+                                     </span>
                                    </div>
-                                   </>
+                                 </>
                                )}
                            </div>
 
-                           <button 
-                              className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-full" 
-                              onClick={handlePaymentAndPrint}
-                           >
+                           <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-full" onClick={handlePaymentAndPrint}>
                                <FaPrint/> THANH TOÁN
                            </button>
                        </div>
                    ) : (
                        /* ĐÃ THANH TOÁN */
-                       <div style={{textAlign:"center",padding:"12px 0"}}>
-                           <div style={{color:"var(--frd-green-700)",fontWeight:700,marginBottom:8}}>
-                               <FaCheckCircle style={{fontSize:20,display:"block",margin:"0 auto 4px"}}/> 
+                       <div className="frd-paid-state">
+                           <div className="frd-paid-label">
+                               <FaCheckCircle className="frd-paid-icon"/> 
                                GIAO DỊCH HOÀN TẤT
                            </div>
-                           <div style={{fontSize:11,color:"var(--frd-gray-500)",marginBottom:12}}>
+                           <div className="frd-paid-sub">
                                Thực thu: {formatMoney(selectedPrescription.customerPaid || selectedPrescription.total)}
                            </div>
-                           <button 
-                              className="frdeskpage-btn frdeskpage-btn-outline frdeskpage-btn-full" 
-                              onClick={() => handleOpenPrintInvoice(selectedPrescription)}
-                           >
+                           <button className="frdeskpage-btn frdeskpage-btn-outline frdeskpage-btn-full" onClick={() => handleOpenPrintInvoice(selectedPrescription)}>
                                <FaPrint/> IN LẠI HÓA ĐƠN
                            </button>
                        </div>
@@ -2167,40 +2117,34 @@ const handlePayment = async () => {
       {activeTab === 'pharmacy' && renderPharmacy()}
 
       {/* MODAL ĐĂNG KÝ MỚI (WALK-IN) */}
-      <Modal
+      <FrdModal
         show={showNewPatientForm}
         onHide={() => setShowNewPatientForm(false)}
-        centered
         size="lg"
-        onShow={loadWalkInDoctors}
-        backdrop="static"
       >
-        <Modal.Header closeButton className="frdeskpage-modal-header">
-          <Modal.Title style={{fontWeight: 700, fontSize: '15px', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: 8}}>
-            <FaUserPlus/> Đăng ký tiếp đón mới
-          </Modal.Title>
-        </Modal.Header>
+        <FrdModal.Header onHide={() => setShowNewPatientForm(false)} className="frd-modal-header-green">
+          <FaUserPlus/> Đăng ký tiếp đón mới
+        </FrdModal.Header>
 
-        <Modal.Body>
+        <FrdModal.Body>
           <form onSubmit={handleWalkInSubmit} id="walkInForm">
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px'}}>
+            <div className="frd-form-grid-2">
               
               {/* Họ tên */}
-              <div style={{gridColumn: '1 / -1'}}>
-                <label className="frdeskpage-label">Họ và tên <span style={{color: 'red'}}>*</span></label>
+              <div className="frd-col-full">
+                <label className="frdeskpage-label">Họ và tên <span className="frd-required">*</span></label>
                 <input
-                  className="frdeskpage-input"
+                  className="frdeskpage-input frd-input-upper"
                   placeholder="Nhập họ tên bệnh nhân..."
                   value={walkInForm.guest_name}
                   onChange={e => setWalkInForm({...walkInForm, guest_name: e.target.value})}
-                  style={{textTransform: 'uppercase', fontWeight: 600}}
                   required
                 />
               </div>
 
               {/* SĐT */}
               <div>
-                <label className="frdeskpage-label">Số điện thoại <span style={{color: 'red'}}>*</span></label>
+                <label className="frdeskpage-label">Số điện thoại <span className="frd-required">*</span></label>
                 <input
                   className="frdeskpage-input"
                   placeholder="0xxx xxx xxx"
@@ -2233,7 +2177,7 @@ const handlePayment = async () => {
 
               {/* Dịch vụ */}
               <div>
-                <label className="frdeskpage-label">Dịch vụ <span style={{color: 'red'}}>*</span></label>
+                <label className="frdeskpage-label">Dịch vụ <span className="frd-required">*</span></label>
                 <select
                   className="frdeskpage-select"
                   value={walkInForm.service_id}
@@ -2250,7 +2194,7 @@ const handlePayment = async () => {
 
               {/* Bác sĩ */}
               <div>
-                <label className="frdeskpage-label">Bác sĩ <span style={{color: 'red'}}>*</span></label>
+                <label className="frdeskpage-label">Bác sĩ <span className="frd-required">*</span></label>
                 <select
                   className="frdeskpage-select"
                   value={walkInForm.doctor_id}
@@ -2267,7 +2211,7 @@ const handlePayment = async () => {
 
               {/* Ngày khám */}
               <div>
-                <label className="frdeskpage-label">Ngày khám <span style={{color: 'red'}}>*</span></label>
+                <label className="frdeskpage-label">Ngày khám <span className="frd-required">*</span></label>
                 <input
                   type="date"
                   className="frdeskpage-input"
@@ -2283,31 +2227,26 @@ const handlePayment = async () => {
 
               {/* Giờ khám */}
               <div>
-                <label className="frdeskpage-label">Giờ khám <span style={{color: 'red'}}>*</span></label>
+                <label className="frdeskpage-label">Giờ khám <span className="frd-required">*</span></label>
                 {walkInSlots.length > 0 ? (
-                  <div style={{display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 80, overflowY: 'auto'}}>
+                  <div className="frd-slot-grid">
                     {walkInSlots.filter(s => s.status === 'available').map(s => (
                       <button
                         key={s.time} type="button"
+                        className={`frd-slot-btn ${walkInForm.appointment_start_time === s.time ? 'frd-slot-btn-active' : ''}`}
                         onClick={() => setWalkInForm({...walkInForm, appointment_start_time: s.time})}
-                        style={{
-                          padding: '4px 10px', fontSize: 12, borderRadius: 6, cursor: 'pointer', fontWeight: 600,
-                          background: walkInForm.appointment_start_time === s.time ? '#2e7d32' : '#e8f5e9',
-                          color: walkInForm.appointment_start_time === s.time ? 'white' : '#2e7d32',
-                          border: `1px solid ${walkInForm.appointment_start_time === s.time ? '#2e7d32' : '#c8e6c9'}`
-                        }}
                       >{s.time}</button>
                     ))}
                   </div>
                 ) : (
-                  <div style={{fontSize: 12, color: '#999', padding: '8px', background: '#f9f9f9', borderRadius: 6, border: '1px solid #eee'}}>
+                  <div className="frd-slot-empty">
                     {walkInForm.doctor_id && walkInForm.service_id ? 'Không còn khung giờ trống' : 'Chọn bác sĩ và dịch vụ trước'}
                   </div>
                 )}
               </div>
 
               {/* Lý do khám */}
-              <div style={{gridColumn: '1 / -1'}}>
+              <div className="frd-col-full">
                 <label className="frdeskpage-label">Lý do / Triệu chứng</label>
                 <textarea
                   className="frdeskpage-input"
@@ -2319,54 +2258,53 @@ const handlePayment = async () => {
               </div>
             </div>
           </form>
-        </Modal.Body>
+        </FrdModal.Body>
 
-        <Modal.Footer>
+        <FrdModal.Footer>
           <button type="button" className="frdeskpage-btn frdeskpage-btn-ghost" onClick={() => setShowNewPatientForm(false)}>
             Hủy bỏ
           </button>
           <button type="submit" form="walkInForm" className="frdeskpage-btn frdeskpage-btn-primary" disabled={walkInSubmitting}>
-            {walkInSubmitting ? 'Đang xử lý...' : <><FaUserPlus style={{marginRight: 6}}/> Xác nhận đăng ký & Cấp số</>}
+            {walkInSubmitting ? 'Đang xử lý...' : <><FaUserPlus className="frd-btn-icon"/> Xác nhận đăng ký & Cấp số</>}
           </button>
-        </Modal.Footer>
-      </Modal>
+        </FrdModal.Footer>
+      </FrdModal>
 
-      {/* [MODAL CHI TIẾT DỊCH VỤ - GIAO DIỆN CHUẨN ĐẸP] */}
-      <Modal 
+      {/* [MODAL CHI TIẾT LỊCH HẸN] */}
+      <FrdModal 
         show={showDetailModal} 
         onHide={() => setShowDetailModal(false)} 
-        centered 
-        size="xl" 
-        contentClassName="frdeskpage-adp-modal-content"
+        size="xl"
+        className="frd-modal-detail"
       >
-        {/* Header Modal */}
-        <div className="frdeskpage-panel-header" style={{padding:"12px 16px",height:"auto"}}>
-           <div style={{display:"flex",alignItems:"center",gap:12}}>
-               <div className="frdeskpage-patient-avatar" style={{width:40,height:40}}>
-                  <FaNotesMedical style={{fontSize:18}} />
+        {/* Header */}
+        <div className="frd-modal-header frd-detail-header">
+           <div className="frd-detail-header-left">
+               <div className="frdeskpage-patient-avatar frd-detail-avatar">
+                  <FaNotesMedical />
                </div>
                <div>
-                  <h5 style={{fontWeight:700,textTransform:"uppercase",margin:0,fontSize:13}}>HỒ SƠ LỊCH HẸN</h5>
-                  <small style={{color:"var(--frd-gray-500)"}}>Mã hồ sơ: <span style={{fontWeight:700,color:"var(--frd-green-700)"}}>#{selectedDetail?.code}</span></small>
+                  <h5 className="frd-detail-title">HỒ SƠ LỊCH HẸN</h5>
+                  <small className="frd-detail-code">Mã hồ sơ: <span className="frd-detail-code-val">#{selectedDetail?.code}</span></small>
                </div>
            </div>
-           <button type="button" className="frdeskpage-btn frdeskpage-btn-ghost frdeskpage-btn-xs" onClick={() => setShowDetailModal(false)}></button>
+           <button type="button" className="frd-modal-close" onClick={() => setShowDetailModal(false)}><FaTimes/></button>
         </div>
         
-        {/* Body Modal */}
-        <Modal.Body className="frdeskpage-adp-modal-body">
+        {/* Body */}
+        <FrdModal.Body className="frd-detail-body">
            {selectedDetail && (
                <div className="frdeskpage-adp-grid">
                    
-                   {/* --- CỘT TRÁI: THÔNG TIN CHI TIẾT --- */}
-                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                   {/* CỘT TRÁI */}
+                   <div className="frd-col-flex-col">
                        
-                       {/* CARD 1: THÔNG TIN LỊCH HẸN */}
+                       {/* CARD 1: LỊCH HẸN */}
                        <div className="frdeskpage-panel">
                            <div className="frdeskpage-panel-header">
                                <FaCalendarAlt />
-                               <h6 style={{margin:0,fontWeight:700,textTransform:"uppercase",fontSize:11}}>Thông tin lịch hẹn</h6>
-                               <div style={{marginLeft:"auto"}}>
+                               <h6 className="frd-panel-h6">Thông tin lịch hẹn</h6>
+                               <div className="frd-ml-auto">
                                   {selectedDetail.status === 'pending' && <span className="frdeskpage-adp-status frdeskpage-adp-status-pending"><FaClock/> Chờ xác nhận</span>}
                                   {selectedDetail.status === 'confirmed' && <span className="frdeskpage-adp-status frdeskpage-adp-status-confirmed"><FaCheckCircle/> Đã xác nhận</span>}
                                   {selectedDetail.status === 'completed' && <span className="frdeskpage-adp-status frdeskpage-adp-status-completed"><FaCheckCircle/> Hoàn thành</span>}
@@ -2375,123 +2313,99 @@ const handlePayment = async () => {
                                </div>
                            </div>
                            <div className="frdeskpage-p-12">
-                               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px 14px"}}>
-                                   <div >
-                                       <div className="frdeskpage-adp-info-group">
-                                            <span className="frdeskpage-adp-label"><FaTag/> Dịch vụ</span>
-                                            <span className="frdeskpage-adp-value frdeskpage-adp-value-lg">{selectedDetail.Service?.name || '---'}</span>
-                                       </div>
+                               <div className="frd-info-grid-2">
+                                   <div className="frdeskpage-adp-info-group">
+                                        <span className="frdeskpage-adp-label"><FaTag/> Dịch vụ</span>
+                                        <span className="frdeskpage-adp-value frdeskpage-adp-value-lg">{selectedDetail.Service?.name || '---'}</span>
                                    </div>
-                                   <div >
-                                       <div className="frdeskpage-adp-info-group">
-                                            <span className="frdeskpage-adp-label"><FaHeart/> Chuyên khoa</span>
-                                            <span className="frdeskpage-adp-value">{selectedDetail.Specialty?.name || 'Đa khoa'}</span>
-                                       </div>
+                                   <div className="frdeskpage-adp-info-group">
+                                        <span className="frdeskpage-adp-label"><FaHeart/> Chuyên khoa</span>
+                                        <span className="frdeskpage-adp-value">{selectedDetail.Specialty?.name || 'Đa khoa'}</span>
                                    </div>
-                                   <div >
-                                       <div className="frdeskpage-adp-info-group">
-                                            <span className="frdeskpage-adp-label"><FaUserMd/> Bác sĩ phụ trách</span>
-                                            <span className="frdeskpage-adp-value">{selectedDetail.Doctor?.user?.full_name || 'Chưa chỉ định'}</span>
-                                       </div>
+                                   <div className="frdeskpage-adp-info-group">
+                                        <span className="frdeskpage-adp-label"><FaUserMd/> Bác sĩ phụ trách</span>
+                                        <span className="frdeskpage-adp-value">{selectedDetail.Doctor?.user?.full_name || 'Chưa chỉ định'}</span>
                                    </div>
-                                   <div >
-                                       <div className="frdeskpage-adp-info-group">
-                                            <span className="frdeskpage-adp-label"><FaVideo/> Hình thức</span>
-                                            <span className="frdeskpage-adp-value">
-                                                {selectedDetail.appointment_type === 'online' ? 'Tư vấn trực tuyến' : 'Khám tại viện'}
-                                            </span>
-                                       </div>
+                                   <div className="frdeskpage-adp-info-group">
+                                        <span className="frdeskpage-adp-label"><FaVideo/> Hình thức</span>
+                                        <span className="frdeskpage-adp-value">
+                                            {selectedDetail.appointment_type === 'online' ? 'Tư vấn trực tuyến' : 'Khám tại viện'}
+                                        </span>
                                    </div>
-                                   <div >
-                                       <div className="frdeskpage-adp-info-group">
-                                            <span className="frdeskpage-adp-label"><FaCalendarDay/> Ngày khám</span>
-                                            <span className="frdeskpage-adp-value">
-                                                {selectedDetail.appointment_date ? new Date(selectedDetail.appointment_date).toLocaleDateString('vi-VN') : '---'}
-                                            </span>
-                                       </div>
+                                   <div className="frdeskpage-adp-info-group">
+                                        <span className="frdeskpage-adp-label"><FaCalendarDay/> Ngày khám</span>
+                                        <span className="frdeskpage-adp-value">
+                                            {selectedDetail.appointment_date ? new Date(selectedDetail.appointment_date).toLocaleDateString('vi-VN') : '---'}
+                                        </span>
                                    </div>
-                                   <div >
-                                       <div className="frdeskpage-adp-info-group">
-                                            <span className="frdeskpage-adp-label"><FaClock/> Giờ khám</span>
-                                            <span className="frdeskpage-adp-value">
-                                                {selectedDetail.appointment_start_time?.slice(0,5)} - {selectedDetail.appointment_end_time?.slice(0,5)}
-                                            </span>
-                                       </div>
+                                   <div className="frdeskpage-adp-info-group">
+                                        <span className="frdeskpage-adp-label"><FaClock/> Giờ khám</span>
+                                        <span className="frdeskpage-adp-value">
+                                            {selectedDetail.appointment_start_time?.slice(0,5)} - {selectedDetail.appointment_end_time?.slice(0,5)}
+                                        </span>
                                    </div>
-                                   <div style={{gridColumn:"1 / -1"}}>
-                                       <div className="frdeskpage-adp-info-group">
-                                            <span className="frdeskpage-adp-label"><FaMapMarkerAlt/> Địa chỉ</span>
-                                            <span className="frdeskpage-adp-value">{selectedDetail.appointment_address || 'Tầng 1, Tòa nhà Clinic, 123 Đường Sức Khỏe, Quận 1, TP. HCM'}</span>
-                                       </div>
+                                   <div className="frd-col-full frdeskpage-adp-info-group">
+                                        <span className="frdeskpage-adp-label"><FaMapMarkerAlt/> Địa chỉ</span>
+                                        <span className="frdeskpage-adp-value">{selectedDetail.appointment_address || 'Tầng 1, Tòa nhà Clinic, 123 Đường Sức Khỏe, Quận 1, TP. HCM'}</span>
                                    </div>
                                </div>
                            </div>
                        </div>
 
-                       {/* CARD 2: THÔNG TIN BỆNH NHÂN */}
+                       {/* CARD 2: BỆNH NHÂN */}
                        <div className="frdeskpage-panel">
                            <div className="frdeskpage-panel-header">
                                <FaUser />
-                               <h6 style={{margin:0,fontWeight:700,textTransform:"uppercase",fontSize:11}}>Thông tin bệnh nhân</h6>
+                               <h6 className="frd-panel-h6">Thông tin bệnh nhân</h6>
                            </div>
                            <div className="frdeskpage-p-12">
-                               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px 14px"}}>
-                                   <div >
-                                       <div className="frdeskpage-adp-info-group">
-                                           <span className="frdeskpage-adp-label">Họ và tên</span>
-                                           <span className="frdeskpage-adp-value" style={{textTransform:"uppercase"}}>{selectedDetail.guest_name || selectedDetail.Patient?.User?.full_name}</span>
-                                       </div>
+                               <div className="frd-info-grid-2">
+                                   <div className="frdeskpage-adp-info-group">
+                                       <span className="frdeskpage-adp-label">Họ và tên</span>
+                                       <span className="frdeskpage-adp-value frd-uppercase">{selectedDetail.guest_name || selectedDetail.Patient?.User?.full_name}</span>
                                    </div>
-                                   <div >
-                                       <div className="frdeskpage-adp-info-group">
-                                           <span className="frdeskpage-adp-label">Số điện thoại</span>
-                                           <span className="frdeskpage-adp-value">{selectedDetail.guest_phone || selectedDetail.Patient?.User?.phone || '---'}</span>
-                                       </div>
+                                   <div className="frdeskpage-adp-info-group">
+                                       <span className="frdeskpage-adp-label">Số điện thoại</span>
+                                       <span className="frdeskpage-adp-value">{selectedDetail.guest_phone || selectedDetail.Patient?.User?.phone || '---'}</span>
                                    </div>
-                                   <div >
-                                       <div className="frdeskpage-adp-info-group">
-                                           <span className="frdeskpage-adp-label">Email</span>
-                                           <span className="frdeskpage-adp-value">{selectedDetail.guest_email || selectedDetail.Patient?.User?.email || '---'}</span>
-                                       </div>
+                                   <div className="frdeskpage-adp-info-group">
+                                       <span className="frdeskpage-adp-label">Email</span>
+                                       <span className="frdeskpage-adp-value">{selectedDetail.guest_email || selectedDetail.Patient?.User?.email || '---'}</span>
                                    </div>
-                                   <div >
-                                       <div className="frdeskpage-adp-info-group">
-                                           <span className="frdeskpage-adp-label">Giới tính / Năm sinh</span>
-                                           <span className="frdeskpage-adp-value">
-                                              {selectedDetail.Patient?.User?.gender || '---'} - {selectedDetail.Patient?.User?.dob ? new Date(selectedDetail.Patient.User.dob).getFullYear() : '---'}
-                                           </span>
-                                       </div>
+                                   <div className="frdeskpage-adp-info-group">
+                                       <span className="frdeskpage-adp-label">Giới tính / Năm sinh</span>
+                                       <span className="frdeskpage-adp-value">
+                                          {selectedDetail.Patient?.User?.gender || '---'} - {selectedDetail.Patient?.User?.dob ? new Date(selectedDetail.Patient.User.dob).getFullYear() : '---'}
+                                       </span>
                                    </div>
-                                   <div style={{gridColumn:"1 / -1"}}>
-                                       <div style={{padding:"10px 12px",background:"var(--frd-amber-50)",borderRadius:6,border:"1px solid var(--frd-amber-100)",marginTop:8}}>
-                                           <strong style={{display:"block",marginBottom:4,fontSize:10,fontWeight:700,color:"var(--frd-amber-700)",textTransform:"uppercase"}}><FaStethoscope/> Lý do khám / Triệu chứng:</strong>
-                                           <span style={{fontStyle:"italic"}}>{selectedDetail.reason || 'Bệnh nhân không ghi chú thêm.'}</span>
-                                       </div>
+                                   <div className="frd-col-full frd-symptom-box">
+                                       <strong className="frd-symptom-label"><FaStethoscope/> Lý do khám / Triệu chứng:</strong>
+                                       <span className="frd-symptom-text">{selectedDetail.reason || 'Bệnh nhân không ghi chú thêm.'}</span>
                                    </div>
                                </div>
                            </div>
                        </div>
                    </div>
 
-                   {/* --- CỘT PHẢI: THANH TOÁN & ACTION --- */}
-                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                   {/* CỘT PHẢI: THANH TOÁN & ACTION */}
+                   <div className="frd-col-flex-col">
                        
                        {/* CARD THANH TOÁN */}
                        <div className="frdeskpage-panel">
-                           <div className="frdeskpage-panel-header" style={{background:"var(--frd-green-700)",color:"white"}}>
+                           <div className="frdeskpage-panel-header frd-header-green">
                                <FaMoneyBillWave />
-                               <h6 style={{margin:0,fontWeight:700,textTransform:"uppercase",fontSize:11,color:"white"}}>Thanh toán</h6>
+                               <h6 className="frd-panel-h6 frd-white">Thanh toán</h6>
                            </div>
-                           <div style={{padding:12,display:"flex",flexDirection:"column",gap:10}}>
-                               <div className="text-center py-2">
-                                   <span className="frdeskpage-adp-label" style={{display:"block",marginBottom:4}}>Tổng chi phí dịch vụ</span>
-                                   <div className="frdeskpage-adp-value frdeskpage-adp-value-price" style={{display:"block",color:"var(--frd-red-700)",fontSize:22,fontWeight:800}}>
-                                      {selectedDetail.Service?.price ? selectedDetail.Service.price.toLocaleString('vi-VN') : '0'} <span style={{fontSize:10}}>VNĐ</span>
+                           <div className="frd-payment-detail-body">
+                               <div className="frd-price-center">
+                                   <span className="frdeskpage-adp-label frd-block">Tổng chi phí dịch vụ</span>
+                                   <div className="frd-price-big">
+                                      {selectedDetail.Service?.price ? selectedDetail.Service.price.toLocaleString('vi-VN') : '0'} <span className="frd-price-unit">VNĐ</span>
                                    </div>
                                </div>
 
-                               <div className="border-top pt-3 text-center">
-                                   <span className="frdeskpage-adp-label" style={{display:"block",marginBottom:8}}>Trạng thái thanh toán</span>
+                               <div className="frd-payment-status-block">
+                                   <span className="frdeskpage-adp-label frd-block">Trạng thái thanh toán</span>
                                    {(selectedDetail.payment_status === 'paid' || selectedDetail.payment_status === 'paid_online' || selectedDetail.payment_status === 'paid_at_clinic') ? (
                                        <span className="frdeskpage-badge frdeskpage-badge-pill frdeskpage-badge-green">
                                            <FaCheckCircle /> ĐÃ THANH TOÁN
@@ -2503,29 +2417,28 @@ const handlePayment = async () => {
                                    )}
                                </div>
 
-                               {/* Nút Thu Tiền - Chỉ hiện nếu chưa thanh toán và không bị hủy */}
                                {['pending', 'confirmed', 'waiting_exam'].includes(selectedDetail.status) && selectedDetail.payment_status === 'unpaid' && (
-                                   <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-full frdeskpage-btn-lg" style={{marginTop:8}} onClick={() => { setShowDetailModal(false); setSelectedBill(selectedDetail); setActiveTab('cashier'); }}>
+                                   <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-full frdeskpage-btn-lg frd-mt-8" onClick={() => { setShowDetailModal(false); setSelectedBill(selectedDetail); setActiveTab('cashier'); }}>
                                        <FaMoneyBillWave/> Thu tiền ngay
                                    </button>
                                )}
                            </div>
                        </div>
                        
-                       {/* CARD KẾT QUẢ (Nếu đã hoàn thành) */}
+                       {/* CARD KẾT QUẢ */}
                        {selectedDetail.status === 'completed' && (
                          <div className="frdeskpage-panel">
                             <div className="frdeskpage-panel-header">
                                <FaShieldAlt/>
-                               <h6 style={{margin:0,fontWeight:700,textTransform:"uppercase",fontSize:11}}>Kết quả khám</h6>
+                               <h6 className="frd-panel-h6">Kết quả khám</h6>
                             </div>
                             <div className="frdeskpage-p-12">
                                {selectedDetail.MedicalRecord ? (
-                                  <div style={{color:"var(--frd-green-700)",fontWeight:700,display:"flex",alignItems:"center",gap:8}}>
+                                  <div className="frd-record-ok">
                                      <FaCheckCircle/> Đã có hồ sơ bệnh án
                                   </div>
                                ) : (
-                                  <div style={{color:"var(--frd-gray-400)",fontStyle:"italic",textAlign:"center"}}>Bác sĩ chưa cập nhật kết quả.</div>
+                                  <div className="frd-record-empty">Bác sĩ chưa cập nhật kết quả.</div>
                                )}
                             </div>
                          </div>
@@ -2537,8 +2450,8 @@ const handlePayment = async () => {
                    </div>
                </div>
            )}
-        </Modal.Body>
-      </Modal>
+        </FrdModal.Body>
+      </FrdModal>
       <WorkShiftModal
         show={showShiftModal}
         onHide={() => setShowShiftModal(false)}
@@ -2553,179 +2466,151 @@ const handlePayment = async () => {
         }}
         currentShiftData={shift}
       />
-      {/* ==================================================================================== */}
-      {/* MODAL IN ẤN - FINAL DESIGN (COMPACT & PROFESSIONAL) */}
-      {/* ==================================================================================== */}
-      <Modal
+      {/* ═══════════════════════════════════════════
+          MODAL IN ẤN (CUSTOM - KHÔNG BOOTSTRAP)
+      ═══════════════════════════════════════════ */}
+      <FrdModal
         show={showPrintModal && !!printData}
         onHide={() => setShowPrintModal(false)}
-        centered
         size="sm"
-        contentClassName="frdeskpage-print-modal-content"
       >
-        <Modal.Header closeButton className="frdeskpage-modal-header frdeskpage-no-print">
-          <Modal.Title>
-            {printData?.printType === 'ticket' ? <><FaTicketAlt/> XEM TRƯỚC PHIẾU</> : <><FaPrint/> XEM TRƯỚC HÓA ĐƠN</>}
-          </Modal.Title>
-        </Modal.Header>
+        <FrdModal.Header onHide={() => setShowPrintModal(false)} className="frdeskpage-no-print frd-print-header">
+          {printData?.printType === 'ticket' ? <><FaTicketAlt/> XEM TRƯỚC PHIẾU</> : <><FaPrint/> XEM TRƯỚC HÓA ĐƠN</>}
+        </FrdModal.Header>
 
-        <Modal.Body className="frdeskpage-print-modal-body">
-          <div className="frdeskpage-print-scroll printable-area">
-             {printData && (
-               <>
-               {/* --- MẪU 1: PHIẾU SỐ THỨ TỰ (Gọn gàng) --- */}
-               {printData.printType === 'ticket' ? (
-                   <div className="frdeskpage-ticket-center">
-                       <div className="mb-1">
-                           <h6 className="frdeskpage-ticket-clinic-name">PK ĐA KHOA CLINIC SYSTEM</h6>
-                           <div className="frdeskpage-ticket-clinic-addr">123 Đường Sức Khỏe, Quận 1, TP.HCM</div>
-                       </div>
-                       
-                       <div className="frdeskpage-ticket-divider"></div>
+        <div className="frd-print-scroll printable-area">
+          {printData && (
+            <>
+              {/* MẪU 1: PHIẾU SỐ THỨ TỰ */}
+              {printData.printType === 'ticket' ? (
+                <div className="frd-ticket-wrap">
+                  <h6 className="frd-ticket-clinic-name">PK ĐA KHOA CLINIC SYSTEM</h6>
+                  <div className="frd-ticket-clinic-addr">123 Đường Sức Khỏe, Quận 1, TP.HCM</div>
+                  <div className="frdeskpage-ticket-divider"/>
+                  <h5 className="frd-ticket-title">PHIẾU SỐ THỨ TỰ</h5>
+                  <div className="frd-ticket-subtitle">(Vui lòng chờ tại sảnh)</div>
+                  <div className="frd-ticket-number-box">
+                    <div className="frd-ticket-number-label">Số của bạn</div>
+                    <div className="frd-ticket-number-val">
+                      {printData.payment_queue_number || printData.queue_number || '--'}
+                    </div>
+                  </div>
+                  <div className="frd-ticket-details">
+                    <div className="frd-ticket-details-grid">
+                      <span className="frdeskpage-ticket-label">Khách hàng:</span>
+                      <span className="frdeskpage-ticket-value">{printData.guest_name || printData.Patient?.User?.full_name}</span>
+                      <span className="frdeskpage-ticket-label">Mã hồ sơ:</span>
+                      <span className="frdeskpage-ticket-value">{printData.code}</span>
+                      <span className="frdeskpage-ticket-label">Dịch vụ:</span>
+                      <span className="frdeskpage-ticket-value">{printData.Service?.name}</span>
+                    </div>
+                  </div>
+                  <div className="frdeskpage-ticket-divider"/>
+                  <div className="frd-ticket-footer">
+                    <span>Giờ lấy số: {new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}</span>
+                    <span className="frd-fw-700"><FaSmile /> Xin cảm ơn!</span>
+                  </div>
+                </div>
+              ) : (
+                /* MẪU 2: HÓA ĐƠN ĐẦY ĐỦ */
+                <div className="frd-invoice-wrap">
+                  <div className="frd-invoice-header">
+                    <h6 className="frd-invoice-clinic-name">{printData.clinicInfo?.name || "PHÒNG KHÁM CLINIC SYSTEM"}</h6>
+                    <div className="frd-invoice-sub">{printData.clinicInfo?.address || "Hà Nội, Việt Nam"}</div>
+                    <div className="frd-invoice-sub">SĐT: {printData.clinicInfo?.phone || "1900 1234"}</div>
+                    <div className="frdeskpage-ticket-divider"/>
+                    <h5 className="frd-invoice-title">HÓA ĐƠN THANH TOÁN</h5>
+                    <div className="frd-invoice-date">Ngày: {new Date().toLocaleString('vi-VN')}</div>
+                    <div className="frd-invoice-sub">Mã HĐ: {printData.PaymentDetails?.transaction_id || printData.code}</div>
+                  </div>
 
-                       <h5 className="frdeskpage-ticket-title">PHIẾU SỐ THỨ TỰ</h5>
-                       <div className="frdeskpage-ticket-subtitle">(Vui lòng chờ tại sảnh)</div>
+                  <div className="frd-invoice-customer">
+                    <div className="frdeskpage-flex-between">
+                      <span>Khách hàng:</span>
+                      <span className="frd-fw-700 frd-uppercase">{printData.guest_name || printData.Patient?.User?.full_name}</span>
+                    </div>
+                    <div className="frdeskpage-flex-between">
+                      <span>Mã hồ sơ:</span>
+                      <span className="frd-fw-700">{printData.code}</span>
+                    </div>
+                    {printData.Doctor && (
+                      <div className="frdeskpage-flex-between">
+                        <span>Bác sĩ:</span>
+                        <span>{printData.Doctor?.user?.full_name}</span>
+                      </div>
+                    )}
+                  </div>
 
-                       <div className="frdeskpage-ticket-number-box">
-                           <div className="frdeskpage-ticket-number-label">Số của bạn</div>
-                           <div className="frdeskpage-ticket-number-value">
-                               {printData.payment_queue_number || printData.queue_number || '--'}
-                           </div>
-                       </div>
+                  <table className="frd-invoice-table">
+                    <thead>
+                      <tr>
+                        <th>Tên dịch vụ / Thuốc</th>
+                        <th className="frd-tc">SL</th>
+                        <th className="frd-tr">Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {printData.Service && (
+                        <tr>
+                          <td>{printData.Service?.name}</td>
+                          <td className="frd-tc">1</td>
+                          <td className="frd-tr">{formatMoney(printData.Service?.price)}</td>
+                        </tr>
+                      )}
+                      {printData.items?.map((item, idx) => (
+                        <tr key={idx}>
+                          <td>
+                            {item.name}<br/>
+                            <span className="frd-invoice-unit">({item.unit || 'Đvi'})</span>
+                          </td>
+                          <td className="frd-tc">{item.qty}</td>
+                          <td className="frd-tr">{formatMoney(item.price * item.qty)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
-                       <div className="frdeskpage-ticket-details">
-                           <div className="frdeskpage-ticket-details-grid">
-                               <span className="frdeskpage-ticket-label">Khách hàng:</span>
-                               <span className="frdeskpage-ticket-value">{printData.guest_name || printData.Patient?.User?.full_name}</span>
-                               
-                               <span className="frdeskpage-ticket-label">Mã hồ sơ:</span>
-                               <span className="frdeskpage-ticket-value">{printData.code}</span>
+                  <div className="frdeskpage-ticket-divider"/>
 
-                               <span className="frdeskpage-ticket-label">Dịch vụ:</span>
-                               <span className="frdeskpage-ticket-value">{printData.Service?.name}</span>
-                           </div>
-                       </div>
+                  <div className="frd-invoice-totals">
+                    <div className="frd-invoice-total-row">
+                      <span className="frd-fw-700">TỔNG TIỀN:</span>
+                      <span className="frd-fw-700">{formatMoney(printData.Service?.price || printData.total_amount)}</span>
+                    </div>
+                    {printData.PaymentDetails?.method === 'cash' && printData.PaymentDetails?.info && (
+                      <>
+                        <div className="frd-invoice-sub-row">
+                          <span>Khách đưa:</span>
+                          <span>{formatMoney(printData.PaymentDetails.info.amount_received)}</span>
+                        </div>
+                        <div className="frd-invoice-total-row">
+                          <span className="frd-fw-700">TIỀN THỐI LẠI:</span>
+                          <span className="frd-fw-700">{formatMoney(printData.PaymentDetails.info.change_amount)}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
 
-                       <div className="frdeskpage-ticket-divider"></div>
-                       
-                       <div className="frdeskpage-ticket-footer-row">
-                           <span>Giờ lấy số: {new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}</span>
-                           <span style={{fontWeight:700}}><FaSmile /> Xin cảm ơn!</span>
-                       </div>
-                   </div>
-               ) : (
-                   /* --- MẪU 2: HÓA ĐƠN ĐẦY ĐỦ --- */
-                   <div style={{fontFamily: 'Be Vietnam Pro, sans-serif', fontSize: '13px', color: '#000'}}>
-                       <div className="frdeskpage-invoice-header">
-                           <h6 className="frdeskpage-invoice-clinic-name">
-                               {printData.clinicInfo?.name || "PHÒNG KHÁM CLINIC SYSTEM"}
-                           </h6>
-                           <div className="frdeskpage-invoice-clinic-sub">{printData.clinicInfo?.address || "Hà Nội, Việt Nam"}</div>
-                           <div className="frdeskpage-invoice-clinic-sub">SĐT: {printData.clinicInfo?.phone || "1900 1234"}</div>
-                           
-                           <div className="frdeskpage-ticket-divider"></div>
-                           <h5 className="frdeskpage-invoice-title">HÓA ĐƠN THANH TOÁN</h5>
-                           <div className="frdeskpage-invoice-date">
-                               Ngày: {new Date().toLocaleString('vi-VN')}
-                           </div>
-                           <div className="frdeskpage-invoice-clinic-sub">Mã HĐ: {printData.PaymentDetails?.transaction_id || printData.code}</div>
-                       </div>
+                  <div className="frd-invoice-thanks">
+                    <div className="frd-fw-700">XIN CẢM ƠN QUÝ KHÁCH!</div>
+                    <div className="frd-italic">Hẹn gặp lại</div>
+                    <div className="frd-invoice-printed-by">In bởi: {printData.PaymentDetails?.info?.cashier_name || 'Hệ thống'}</div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
-                       <div className="frdeskpage-invoice-customer">
-                           <div className="frdeskpage-invoice-flex-between">
-                               <span>Khách hàng:</span>
-                               <span className="frdeskpage-invoice-name">{printData.guest_name || printData.Patient?.User?.full_name}</span>
-                           </div>
-                           <div className="frdeskpage-invoice-flex-between">
-                               <span>Mã hồ sơ:</span>
-                               <span className="frdeskpage-invoice-code">{printData.code}</span>
-                           </div>
-                           {printData.Doctor && (
-                           <div className="frdeskpage-invoice-flex-between">
-                               <span>Bác sĩ:</span>
-                               <span>{printData.Doctor?.user?.full_name}</span>
-                           </div>
-                           )}
-                       </div>
-
-                       <table className="frdeskpage-invoice-table">
-                           <thead>
-                               <tr>
-                                   <th>Tên dịch vụ / Thuốc</th>
-                                   <th style={{textAlign:"center",width:30}}>SL</th>
-                                   <th style={{textAlign:"right"}}>Thành tiền</th>
-                               </tr>
-                           </thead>
-                           <tbody>
-                               {printData.Service && (
-                                   <tr>
-                                       <td>{printData.Service?.name}</td>
-                                       <td className="center">1</td>
-                                       <td className="right">{formatMoney(printData.Service?.price)}</td>
-                                   </tr>
-                               )}
-                               {printData.items && printData.items.map((item, idx) => (
-                                   <tr key={idx}>
-                                       <td>
-                                           {item.name} <br/>
-                                           <span style={{fontSize:10,color:"var(--frd-gray-400)",fontStyle:"italic"}}>({item.unit || 'Đvi'})</span>
-                                       </td>
-                                       <td className="center">{item.qty}</td>
-                                       <td className="right">{formatMoney(item.price * item.qty)}</td>
-                                   </tr>
-                               ))}
-                           </tbody>
-                       </table>
-
-                       <div className="frdeskpage-ticket-divider"></div>
-
-                       <div className="frdeskpage-invoice-totals">
-                           <div className="frdeskpage-invoice-total-row">
-                               <span style={{fontWeight:700}}>TỔNG TIỀN:</span>
-                               <span style={{fontWeight:700}}>{formatMoney(printData.Service?.price || printData.total_amount)}</span>
-                           </div>
-                           
-                           {printData.PaymentDetails?.method === 'cash' && printData.PaymentDetails?.info && (
-                               <>
-                                   <div className="frdeskpage-invoice-sub-row">
-                                       <span>Khách đưa:</span>
-                                       <span>{formatMoney(printData.PaymentDetails.info.amount_received)}</span>
-                                   </div>
-                                   <div className="frdeskpage-invoice-total-row">
-                                       <span style={{fontWeight:700}}>TIỀN THỐI LẠI:</span>
-                                       <span style={{fontWeight:700}}>{formatMoney(printData.PaymentDetails.info.change_amount)}</span>
-                                   </div>
-                               </>
-                           )}
-                       </div>
-
-                       <div className="frdeskpage-invoice-thanks">
-                           <div style={{fontWeight:700,marginBottom:4}}>XIN CẢM ƠN QUÝ KHÁCH!</div>
-                           <div style={{fontStyle:"italic"}}>Hẹn gặp lại</div>
-                           <div className="frdeskpage-invoice-printed-by">In bởi: {printData.PaymentDetails?.info?.cashier_name || 'Hệ thống'}</div>
-                       </div>
-                   </div>
-               )}
-               </>
-             )}
-          </div>
-        </Modal.Body>
-
-        <Modal.Footer className="frdeskpage-no-print">
-          <button 
-             className="frdeskpage-btn frdeskpage-btn-ghost frdeskpage-btn-lg frdeskpage-flex-1" 
-             onClick={() => setShowPrintModal(false)}
-          >
-              ĐÓNG
+        <FrdModal.Footer className="frdeskpage-no-print frd-print-footer">
+          <button className="frdeskpage-btn frdeskpage-btn-ghost frdeskpage-btn-lg frdeskpage-flex-1" onClick={() => setShowPrintModal(false)}>
+            ĐÓNG
           </button>
-          <button 
-             className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-lg frdeskpage-flex-1" 
-             onClick={() => window.print()}
-          >
-              <FaPrint /> IN NGAY
+          <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-lg frdeskpage-flex-1" onClick={() => window.print()}>
+            <FaPrint /> IN NGAY
           </button>
-        </Modal.Footer>
-      </Modal>
+        </FrdModal.Footer>
+      </FrdModal>
     </div>
   );
 };

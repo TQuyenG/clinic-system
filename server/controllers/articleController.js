@@ -2,10 +2,12 @@
 const { sequelize, models } = require('../config/db');
 const { 
   Article, Category, User, Staff, Interaction, Notification, Medicine, Disease,
-  ArticleReviewHistory, ArticleComment, EntitySuggestion 
+  ArticleReviewHistory, ArticleComment, EntitySuggestion, Doctor, Specialty
 } = models;
 const { Op } = require('sequelize');
 const slugify = require('slugify');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // =====================================================
 // HELPER FUNCTION - Generate Slug
@@ -135,7 +137,7 @@ const notifyManagersAndAdmins = async (type, message, link) => {
     console.log(`   → Tìm thấy ${staffWithApproveCount} staff có quyền approve`);
 
     // 4. Gửi thông báo đến tất cả recipients
-    console.log(`📧 Gửi thông báo đến ${recipientIds.size} người...`);
+    console.log(` Gửi thông báo đến ${recipientIds.size} người...`);
     for (const userId of recipientIds) {
       await createNotification(userId, type, message, link);
     }
@@ -816,7 +818,7 @@ exports.getArticleById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
     }
 
-    // 🔐 PHÂN QUYỀN: Check xem user có quyền xem bài này không
+    //  PHÂN QUYỀN: Check xem user có quyền xem bài này không
     const isManager = await (async () => {
       if (req.user.role === 'admin') return true;
       if (req.user.role === 'staff') {
@@ -826,9 +828,20 @@ exports.getArticleById = async (req, res) => {
       return false;
     })();
 
-    //  Staff thường/Doctor chỉ xem được bài của mình
+    // Check if user is the medical reviewer
+    const isMedicalReviewer = async () => {
+      if (req.user.role !== 'doctor') return false;
+      const doctor = await models.Doctor.findOne({
+        where: { user_id: req.user.id }
+      });
+      return doctor && article.medical_reviewer_id === doctor.id && article.status === 'pending_medical';
+    };
+
+    const ismR = await isMedicalReviewer();
+
+    //  Staff thường/Doctor chỉ xem được bài của mình HOẶC bài được gán cho họ review
     //  Admin/Manager Content xem được tất cả bài
-    if (!isManager && article.author_id !== req.user.id) {
+    if (!isManager && article.author_id !== req.user.id && !ismR) {
       return res.status(403).json({ success: false, message: 'Bạn không có quyền xem bài viết này' });
     }
 
@@ -879,135 +892,83 @@ exports.suggestTags = async (req, res) => {
 exports.createArticle = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    //  CHỈ lấy các trường cần thiết, KHÔNG lấy name, composition, v.v.
     const { 
-      title, 
-      content, 
-      category_id, 
-      tags_json, 
-      source, 
-      entity_id,      //  THÊM - ID thuốc/bệnh lý đã chọn
-      entity_type,    //  THÊM - Loại: medicine/disease/article
-      isDraft = false 
+      title, content, category_id, tags_json, cover_image_url, entity_type, entity_id, isDraft,
+      specialty_id, is_medical_review_required, medical_reviewer_id
     } = req.body;
 
-    console.log('DEBUG: createArticle - isDraft:', isDraft, 'Body:', req.body);
-
-    if (!title || !content || !category_id) {
-      await t.rollback();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Vui lòng điền đầy đủ thông tin bắt buộc' 
-      });
-    }
-
-    const category = await Category.findByPk(category_id, { transaction: t });
-    if (!category) {
-      await t.rollback();
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Không tìm thấy danh mục' 
-      });
-    }
-
-    const slug = slugify(title, { lower: true, strict: true });
-    const { isAdminDirectPublish } = req.body;
-    
-    // ✅ SỬA: Check quyền Content Manager
-    const canDirectPublish = await isContentManager(req.user);
-
-    let articleStatus = 'draft';
-    if (!isDraft) {
-      if (isAdminDirectPublish && canDirectPublish) {
-        articleStatus = 'approved';
+    // ALL ROLES FOLLOW SAME WORKFLOW - NO BYPASSES
+    // Admin cannot publish directly; must go through approval process like other roles
+    let finalStatus = 'draft';
+    if (isDraft !== true) {
+      // User is submitting for approval (not saving as draft)
+      if (is_medical_review_required && medical_reviewer_id) {
+        finalStatus = 'pending_medical';
       } else {
-        articleStatus = 'pending';
-      }
-    }
-    //  VALIDATION: Kiểm tra entity tồn tại
-    if (entity_id && entity_type) {
-      if (entity_type === 'medicine') {
-        const medicine = await Medicine.findByPk(entity_id, { transaction: t });
-        if (!medicine || medicine.hidden) {
-          await t.rollback();
-          return res.status(404).json({ 
-            success: false, 
-            message: medicine ? 'Thuốc này đã bị ẩn' : 'Không tìm thấy thuốc' 
-          });
-        }
-      } else if (entity_type === 'disease') {
-        const disease = await Disease.findByPk(entity_id, { transaction: t });
-        if (!disease || disease.hidden) {
-          await t.rollback();
-          return res.status(404).json({ 
-            success: false, 
-            message: disease ? 'Bệnh lý này đã bị ẩn' : 'Không tìm thấy bệnh lý' 
-          });
-        }
+        finalStatus = 'pending';
       }
     }
 
-    //  TẠO BÀI VIẾT - CHỈ lưu entity_id và entity_type
-    const newArticle = await Article.create({
+    // Xử lý tạo Slug
+    const baseSlug = slugify(title, { lower: true, strict: true, locale: 'vi' });
+    let uniqueSlug = baseSlug;
+    let counter = 1;
+    while (await Article.findOne({ where: { slug: uniqueSlug } })) {
+      uniqueSlug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+
+    const article = await Article.create({
       title,
-      slug,
+      slug: uniqueSlug,
       content,
       category_id,
       author_id: req.user.id,
-      tags_json: tags_json || [],
-      source: source || null,
-      status: articleStatus,
-      entity_id: entity_id || null,
-      entity_type: entity_type || 'article'
+      tags_json,
+      cover_image_url,
+      entity_type,
+      entity_id,
+      status: finalStatus,
+      specialty_id: specialty_id || null,
+      is_medical_review_required: is_medical_review_required || false,
+      medical_reviewer_id: medical_reviewer_id || null
     }, { transaction: t });
 
-    // Xử lý history và thông báo
-    if (!isDraft) {
-      if (isAdminDirectPublish && req.user.role === 'admin') {
-        console.log('DEBUG: createArticle - Admin publish trực tiếp');
-        await createReviewHistory(
-          newArticle.id,
-          req.user.id,
-          req.user.id,
-          'approve',
-          'Admin tạo và đăng trực tiếp',
-          null,
-          'approved',
-          null,
-          t
-        );
-      } else {
-        console.log('DEBUG: createArticle - Gửi phê duyệt');
-        await createReviewHistory(
-          newArticle.id,
-          req.user.id,
-          req.user.id,
-          'submit',
-          null,
-          'draft',
-          'pending',
-          null,
-          t
-        );
-
+    // Send notification to assigned medical reviewer
+    if (finalStatus === 'pending_medical' && medical_reviewer_id) {
+      try {
+        const doctor = await models.Doctor.findByPk(medical_reviewer_id, {
+          include: [{ model: models.User, as: 'user', attributes: ['id'] }]
+        });
+        if (doctor && doctor.user) {
+          await createNotification(
+            doctor.user.id,
+            'article_medical_review',
+            `Bài viết "${title}" cần phê duyệt chuyên môn`,
+            `/articles/${article.id}/review`
+          );
+        }
+      } catch (notifError) {
+        console.error('Lỗi gửi thông báo:', notifError);
+      }
+    } else if (finalStatus === 'pending') {
+      // Notify managers/admins for general approval
+      try {
         await notifyManagersAndAdmins(
-          'article',
-          `${req.user.full_name} đã gửi bài viết mới "${title}" chờ phê duyệt`,
-          `/phe-duyet-bai-viet/${newArticle.id}`
+          'article_pending_review',
+          `Bài viết "${title}" chờ phê duyệt từ ${req.user.full_name || 'tác giả'}`,
+          `/articles/${article.id}/review`
         );
+      } catch (notifError) {
+        console.error('Lỗi gửi thông báo:', notifError);
       }
     }
 
     await t.commit();
-    const articleData = await loadEntityData(newArticle);
-    res.status(201).json({ 
-      success: true, 
-      message: isDraft ? 'Đã tạo bản nháp' : 'Đã tạo và gửi phê duyệt', 
-      article: articleData 
-    });
+    res.status(201).json({ success: true, message: 'Tạo bài viết thành công', article });
   } catch (error) {
     await t.rollback();
-    console.error('Error creating article:', error);
+    console.error('Lỗi tạo bài viết:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -1020,144 +981,92 @@ exports.updateArticle = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    
-    //  CHỈ lấy các trường cần thiết
     const { 
-      title, 
-      content, 
-      category_id, 
-      tags_json, 
-      source,
-      entity_id,      //  THÊM
-      entity_type,    //  THÊM
-      isDraft = false
+      title, content, category_id, tags_json, cover_image_url, isDraft,
+      specialty_id, is_medical_review_required, medical_reviewer_id
     } = req.body;
 
-    console.log('DEBUG: updateArticle - isDraft:', isDraft, 'Body:', req.body);
+    const article = await Article.findByPk(id);
+    if (!article) return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
 
-    const article = await Article.findByPk(id, {
-      include: [
-        { model: Category, as: 'category' },
-        { model: Medicine, as: 'medicine', required: false },
-        { model: Disease, as: 'disease', required: false }
-      ],
-      transaction: t
-    });
-
-    if (!article) {
-      await t.rollback();
-      return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
+    // ALL ROLES FOLLOW SAME WORKFLOW - NO BYPASSES
+    // When updating existing article, compute status based on isDraft flag
+    let finalStatus = article.status; // Preserve current status by default
+    if (isDraft === true) {
+      finalStatus = 'draft';
+    } else if (isDraft === false) {
+      // User is changing from draft to submission
+      if (article.status === 'draft') {
+        // First submission - check if medical review required
+        if (is_medical_review_required && medical_reviewer_id) {
+          finalStatus = 'pending_medical';
+        } else {
+          finalStatus = 'pending';
+        }
+      }
+      // If already in review process, don't change status here
+      // (status is controlled by reviewers only)
     }
 
-    if (article.author_id !== req.user.id && req.user.role !== 'admin') {
-      await t.rollback();
-      return res.status(403).json({ success: false, message: 'Không có quyền chỉnh sửa' });
-    }
-
-    //  VALIDATION: Kiểm tra entity tồn tại
-    if (entity_id && entity_type) {
-      if (entity_type === 'medicine') {
-        const medicine = await Medicine.findByPk(entity_id, { transaction: t });
-        if (!medicine || medicine.hidden) {
-          await t.rollback();
-          return res.status(404).json({ 
-            success: false, 
-            message: medicine ? 'Thuốc này đã bị ẩn' : 'Không tìm thấy thuốc' 
-          });
-        }
-      } else if (entity_type === 'disease') {
-        const disease = await Disease.findByPk(entity_id, { transaction: t });
-        if (!disease || disease.hidden) {
-          await t.rollback();
-          return res.status(404).json({ 
-            success: false, 
-            message: disease ? 'Bệnh lý này đã bị ẩn' : 'Không tìm thấy bệnh lý' 
-          });
-        }
+    let uniqueSlug = article.slug;
+    if (title && title !== article.title) {
+      const baseSlug = slugify(title, { lower: true, strict: true, locale: 'vi' });
+      uniqueSlug = baseSlug;
+      let counter = 1;
+      while (await Article.findOne({ where: { slug: uniqueSlug, id: { [Op.ne]: id } } })) {
+        uniqueSlug = `${baseSlug}-${counter}`;
+        counter++;
       }
     }
 
-    const previousStatus = article.status;
-    let newStatus = previousStatus;
-    let action = null;
-
-    //  CẬP NHẬT - CHỈ cập nhật entity_id và entity_type
-    const updatedArticle = await article.update({
-      title,
-      slug: slugify(title, { lower: true, strict: true }),
-      content,
-      category_id,
-      tags_json: tags_json || [],
-      source: source || null,
-      entity_id: entity_id !== undefined ? entity_id : article.entity_id,
-      entity_type: entity_type !== undefined ? entity_type : article.entity_type
+    await article.update({
+      title: title || article.title,
+      slug: uniqueSlug,
+      content: content || article.content,
+      category_id: category_id || article.category_id,
+      tags_json: tags_json || article.tags_json,
+      cover_image_url: cover_image_url !== undefined ? cover_image_url : article.cover_image_url,
+      status: finalStatus,
+      specialty_id: specialty_id !== undefined ? specialty_id : article.specialty_id,
+      is_medical_review_required: is_medical_review_required !== undefined ? is_medical_review_required : article.is_medical_review_required,
+      medical_reviewer_id: medical_reviewer_id !== undefined ? medical_reviewer_id : article.medical_reviewer_id
     }, { transaction: t });
 
-    // Xử lý status
-    const { isAdminDirectPublish } = req.body;
-    
-    if (isDraft) {
-      if (req.user.role === 'admin') {
-        newStatus = previousStatus === 'draft' ? 'draft' : previousStatus;
-      } else {
-        if (['draft', 'rejected', 'request_rewrite'].includes(previousStatus)) {
-          newStatus = 'draft'; 
-        } else {
-          newStatus = previousStatus;
+    // Send notification to assigned medical reviewer if status changed to pending_medical
+    if (finalStatus === 'pending_medical' && medical_reviewer_id) {
+      try {
+        const doctor = await models.Doctor.findByPk(medical_reviewer_id, {
+          include: [{ model: models.User, as: 'user', attributes: ['id'] }]
+        });
+        if (doctor && doctor.user) {
+          await createNotification(
+            doctor.user.id,
+            'article_medical_review',
+            `Bài viết "${article.title}" cần phê duyệt chuyên môn`,
+            `/articles/${article.id}/review`
+          );
         }
+      } catch (notifError) {
+        console.error('Lỗi gửi thông báo:', notifError);
       }
-      updatedArticle.status = newStatus;
-    } else {
-      if (isAdminDirectPublish && req.user.role === 'admin') {
-        newStatus = 'approved';
-        action = 'approve';
-
-        await createReviewHistory(
-          updatedArticle.id,
-          req.user.id,
-          updatedArticle.author_id,
-          action,
-          'Admin cập nhật và đăng trực tiếp',
-          previousStatus,
-          newStatus,
-          null,
-          t
-        );
-      } else {
-        newStatus = 'pending';
-        action = previousStatus === 'draft' ? 'submit' : 'resubmit'; 
-        updatedArticle.status = newStatus;
-
-        await createReviewHistory(
-          updatedArticle.id,
-          req.user.id,
-          updatedArticle.author_id,
-          action,
-          'Gửi lại sau khi chỉnh sửa',
-          previousStatus,
-          newStatus,
-          null,
-          t
-        );
-
+    } else if (finalStatus === 'pending' && article.status === 'draft') {
+      // Notify managers/admins when moved from draft to pending
+      try {
         await notifyManagersAndAdmins(
-          'article',
-          `${req.user.full_name} đã ${action === 'submit' ? 'gửi' : 'gửi lại'} bài viết "${title}" chờ phê duyệt`,
-          `/phe-duyet-bai-viet/${updatedArticle.id}`
+          'article_pending_review',
+          `Bài viết "${article.title}" chờ phê duyệt từ ${req.user.full_name || 'tác giả'}`,
+          `/articles/${article.id}/review`
         );
+      } catch (notifError) {
+        console.error('Lỗi gửi thông báo:', notifError);
       }
     }
 
     await t.commit();
-    const articleData = await loadEntityData(updatedArticle);
-    res.json({ 
-      success: true, 
-      message: isDraft ? 'Đã lưu bản nháp' : 'Đã cập nhật và gửi phê duyệt', 
-      article: articleData 
-    });
+    res.json({ success: true, message: 'Cập nhật bài viết thành công', article });
   } catch (error) {
     await t.rollback();
-    console.error('Error updating article:', error);
+    console.error('Lỗi cập nhật bài viết:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -1282,91 +1191,74 @@ exports.duplicateArticle = async (req, res) => {
   }
 };
 
-// ==================== REVIEW & APPROVAL (Admin Only) ====================
+// ==================== REVIEW & APPROVAL ====================
 
 /**
  * POST /api/articles/:id/review
- * Phê duyệt bài viết (Admin only)
+ * Phê duyệt bài viết (bác sĩ phê duyệt rồi trưởn phòng duyệt)
  * Body: { action: 'approve' | 'reject' | 'rewrite', reason: string }
  */
 exports.reviewArticle = async (req, res) => {
-  const transaction = await sequelize.transaction();
+  const t = await sequelize.transaction();
   try {
-    // ✅ SỬA: Check quyền duyệt bài (Admin hoặc Staff Content)
-    const canReview = await isContentManager(req.user);
-    if (!canReview) {
-      await transaction.rollback();
-      return res.status(403).json({ success: false, message: 'Bạn không có quyền duyệt bài viết' });
-    }
-
     const { id } = req.params;
-    const { action, reason } = req.body;
+    const { action, admin_note } = req.body; // action: 'approve' | 'reject' | 'request_rewrite'
 
-    const article = await Article.findByPk(id, {
-      include: [{ model: User, as: 'author' }],
-      transaction
-    });
+    const article = await Article.findByPk(id);
+    if (!article) return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
 
-    if (!article) {
-      await transaction.rollback();
-      return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
+    // Permission check: Doctor can only review articles assigned to them
+    if (req.user.role === 'doctor') {
+      const doctor = await models.Doctor.findOne({ where: { user_id: req.user.id } });
+      if (!doctor || article.medical_reviewer_id !== doctor.id || article.status !== 'pending_medical') {
+        await t.rollback();
+        return res.status(403).json({ success: false, message: 'Bạn không có quyền phê duyệt bài viết này' });
+      }
     }
 
-    const statusMap = {
-      approve: 'approved',
-      reject: 'rejected',
-      rewrite: 'request_rewrite'
-    };
+    const previous_status = article.status;
+    let new_status = '';
 
-    const prevStatus = article.status;
-    const newStatus = statusMap[action];
-
-    if (!newStatus) {
-      await transaction.rollback();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Hành động không hợp lệ. Chỉ chấp nhận: approve, reject, rewrite' 
-      });
+    if (action === 'approve') {
+      // NẾU NGƯỜI DUYỆT LÀ BÁC SĨ: Chỉ xác nhận chuyên môn, chuyển lên cho Trưởng phòng
+      if (req.user.role === 'doctor') {
+        new_status = 'pending'; 
+      } else {
+        // NẾU LÀ ADMIN / TRƯỞNG PHÒNG: Xuất bản luôn
+        new_status = 'approved';
+      }
+    } else if (action === 'reject') {
+      new_status = 'rejected';
+    } else if (action === 'request_rewrite') {
+      new_status = 'request_rewrite';
+    } else {
+      return res.status(400).json({ success: false, message: 'Hành động không hợp lệ' });
     }
 
-    await article.update({
-      status: newStatus,
-      rejection_reason: (action === 'reject' || action === 'rewrite') ? reason : null
-    }, { transaction });
+    // Update status
+    const updateData = { status: new_status };
+    if (new_status === 'approved') {
+      updateData.approved_by_id = req.user.id;
+      if (!article.published_at) updateData.published_at = new Date();
+    }
+    await article.update(updateData, { transaction: t });
 
     // Lưu lịch sử
-    await createReviewHistory(
-      article.id,
-      req.user.id,
-      article.author_id,
-      action === 'rewrite' ? 'request_rewrite' : action,
-      reason,
-      prevStatus,
-      newStatus,
-      { reviewer_role: req.user.role },
-      transaction
-    );
+    await ArticleReviewHistory.create({
+      article_id: id,
+      reviewer_id: req.user.id,
+      author_id: article.author_id,
+      action: action,
+      previous_status,
+      new_status,
+      admin_note: admin_note || (req.user.role === 'doctor' && action === 'approve' ? 'Bác sĩ đã xác nhận chuyên môn' : null)
+    }, { transaction: t });
 
-    await transaction.commit();
-
-    // Gửi thông báo cho tác giả
-    const actionMessages = {
-      approve: 'đã được phê duyệt',
-      reject: 'đã bị từ chối',
-      rewrite: 'cần viết lại'
-    };
-
-    await createNotification(
-      article.author_id,
-      'article',
-      `Bài viết "${article.title}" ${actionMessages[action]}. ${reason ? `Lý do: ${reason}` : ''}`,
-      `/phe-duyet-bai-viet/${id}`
-    );
-
-    res.json({ success: true, message: 'Đã xử lý phê duyệt', article });
+    await t.commit();
+    res.json({ success: true, message: 'Đã lưu kết quả phê duyệt thành công', new_status });
   } catch (error) {
-    await transaction.rollback();
-    console.error('Error reviewing article:', error);
+    await t.rollback();
+    console.error('Lỗi review bài viết:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -2509,39 +2401,43 @@ exports.getAllTags = async (req, res) => {
 
 exports.getRelatedArticles = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { category_id, tags } = req.query;
+    const articleId = parseInt(req.params.id, 10);
+    const categoryId = req.query.category_id ? parseInt(req.query.category_id, 10) : null;
+    const { tags } = req.query;
     
     console.log('=== Fetching related articles ===');
-    console.log('Article ID:', id);
-    console.log('Category ID:', category_id);
+    console.log('Article ID:', articleId);
+    console.log('Category ID:', categoryId);
     console.log('Tags:', tags);
     
     let parsedTags = [];
     if (tags) {
       try {
-        parsedTags = JSON.parse(tags);
+        parsedTags = Array.isArray(tags) ? tags : JSON.parse(tags);
         console.log('Parsed tags:', parsedTags);
       } catch (e) {
         console.error('Error parsing tags:', e);
+        parsedTags = String(tags)
+          .split(',')
+          .map(tag => tag.trim())
+          .filter(Boolean);
       }
     }
     
     const baseWhere = {
-      id: { [Op.ne]: id },
-      status: 'approved',
-      deleted_at: null
+      id: { [Op.ne]: articleId },
+      status: 'approved'
     };
     
     let allArticles = [];
     
     // BUOC 1: Neu co category_id, uu tien lay bai cung danh muc
-    if (category_id) {
+    if (categoryId) {
       console.log('Step 1: Fetching same category articles...');
       const sameCategoryArticles = await Article.findAll({
         where: {
           ...baseWhere,
-          category_id: category_id
+          category_id: categoryId
         },
         include: [
           { 
@@ -2587,7 +2483,7 @@ exports.getRelatedArticles = async (req, res) => {
       console.log(`Step 2: Need ${5 - allArticles.length} more articles...`);
       
       const excludeIds = allArticles.map(a => a.id);
-      excludeIds.push(parseInt(id));
+      excludeIds.push(articleId);
       
       const recentArticles = await Article.findAll({
         where: {
@@ -4561,9 +4457,9 @@ exports.getMedicineSuggestions = async (req, res) => {
     const offset = (page - 1) * limit;
     const user = req.user;
 
-    console.log(`\n🔍 getMedicineSuggestions - User: ${user.id} (${user.role})`);
+    console.log(`\n getMedicineSuggestions - User: ${user.id} (${user.role})`);
 
-    // 🔐 Check quyền: Admin || Manager Content || Staff có quyền approve_medicine
+    //  Check quyền: Admin || Manager Content || Staff có quyền approve_medicine
     const canApprove = await (async () => {
       if (user.role === 'admin') {
         console.log('  ✓ User là Admin → canApprove = true');
@@ -4607,7 +4503,7 @@ exports.getMedicineSuggestions = async (req, res) => {
 
     const where = { entity_type: 'medicine' };
 
-    // ⚠️ Staff thường chỉ thấy đề xuất của mình, người có quyền approve thấy tất cả
+    //  Staff thường chỉ thấy đề xuất của mình, người có quyền approve thấy tất cả
     if (!canApprove) {
       where.user_id = user.id;
       console.log(`  → Chỉ xem đề xuất của mình (user_id: ${user.id})`);
@@ -4630,7 +4526,7 @@ exports.getMedicineSuggestions = async (req, res) => {
         },
         {
           model: User,
-          as: 'admin', // ✅ Sửa từ 'reviewer' thành 'admin'
+          as: 'admin', //  Sửa từ 'reviewer' thành 'admin'
           attributes: ['id', 'username', 'full_name'],
           required: false
         }
@@ -4676,7 +4572,7 @@ exports.createMedicineSuggestion = async (req, res) => {
     const { name, composition, uses, side_effects, manufacturer, image_url, description } = req.body;
     const user = req.user;
 
-    // 🔐 KIỂM TRA QUYỀN: Chỉ staff content hoặc doctor mới được gửi đề xuất
+    //  KIỂM TRA QUYỀN: Chỉ staff content hoặc doctor mới được gửi đề xuất
     if (user.role === 'staff') {
       const staff = await Staff.findOne({ where: { user_id: user.id } });
       if (!staff || staff.department !== 'content') {
@@ -4722,10 +4618,10 @@ exports.createMedicineSuggestion = async (req, res) => {
       status: 'pending'
     }, { transaction: t });
 
-    // ⚠️ COMMIT TRANSACTION TRƯỚC KHI GỬI THÔNG BÁO
+    //  COMMIT TRANSACTION TRƯỚC KHI GỬI THÔNG BÁO
     await t.commit();
 
-    // 📧 THÔNG BÁO CHO ADMIN + MANAGER CONTENT + STAFF CÓ QUYỀN APPROVE_MEDICINE
+    //  THÔNG BÁO CHO ADMIN + MANAGER CONTENT + STAFF CÓ QUYỀN APPROVE_MEDICINE
     try {
       const recipientIds = new Set();
 
@@ -4734,7 +4630,7 @@ exports.createMedicineSuggestion = async (req, res) => {
         where: { role: 'admin' },
         attributes: ['id']
       });
-      console.log(`🔍 Tìm thấy ${adminUsers.length} admin`);
+      console.log(` Tìm thấy ${adminUsers.length} admin`);
       adminUsers.forEach(admin => recipientIds.add(admin.id));
 
       // 2. Lấy Manager Content (department=content, rank=manager)
@@ -4742,7 +4638,7 @@ exports.createMedicineSuggestion = async (req, res) => {
         where: { department: 'content', rank: 'manager' },
         attributes: ['user_id', 'department', 'rank']
       });
-      console.log(`🔍 Tìm thấy ${managerContentStaff.length} Manager Content`);
+      console.log(` Tìm thấy ${managerContentStaff.length} Manager Content`);
       managerContentStaff.forEach(staff => {
         if (staff.user_id) {
           console.log(`  → Manager Content user_id: ${staff.user_id}`);
@@ -4754,7 +4650,7 @@ exports.createMedicineSuggestion = async (req, res) => {
       const allStaff = await Staff.findAll({
         attributes: ['user_id', 'permissions', 'department', 'rank']
       });
-      console.log(`🔍 Kiểm tra ${allStaff.length} staff để tìm quyền approve_medicine`);
+      console.log(` Kiểm tra ${allStaff.length} staff để tìm quyền approve_medicine`);
       
       allStaff.forEach(staff => {
         if (staff.permissions && staff.permissions.articles) {
@@ -4766,8 +4662,8 @@ exports.createMedicineSuggestion = async (req, res) => {
         }
       });
 
-      console.log(`📧 Tổng số người nhận thông báo: ${recipientIds.size}`);
-      console.log(`📧 Danh sách user_id: [${Array.from(recipientIds).join(', ')}]`);
+      console.log(` Tổng số người nhận thông báo: ${recipientIds.size}`);
+      console.log(` Danh sách user_id: [${Array.from(recipientIds).join(', ')}]`);
 
       // Gửi thông báo cho tất cả recipients
       for (const userId of recipientIds) {
@@ -4781,7 +4677,7 @@ exports.createMedicineSuggestion = async (req, res) => {
 
       console.log(`✓ Đã gửi ${recipientIds.size} thông báo đề xuất thuốc "${name}"`);
     } catch (notifError) {
-      console.error('⚠️ Lỗi khi gửi thông báo (suggestion đã tạo thành công):', notifError);
+      console.error(' Lỗi khi gửi thông báo (suggestion đã tạo thành công):', notifError);
     }
 
     res.status(201).json({
@@ -4844,8 +4740,8 @@ exports.reviewMedicineSuggestion = async (req, res) => {
     }
 
     if (action === 'approve') {
-      // ✅ TẠO THUỐC MỚI
-      const medicineData = suggestion.suggested_data; // ✅ Sửa từ data_json
+      //  TẠO THUỐC MỚI
+      const medicineData = suggestion.suggested_data; //  Sửa từ data_json
       const slug = generateSlug(medicineData.name);
 
       const medicine = await Medicine.create({
@@ -4863,14 +4759,14 @@ exports.reviewMedicineSuggestion = async (req, res) => {
       // Cập nhật suggestion
       await suggestion.update({
         status: 'approved',
-        admin_id: req.user.id, // ✅ Sửa từ reviewed_by thành admin_id
+        admin_id: req.user.id, //  Sửa từ reviewed_by thành admin_id
         entity_id: medicine.id,
-        admin_note: reason // ✅ Sửa từ reason thành admin_note
+        admin_note: reason //  Sửa từ reason thành admin_note
       }, { transaction: t });
 
       await t.commit();
 
-      // 📧 Thông báo cho người đề xuất (tác giả) - SAU KHI COMMIT
+      //  Thông báo cho người đề xuất (tác giả) - SAU KHI COMMIT
       await createNotification(
         suggestion.user_id,
         'suggestion_approved',
@@ -4884,16 +4780,16 @@ exports.reviewMedicineSuggestion = async (req, res) => {
         medicine
       });
     } else {
-      // ❌ TỪ CHỐI
+      //  TỪ CHỐI
       await suggestion.update({
         status: 'rejected',
-        admin_id: req.user.id, // ✅ Sửa từ reviewed_by
-        admin_note: reason || 'Không phù hợp' // ✅ Sửa từ reason
+        admin_id: req.user.id, //  Sửa từ reviewed_by
+        admin_note: reason || 'Không phù hợp' //  Sửa từ reason
       }, { transaction: t });
 
       await t.commit();
 
-      // 📧 Thông báo cho người đề xuất (tác giả) - SAU KHI COMMIT
+      //  Thông báo cho người đề xuất (tác giả) - SAU KHI COMMIT
       await createNotification(
         suggestion.user_id,
         'suggestion_rejected',
@@ -4931,9 +4827,9 @@ exports.getDiseaseSuggestions = async (req, res) => {
     const offset = (page - 1) * limit;
     const user = req.user;
 
-    console.log(`\n🔍 getDiseaseSuggestions - User: ${user.id} (${user.role})`);
+    console.log(`\n getDiseaseSuggestions - User: ${user.id} (${user.role})`);
 
-    // 🔐 Check quyền: Admin || Manager Content || Staff có quyền approve_disease
+    //  Check quyền: Admin || Manager Content || Staff có quyền approve_disease
     const canApprove = await (async () => {
       if (user.role === 'admin') {
         console.log('  ✓ User là Admin → canApprove = true');
@@ -4977,7 +4873,7 @@ exports.getDiseaseSuggestions = async (req, res) => {
 
     const where = { entity_type: 'disease' };
 
-    // ⚠️ Staff thường chỉ thấy đề xuất của mình, người có quyền approve thấy tất cả
+    //  Staff thường chỉ thấy đề xuất của mình, người có quyền approve thấy tất cả
     if (!canApprove) {
       where.user_id = user.id;
       console.log(`  → Chỉ xem đề xuất của mình (user_id: ${user.id})`);
@@ -5000,7 +4896,7 @@ exports.getDiseaseSuggestions = async (req, res) => {
         },
         {
           model: User,
-          as: 'admin', // ✅ Sửa từ 'reviewer' thành 'admin'
+          as: 'admin', //  Sửa từ 'reviewer' thành 'admin'
           attributes: ['id', 'username', 'full_name'],
           required: false
         }
@@ -5042,7 +4938,7 @@ exports.createDiseaseSuggestion = async (req, res) => {
     const { name, symptoms, treatments, description, image_url } = req.body;
     const user = req.user;
 
-    // 🔐 KIỂM TRA QUYỀN: Chỉ staff content hoặc doctor mới được gửi đề xuất
+    //  KIỂM TRA QUYỀN: Chỉ staff content hoặc doctor mới được gửi đề xuất
     if (user.role === 'staff') {
       const staff = await Staff.findOne({ where: { user_id: user.id } });
       if (!staff || staff.department !== 'content') {
@@ -5086,10 +4982,10 @@ exports.createDiseaseSuggestion = async (req, res) => {
       status: 'pending'
     }, { transaction: t });
 
-    // ⚠️ COMMIT TRANSACTION TRƯỚC KHI GỬI THÔNG BÁO
+    //  COMMIT TRANSACTION TRƯỚC KHI GỬI THÔNG BÁO
     await t.commit();
 
-    // 📧 THÔNG BÁO CHO ADMIN + MANAGER CONTENT + STAFF CÓ QUYỀN APPROVE_DISEASE
+    //  THÔNG BÁO CHO ADMIN + MANAGER CONTENT + STAFF CÓ QUYỀN APPROVE_DISEASE
     try {
       const recipientIds = new Set();
 
@@ -5098,7 +4994,7 @@ exports.createDiseaseSuggestion = async (req, res) => {
         where: { role: 'admin' },
         attributes: ['id']
       });
-      console.log(`🔍 Tìm thấy ${adminUsers.length} admin`);
+      console.log(` Tìm thấy ${adminUsers.length} admin`);
       adminUsers.forEach(admin => recipientIds.add(admin.id));
 
       // 2. Lấy Manager Content (department=content, rank=manager)
@@ -5106,7 +5002,7 @@ exports.createDiseaseSuggestion = async (req, res) => {
         where: { department: 'content', rank: 'manager' },
         attributes: ['user_id', 'department', 'rank']
       });
-      console.log(`🔍 Tìm thấy ${managerContentStaff.length} Manager Content`);
+      console.log(` Tìm thấy ${managerContentStaff.length} Manager Content`);
       managerContentStaff.forEach(staff => {
         if (staff.user_id) {
           console.log(`  → Manager Content user_id: ${staff.user_id}`);
@@ -5118,7 +5014,7 @@ exports.createDiseaseSuggestion = async (req, res) => {
       const allStaff = await Staff.findAll({
         attributes: ['user_id', 'permissions', 'department', 'rank']
       });
-      console.log(`🔍 Kiểm tra ${allStaff.length} staff để tìm quyền approve_disease`);
+      console.log(` Kiểm tra ${allStaff.length} staff để tìm quyền approve_disease`);
       
       allStaff.forEach(staff => {
         if (staff.permissions && staff.permissions.articles) {
@@ -5130,8 +5026,8 @@ exports.createDiseaseSuggestion = async (req, res) => {
         }
       });
 
-      console.log(`📧 Tổng số người nhận thông báo: ${recipientIds.size}`);
-      console.log(`📧 Danh sách user_id: [${Array.from(recipientIds).join(', ')}]`);
+      console.log(` Tổng số người nhận thông báo: ${recipientIds.size}`);
+      console.log(` Danh sách user_id: [${Array.from(recipientIds).join(', ')}]`);
 
       // Gửi thông báo cho tất cả recipients
       for (const userId of recipientIds) {
@@ -5145,7 +5041,7 @@ exports.createDiseaseSuggestion = async (req, res) => {
 
       console.log(`✓ Đã gửi ${recipientIds.size} thông báo đề xuất bệnh lý "${name}"`);
     } catch (notifError) {
-      console.error('⚠️ Lỗi khi gửi thông báo (suggestion đã tạo thành công):', notifError);
+      console.error(' Lỗi khi gửi thông báo (suggestion đã tạo thành công):', notifError);
     }
 
     res.status(201).json({
@@ -5205,8 +5101,8 @@ exports.reviewDiseaseSuggestion = async (req, res) => {
     }
 
     if (action === 'approve') {
-      // ✅ TẠO BỆNH LÝ MỚI
-      const diseaseData = suggestion.suggested_data; // ✅ Sửa từ data_json
+      //  TẠO BỆNH LÝ MỚI
+      const diseaseData = suggestion.suggested_data; //  Sửa từ data_json
       const slug = generateSlug(diseaseData.name);
 
       const disease = await Disease.create({
@@ -5222,14 +5118,14 @@ exports.reviewDiseaseSuggestion = async (req, res) => {
       // Cập nhật suggestion
       await suggestion.update({
         status: 'approved',
-        admin_id: req.user.id, // ✅ Sửa từ reviewed_by
+        admin_id: req.user.id, //  Sửa từ reviewed_by
         entity_id: disease.id,
-        admin_note: reason // ✅ Sửa từ reason
+        admin_note: reason //  Sửa từ reason
       }, { transaction: t });
 
       await t.commit();
 
-      // 📧 Thông báo cho người đề xuất (tác giả) - SAU KHI COMMIT
+      //  Thông báo cho người đề xuất (tác giả) - SAU KHI COMMIT
       await createNotification(
         suggestion.user_id,
         'suggestion_approved',
@@ -5243,16 +5139,16 @@ exports.reviewDiseaseSuggestion = async (req, res) => {
         disease
       });
     } else {
-      // ❌ TỪ CHỐI
+      //  TỪ CHỐI
       await suggestion.update({
         status: 'rejected',
-        admin_id: req.user.id, // ✅ Sửa từ reviewed_by
-        admin_note: reason || 'Không phù hợp' // ✅ Sửa từ reason
+        admin_id: req.user.id, //  Sửa từ reviewed_by
+        admin_note: reason || 'Không phù hợp' //  Sửa từ reason
       }, { transaction: t });
 
       await t.commit();
 
-      // 📧 Thông báo cho người đề xuất (tác giả) - SAU KHI COMMIT
+      //  Thông báo cho người đề xuất (tác giả) - SAU KHI COMMIT
       await createNotification(
         suggestion.user_id,
         'suggestion_rejected',
@@ -5272,6 +5168,320 @@ exports.reviewDiseaseSuggestion = async (req, res) => {
       success: false,
       message: 'Lỗi khi xử lý đề xuất bệnh lý',
       error: error.message
+    });
+  }
+};
+
+/**
+ * Tích hợp AI (Gemini): Phân tích bài viết và trả về Tags, SEO, Gợi ý chuyên khoa
+ * POST /api/articles/ai-analyze
+ */
+exports.analyzeArticleWithAI = async (req, res) => {
+  try {
+    const { title, content, ai_task = 'classify_article', custom_prompt } = req.body;
+    
+    // Validation input
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Vui lòng nhập tiêu đề để AI phân tích' });
+    }
+    
+    if (!process.env.GEMINI_API_KEY) {
+      console.error(' GEMINI_API_KEY không được set trong .env');
+      return res.status(500).json({ success: false, message: 'Hệ thống AI chưa được cấu hình. Liên hệ admin.' });
+    }
+
+    // Chuẩn bị dữ liệu
+    const contentStr = (content || '').substring(0, 5000); // Đảm bảo string
+    console.log(` AI Analyze: title="${title.substring(0, 50)}", contentLength=${contentStr.length}`);
+
+    // Gọi Gemini API với model có sẵn
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    
+    // Tạo prompt dựa trên loại task AI
+    let prompt = '';
+    
+    switch(ai_task) {
+      case 'suggest_specialty':
+        prompt = `Bạn là chuyên gia y tế. Dựa vào tiêu đề và nội dung bài viết, hãy gợi ý chuyên khoa y khoa phù hợp nhất.
+Chỉ trả về ĐÚNG MỘT OBJECT JSON, KHÔNG CÓ MARKDOWN, KHÔNG GIẢI THÍCH:
+{
+  "suggested_specialty": "Tên chuyên khoa (VD: Tim mạch, Nhi khoa, Tâm lý, etc)"
+}
+Tiêu đề: ${title}
+Nội dung: ${contentStr}`;
+        break;
+        
+      case 'classify_article':
+        // Fetch all categories from database for context
+        const allCategories = await Category.findAll({
+          attributes: ['id', 'category_type', 'name'],
+          raw: true
+        });
+        
+        // Group categories by type
+        const categoryByType = {};
+        allCategories.forEach(cat => {
+          if (!categoryByType[cat.category_type]) {
+            categoryByType[cat.category_type] = [];
+          }
+          categoryByType[cat.category_type].push({ id: cat.id, name: cat.name });
+        });
+        
+        // Build category context for AI
+        let categoryContext = 'DANH MỤC BÀI VIẾT TRONG HỆ THỐNG:\n';
+        categoryContext += '1. Danh mục TIN TỨC (tin_tuc) - Bao gồm:\n';
+        if (categoryByType['tin_tuc']) {
+          categoryByType['tin_tuc'].forEach(cat => {
+            categoryContext += `   - ID ${cat.id}: ${cat.name}\n`;
+          });
+        }
+        categoryContext += '2. Danh mục THUỐC (thuoc) - Bao gồm:\n';
+        if (categoryByType['thuoc']) {
+          categoryByType['thuoc'].forEach(cat => {
+            categoryContext += `   - ID ${cat.id}: ${cat.name}\n`;
+          });
+        }
+        categoryContext += '3. Danh mục BỆNH LÝ (benh_ly) - Bao gồm:\n';
+        if (categoryByType['benh_ly']) {
+          categoryByType['benh_ly'].forEach(cat => {
+            categoryContext += `   - ID ${cat.id}: ${cat.name}\n`;
+          });
+        }
+        
+        prompt = `Bạn là chuyên gia phân loại nội dung y tế. Dựa vào tiêu đề và nội dung, hãy gợi ý:
+1. Tags liên quan (4-5 tag)
+2. Danh mục lớn (loại) và danh mục nhỏ (cụ thể) phù hợp nhất
+
+${categoryContext}
+
+Chỉ trả về ĐÚNG MỘT OBJECT JSON, KHÔNG CÓ MARKDOWN, KHÔNG GIẢI THÍCH:
+{
+  "suggested_tags": ["tag1", "tag2", "tag3", "tag4"],
+  "suggested_title": "Tiêu đề được cải thiện (nếu cần)",
+  "suggested_category_type": "tin_tuc|thuoc|benh_ly",
+  "suggested_category_id": <SỐ ID TỪ DANH SÁCH>
+}
+
+Tiêu đề: ${title}
+Nội dung: ${contentStr}`;
+        break;
+        
+      case 'seo_optimize':
+        prompt = `Bạn là chuyên gia SEO y tế. Tối ưu hóa tiêu đề để có SEO tốt hơn.
+Chỉ trả về ĐÚNG MỘT OBJECT JSON:
+{
+  "suggested_title": "Tiêu đề được tối ưu hóa SEO"
+}
+Tiêu đề hiện tại: ${title}`;
+        break;
+        
+      case 'check_spelling':
+        prompt = `Bạn là chuyên gia chỉnh sửa văn bản y tế. Kiểm tra chính tả, ngữ pháp và cách diễn đạt.
+Chỉ trả về ĐÚNG MỘT OBJECT JSON:
+{
+  "suggested_content": "Nội dung sau khi sửa lỗi chính tả và ngữ pháp"
+}
+Nội dung: ${contentStr}`;
+        break;
+        
+      case 'summarize':
+        prompt = `Bạn là chuyên gia viết tóm tắt y tế. Tạo tóm tắt ngắn gọn, dễ hiểu cho trang chi tiết bài viết, không được bỏ sót các chi tiết quan trọng như liều lượng hay thời gian nếu có, câu từ dễ hiểu nhưng không làm mất thông tin.
+      Hãy trình bày theo Markdown rõ ràng, có xuống dòng, tiêu đề, gạch đầu dòng và in đậm khi cần để người đọc dễ theo dõi.
+      Ví dụ cấu trúc mong muốn:
+      ### Tóm tắt nhanh
+      - **Ý chính 1**: ...
+      - **Ý chính 2**: ...
+
+Chỉ trả về ĐÚNG MỘT OBJECT JSON:
+{
+  "suggested_content": "Tóm tắt nội dung bài viết"
+}
+Tiêu đề: ${title}
+Nội dung: ${contentStr}`;
+        break;
+        
+      case 'rephrase':
+        prompt = `Bạn là chuyên gia viết lại nội dung y tế để dễ hiểu hơn. Viết lại bài viết với cách diễn đạt khác, giữ nguyên ý chính.
+Chỉ trả về ĐÚNG MỘT OBJECT JSON:
+{
+  "suggested_content": "Nội dung được viết lại"
+}
+Tiêu đề: ${title}
+Nội dung: ${contentStr}`;
+        break;
+        
+      case 'custom':
+        prompt = custom_prompt || `Bạn là chuyên gia y tế. ${title} - ${contentStr}`;
+        return res.status(400).json({ success: false, message: 'Custom prompt không được cung cấp' });
+        break;
+        
+      default:
+        prompt = `Bạn là chuyên gia y tế. Phân tích tiêu đề và nội dung bài viết.
+Chỉ trả về ĐÚNG MỘT OBJECT JSON:
+{
+  "suggested_title": "Tiêu đề được cải thiện",
+  "suggested_tags": ["tag1", "tag2"]
+}
+Tiêu đề: ${title}
+Nội dung: ${contentStr}`;
+    }
+
+    const result = await model.generateContent(prompt);
+    if (!result || !result.response) {
+      throw new Error('Lỗi: Gemini API không trả về response');
+    }
+    
+    let responseText = result.response.text();
+    console.log(` Gemini ${ai_task} Response: ${responseText.substring(0, 100)}...`);
+    
+    // Xử lý response
+    responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    responseText = responseText.replace(/,\s*[}\]]/g, '}'); // Fix dấu phẩy thừa
+    
+    const data = JSON.parse(responseText);
+    
+    // Validate response format - đảm bảo fields mà frontend expects
+    if (!data.suggested_title) data.suggested_title = title;
+    if (!data.suggested_tags || !Array.isArray(data.suggested_tags)) data.suggested_tags = [];
+    if (!data.suggested_content) data.suggested_content = '';
+    if (!data.suggested_specialty) data.suggested_specialty = '';
+    
+    // Validate and normalize category suggestion for classify_article
+    if (ai_task === 'classify_article') {
+      const normalizeType = (s) => {
+        if (!s) return null;
+        const t = s.toString().toLowerCase().normalize('NFC').trim();
+        if (t.includes('tin')) return 'tin_tuc';
+        if (t.includes('thu') || t.includes('thuốc') || t.includes('thuoc')) return 'thuoc';
+        if (t.includes('benh') || t.includes('bệnh') || t.includes('benh_ly')) return 'benh_ly';
+        if (['tin_tuc','thuoc','benh_ly'].includes(t)) return t;
+        return null;
+      };
+
+      // Try to coerce/normalize suggested_category_type
+      if (data.suggested_category_type) {
+        const mapped = normalizeType(data.suggested_category_type);
+        if (mapped) data.suggested_category_type = mapped;
+      }
+
+      // If AI returned a category name instead of id, attempt to find it
+      if (!data.suggested_category_id && data.suggested_category_name) {
+        const where = {};
+        if (data.suggested_category_type) where.category_type = data.suggested_category_type;
+        const foundByName = await Category.findOne({ where: { ...where, name: data.suggested_category_name } });
+        if (foundByName) {
+          data.suggested_category_id = foundByName.id;
+          data.suggested_category_type = foundByName.category_type;
+        }
+      }
+
+      // If still no id but we have a suggested_category_type, pick the most relevant category (first match)
+      if (!data.suggested_category_id && data.suggested_category_type) {
+        const firstCat = await Category.findOne({ where: { category_type: data.suggested_category_type }, order: [['id','ASC']] });
+        if (firstCat) {
+          data.suggested_category_id = firstCat.id;
+          data.suggested_category_type = firstCat.category_type;
+        }
+      }
+
+      // If we have an id, ensure it exists and set type accordingly
+      if (data.suggested_category_id) {
+        const categoryExists = await Category.findByPk(data.suggested_category_id);
+        if (!categoryExists) {
+          console.warn(` Category ID ${data.suggested_category_id} không tồn tại, bỏ chọn`);
+          data.suggested_category_id = null;
+          data.suggested_category_type = null;
+        } else {
+          data.suggested_category_type = categoryExists.category_type;
+        }
+      }
+    }
+    
+    console.log(` AI ${ai_task} Success`);
+    res.json({ success: true, data });
+    
+  } catch (error) {
+    console.error(' Lỗi AI Analyze:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: `Lỗi hệ thống AI: ${error.message}`,
+      debug: process.env.NODE_ENV === 'development' ? error.toString() : undefined
+    });
+  }
+};
+
+/**
+ * Thuật toán Cân bằng tải (Load Balancing): Tìm bác sĩ ít bài chờ duyệt nhất
+ * GET /api/articles/suggest-doctor/:specialtyId
+ */
+exports.getLeastBusyDoctor = async (req, res) => {
+  try {
+    const { specialtyId } = req.params;
+    
+    if (!specialtyId) {
+      return res.status(400).json({ success: false, message: 'specialtyId không được để trống' });
+    }
+    
+    console.log(` Finding doctor for specialty: ${specialtyId}`);
+    
+    // 1. Tìm tất cả bác sĩ thuộc chuyên khoa
+    const doctors = await Doctor.findAll({
+      where: { specialty_id: specialtyId },
+      include: [{ 
+        model: User, 
+        as: 'user', 
+        attributes: ['id', 'full_name', 'avatar_url', 'email'],
+        where: { is_active: true, is_verified: true, role: 'doctor' },
+        required: true
+      }],
+      raw: false
+    });
+
+    if (!doctors || doctors.length === 0) {
+      console.log(`⚠️ Không tìm thấy bác sĩ cho specialty: ${specialtyId}`);
+      return res.json({ success: false, message: 'Chưa có bác sĩ nào thuộc chuyên khoa này' });
+    }
+
+    console.log(` Found ${doctors.length} doctors for specialty ${specialtyId}`);
+
+    // 2. Đếm số bài viết đang chờ duyệt ('pending_medical') của mỗi bác sĩ
+    const doctorStats = await Promise.all(doctors.map(async (doc) => {
+      const count = await Article.count({
+        where: { 
+          medical_reviewer_id: doc.user_id, 
+          status: 'pending_medical' 
+        }
+      });
+      
+      // Format dữ liệu để return
+      return {
+        user_id: doc.user_id,
+        full_name: doc.user.full_name,
+        avatar_url: doc.user.avatar_url,
+        email: doc.user.email,
+        specialty_id: doc.specialty_id,
+        pending_count: count,
+        user: {
+          id: doc.user.id,
+          full_name: doc.user.full_name,
+          avatar_url: doc.user.avatar_url,
+          email: doc.user.email
+        }
+      };
+    }));
+
+    // 3. Sắp xếp lấy người có số bài pending ít nhất (Cân bằng tải)
+    const bestDoctor = doctorStats.sort((a, b) => a.pending_count - b.pending_count)[0];
+    
+    console.log(` Assigned to: ${bestDoctor.full_name} (${bestDoctor.pending_count} pending articles)`);
+
+    res.json({ success: true, doctor: bestDoctor });
+  } catch (error) {
+    console.error(' Lỗi tìm bác sĩ phân công:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi tìm kiếm bác sĩ',
+      error: error.message 
     });
   }
 };

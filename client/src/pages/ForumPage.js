@@ -649,9 +649,10 @@ const ForumPage = () => {
   const [groupFilter, setGroupFilter] = useState('all');
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [availableDoctors, setAvailableDoctors] = useState([]);
+  const [groupSpecialties, setGroupSpecialties] = useState([]);
   const [createGroupForm, setCreateGroupForm] = useState({
     name: '', description: '', privacy: 'public',
-    doctor_id: '', icon: 'FaUsers', requires_post_approval: true,
+    specialty_id: '', doctor_id: '', icon: 'FaUsers', requires_post_approval: true,
     avatar: '', cover_image: ''
   });
   const [createGroupError, setCreateGroupError] = useState('');
@@ -846,21 +847,40 @@ const ForumPage = () => {
     fetchGroups();
   }, [activeTab, groupSearch, groupFilter, user]);
 
+  // Fetch specialties khi modal tạo nhóm mở
   useEffect(() => {
     if (!showCreateGroupModal) return;
-    const fetchDoctors = async () => {
+    const fetchSpecialties = async () => {
       try {
-        const res = await api.get('/users/doctors', { params: { limit: 100, work_status: 'active' } });
+        const res = await api.get('/specialties');
+        const specs = res.data?.data || res.data?.specialties || [];
+        setGroupSpecialties(specs);
+      } catch (err) { setGroupSpecialties([]); }
+    };
+    fetchSpecialties();
+  }, [showCreateGroupModal]);
+
+  // Fetch doctors khi specialty_id thay đổi
+  useEffect(() => {
+    if (!createGroupForm.specialty_id) {
+      setAvailableDoctors([]);
+      return;
+    }
+    const fetchDoctorsBySpecialty = async () => {
+      try {
+        const res = await api.get('/users/doctors', { params: { limit: 100, status: 'active', specialty_id: createGroupForm.specialty_id } });
         let docs = [];
         if (Array.isArray(res.data)) docs = res.data;
         else if (Array.isArray(res.data?.data)) docs = res.data.data;
         else if (Array.isArray(res.data?.data?.doctors)) docs = res.data.data.doctors;
         else if (Array.isArray(res.data?.doctors)) docs = res.data.doctors;
         setAvailableDoctors(docs);
+        // Reset doctor_id khi thay đổi specialty
+        setCreateGroupForm(prev => ({ ...prev, doctor_id: '' }));
       } catch (err) { setAvailableDoctors([]); }
     };
-    fetchDoctors();
-  }, [showCreateGroupModal]);
+    fetchDoctorsBySpecialty();
+  }, [createGroupForm.specialty_id]);
 
   useEffect(() => {
     if (activeTab !== 'my_groups' || !user) return;
@@ -1048,13 +1068,23 @@ const ForumPage = () => {
 
   const handleCreateGroup = async () => {
     if (!createGroupForm.name.trim()) return setCreateGroupError('Tên nhóm không được trống');
+    if (!createGroupForm.specialty_id) return setCreateGroupError('Vui lòng chọn chuyên khoa');
     if (!createGroupForm.doctor_id) return setCreateGroupError('Vui lòng chọn bác sĩ phụ trách');
     setCreateGroupSubmitting(true); setCreateGroupError('');
     try {
-      await communityService.createGroup({ ...createGroupForm, doctor_id: parseInt(createGroupForm.doctor_id) });
+      await communityService.createGroup({ 
+        name: createGroupForm.name,
+        description: createGroupForm.description,
+        privacy: createGroupForm.privacy,
+        doctor_id: parseInt(createGroupForm.doctor_id),
+        requires_post_approval: createGroupForm.requires_post_approval,
+        icon: createGroupForm.icon,
+        avatar: createGroupForm.avatar,
+        cover_image: createGroupForm.cover_image
+      });
       setAlert({ show: true, type: 'success', title: 'Thành công!', message: 'Tạo nhóm thành công! Đang chờ Admin duyệt.' });
       setShowCreateGroupModal(false);
-      setCreateGroupForm({ name: '', description: '', privacy: 'public', doctor_id: '', icon: 'FaUsers', requires_post_approval: true });
+      setCreateGroupForm({ name: '', description: '', privacy: 'public', specialty_id: '', doctor_id: '', icon: 'FaUsers', requires_post_approval: true, avatar: '', cover_image: '' });
     } catch (e) {
       setCreateGroupError(e?.response?.data?.message || 'Tạo nhóm thất bại');
     } finally { setCreateGroupSubmitting(false); }
@@ -1499,19 +1529,46 @@ const ForumPage = () => {
                     <label>Tên nhóm <span className="forumpage-required">*</span></label>
                     <input type="text" placeholder="VD: Hội bệnh nhân tiểu đường" value={createGroupForm.name} onChange={e => setCreateGroupForm({ ...createGroupForm, name: e.target.value })} />
                   </div>
+                </div>
+                
+                <div className="forumpage-form-row">
                   <div className="forumpage-form-group">
-                    <label>Bác sĩ phụ trách <span className="forumpage-required">*</span></label>
+                    <label>Chuyên khoa <span className="forumpage-required">*</span></label>
                     <div className="forumpage-filterbar-select-wrap">
-                      <select value={createGroupForm.doctor_id} onChange={e => setCreateGroupForm({ ...createGroupForm, doctor_id: e.target.value })}>
-                        <option value="">-- Chọn bác sĩ --</option>
-                        {availableDoctors.map(d => (
-                          <option key={d.id} value={d.id}>BS. {d.user?.full_name || d.full_name || 'Ẩn danh'} — {d.specialty?.name || 'Đa khoa'}</option>
+                      <select value={createGroupForm.specialty_id} onChange={e => setCreateGroupForm({ ...createGroupForm, specialty_id: e.target.value })} required>
+                        <option value="">-- Chọn chuyên khoa --</option>
+                        {groupSpecialties.map(spec => (
+                          <option key={spec.id} value={spec.id}>{spec.name}</option>
                         ))}
                       </select>
                       <FaChevronDown className="forumpage-select-arrow" />
                     </div>
+                    <small>Chọn chuyên khoa trước để lọc danh sách bác sĩ phù hợp</small>
+                  </div>
+                  <div className="forumpage-form-group">
+                    <label>Bác sĩ phụ trách <span className="forumpage-required">*</span></label>
+                    {!createGroupForm.specialty_id ? (
+                      <div style={{ padding: '10px', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px', color: '#856404', fontSize: '13px' }}>
+                        Vui lòng chọn chuyên khoa trước
+                      </div>
+                    ) : availableDoctors.length === 0 ? (
+                      <div style={{ padding: '10px', background: '#f8d7da', border: '1px solid #f5c6cb', borderRadius: '4px', color: '#721c24', fontSize: '13px' }}>
+                        Không có bác sĩ nào cho chuyên khoa này
+                      </div>
+                    ) : (
+                      <div className="forumpage-filterbar-select-wrap">
+                        <select value={createGroupForm.doctor_id} onChange={e => setCreateGroupForm({ ...createGroupForm, doctor_id: e.target.value })} required>
+                          <option value="">-- Chọn bác sĩ --</option>
+                          {availableDoctors.map(d => (
+                            <option key={d.id} value={d.id}>BS. {d.user?.full_name || d.full_name || 'Ẩn danh'} ({d.title || 'Bác sĩ'})</option>
+                          ))}
+                        </select>
+                        <FaChevronDown className="forumpage-select-arrow" />
+                      </div>
+                    )}
                   </div>
                 </div>
+                
                 <div className="forumpage-form-group">
                   <label>Mô tả</label>
                   <textarea rows="3" placeholder="Mục đích và đối tượng của nhóm..." value={createGroupForm.description} onChange={e => setCreateGroupForm({ ...createGroupForm, description: e.target.value })} />
@@ -1577,7 +1634,7 @@ const ForumPage = () => {
               </div>
               <div className="forumpage-modal__actions">
                 <button type="button" className="forumpage-btn-muted" onClick={() => setShowCreateGroupModal(false)}>Hủy</button>
-                <button type="button" className="forumpage-btn-primary" onClick={handleCreateGroup} disabled={createGroupSubmitting}>
+                <button type="button" className="forumpage-btn-primary" onClick={handleCreateGroup} disabled={createGroupSubmitting || !createGroupForm.specialty_id || !createGroupForm.doctor_id}>
                   {createGroupSubmitting ? 'Đang tạo...' : 'Tạo nhóm'}
                 </button>
               </div>

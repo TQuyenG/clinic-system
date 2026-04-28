@@ -305,33 +305,64 @@ exports.getSpecialtyBySlug = async (req, res) => {
 exports.getDoctorsBySpecialty = async (req, res) => {
   try {
     const { id } = req.params;
-    const { models } = require('../config/db');
+    const { models, Op } = require('../config/db');
 
-    const doctors = await models.Doctor.findAll({
-      where: { specialty_id: id },
-      include: [
-        {
-          model: models.User,
-          as: 'user',
-          attributes: ['id', 'full_name', 'email', 'phone', 'avatar_url'],
-          where: { 
-            is_active: true,
-            is_verified: true,
-            role: 'doctor'
-          }
-        },
-        {
-          model: models.Specialty,
+    // Lấy từ User base (giống getAllDoctorsPublic) - hiệu quả hơn
+    const doctors = await models.User.findAll({
+      where: { 
+        role: 'doctor', 
+        is_active: true, 
+        is_verified: true 
+      },
+      attributes: ['id', 'email', 'full_name', 'phone', 'avatar_url', 'gender'],
+      include: [{
+        model: models.Doctor,
+        as: 'Doctor',
+        where: { specialty_id: id },
+        required: true,
+        include: [{
+          model: models.Specialty, 
           as: 'specialty',
-          attributes: ['id', 'name']
+          attributes: ['id', 'name', 'slug', 'icon'],
+          required: false
+        }]
+      }],
+      order: [['created_at', 'DESC']],
+      raw: false
+    });
+
+    // Format response để match frontend expects
+    const formattedDoctors = doctors.map(user => {
+      const doctor = user.Doctor;
+      return {
+        id: doctor?.id || user.id,
+        user_id: user.id,
+        code: doctor?.code || `BS${String(user.id).padStart(5, '0')}`,
+        full_name: user.full_name,
+        email: user.email,
+        phone: user.phone,
+        avatar_url: user.avatar_url,
+        gender: user.gender,
+        specialty_id: doctor?.specialty_id,
+        specialty: doctor?.specialty,
+        experience_years: doctor?.experience_years || 0,
+        bio: doctor?.bio,
+        title: doctor?.title,
+        position: doctor?.position,
+        workplace: doctor?.workplace,
+        user: {
+          id: user.id,
+          full_name: user.full_name,
+          avatar_url: user.avatar_url
         }
-      ]
+      };
     });
 
     res.json({
       success: true,
-      data: doctors,
-      total: doctors.length
+      data: formattedDoctors,
+      doctors: formattedDoctors,
+      total: formattedDoctors.length
     });
 
   } catch (error) {

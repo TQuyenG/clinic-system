@@ -325,5 +325,15 @@
     left: 8px;
     right: 8px;
     width: auto;
+    border-radius: 8px;
+    max-height: calc(100vh - 80px);
   }
+  .notificationdropdown-item {
+    padding: 0.9rem 0.9rem;
+  }
+  .notificationdropdown-message {
+    font-size: 0.9rem;
+  }
+  .notificationdropdown-header-title { font-size: 1rem; }
+  .notificationdropdown-view-all-button { padding: 0.75rem; font-size: 0.95rem; }
 }

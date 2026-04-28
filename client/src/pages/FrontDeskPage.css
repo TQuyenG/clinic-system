@@ -90,9 +90,8 @@
   color: var(--frd-gray-900);
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow: hidden;
   line-height: 1.45;
-  position: relative;
 }
 
 /* ══════════════════════════════════
@@ -199,8 +198,6 @@
   flex-direction: column;
   gap: 8px;
   min-height: 0;
-  /* Fallback height for scroll context */
-  max-height: calc(100vh - 104px);
 }
 
 /* Split layout */
@@ -1159,257 +1156,9 @@ input[type=number] { -moz-appearance: textfield; }
 .frdeskpage-ticket-label { font-size: 10.5px; color: #666; }
 .frdeskpage-ticket-value { font-size: 10.5px; font-weight: 600; }
 
-/* Print Modal via Bootstrap */
-.frdeskpage-print-modal-body {
-  padding: 0 !important;
-  background: var(--frd-white) !important;
-  display: flex;
-  flex-direction: column;
-  max-height: 75vh;
-}
-
-.frdeskpage-print-scroll {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-}
-
-.frdeskpage-print-scroll::-webkit-scrollbar { width: 4px; }
-.frdeskpage-print-scroll::-webkit-scrollbar-thumb { background: var(--frd-green-100); border-radius: 2px; }
-
-/* Ticket content center */
-.frdeskpage-ticket-center { text-align: center; font-family: 'Be Vietnam Pro', sans-serif; }
-.frdeskpage-ticket-clinic-name {
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--frd-green-700);
-  margin: 0;
-  font-size: 14px;
-}
-.frdeskpage-ticket-clinic-addr { font-size: 10px; color: var(--frd-gray-500); }
-.frdeskpage-ticket-title {
-  font-size: 16px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 0;
-}
-.frdeskpage-ticket-subtitle { font-style: italic; color: var(--frd-gray-500); font-size: 11px; }
-.frdeskpage-ticket-number-box {
-  margin: 12px 0;
-  padding: 8px 2px;
-  border: 2px dashed var(--frd-green-500);
-  border-radius: 8px;
-  background: var(--frd-gray-100);
-}
-.frdeskpage-ticket-number-label {
-  font-size: 12px;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: var(--frd-gray-500);
-}
-.frdeskpage-ticket-number-value {
-  font-size: 64px;
-  line-height: 1;
-  font-weight: 800;
-  color: #2e7d32;
-}
-.frdeskpage-ticket-details {
-  text-align: left;
-  padding: 0 8px;
-}
-.frdeskpage-ticket-details-grid {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2px 8px;
-}
-.frdeskpage-ticket-footer-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 10px;
-}
-
-/* Invoice content */
-.frdeskpage-invoice-header { text-align: center; margin-bottom: 12px; }
-.frdeskpage-invoice-clinic-name { font-weight: 800; text-transform: uppercase; margin: 0; font-size: 16px; }
-.frdeskpage-invoice-clinic-sub { font-size: 11px; }
-.frdeskpage-invoice-title { font-weight: 700; margin: 8px 0 0; }
-.frdeskpage-invoice-date { font-style: italic; font-size: 11px; }
-.frdeskpage-invoice-customer { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed #ccc; }
-.frdeskpage-invoice-flex-between {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.frdeskpage-invoice-name { font-weight: 700; text-transform: uppercase; }
-.frdeskpage-invoice-code { font-weight: 700; }
-.frdeskpage-invoice-table { width: 100%; margin-bottom: 12px; border-collapse: collapse; font-size: 13px; }
-.frdeskpage-invoice-table th { padding: 4px 0; text-align: left; border-bottom: 1px solid #000; }
-.frdeskpage-invoice-table td { padding: 6px 0; }
-.frdeskpage-invoice-table td.center { text-align: center; }
-.frdeskpage-invoice-table td.right { text-align: right; }
-.frdeskpage-invoice-totals {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  margin-bottom: 16px;
-}
-.frdeskpage-invoice-total-row {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  margin-bottom: 4px;
-  font-size: 14px;
-}
-.frdeskpage-invoice-sub-row {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  font-size: 12px;
-  color: var(--frd-gray-500);
-}
-.frdeskpage-invoice-thanks { text-align: center; font-size: 12px; }
-.frdeskpage-invoice-printed-by { margin-top: 8px; color: var(--frd-gray-500); font-size: 10px; }
-
-/* ══════════════════════════════════
-   RECEPTION LAYOUT (Tab Tiếp đón)
-══════════════════════════════════ */
-.frdeskpage-reception-layout {
-  display: grid;
-  grid-template-columns: 1fr 280px;
-  gap: 12px;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* Patient header section in payment panel */
-.frdeskpage-patient-header-block {
-  text-align: center;
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--frd-gray-300);
-}
-.frdeskpage-patient-header-block .frdeskpage-badge { margin-top: 6px; }
-
-/* Service info block in payment panel */
-.frdeskpage-service-info-block {
-  background: var(--frd-green-10);
-  border-radius: var(--frd-radius);
-  padding: 10px 12px;
-  margin-bottom: 10px;
-}
-.frdeskpage-bill-row-label-sm { color: var(--frd-gray-500); font-size: 11px; }
-.frdeskpage-bill-row-value-sm { font-weight: 600; font-size: 12px; max-width: 160px; text-align: right; }
-.frdeskpage-bill-row-value-doctor { font-weight: 600; font-size: 12px; color: var(--frd-blue-700); }
-.frdeskpage-bill-row-value-time { font-weight: 700; font-family: var(--frd-mono); font-size: 12px; }
-
-/* Voucher section */
-.frdeskpage-voucher-section { margin-bottom: 8px; }
-.frdeskpage-section-title-sm {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--frd-gray-500);
-  margin-bottom: 3px;
-  text-transform: uppercase;
-}
-.frdeskpage-voucher-row { display: flex; gap: 6px; }
-.frdeskpage-voucher-btn { flex-shrink: 0; }
-
-/* Method section */
-.frdeskpage-method-section { margin-bottom: 10px; }
-
-/* Cash input section */
-.frdeskpage-cash-section { margin-bottom: 10px; }
-.frdeskpage-cash-input {
-  font-size: 15px !important;
-  font-weight: 700 !important;
-  color: var(--frd-green-700) !important;
-  font-family: var(--frd-mono) !important;
-}
-.frdeskpage-change-box-mt { margin-top: 6px; }
-
-/* Transfer info box */
-.frdeskpage-transfer-info {
-  background: var(--frd-blue-50);
-  border-radius: var(--frd-radius);
-  padding: 10px 12px;
-  margin-bottom: 10px;
-  font-size: 12px;
-  color: var(--frd-blue-700);
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-.frdeskpage-transfer-info svg { margin-top: 1px; flex-shrink: 0; }
-
-/* Cancel btn full */
-.frdeskpage-btn-cancel-full { width: 100%; justify-content: center; margin-top: 6px; }
-
-/* Success state text */
-.frdeskpage-success-label { font-weight: 700; color: var(--frd-green-700); font-size: 13px; }
-.frdeskpage-success-btn-full { width: 100%; justify-content: center; margin-top: 4px; }
-
-/* Ticket area (right side of reception) */
-.frdeskpage-ticket-area-box {
-  text-align: center;
-  padding: 12px;
-  background: var(--frd-green-50);
-  border-radius: var(--frd-radius);
-  border: 2px solid var(--frd-green-700);
-}
-.frdeskpage-ticket-area-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--frd-green-700);
-  text-transform: uppercase;
-}
-.frdeskpage-ticket-area-number {
-  font-size: 28px;
-  font-weight: 800;
-  color: #2e7d32;
-  margin-top: 4px;
-}
-.frdeskpage-ticket-area-customer { font-size: 11px; color: var(--frd-gray-600); line-height: 1.5; }
-.frdeskpage-ticket-area-customer strong { font-weight: 700; }
-.frdeskpage-ticket-area-empty {
-  text-align: center;
-  padding: 20px;
-  color: var(--frd-gray-400);
-}
-.frdeskpage-ticket-area-empty-num { font-size: 28px; font-weight: 700; color: #ccc; }
-.frdeskpage-ticket-area-empty-text { font-size: 11px; margin-top: 8px; }
-
-/* Cashier panel-header using bootstrap d-flex should be replaced */
-.frdeskpage-panel-header-flex {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.frdeskpage-close-bill-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  line-height: 1;
-}
-
 /* ══════════════════════════════════
    MODAL STYLES (Bootstrap override)
 ══════════════════════════════════ */
-.frdeskpage-print-modal-content {
-  border-radius: var(--frd-radius-lg) !important;
-  overflow: hidden;
-  border: none !important;
-  max-width: 340px;
-  margin: 0 auto;
-}
-
 .modal-content {
   border: none !important;
   border-radius: var(--frd-radius-lg) !important;
@@ -1581,9 +1330,6 @@ input[type=number] { -moz-appearance: textfield; }
   .frdeskpage-layout-split {
     grid-template-columns: 1fr 300px;
   }
-  .frdeskpage-reception-layout {
-    grid-template-columns: 1fr 240px;
-  }
   .frdeskpage-call-name { max-width: 180px; font-size: 13px; }
   .frdeskpage-call-number { font-size: 30px; }
   .frdeskpage-table th,
@@ -1605,13 +1351,6 @@ input[type=number] { -moz-appearance: textfield; }
   }
 
   .frdeskpage-layout-split {
-    grid-template-columns: 1fr;
-    gap: 8px;
-    height: auto;
-    overflow: visible;
-  }
-
-  .frdeskpage-reception-layout {
     grid-template-columns: 1fr;
     gap: 8px;
     height: auto;
@@ -1696,4 +1435,538 @@ input[type=number] { -moz-appearance: textfield; }
   .frdeskpage-bill-total-amount { font-size: 14px; }
   .frdeskpage-content { padding: 5px; }
   .frdeskpage-panel-body { max-height: 340px; }
+}
+/* ══════════════════════════════════
+   CUSTOM MODAL (CSS thuần, không Bootstrap)
+   Render vào document.body qua Portal
+   Tránh stacking context của layout cha
+══════════════════════════════════ */
+.frd-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+  animation: frd-fade-in 0.15s ease;
+}
+
+@keyframes frd-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.frd-modal-dialog {
+  background: var(--frd-white);
+  border-radius: var(--frd-radius-lg);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  width: 100%;
+  animation: frd-slide-up 0.2s ease;
+  overflow: hidden;
+}
+
+@keyframes frd-slide-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Sizes */
+.frd-modal-sm  { max-width: 360px; }
+.frd-modal-md  { max-width: 560px; }
+.frd-modal-lg  { max-width: 780px; }
+.frd-modal-xl  { max-width: 980px; }
+
+/* Header */
+.frd-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--frd-green-700);
+  color: var(--frd-white);
+  flex-shrink: 0;
+}
+
+.frd-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.frd-modal-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.frd-modal-close:hover {
+  background: rgba(255,255,255,0.2);
+  color: var(--frd-white);
+}
+
+/* Body */
+.frd-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  min-height: 0;
+}
+.frd-modal-body::-webkit-scrollbar { width: 5px; }
+.frd-modal-body::-webkit-scrollbar-thumb { background: var(--frd-green-100); border-radius: 3px; }
+
+/* Footer */
+.frd-modal-footer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--frd-gray-200);
+  background: var(--frd-gray-100);
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════
+   UTILITY CLASSES (thay inline styles)
+══════════════════════════════════ */
+.frd-ml6       { margin-left: 6px; }
+.frd-mt4       { margin-top: 4px; }
+.frd-mt5       { margin-top: 5px; }
+.frd-mt6       { margin-top: 6px; }
+.frd-mt8       { margin-top: 8px; }
+.frd-mb-8      { margin-bottom: 8px; }
+.frd-mr5       { margin-right: 5px; }
+.frd-p0        { padding: 0 !important; }
+.frd-tc        { text-align: center; }
+.frd-tr        { text-align: right; }
+.frd-fw-700    { font-weight: 700; }
+.frd-uppercase { text-transform: uppercase; }
+.frd-italic    { font-style: italic; }
+.frd-mono      { font-family: var(--frd-mono); }
+.frd-fs10      { font-size: 10px; }
+.frd-fs11      { font-size: 11px; }
+.frd-fs12      { font-size: 12px; }
+.frd-green-text { color: var(--frd-green-700); }
+.frd-red-text   { color: var(--frd-red-700); }
+.frd-blue-text  { color: var(--frd-blue-700); }
+.frd-gray-text  { color: var(--frd-gray-500); }
+.frd-white      { color: var(--frd-white) !important; }
+.frd-block      { display: block; }
+.frd-flex1      { flex: 1; }
+.frd-shrink-0   { flex-shrink: 0; }
+.frd-gray-bold  { color: var(--frd-gray-500); font-weight: 700; }
+.frd-col-full   { grid-column: 1 / -1; }
+.frd-col-flex-col { display: flex; flex-direction: column; gap: 10px; }
+.frd-col-flex-h100 { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.frd-ml-auto    { margin-left: auto; }
+
+/* Specific widths */
+.frd-w28  { width: 28px; }
+.frd-w44  { width: 44px !important; }
+.frd-w50  { width: 50px; }
+.frd-w60  { width: 60px; }
+.frd-w70  { width: 70px; }
+.frd-w80  { width: 80px; }
+.frd-w100 { width: 100px; }
+.frd-w150 { width: 150px; }
+.frd-pe2  { padding-right: 8px; }
+
+/* Table row utilities */
+.frd-tr-sm   { font-size: 12px; }
+.frd-row-paid { background-color: #f0fdf4; }
+.frd-row-click { cursor: pointer; }
+.frd-empty-cell {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--frd-gray-400);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Code/doctor display */
+.frd-code-green { font-weight: 700; color: var(--frd-green-700); }
+.frd-doctor-name { font-size: 11px; color: var(--frd-blue-700); font-weight: 700; }
+.frd-service-cell {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--frd-blue-700);
+}
+
+/* Panel header */
+.frd-panel-h6 {
+  margin: 0;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+.frd-panel-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.frd-header-green {
+  background: var(--frd-green-700) !important;
+  color: var(--frd-white) !important;
+}
+.frd-close-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Button action sizes */
+.frd-btn-action { height: 24px; font-size: 11px; }
+.frd-btn-icon-sm { height: 24px; width: 28px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.frd-btn-icon { margin-right: 6px; }
+.frd-btn-full { width: 100%; justify-content: center; }
+
+/* ══════════════════════════════════
+   RECEPTION LAYOUT (Tab Tiếp đón)
+══════════════════════════════════ */
+.frd-reception-grid {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Table header widths */
+.frd-th-idx    { width: 40px; text-align: center; }
+.frd-th-code   { width: 90px; }
+.frd-th-stt    { width: 80px; text-align: center; }
+.frd-th-name   { width: 200px; }
+.frd-th-dob    { width: 80px; }
+.frd-th-phone  { width: 100px; }
+.frd-th-time   { width: 70px; }
+.frd-th-status { width: 110px; }
+.frd-th-action { width: 130px; }
+
+/* Ticket area panel */
+.frd-ticket-panel { height: fit-content; }
+.frd-ticket-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+.frd-next-ticket-box {
+  text-align: center;
+  padding: 12px;
+  background: var(--frd-green-50);
+  border-radius: var(--frd-radius);
+  border: 2px solid var(--frd-green-700);
+}
+.frd-next-ticket-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--frd-green-700);
+  text-transform: uppercase;
+}
+.frd-next-ticket-num {
+  font-size: 28px;
+  font-weight: 800;
+  color: #2e7d32;
+  margin-top: 4px;
+}
+.frd-next-ticket-customer {
+  font-size: 11px;
+  color: var(--frd-gray-600);
+  line-height: 1.5;
+}
+.frd-ticket-call-btn { font-size: 12px; padding: 8px 12px; margin-top: 8px; }
+.frd-ticket-empty { text-align: center; padding: 20px; color: var(--frd-gray-400); }
+.frd-ticket-empty-num { font-size: 28px; font-weight: 700; color: #ccc; }
+.frd-ticket-empty-text { font-size: 11px; margin-top: 8px; }
+
+/* ══════════════════════════════════
+   CASHIER TAB SPECIFICS
+══════════════════════════════════ */
+.frd-call-right { display: flex; align-items: center; gap: 14px; }
+.frd-select-cashier { width: 148px; height: 30px; }
+.frd-search-icon { color: var(--frd-gray-500); flex-shrink: 0; }
+
+.frd-bill-patient-header {
+  text-align: center;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--frd-gray-300);
+}
+.frd-service-info-box {
+  background: var(--frd-green-10);
+  border-radius: var(--frd-radius);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.frd-bill-label { color: var(--frd-gray-500); font-size: 11px; }
+.frd-bill-val-svc { font-weight: 600; font-size: 12px; max-width: 160px; text-align: right; }
+.frd-bill-val-doc { font-weight: 600; font-size: 12px; color: var(--frd-blue-700); }
+.frd-bill-val-time { font-weight: 700; font-family: var(--frd-mono); font-size: 12px; }
+
+.frd-section-block { margin-bottom: 10px; }
+.frd-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--frd-gray-500);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.frd-voucher-row { display: flex; gap: 6px; }
+.frd-cash-input {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: var(--frd-green-700) !important;
+  font-family: var(--frd-mono) !important;
+}
+.frd-change-label { font-size: 11px; color: var(--frd-gray-500); }
+.frd-change-val { font-weight: 700; color: var(--frd-green-700); font-family: var(--frd-mono); }
+.frd-change-green { font-weight: 700; color: var(--frd-green-700); }
+.frd-transfer-info {
+  background: var(--frd-blue-50);
+  border-radius: var(--frd-radius);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--frd-blue-700);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.frd-success-label { font-weight: 700; color: var(--frd-green-700); font-size: 13px; }
+
+/* ══════════════════════════════════
+   WALK-IN MODAL FORM
+══════════════════════════════════ */
+.frd-form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.frd-input-upper { text-transform: uppercase; font-weight: 600; }
+.frd-required { color: var(--frd-red-700); }
+.frd-slot-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 80px;
+  overflow-y: auto;
+}
+.frd-slot-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  background: var(--frd-green-50);
+  color: var(--frd-green-700);
+  border: 1px solid var(--frd-green-100);
+  transition: all 0.15s;
+}
+.frd-slot-btn:hover { background: var(--frd-green-100); }
+.frd-slot-btn-active {
+  background: var(--frd-green-700) !important;
+  color: var(--frd-white) !important;
+  border-color: var(--frd-green-700) !important;
+}
+.frd-slot-empty {
+  font-size: 12px;
+  color: #999;
+  padding: 8px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
+
+/* ══════════════════════════════════
+   DETAIL MODAL
+══════════════════════════════════ */
+.frd-modal-detail .frd-modal-dialog { max-width: 980px; }
+.frd-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--frd-green-700);
+  color: var(--frd-white);
+  flex-shrink: 0;
+}
+.frd-detail-header-left { display: flex; align-items: center; gap: 12px; }
+.frd-detail-avatar { width: 40px !important; height: 40px !important; }
+.frd-detail-title { font-weight: 700; text-transform: uppercase; margin: 0; font-size: 13px; color: var(--frd-white); }
+.frd-detail-code { color: rgba(255,255,255,0.7); }
+.frd-detail-code-val { font-weight: 700; color: var(--frd-white); }
+.frd-detail-body { padding: 14px; }
+
+.frd-info-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.frd-symptom-box {
+  padding: 10px 12px;
+  background: var(--frd-amber-50);
+  border-radius: 6px;
+  border: 1px solid var(--frd-amber-100);
+  margin-top: 8px;
+}
+.frd-symptom-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--frd-amber-700);
+  text-transform: uppercase;
+}
+.frd-symptom-text { font-style: italic; font-size: 12px; }
+
+.frd-payment-detail-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.frd-price-center { text-align: center; padding: 8px 0; }
+.frd-price-big {
+  display: block;
+  color: var(--frd-red-700);
+  font-size: 22px;
+  font-weight: 800;
+  font-family: var(--frd-mono);
+}
+.frd-price-unit { font-size: 10px; font-weight: 400; }
+.frd-payment-status-block { text-align: center; border-top: 1px solid var(--frd-gray-200); padding-top: 10px; }
+
+.frd-record-ok { color: var(--frd-green-700); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.frd-record-empty { color: var(--frd-gray-400); font-style: italic; text-align: center; }
+
+/* ══════════════════════════════════
+   PRINT MODAL
+══════════════════════════════════ */
+.frd-print-header { background: var(--frd-green-700); }
+.frd-print-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  max-height: 70vh;
+}
+.frd-print-scroll::-webkit-scrollbar { width: 4px; }
+.frd-print-scroll::-webkit-scrollbar-thumb { background: var(--frd-green-100); border-radius: 2px; }
+.frd-print-footer { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--frd-gray-200); background: var(--frd-gray-100); }
+
+/* Ticket print content */
+.frd-ticket-wrap { text-align: center; font-family: var(--frd-font); }
+.frd-ticket-clinic-name { font-weight: 800; text-transform: uppercase; color: var(--frd-green-700); margin: 0; font-size: 14px; }
+.frd-ticket-clinic-addr { font-size: 10px; color: var(--frd-gray-500); }
+.frd-ticket-title { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+.frd-ticket-subtitle { font-style: italic; color: var(--frd-gray-500); font-size: 11px; }
+.frd-ticket-number-box {
+  margin: 12px 0;
+  padding: 8px 2px;
+  border: 2px dashed var(--frd-green-500);
+  border-radius: 8px;
+  background: var(--frd-gray-100);
+}
+.frd-ticket-number-label { font-size: 12px; text-transform: uppercase; font-weight: 700; color: var(--frd-gray-500); }
+.frd-ticket-number-val { font-size: 64px; line-height: 1; font-weight: 800; color: #2e7d32; }
+.frd-ticket-details { text-align: left; padding: 0 8px; }
+.frd-ticket-details-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; }
+.frd-ticket-footer { display: flex; justify-content: space-between; align-items: center; font-size: 10px; }
+
+/* Invoice print content */
+.frd-invoice-wrap { font-family: var(--frd-font); font-size: 13px; color: #000; }
+.frd-invoice-header { text-align: center; margin-bottom: 12px; }
+.frd-invoice-clinic-name { font-weight: 800; text-transform: uppercase; margin: 0; font-size: 16px; }
+.frd-invoice-sub { font-size: 11px; }
+.frd-invoice-title { font-weight: 700; margin: 8px 0 0; }
+.frd-invoice-date { font-style: italic; font-size: 11px; }
+.frd-invoice-customer { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed #ccc; }
+.frd-invoice-table { width: 100%; margin-bottom: 12px; border-collapse: collapse; }
+.frd-invoice-table th { padding: 4px 0; text-align: left; border-bottom: 1px solid #000; }
+.frd-invoice-table td { padding: 6px 0; }
+.frd-invoice-table .frd-tc { text-align: center; }
+.frd-invoice-table .frd-tr { text-align: right; }
+.frd-invoice-unit { font-size: 10px; color: var(--frd-gray-400); font-style: italic; }
+.frd-invoice-totals { display: flex; flex-direction: column; margin-bottom: 16px; }
+.frd-invoice-total-row { display: flex; justify-content: space-between; width: 100%; margin-bottom: 4px; font-size: 14px; }
+.frd-invoice-sub-row { display: flex; justify-content: space-between; width: 100%; font-size: 12px; color: var(--frd-gray-500); }
+.frd-invoice-thanks { text-align: center; font-size: 12px; }
+.frd-invoice-printed-by { margin-top: 8px; color: var(--frd-gray-500); font-size: 10px; }
+
+/* ══════════════════════════════════
+   PHARMACY SPECIFICS
+══════════════════════════════════ */
+.frd-retail-form-wrap { display: flex; gap: 8px; padding: 8px; height: 100%; }
+.frd-retail-med-col { flex: 6; display: flex; flex-direction: column; }
+.frd-retail-cart-col { flex: 4; min-width: 320px; display: flex; flex-direction: column; }
+.frd-retail-search-bar { padding: 8px; background: var(--frd-white); }
+.frd-retail-search-inner { display: flex; width: 100%; gap: 8px; }
+.frd-search-padded { padding-left: 32px !important; }
+.frd-med-grid-wrap { background: var(--frd-gray-100); }
+.frd-med-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; padding: 8px; }
+.frd-med-card-active { border-color: var(--frd-green-500) !important; background: var(--frd-green-10) !important; }
+.frd-cart-badge-wrap { display: flex; align-items: center; gap: 4px; }
+.frd-cart-badge { font-size: 10px; font-weight: 700; color: var(--frd-green-700); background: var(--frd-green-100); border-radius: 10px; padding: 1px 6px; }
+.frd-med-empty { grid-column: 1/-1; text-align: center; color: var(--frd-gray-500); padding: 40px 0; font-size: 12px; }
+.frd-transaction-code { color: var(--frd-red-700); font-family: var(--frd-mono); font-size: 11px; }
+.frd-cart-table-wrap { background: var(--frd-white); min-height: 150px; }
+.frd-cart-item-name { font-weight: 600; font-size: 12px; max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frd-cart-item-price { font-size: 10px; color: var(--frd-gray-500); font-family: var(--frd-mono); }
+.frd-cart-amount { font-weight: 700; font-family: var(--frd-mono); color: var(--frd-red-700); }
+.frd-cart-empty { text-align: center; padding: 36px 0; color: var(--frd-gray-500); font-size: 12px; font-style: italic; }
+.frd-remove-btn { background: none; border: none; cursor: pointer; color: var(--frd-red-700); padding: 2px; }
+.frd-checkout-footer { padding: 12px; border-top: 1px solid var(--frd-gray-300); background: var(--frd-white); flex-shrink: 0; }
+.frd-customer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+
+/* Prescription panel */
+.frd-presc-body { display: flex; flex-direction: column; background: var(--frd-gray-100); padding: 8px; gap: 8px; }
+.frd-diagnosis-row { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--frd-gray-200); font-size: 12px; }
+.frd-presc-table-wrap { min-height: 150px; padding: 0; }
+.frd-med-item-name { font-weight: 700; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frd-med-item-price { font-size: 10px; color: var(--frd-gray-400); }
+.frd-amount-red { text-align: right; font-weight: 700; color: var(--frd-red-700); }
+.frd-presc-pay-col { display: flex; flex-direction: column; gap: 8px; }
+.frd-voucher-row { display: flex; gap: 6px; }
+.frd-sum-row { display: flex; justify-content: space-between; font-size: 11px; }
+.frd-sum-label { color: var(--frd-gray-500); }
+.frd-discount-row { color: var(--frd-green-700); }
+.frd-payable-row { align-items: flex-end; }
+.frd-payable-amount { color: var(--frd-red-700); font-weight: 800; font-size: 18px; font-family: var(--frd-mono); }
+.frd-presc-method-box { background: var(--frd-gray-100); padding: 8px; border-radius: 6px; border: 1px solid var(--frd-gray-300); display: flex; flex-direction: column; gap: 6px; }
+.frd-cash-row { display: flex; align-items: center; margin-bottom: 4px; }
+.frd-cash-label { font-size: 10px; font-weight: 700; color: var(--frd-gray-500); margin-right: 8px; min-width: 70px; flex-shrink: 0; }
+.frd-paid-state { text-align: center; padding: 12px 0; }
+.frd-paid-label { color: var(--frd-green-700); font-weight: 700; margin-bottom: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.frd-paid-icon { font-size: 20px; }
+.frd-paid-sub { font-size: 11px; color: var(--frd-gray-500); margin-bottom: 12px; }
+.frd-gender-text { font-size: 10px; color: var(--frd-gray-500); }
+
+/* ══════════════════════════════════
+   RESPONSIVE — CUSTOM MODAL
+══════════════════════════════════ */
+@media (max-width: 860px) {
+  .frd-modal-dialog { max-width: 100% !important; margin: 0 !important; border-radius: 12px 12px 0 0; max-height: 95vh; }
+  .frd-modal-backdrop { align-items: flex-end; padding: 0; }
+  .frd-reception-grid { grid-template-columns: 1fr; }
+  .frd-retail-form-wrap { flex-direction: column; height: auto; }
+  .frd-retail-cart-col { min-width: auto; }
+  .frd-form-grid-2 { grid-template-columns: 1fr; }
+  .frd-info-grid-2 { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 1100px) {
+  .frd-reception-grid { grid-template-columns: 1fr 240px; }
 }

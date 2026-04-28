@@ -1,7 +1,7 @@
 // server/controllers/communityController.js
 // Mỗi hàm ghi rõ: đang áp dụng business rule nào
 const { models, sequelize } = require('../config/db');
-const { Op } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 const { createNotification, notifyAllAdmins } = require('../utils/notificationHelper');
 
 // ─────────────────────────────────────────────
@@ -129,7 +129,7 @@ const getGroupBySlug = async (req, res, next) => {
           model: models.Doctor,
           as: 'doctor',
           include: [{ model: models.User, as: 'user', attributes: ['id', 'full_name', 'avatar_url'] }],
-          attributes: ['id', 'user_id', 'speciality', 'bio'],
+          attributes: ['id', 'user_id', 'specialty_id', 'bio', 'title', 'position'],
         },
         {
           model: models.User,
@@ -184,7 +184,7 @@ const getGroupBySlug = async (req, res, next) => {
 const createGroup = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { name, description, cover_image, icon, privacy, doctor_id, requires_post_approval } = req.body;
+    const { name, description, cover_image, avatar_image, icon, privacy, doctor_id, requires_post_approval } = req.body;
     const { id: userId, role } = req.user;
 
     // Validate bắt buộc
@@ -219,6 +219,7 @@ const createGroup = async (req, res, next) => {
       slug, // <--- có dấu phẩy
       description: description ? description.trim() : null,
       cover_image: cover_image || null,
+      avatar_image: avatar_image || null,
       icon: icon || '👥',
       type: groupType,
       privacy: privacy || 'public',
@@ -1129,7 +1130,7 @@ const getGroupMembers = async (req, res, next) => {
         ...(userWhere ? { where: userWhere } : {}),
       }],
       order: [
-        [fn('FIELD', col('role'), 'owner', 'moderator', 'member')],
+        [sequelize.literal(`FIELD(\`GroupMember\`.\`role\`, 'owner', 'moderator', 'member')`)],
         ['joined_at', 'ASC'],
       ],
       limit,

@@ -201,40 +201,40 @@ async function seedData() {
     const diseases = await seedDiseases(models, transaction, { benhLyCategory });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng diseases.');
 
-  // 6.1) Service Categories
-  console.log('6.1. Thêm Service Categories...');
-  const serviceCategories = await seedServiceCategories(models, transaction);
-  console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng service_categories.');
+    // 6.1) Service Categories
+    console.log('6.1. Thêm Service Categories...');
+    const serviceCategories = await seedServiceCategories(models, transaction);
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng service_categories.');
 
-  // 6.2) Services
-  console.log('6.2. Thêm Services...');
-  const services = await seedServices(models, transaction, { serviceCategories, specialties });
-  console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng services.');
+    // 6.2) Services
+    console.log('6.2. Thêm Services...');
+    const services = await seedServices(models, transaction, { serviceCategories, specialties });
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng services.');
 
-  // 6.3) WorkShiftConfig (Ca làm việc)
-  console.log('6.3. Thêm WorkShiftConfig...');
-  const workShifts = await seedWorkShiftConfig(models, transaction);
-  console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng work_shift_config.');
+    // 6.3) WorkShiftConfig (Ca làm việc)
+    console.log('6.3. Thêm WorkShiftConfig...');
+    const workShifts = await seedWorkShiftConfig(models, transaction);
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng work_shift_config.');
 
-  // 6.4) Schedules (doctors availability)
-  console.log('6.4. Thêm Schedules...');
-  const schedules = await seedSchedules(models, transaction);
-  console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng schedules.');
+    // 6.4) Schedules (doctors availability)
+    console.log('6.4. Thêm Schedules...');
+    const schedules = await seedSchedules(models, transaction);
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng schedules.');
 
-  // 6.5) Appointments
-  console.log('6.5. Thêm Appointments...');
-  const appointments = await seedAppointments(models, transaction);
-  console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng appointments.');
+    // 6.5) Appointments
+    console.log('6.5. Thêm Appointments...');
+    const appointments = await seedAppointments(models, transaction);
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng appointments.');
 
-  // 6.6) MedicalRecords
-  console.log('6.6. Thêm MedicalRecords...');
-  const medicalRecords = await seedMedicalRecords(models, transaction);
-  console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng medical_records.');
+    // 6.6) MedicalRecords
+    console.log('6.6. Thêm MedicalRecords...');
+    const medicalRecords = await seedMedicalRecords(models, transaction);
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng medical_records.');
 
-  // 6.7) Payments
-  console.log('6.7. Thêm Payments...');
-  const payments = await seedPayments(models, transaction);
-  console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng payments.');
+    // 6.7) Payments
+    console.log('6.7. Thêm Payments...');
+    const payments = await seedPayments(models, transaction);
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng payments.');
 
     // 7) Articles
     console.log('7. Thêm Articles...');
@@ -243,6 +243,8 @@ async function seedData() {
 
     // 8) Interactions
     console.log('8. Thêm Interactions...');
+    console.log('DEBUG: users =', users ? `array[${users.length}]` : 'undefined/null');
+    console.log('DEBUG: articles =', articles ? `array[${articles.length}]` : 'undefined/null');
     await seedInteractions(models, transaction, { users, articles });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng interactions.');
 
@@ -266,25 +268,25 @@ async function seedData() {
     await seedConsultationSetting(models, transaction, { admins });
     console.log('SUCCESS: Thêm SystemSetting cho consultation.');
 
-  // 12.5) Consultation Pricing (Gói dịch vụ tư vấn)
-  console.log('12.5. Thêm gói dịch vụ tư vấn (ConsultationPricing)...');
-  await seedConsultationPricing(models, transaction, { doctors });
-  console.log('SUCCESS: Thêm dữ liệu gói dịch vụ tư vấn.');
+    // 12.5) Consultation Pricing (Gói dịch vụ tư vấn)
+    console.log('12.5. Thêm gói dịch vụ tư vấn (ConsultationPricing)...');
+    await seedConsultationPricing(models, transaction, { doctors });
+    console.log('SUCCESS: Thêm dữ liệu gói dịch vụ tư vấn.');
 
-  // 13) Forum Topics (CHỦ ĐỀ DIỄN ĐÀN) - PHẢI TRƯỚC QUESTIONS
-  console.log('13. Thêm dữ liệu Topics (Chủ đề diễn đàn)...');
-  await seedTopics(models, transaction);
-  console.log('SUCCESS: Thêm dữ liệu Topics.');
+    // 13) Forum Topics (CHỦ ĐỀ DIỄN ĐÀN) - PHẢI TRƯỚC QUESTIONS
+    console.log('13. Thêm dữ liệu Topics (Chủ đề diễn đàn)...');
+    await seedTopics(models, transaction);
+    console.log('SUCCESS: Thêm dữ liệu Topics.');
 
-  // 14) Forum (questions, answers, comments, likes)
-  console.log('14. Thêm dữ liệu diễn đàn (Questions/Answers/Interactions)...');
-  const forum = await seedForum(models, transaction);
-  console.log('SUCCESS: Thêm dữ liệu diễn đàn.');
+    // 14) Forum (questions, answers, comments, likes)
+    console.log('14. Thêm dữ liệu diễn đàn (Questions/Answers/Interactions)...');
+    const forum = await seedForum(models, transaction);
+    console.log('SUCCESS: Thêm dữ liệu diễn đàn.');
 
-  // 15) Consultation chat/sample messages
-  console.log('15. Thêm sample consultation + chat messages...');
-  const consultChats = await seedConsultationChat(models, transaction);
-  console.log('SUCCESS: Thêm dữ liệu chat tư vấn.');
+    // 15) Consultation chat/sample messages
+    console.log('15. Thêm sample consultation + chat messages...');
+    const consultChats = await seedConsultationChat(models, transaction);
+    console.log('SUCCESS: Thêm dữ liệu chat tư vấn.');
 
     await transaction.commit();
     console.log('SUCCESS: Transaction commit thành công. Dữ liệu đã được ghi vào DB.');

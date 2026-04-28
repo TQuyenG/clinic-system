@@ -6,6 +6,7 @@ import {
   FaTimes, 
   FaPaperPlane, 
   FaRobot,
+  FaArrowUp,
   FaUser,
   FaCalendarAlt,
   FaClock,
@@ -23,6 +24,8 @@ import chatService from '../../services/chatService';
 
 const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const MAX_RETRY_ATTEMPTS = 2;
 
   // Expose function để mở chatbot từ các nút khác trên trang web (VD: nút "Hỏi bác sĩ" ở trang chủ)
   useEffect(() => {
@@ -33,6 +36,16 @@ const Chatbot = () => {
     return () => {
       delete window.openChatbot;
     };
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 240);
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const [messages, setMessages] = useState([
@@ -46,6 +59,13 @@ const Chatbot = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
+
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const isRetryableAIError = (error) => {
+    const status = error?.response?.status;
+    return !status || status === 429 || status === 503 || status >= 500;
+  };
 
   // Auto scroll to bottom khi có tin nhắn mới
   const scrollToBottom = () => {
@@ -75,8 +95,36 @@ const Chatbot = () => {
     setIsTyping(true); // Hiển thị hiệu ứng AI đang xử lý
 
     try {
-      // Gọi API Gemini
-      const response = await chatService.sendAIMessage(userMessage.text);
+      let response = null;
+      let finalError = null;
+
+      for (let attempt = 0; attempt <= MAX_RETRY_ATTEMPTS; attempt += 1) {
+        try {
+          // Gọi API Gemini
+          response = await chatService.sendAIMessage(userMessage.text);
+          finalError = null;
+          break;
+        } catch (error) {
+          finalError = error;
+          if (!isRetryableAIError(error) || attempt === MAX_RETRY_ATTEMPTS) {
+            break;
+          }
+
+          setMessages(prev => [...prev, {
+            id: Date.now() + attempt + 100,
+            text: `AI đang bận, hệ thống sẽ thử lại (${attempt + 1}/${MAX_RETRY_ATTEMPTS})...`,
+            sender: 'bot',
+            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+          }]);
+
+          await wait(Math.min(1500 * (attempt + 1), 3500));
+        }
+      }
+
+      if (!response) {
+        throw finalError || new Error('Không thể nhận phản hồi từ AI');
+      }
+
       const aiData = response.data?.data;
 
       // Xây dựng tin nhắn phản hồi của bot
@@ -98,7 +146,7 @@ const Chatbot = () => {
       console.error("AI Error:", error);
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
-        text: 'Đã có lỗi kết nối với máy chủ AI. Xin vui lòng thử lại sau ít phút.',
+        text: 'Đã có lỗi kết nối với máy chủ AI sau nhiều lần thử. Xin vui lòng thử lại sau ít phút.',
         sender: 'bot',
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
       }]);
@@ -134,8 +182,24 @@ const Chatbot = () => {
     setInputMessage(reply);
   };
 
+  const handleScrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="chatbot">
+      {showScrollTop && (
+        <button
+          type="button"
+          className="chatbot-scroll-top-btn"
+          onClick={handleScrollToTop}
+          aria-label="Cuộn lên đầu trang"
+          title="Lên đầu trang"
+        >
+          <FaArrowUp />
+        </button>
+      )}
+
       {/* Chat Button (Nút nổi góc màn hình) */}
       <button
         className={`chatbot-toggle-btn ${isOpen ? 'open' : ''}`}
@@ -218,17 +282,17 @@ const Chatbot = () => {
 
                     {/* Render UI Động từ AI: Thẻ Gợi ý Tư vấn ONLINE (VIDEO/CHAT) */}
                     {message.sender === 'bot' && message.action === 'BOOK_ONLINE' && (
-                      <div className="chatbot-action-card" style={{ borderColor: '#bae6fd' }}>
-                        <div className="action-card-info" style={{ color: '#0369a1' }}>
+                      <div className="chatbot-action-card" style={{ borderColor: '#bbf7d0' }}>
+                        <div className="action-card-info" style={{ color: '#166534' }}>
                           <FaVideo className="action-card-icon" /> 
-                          <div className="action-card-text" style={{ color: '#0369a1' }}>
+                          <div className="action-card-text" style={{ color: '#166534' }}>
                             <strong>Tư vấn sức khỏe từ xa (Online)</strong>
-                            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#0ea5e9' }}>Video Call / Chat với Bác sĩ</p>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#16a34a' }}>Video Call / Chat với Bác sĩ</p>
                           </div>
                         </div>
                         <button 
                           className="action-card-btn"
-                          style={{ background: '#0284c7' }}
+                          style={{ background: '#16a34a' }}
                           onClick={() => handleBookOnline(message.packageId)}
                         >
                           <FaComments /> Đặt lịch tư vấn ngay

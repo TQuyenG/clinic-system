@@ -3,10 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
+import Toast from '../components/Toast';
+import useToast from '../hooks/useToast';
 import { 
   FaCalendar, FaUser, FaEye, FaThumbsUp, FaBookmark, FaShareAlt, 
   FaFlag, FaTag, FaChevronRight, FaChevronLeft, FaSearch, FaBars, FaTimes, 
-  FaCommentDots, FaEllipsisV, FaNewspaper, FaHeartbeat, FaPills, FaExclamationTriangle
+  FaCommentDots, FaEllipsisV, FaNewspaper, FaHeartbeat, FaPills, FaExclamationTriangle,
+  FaCheckCircle, FaMagic
 } from 'react-icons/fa';
 import './ArticleDetailPage.css';
 
@@ -16,10 +19,92 @@ const formatAdLink = (url) => {
   return url.startsWith('/') ? url : `/${url}`;
 };
 
+const escapeHtml = (value) => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const formatInlineMarkdown = (value) => escapeHtml(value)
+  .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  .replace(/__(.+?)__/g, '<strong>$1</strong>')
+  .replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+const renderMarkdownToHtml = (rawText = '') => {
+  const normalized = String(rawText)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/(\s)(#{1,6}\s)/g, '\n$2')
+    .replace(/(\s)(\d+\.\s)/g, '\n$2')
+    .replace(/(\s)([-*]\s)/g, '\n$2')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (!normalized) return '';
+
+  const lines = normalized.split('\n');
+  const html = [];
+  let listType = null;
+
+  const closeList = () => {
+    if (listType) {
+      html.push(listType === 'ul' ? '</ul>' : '</ol>');
+      listType = null;
+    }
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      closeList();
+      return;
+    }
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      closeList();
+      const level = Math.min(headingMatch[1].length, 4);
+      html.push(`<h${level}>${formatInlineMarkdown(headingMatch[2])}</h${level}>`);
+      return;
+    }
+
+    const unorderedMatch = trimmed.match(/^[-*]\s+(.*)$/);
+    if (unorderedMatch) {
+      if (listType !== 'ul') {
+        closeList();
+        html.push('<ul>');
+        listType = 'ul';
+      }
+      html.push(`<li>${formatInlineMarkdown(unorderedMatch[1])}</li>`);
+      return;
+    }
+
+    const orderedMatch = trimmed.match(/^\d+\.\s+(.*)$/);
+    if (orderedMatch) {
+      if (listType !== 'ol') {
+        closeList();
+        html.push('<ol>');
+        listType = 'ol';
+      }
+      html.push(`<li>${formatInlineMarkdown(orderedMatch[1])}</li>`);
+      return;
+    }
+
+    closeList();
+    html.push(`<p>${formatInlineMarkdown(trimmed)}</p>`);
+  });
+
+  closeList();
+  return html.join('');
+};
+
 const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryType }) => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const API_BASE_URL = 'http://localhost:3001';
+  const { toastState, closeToast, toast } = useToast();
 
   // Core States
   const [article, setArticle] = useState(propArticle || null);
@@ -48,6 +133,11 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
   // Comment States
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+
+  // AI Summary States
+  const [aiSummary, setAiSummary] = useState('');
+  const [loadingAISummary, setLoadingAISummary] = useState(false);
+  const [showAISummary, setShowAISummary] = useState(true);
 
   // Report States
   const [showReportPopup, setShowReportPopup] = useState(false);
@@ -129,18 +219,38 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
         axios.get(`${API_BASE_URL}/api/articles/categories`),
         axios.get(`${API_BASE_URL}/api/articles/public?limit=5&sort_by=views&sort_order=DESC`)
       ]);
-      if (catsRes.data.success) setCategories(catsRes.data.categories || []);
-      if (popRes.data.success) setPopularArticles(popRes.data.articles || []);
-    } catch (error) { console.error('Lỗi tải dữ liệu:', error); }
+      
+      if (catsRes.data.success || catsRes.data.data) {
+        const cats = catsRes.data.data || catsRes.data.categories || [];
+        setCategories(Array.isArray(cats) ? cats : []);
+      }
+      
+      if (popRes.data.success || popRes.data.data) {
+        const articles = popRes.data.data || popRes.data.articles || [];
+        setPopularArticles(Array.isArray(articles) ? articles : []);
+      }
+    } catch (error) {
+      console.error('Lỗi tải dữ liệu:', error);
+      setCategories([]);
+      setPopularArticles([]);
+    }
   };
 
   const fetchArticle = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/articles/slug/${slug}`);
-      if (response.data.success) setArticle(response.data.article);
+      if (response.data.success || response.data.data) {
+        const articleData = response.data.data || response.data.article;
+        setArticle(articleData);
+      }
     } catch (error) {
-      if (error.response?.status === 404) navigate('/404');
+      console.error('Error fetching article:', error);
+      if (error.response?.status === 404) {
+        navigate('/404');
+      } else {
+        setArticle(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -157,12 +267,20 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const response = await axios.get(`${API_BASE_URL}/api/articles/${article.id}/interactions`, { headers });
-      if (response.data.success) {
-        setStats(response.data.stats);
-        setIsLiked(response.data.userInteractions?.like || false);
-        setIsSaved(response.data.userInteractions?.save || false);
+      if (response.data.success || response.data) {
+        const data = response.data.data || response.data;
+        setStats({
+          likes: data.stats?.likes || data.likes || 0,
+          shares: data.stats?.shares || data.shares || 0,
+          saves: data.stats?.saves || data.saves || 0,
+          views: data.stats?.views || data.views || 0,
+        });
+        setIsLiked(data.userInteractions?.like || data.isLiked || false);
+        setIsSaved(data.userInteractions?.save || data.isSaved || false);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Error fetching interactions:', e);
+    }
   };
 
   const fetchRelatedArticles = async () => {
@@ -171,8 +289,14 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
       const params = { category_id: article.category_id };
       if (article.tags_json?.length > 0) params.tags = JSON.stringify(article.tags_json);
       const response = await axios.get(`${API_BASE_URL}/api/articles/related/${article.id}`, { params });
-      if (response.data.success) setRelatedArticles(response.data.articles || []);
-    } catch (e) {}
+      if (response.data.success || response.data.data) {
+        const relatedData = response.data.data || response.data.articles || [];
+        setRelatedArticles(Array.isArray(relatedData) ? relatedData : []);
+      }
+    } catch (e) {
+      console.error('Error fetching related articles:', e);
+      setRelatedArticles([]);
+    }
   };
 
   // Fetch Public Comments (API mới dự kiến)
@@ -180,43 +304,128 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
     if (!article?.id) return;
     try {
       const response = await axios.get(`${API_BASE_URL}/api/articles/${article.id}/public-comments`);
-      if (response.data.success) setComments(response.data.comments || []);
+      if (response.data.success || response.data.data) {
+        const commentData = response.data.data || response.data.comments || [];
+        setComments(Array.isArray(commentData) ? commentData : []);
+      }
     } catch (e) {
-      // Fallback tạm về luồng cũ nếu backend chưa update
-      console.warn('Vui lòng tạo API /public-comments trong backend để phân biệt comment nội bộ/công khai');
+      console.error('Error fetching comments:', e);
+      // Không show alert, chỉ log error thôi
+      setComments([]);
+    }
+  };
+
+  // Fetch AI Summary with Retry Logic
+  const fetchAISummary = async () => {
+    if (!article?.title || !article?.content) return;
+    
+    const MAX_RETRY_ATTEMPTS = 2;
+    const isRetryableError = (error) => {
+      const status = error.response?.status;
+      return status === 429 || status === 503 || (status && status >= 500) || !status;
+    };
+
+    for (let attempt = 0; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+      try {
+        setShowAISummary(true);
+        setLoadingAISummary(true);
+
+        if (attempt === 0) {
+          toast.info('⏳ Đang tóm tắt bài viết...');
+        } else {
+          const waitMs = Math.min(1500 * (attempt + 1), 3500);
+          await new Promise(resolve => setTimeout(resolve, waitMs));
+          toast.info(`🔄 AI đang bận, hệ thống sẽ thử lại (${attempt}/${MAX_RETRY_ATTEMPTS})...`);
+        }
+
+        const response = await axios.post(
+          `${API_BASE_URL}/api/articles/ai-analyze`,
+          {
+            title: article.title,
+            content: article.content,
+            ai_task: 'summarize'
+          }
+        );
+
+        if (response.data.success && response.data.data?.suggested_content) {
+          setAiSummary(response.data.data.suggested_content);
+          toast.success('✅ Tóm tắt bài viết thành công!');
+          setLoadingAISummary(false);
+          return;
+        }
+      } catch (error) {
+        console.error(`Error fetching AI summary (attempt ${attempt + 1}):`, error);
+
+        if (!isRetryableError(error) || attempt === MAX_RETRY_ATTEMPTS) {
+          setAiSummary('');
+          setLoadingAISummary(false);
+          
+          if (attempt === MAX_RETRY_ATTEMPTS) {
+            toast.error('❌ Không thể tóm tắt bài viết sau nhiều lần thử. Vui lòng thử lại sau!');
+          } else {
+            toast.error('❌ Lỗi: ' + (error.response?.data?.message || error.message));
+          }
+          return;
+        }
+      }
     }
   };
 
   const handleInteraction = async (type) => {
-    setIsActionMenuOpen(false); 
+    setIsActionMenuOpen(false);
     const token = localStorage.getItem('token');
-    if (!token) { alert('Vui lòng đăng nhập!'); navigate('/login'); return; }
+    if (!token) {
+      toast.warning('Vui lòng đăng nhập!');
+      navigate('/login');
+      return;
+    }
+
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/articles/${article.id}/interact`, { type }, { headers: { Authorization: `Bearer ${token}` } });
-      if (response.data.success) {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/articles/${article.id}/interact`,
+        { type },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success || response.data.data) {
+        const data = response.data.data || response.data;
+        
         if (type === 'like') {
-          setIsLiked(!isLiked);
-          setStats(p => ({ ...p, likes: isLiked ? p.likes - 1 : p.likes + 1 }));
+          const newLikedState = data.isLiked !== undefined ? data.isLiked : !isLiked;
+          setIsLiked(newLikedState);
+          setStats(p => ({
+            ...p,
+            likes: data.likesCount !== undefined ? data.likesCount : (newLikedState ? p.likes + 1 : Math.max(0, p.likes - 1))
+          }));
         } else if (type === 'save') {
-          setIsSaved(!isSaved);
-          setStats(p => ({ ...p, saves: isSaved ? p.saves - 1 : p.saves + 1 }));
-          alert(isSaved ? 'Đã hủy lưu bài viết' : 'Đã lưu bài viết');
+          const newSavedState = data.isSaved !== undefined ? data.isSaved : !isSaved;
+          setIsSaved(newSavedState);
+          setStats(p => ({
+            ...p,
+            saves: data.savesCount !== undefined ? data.savesCount : (newSavedState ? p.saves + 1 : Math.max(0, p.saves - 1))
+          }));
+          toast.success(newSavedState ? 'Đã lưu bài viết' : 'Đã hủy lưu bài viết');
         }
+      } else {
+        toast.error('Có lỗi xảy ra. Vui lòng thử lại!');
       }
-    } catch (e) { alert('Lỗi tương tác'); }
+    } catch (e) {
+      console.error('Interaction error:', e);
+      toast.error('Lỗi tương tác: ' + (e.response?.data?.message || e.message));
+    }
   };
 
   const handleShare = () => {
     setIsActionMenuOpen(false);
     navigator.clipboard.writeText(window.location.href);
-    alert('Đã sao chép link bài viết!');
+    toast.success('Đã sao chép link bài viết!');
   };
 
   const handleSubmitReport = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
-    if (!token) { alert('Vui lòng đăng nhập để báo cáo'); navigate('/login'); return; }
-    if (!reportReason.trim()) { alert('Vui lòng nhập lý do báo cáo'); return; }
+    if (!token) { toast.warning('Vui lòng đăng nhập để báo cáo'); navigate('/login'); return; }
+    if (!reportReason.trim()) { toast.warning('Vui lòng nhập lý do báo cáo'); return; }
 
     try {
       setSubmittingReport(true);
@@ -226,12 +435,12 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.success) {
-        alert('Đã gửi báo cáo thành công! Admin sẽ xem xét.');
+        toast.success('Đã gửi báo cáo thành công! Admin sẽ xem xét.');
         setShowReportPopup(false);
         setReportReason('');
       }
     } catch (error) {
-      alert('Lỗi: ' + (error.response?.data?.message || error.message));
+      toast.error('Lỗi: ' + (error.response?.data?.message || error.message));
     } finally {
       setSubmittingReport(false);
     }
@@ -240,22 +449,35 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
   // Nộp Comment Công khai (Dùng API mới dự kiến)
   const handleSubmitComment = async (e) => {
     e.preventDefault();
-    if (!newComment.trim()) return;
+    if (!newComment.trim()) {
+      toast.warning('Vui lòng nhập bình luận');
+      return;
+    }
+    
     const token = localStorage.getItem('token');
-    if (!token) { alert('Vui lòng đăng nhập để bình luận!'); navigate('/login'); return; }
+    if (!token) {
+      toast.warning('Vui lòng đăng nhập để bình luận!');
+      navigate('/login');
+      return;
+    }
     
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/articles/${article.id}/public-comments`, 
-        { comment_text: newComment }, 
+        `${API_BASE_URL}/api/articles/${article.id}/public-comments`,
+        { comment_text: newComment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (response.data.success) {
+
+      if (response.data.success || response.data.data) {
         setNewComment('');
-        fetchComments(); 
+        toast.success('Bình luận của bạn đã được gửi thành công!');
+        await fetchComments();
+      } else {
+        toast.error('Có lỗi khi gửi bình luận');
       }
     } catch (e) {
-      alert('Vui lòng đảm bảo bạn đã tạo API /public-comments bên phía Backend.');
+      console.error('Comment submission error:', e);
+      toast.error('Lỗi: ' + (e.response?.data?.message || 'Không thể gửi bình luận. Vui lòng thử lại sau.'));
     }
   };
 
@@ -452,6 +674,30 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
               <span><FaEye color="#059669"/> {stats.views || article.views || 0} lượt xem</span>
             </div>
 
+            {/* HUY HIỆU Y KHOA E-E-A-T CHÈN MỚI */}
+            {article.is_medical_review_required && article.medical_reviewer && article.status === 'approved' && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.8rem', 
+                background: '#f0fdf4', border: '1px solid #86efac', 
+                padding: '0.8rem 1rem', borderRadius: '6px', 
+                marginBottom: '1.5rem'
+              }}>
+                <img 
+                  src={article.medical_reviewer.avatar_url || '/placeholder.jpg'} 
+                  alt="Doctor" 
+                  style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} 
+                />
+                <div>
+                  <div style={{ fontSize: '0.85rem', color: '#059669', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <FaCheckCircle /> Đã được tham vấn y khoa bởi:
+                  </div>
+                  <strong style={{ color: '#1f2937', fontSize: '1rem' }}>
+                    Bác sĩ {article.medical_reviewer.full_name}
+                  </strong>
+                </div>
+              </div>
+            )}
+
             <div className="detail-article-body" dangerouslySetInnerHTML={{ __html: article.content }} />
 
             {article.tags_json?.length > 0 && (
@@ -518,6 +764,39 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
 
           {/* --- CỘT PHẢI (SIDEBAR) --- */}
           <div className="detail-sidebar">
+            
+            {/* AI SUMMARY ACTION */}
+            <div className="detail-ai-summary-action">
+              <button 
+                className="detail-ai-summary-button"
+                onClick={fetchAISummary}
+                disabled={loadingAISummary}
+              >
+                <FaMagic /> {loadingAISummary ? 'Đang tóm tắt...' : 'Tóm tắt bài viết'}
+              </button>
+            </div>
+
+            {/* AI SUMMARY SECTION */}
+            {showAISummary && aiSummary && (
+              <div className="detail-ai-summary-box">
+                <div className="detail-ai-summary-header">
+                  <h3>Tóm tắt nhanh</h3>
+                  <button 
+                    className="detail-ai-summary-close"
+                    onClick={() => setShowAISummary(false)}
+                    title="Ẩn"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="detail-ai-summary-content">
+                  <div
+                    className="detail-ai-summary-markdown"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(aiSummary) }}
+                  />
+                </div>
+              </div>
+            )}
             
             {currentSidebarAd && (
               <div className="detail-ad-box">
@@ -627,6 +906,14 @@ const ArticleDetailPage = ({ article: propArticle, categoryType: propCategoryTyp
         </div>
       )}
 
+      {/* Toast Notification */}
+      <Toast 
+        type={toastState.type}
+        message={toastState.message}
+        show={toastState.show}
+        onClose={closeToast}
+        duration={toastState.duration}
+      />
     </div>
   );
 };

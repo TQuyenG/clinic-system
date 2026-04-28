@@ -1,9 +1,16 @@
-
+// EventListPage.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { FaCalendarAlt, FaMapMarkerAlt, FaSearch, FaFilter, FaTh, FaList, FaEye, FaMouse } from 'react-icons/fa';
+import { FaCalendarAlt, FaMapMarkerAlt, FaSearch, FaTh, FaList, FaEye, FaMouse } from 'react-icons/fa';
 import './EventListPage.css';
+
+const typeLabels = {
+  event: 'Sự kiện',
+  promotion: 'Khuyến mãi',
+  news: 'Tin tức',
+  notification: 'Thông báo'
+};
 
 const EventListPage = () => {
   const [events, setEvents] = useState([]);
@@ -15,30 +22,17 @@ const EventListPage = () => {
     sort_by: 'start_date',
     order: 'DESC'
   });
-  const [viewMode, setViewMode] = useState('grid'); // grid or list
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 9,
-    total: 0,
-    total_pages: 0
-  });
+  const [viewMode, setViewMode] = useState('grid');
+  const [pagination, setPagination] = useState({ page: 1, limit: 9, total: 0, total_pages: 0 });
 
-  useEffect(() => {
-    fetchEvents();
-  }, [searchTerm, filters, pagination.page]);
+  useEffect(() => { fetchEvents(); }, [searchTerm, filters, pagination.page]);
 
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      const params = {
-        search: searchTerm,
-        page: pagination.page,
-        limit: pagination.limit,
-        ...filters
-      };
-
-      const response = await api.get('/marketing/events', { params });
-      
+      const response = await api.get('/marketing/events', {
+        params: { search: searchTerm, page: pagination.page, limit: pagination.limit, ...filters }
+      });
       if (response.data.success) {
         setEvents(response.data.events);
         setPagination(prev => ({
@@ -57,7 +51,6 @@ const EventListPage = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     setPagination(prev => ({ ...prev, page: 1 }));
-    fetchEvents();
   };
 
   const handleFilterChange = (key, value) => {
@@ -74,40 +67,76 @@ const EventListPage = () => {
     const now = new Date();
     const start = new Date(event.start_date);
     const end = new Date(event.end_date);
+    if (now < start) return { text: 'Sắp diễn ra', cls: 'upcoming' };
+    if (now > end) return { text: 'Đã kết thúc', cls: 'ended' };
+    return { text: 'Đang diễn ra', cls: 'ongoing' };
+  };
 
-    if (now < start) return { text: 'Sắp diễn ra', class: 'upcoming' };
-    if (now > end) return { text: 'Đã kết thúc', class: 'ended' };
-    return { text: 'Đang diễn ra', class: 'ongoing' };
+  const renderPagination = () => {
+    if (pagination.total_pages <= 1) return null;
+    const pages = [];
+    for (let i = 1; i <= pagination.total_pages; i++) {
+      const show = i === 1 || i === pagination.total_pages ||
+        (i >= pagination.page - 1 && i <= pagination.page + 1);
+      const ellipsis = i === pagination.page - 2 || i === pagination.page + 2;
+      if (show) {
+        pages.push(
+          <button
+            key={i}
+            onClick={() => handlePageChange(i)}
+            className={`elp-pagination__num ${pagination.page === i ? 'elp-pagination__num--active' : ''}`}
+          >{i}</button>
+        );
+      } else if (ellipsis) {
+        pages.push(<span key={i} className="elp-pagination__ellipsis">…</span>);
+      }
+    }
+    return (
+      <div className="elp-pagination">
+        <button
+          onClick={() => handlePageChange(pagination.page - 1)}
+          disabled={pagination.page === 1}
+          className="elp-pagination__btn"
+        >← Trước</button>
+        <div className="elp-pagination__numbers">{pages}</div>
+        <button
+          onClick={() => handlePageChange(pagination.page + 1)}
+          disabled={pagination.page === pagination.total_pages}
+          className="elp-pagination__btn"
+        >Sau →</button>
+      </div>
+    );
   };
 
   return (
-    <div className="event-list-page">
-      {/* Banner Header */}
-      <div className="event-page-header">
-        <div className="header-content">
-          <h1>Tin tức & Sự kiện</h1>
-          <p>Cập nhật những thông tin y tế và chương trình ưu đãi mới nhất</p>
+    <div className="elp-page">
+      {/* Hero Header */}
+      <div className="elp-hero">
+        <div className="elp-hero__inner">
+          <h1 className="elp-hero__title">Tin tức & Sự kiện</h1>
+          <p className="elp-hero__sub">Cập nhật những thông tin y tế và chương trình ưu đãi mới nhất</p>
         </div>
       </div>
 
-      <div className="event-container">
-        {/* Search & Filter Bar */}
-        <div className="event-controls">
-          <form onSubmit={handleSearch} className="event-search-bar">
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm sự kiện, khuyến mãi..." 
+      <div className="elp-container">
+        {/* Controls */}
+        <div className="elp-controls">
+          <form onSubmit={handleSearch} className="elp-search">
+            <input
+              className="elp-search__input"
+              type="text"
+              placeholder="Tìm kiếm sự kiện..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <button type="submit"><FaSearch /></button>
+            <button type="submit" className="elp-search__btn"><FaSearch /></button>
           </form>
 
-          <div className="event-filters">
-            <select 
-              value={filters.event_type} 
+          <div className="elp-filters">
+            <select
+              className="elp-filter-select"
+              value={filters.event_type}
               onChange={(e) => handleFilterChange('event_type', e.target.value)}
-              className="filter-select"
             >
               <option value="all">Tất cả loại</option>
               <option value="event">Sự kiện</option>
@@ -116,10 +145,10 @@ const EventListPage = () => {
               <option value="notification">Thông báo</option>
             </select>
 
-            <select 
-              value={filters.status} 
+            <select
+              className="elp-filter-select"
+              value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="filter-select"
             >
               <option value="">Tất cả trạng thái</option>
               <option value="upcoming">Sắp diễn ra</option>
@@ -127,10 +156,10 @@ const EventListPage = () => {
               <option value="ended">Đã kết thúc</option>
             </select>
 
-            <select 
-              value={filters.sort_by} 
+            <select
+              className="elp-filter-select"
+              value={filters.sort_by}
               onChange={(e) => handleFilterChange('sort_by', e.target.value)}
-              className="filter-select"
             >
               <option value="start_date">Ngày diễn ra</option>
               <option value="created_at">Ngày tạo</option>
@@ -138,84 +167,91 @@ const EventListPage = () => {
               <option value="clicks">Lượt nhấp</option>
             </select>
 
-            <div className="view-toggle">
-              <button 
-                className={viewMode === 'grid' ? 'active' : ''} 
+            <div className="elp-view-toggle">
+              <button
+                className={`elp-view-toggle__btn ${viewMode === 'grid' ? 'elp-view-toggle__btn--active' : ''}`}
                 onClick={() => setViewMode('grid')}
-                title="Xem dạng lưới"
-              >
-                <FaTh />
-              </button>
-              <button 
-                className={viewMode === 'list' ? 'active' : ''} 
+                title="Dạng lưới"
+              ><FaTh /></button>
+              <button
+                className={`elp-view-toggle__btn ${viewMode === 'list' ? 'elp-view-toggle__btn--active' : ''}`}
                 onClick={() => setViewMode('list')}
-                title="Xem dạng danh sách"
-              >
-                <FaList />
-              </button>
+                title="Dạng danh sách"
+              ><FaList /></button>
             </div>
           </div>
         </div>
 
-        {/* Events Display */}
+        {/* Content */}
         {loading ? (
-          <div className="loading-container">
-            <div className="spinner"></div>
-            <p>Đang tải sự kiện...</p>
+          <div className="elp-loading-wrap">
+            <div className="elp-spinner" />
+            <p className="elp-loading-wrap__text">Đang tải sự kiện...</p>
           </div>
         ) : events.length > 0 ? (
           <>
-            <div className={`event-${viewMode}`}>
+            <div className={`elp-${viewMode}`}>
               {events.map((event) => {
                 const status = getEventStatus(event);
                 return (
-                  <div key={event.id} className={`event-card ${viewMode}`}>
-                    <div className="event-card-image">
-                      <img 
-                        src={event.thumbnail || event.banner_url || '/images/event-placeholder.jpg'} 
+                  <div key={event.id} className={`elp-card elp-card--${viewMode}`}>
+                    <div className="elp-card__image-wrap">
+                      <img
+                        className="elp-card__img"
+                        src={event.thumbnail || event.banner_url || '/images/event-placeholder.jpg'}
                         alt={event.title}
-                        onError={(e) => e.target.src = '/images/event-placeholder.jpg'}
+                        onError={(e) => (e.target.src = '/images/event-placeholder.jpg')}
                       />
-                      <div className="event-date-badge">
-                        <span className="day">{new Date(event.start_date).getDate()}</span>
-                        <span className="month">Th{new Date(event.start_date).getMonth() + 1}</span>
+                      <div className="elp-card__date-badge">
+                        <span className="elp-card__date-badge__day">
+                          {new Date(event.start_date).getDate()}
+                        </span>
+                        <span className="elp-card__date-badge__month">
+                          Th{new Date(event.start_date).getMonth() + 1}
+                        </span>
                       </div>
-                      <span className={`event-status-tag ${status.class}`}>
+                      <span className={`elp-card__status-tag elp-card__status-tag--${status.cls}`}>
                         {status.text}
                       </span>
                     </div>
 
-                    <div className="event-card-content">
-                      <div className="event-card-header">
-                        <span className={`event-type-tag ${event.event_type}`}>
-                          {event.event_type === 'event' ? 'Sự kiện' : 
-                           event.event_type === 'promotion' ? 'Khuyến mãi' : 
-                           event.event_type === 'news' ? 'Tin tức' : 'Thông báo'}
-                        </span>
-                      </div>
+                    <div className="elp-card__body">
+                      <span className={`elp-type-tag elp-type-tag--${event.event_type}`}>
+                        {typeLabels[event.event_type] || event.event_type}
+                      </span>
 
-                      <Link to={`/su-kien/${event.slug || event.id}`} className="event-title-link">
-                        <h3>{event.title}</h3>
+                      <Link to={`/su-kien/${event.slug || event.id}`} className="elp-card__title-link">
+                        <h3 className="elp-card__title">{event.title}</h3>
                       </Link>
 
-                      <div className="event-meta">
-                        <span><FaCalendarAlt /> {new Date(event.start_date).toLocaleDateString('vi-VN')}</span>
+                      <div className="elp-card__meta">
+                        <span className="elp-card__meta-item">
+                          <FaCalendarAlt className="elp-card__meta-icon" />
+                          {new Date(event.start_date).toLocaleDateString('vi-VN')}
+                        </span>
                         {event.location && (
-                          <span><FaMapMarkerAlt /> {event.location}</span>
+                          <span className="elp-card__meta-item">
+                            <FaMapMarkerAlt className="elp-card__meta-icon" />
+                            {event.location}
+                          </span>
                         )}
                       </div>
 
-                      <p className="event-desc">
-                        {event.description?.substring(0, 120)}
-                        {event.description?.length > 120 ? '...' : ''}
+                      <p className="elp-card__desc">
+                        {event.description?.substring(0, 110)}
+                        {event.description?.length > 110 ? '...' : ''}
                       </p>
 
-                      <div className="event-card-footer">
-                        <div className="event-stats">
-                          <span><FaEye /> {event.views || 0}</span>
-                          <span><FaMouse /> {event.clicks || 0}</span>
+                      <div className="elp-card__footer">
+                        <div className="elp-card__stats">
+                          <span className="elp-card__stat">
+                            <FaEye className="elp-card__stat-icon" /> {event.views || 0}
+                          </span>
+                          <span className="elp-card__stat">
+                            <FaMouse className="elp-card__stat-icon" /> {event.clicks || 0}
+                          </span>
                         </div>
-                        <Link to={`/su-kien/${event.slug || event.id}`} className="event-read-more">
+                        <Link to={`/su-kien/${event.slug || event.id}`} className="elp-card__read-more">
                           Xem chi tiết →
                         </Link>
                       </div>
@@ -225,65 +261,17 @@ const EventListPage = () => {
               })}
             </div>
 
-            {/* Pagination */}
-            {pagination.total_pages > 1 && (
-              <div className="pagination">
-                <button 
-                  onClick={() => handlePageChange(pagination.page - 1)}
-                  disabled={pagination.page === 1}
-                  className="pagination-btn"
-                >
-                  ← Trước
-                </button>
+            {renderPagination()}
 
-                <div className="pagination-numbers">
-                  {[...Array(pagination.total_pages)].map((_, index) => {
-                    const pageNum = index + 1;
-                    // Show first, last, current, and adjacent pages
-                    if (
-                      pageNum === 1 ||
-                      pageNum === pagination.total_pages ||
-                      (pageNum >= pagination.page - 1 && pageNum <= pagination.page + 1)
-                    ) {
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => handlePageChange(pageNum)}
-                          className={`pagination-number ${pagination.page === pageNum ? 'active' : ''}`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    } else if (
-                      pageNum === pagination.page - 2 ||
-                      pageNum === pagination.page + 2
-                    ) {
-                      return <span key={pageNum} className="pagination-ellipsis">...</span>;
-                    }
-                    return null;
-                  })}
-                </div>
-
-                <button 
-                  onClick={() => handlePageChange(pagination.page + 1)}
-                  disabled={pagination.page === pagination.total_pages}
-                  className="pagination-btn"
-                >
-                  Sau →
-                </button>
-              </div>
-            )}
-
-            {/* Results info */}
-            <div className="results-info">
-              Hiển thị {events.length} trong tổng số {pagination.total} sự kiện
-            </div>
+            <p className="elp-results-info">
+              Hiển thị {events.length} / {pagination.total} sự kiện
+            </p>
           </>
         ) : (
-          <div className="no-events">
-            <img src="/images/no-results.svg" alt="No results" />
-            <h3>Không tìm thấy sự kiện nào</h3>
-            <p>Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+          <div className="elp-empty">
+            <div className="elp-empty__icon">📭</div>
+            <h3 className="elp-empty__title">Không tìm thấy sự kiện nào</h3>
+            <p className="elp-empty__sub">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
           </div>
         )}
       </div>

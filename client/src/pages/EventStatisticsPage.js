@@ -1,29 +1,29 @@
-// ✅ TẠO FILE MỚI
+// EventStatisticsPage.js
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { FaEye, FaMouse, FaChartLine, FaTrophy } from 'react-icons/fa';
 import './EventStatisticsPage.css';
 
+const typeLabels = {
+  event: 'Sự kiện',
+  promotion: 'Khuyến mãi',
+  news: 'Tin tức',
+  notification: 'Thông báo'
+};
+
 const EventStatisticsPage = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState({
-    start_date: '',
-    end_date: ''
-  });
+  const [dateRange, setDateRange] = useState({ start_date: '', end_date: '' });
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useEffect(() => { fetchStats(); }, []);
 
-  const fetchStats = async () => {
+  const fetchStats = async (range) => {
+    setLoading(true);
     try {
-      const params = dateRange.start_date && dateRange.end_date ? dateRange : {};
+      const params = (range || dateRange).start_date && (range || dateRange).end_date ? (range || dateRange) : {};
       const response = await api.get('/marketing/events/stats', { params });
-      
-      if (response.data.success) {
-        setStats(response.data.stats);
-      }
+      if (response.data.success) setStats(response.data.stats);
     } catch (error) {
       console.error('Error fetching stats:', error);
     } finally {
@@ -33,48 +33,48 @@ const EventStatisticsPage = () => {
 
   const handleFilterSubmit = (e) => {
     e.preventDefault();
-    fetchStats();
+    fetchStats(dateRange);
   };
 
-  if (loading) {
-    return <div className="loading">Đang tải thống kê...</div>;
-  }
+  const handleReset = () => {
+    const cleared = { start_date: '', end_date: '' };
+    setDateRange(cleared);
+    fetchStats(cleared);
+  };
 
-  if (!stats) {
-    return <div className="error">Không thể tải dữ liệu thống kê</div>;
-  }
+  const getRankClass = (index) => {
+    if (index === 0) return 'esp-rank--1';
+    if (index === 1) return 'esp-rank--2';
+    if (index === 2) return 'esp-rank--3';
+    return 'esp-rank--other';
+  };
+
+  if (loading) return <div className="esp-loading">Đang tải thống kê...</div>;
+  if (!stats) return <div className="esp-error">Không thể tải dữ liệu thống kê</div>;
 
   return (
-    <div className="event-statistics-page">
-      <div className="page-header">
-        <h1>Thống kê Sự kiện & Tiếp thị</h1>
-      </div>
+    <div className="esp-page">
+      <h1 className="esp-page__title">Thống kê Sự kiện & Tiếp thị</h1>
 
       {/* Filter */}
-      <div className="filter-section">
+      <div className="esp-filter">
         <form onSubmit={handleFilterSubmit}>
-          <div className="date-inputs">
-            <input 
-              type="date" 
+          <div className="esp-filter__row">
+            <input
+              className="esp-filter__input"
+              type="date"
               value={dateRange.start_date}
-              onChange={(e) => setDateRange({...dateRange, start_date: e.target.value})}
-              placeholder="Từ ngày"
+              onChange={(e) => setDateRange({ ...dateRange, start_date: e.target.value })}
             />
-            <span>đến</span>
-            <input 
-              type="date" 
+            <span className="esp-filter__sep">đến</span>
+            <input
+              className="esp-filter__input"
+              type="date"
               value={dateRange.end_date}
-              onChange={(e) => setDateRange({...dateRange, end_date: e.target.value})}
-              placeholder="Đến ngày"
+              onChange={(e) => setDateRange({ ...dateRange, end_date: e.target.value })}
             />
-            <button type="submit">Lọc</button>
-            <button 
-              type="button" 
-              onClick={() => {
-                setDateRange({ start_date: '', end_date: '' });
-                setTimeout(fetchStats, 100);
-              }}
-            >
+            <button type="submit" className="esp-filter__btn esp-filter__btn--primary">Lọc</button>
+            <button type="button" className="esp-filter__btn esp-filter__btn--reset" onClick={handleReset}>
               Xóa bộ lọc
             </button>
           </div>
@@ -82,57 +82,57 @@ const EventStatisticsPage = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon" style={{background: '#dbeafe'}}>
-            <FaChartLine color="#1e40af" />
+      <div className="esp-stats-grid">
+        <div className="esp-stat-card">
+          <div className="esp-stat-card__icon esp-stat-card__icon--blue">
+            <FaChartLine />
           </div>
-          <div className="stat-content">
-            <h3>Tổng sự kiện</h3>
-            <p className="stat-number">{stats.total_events}</p>
-            <small>{stats.active_events} đang hoạt động</small>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon" style={{background: '#d1fae5'}}>
-            <FaEye color="#065f46" />
-          </div>
-          <div className="stat-content">
-            <h3>Tổng lượt xem</h3>
-            <p className="stat-number">{stats.total_views.toLocaleString()}</p>
-            <small>Trên tất cả sự kiện</small>
+          <div>
+            <div className="esp-stat-card__label">Tổng sự kiện</div>
+            <div className="esp-stat-card__number">{stats.total_events}</div>
+            <div className="esp-stat-card__sub">{stats.active_events} đang hoạt động</div>
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-icon" style={{background: '#fef3c7'}}>
-            <FaMouse color="#92400e" />
+        <div className="esp-stat-card">
+          <div className="esp-stat-card__icon esp-stat-card__icon--green">
+            <FaEye />
           </div>
-          <div className="stat-content">
-            <h3>Tổng lượt click</h3>
-            <p className="stat-number">{stats.total_clicks.toLocaleString()}</p>
-            <small>Click vào CTA</small>
+          <div>
+            <div className="esp-stat-card__label">Tổng lượt xem</div>
+            <div className="esp-stat-card__number">{stats.total_views.toLocaleString()}</div>
+            <div className="esp-stat-card__sub">Trên tất cả sự kiện</div>
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-icon" style={{background: '#e0e7ff'}}>
-            <FaTrophy color="#3730a3" />
+        <div className="esp-stat-card">
+          <div className="esp-stat-card__icon esp-stat-card__icon--amber">
+            <FaMouse />
           </div>
-          <div className="stat-content">
-            <h3>Tỷ lệ CTR</h3>
-            <p className="stat-number">{stats.avg_ctr}</p>
-            <small>Click-through Rate</small>
+          <div>
+            <div className="esp-stat-card__label">Tổng lượt click</div>
+            <div className="esp-stat-card__number">{stats.total_clicks.toLocaleString()}</div>
+            <div className="esp-stat-card__sub">Click vào CTA</div>
+          </div>
+        </div>
+
+        <div className="esp-stat-card">
+          <div className="esp-stat-card__icon esp-stat-card__icon--purple">
+            <FaTrophy />
+          </div>
+          <div>
+            <div className="esp-stat-card__label">Tỷ lệ CTR</div>
+            <div className="esp-stat-card__number">{stats.avg_ctr}</div>
+            <div className="esp-stat-card__sub">Click-through Rate</div>
           </div>
         </div>
       </div>
 
       {/* Top Events */}
-      <div className="top-events-section">
-        <h2>Top 5 Sự kiện hiệu quả nhất</h2>
-        <div className="top-events-table">
-          <table>
+      <div className="esp-top-section">
+        <div className="esp-top-section__title">Top 5 Sự kiện hiệu quả nhất</div>
+        <div className="esp-top-table-wrap">
+          <table className="esp-top-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -147,22 +147,22 @@ const EventStatisticsPage = () => {
               {stats.top_events.map((event, index) => (
                 <tr key={event.id}>
                   <td>
-                    <span className={`rank rank-${index + 1}`}>
+                    <span className={`esp-rank ${getRankClass(index)}`}>
                       {index + 1}
                     </span>
                   </td>
                   <td><strong>{event.title}</strong></td>
                   <td>
-                    <span className={`badge ${event.event_type}`}>
-                      {event.event_type}
+                    <span className={`esp-type-badge esp-type-badge--${event.event_type}`}>
+                      {typeLabels[event.event_type] || event.event_type}
                     </span>
                   </td>
                   <td>{event.views.toLocaleString()}</td>
                   <td>{event.clicks.toLocaleString()}</td>
                   <td>
                     <strong>
-                      {event.views > 0 
-                        ? ((event.clicks / event.views) * 100).toFixed(2) + '%' 
+                      {event.views > 0
+                        ? ((event.clicks / event.views) * 100).toFixed(2) + '%'
                         : '0%'}
                     </strong>
                   </td>

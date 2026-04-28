@@ -19,6 +19,7 @@ const NotificationDropdown = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [offline, setOffline] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
@@ -60,11 +61,16 @@ const NotificationDropdown = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (response.data.success) {
-        setUnreadCount(response.data.count);
+      if (response.data && response.data.success) {
+        setUnreadCount(response.data.count || 0);
+        setOffline(false);
       }
     } catch (error) {
-      console.error('Error fetching unread count:', error);
+      console.error('Error fetching unread count:', error.message || error);
+      // Network error -> mark offline so UI can show retry
+      if (!error.response) {
+        setOffline(true);
+      }
     }
   };
 
@@ -77,12 +83,16 @@ const NotificationDropdown = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (response.data.success) {
+      if (response.data && response.data.success) {
         // Hỗ trợ cả 2 trường hợp backend trả về key 'notifications' hoặc 'data'
         setNotifications(response.data.notifications || response.data.data || []);
+        setOffline(false);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('Error fetching notifications:', error.message || error);
+      if (!error.response) {
+        setOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -200,7 +210,13 @@ const NotificationDropdown = () => {
           </div>
 
           <div className="notificationdropdown-list">
-            {loading ? (
+            {offline ? (
+              <div className="notificationdropdown-empty">
+                <FaExclamationCircle className="notificationdropdown-empty-icon" />
+                <p className="notificationdropdown-empty-text">Không thể kết nối tới máy chủ</p>
+                <button className="notificationdropdown-view-all-button" onClick={() => { setOffline(false); fetchUnreadCount(); fetchNotifications(); }} style={{ marginTop: '0.5rem' }}>Thử lại</button>
+              </div>
+            ) : loading ? (
               <div className="notificationdropdown-loading">
                 <div className="notificationdropdown-spinner"></div>
                 <p className="notificationdropdown-loading-text">Đang tải...</p>

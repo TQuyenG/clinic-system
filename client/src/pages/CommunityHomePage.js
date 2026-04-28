@@ -253,25 +253,50 @@ const CreateGroupModal = ({ onClose, onSuccess }) => {
     name: '',
     description: '',
     privacy: 'public',
+    specialty_id: '',
     doctor_id: '',
     requires_post_approval: true
   });
+  const [specialties, setSpecialties] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Fetch specialties khi component mount
   useEffect(() => {
-    const fetchDoctors = async () => {
+    const fetchSpecialties = async () => {
       try {
-        const response = await fetch('/api/doctors?status=active');
+        const response = await fetch('/api/specialties');
         const data = await response.json();
-        setDoctors(data.data || []);
+        setSpecialties(data.data || []);
       } catch (err) {
-        console.error('Lỗi tải danh sách bác sĩ:', err);
+        console.error('Lỗi tải danh sách chuyên khoa:', err);
       }
     };
-    fetchDoctors();
+    fetchSpecialties();
   }, []);
+
+  // Fetch doctors khi specialty_id thay đổi
+  useEffect(() => {
+    if (!formData.specialty_id) {
+      setDoctors([]);
+      return;
+    }
+
+    const fetchDoctorsBySpecialty = async () => {
+      try {
+        const response = await fetch(`/api/users/doctors?status=active&specialty_id=${formData.specialty_id}`);
+        const data = await response.json();
+        setDoctors(data.doctors || []);
+        // Reset doctor_id khi thay đổi specialty
+        setFormData(prev => ({ ...prev, doctor_id: '' }));
+      } catch (err) {
+        console.error('Lỗi tải danh sách bác sĩ:', err);
+        setDoctors([]);
+      }
+    };
+    fetchDoctorsBySpecialty();
+  }, [formData.specialty_id]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -282,11 +307,18 @@ const CreateGroupModal = ({ onClose, onSuccess }) => {
     e.preventDefault();
     setError('');
     if (!formData.name.trim()) { setError('Vui lòng nhập tên nhóm'); return; }
+    if (!formData.specialty_id) { setError('Vui lòng chọn chuyên khoa'); return; }
     if (!formData.doctor_id)   { setError('Vui lòng chọn bác sĩ phụ trách'); return; }
 
     setLoading(true);
     try {
-      await communityService.createGroup({ ...formData, doctor_id: parseInt(formData.doctor_id) });
+      await communityService.createGroup({ 
+        name: formData.name,
+        description: formData.description,
+        privacy: formData.privacy,
+        doctor_id: parseInt(formData.doctor_id),
+        requires_post_approval: formData.requires_post_approval
+      });
       alert('Tạo nhóm thành công! Nhóm đang chờ Admin duyệt.');
       onSuccess();
     } catch (err) {
@@ -322,15 +354,38 @@ const CreateGroupModal = ({ onClose, onSuccess }) => {
           </div>
 
           <div className="chp-form-group">
-            <label htmlFor="doctor_id"><FaUserMd /> Bác Sĩ Phụ Trách *</label>
-            <select id="doctor_id" name="doctor_id" value={formData.doctor_id} onChange={handleChange} required>
-              <option value="">-- Chọn bác sĩ --</option>
-              {doctors.map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  {doc.user?.full_name} ({doc.speciality})
+            <label htmlFor="specialty_id"><FaFilter /> Chuyên Khoa *</label>
+            <select id="specialty_id" name="specialty_id" value={formData.specialty_id} onChange={handleChange} required>
+              <option value="">-- Chọn chuyên khoa --</option>
+              {specialties.map((spec) => (
+                <option key={spec.id} value={spec.id}>
+                  {spec.name}
                 </option>
               ))}
             </select>
+            <small>Chọn chuyên khoa trước để lọc danh sách bác sĩ phù hợp</small>
+          </div>
+
+          <div className="chp-form-group">
+            <label htmlFor="doctor_id"><FaUserMd /> Bác Sĩ Phụ Trách *</label>
+            {!formData.specialty_id ? (
+              <div style={{ padding: '10px', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px', color: '#856404', fontSize: '13px' }}>
+                Vui lòng chọn chuyên khoa trước
+              </div>
+            ) : doctors.length === 0 ? (
+              <div style={{ padding: '10px', background: '#f8d7da', border: '1px solid #f5c6cb', borderRadius: '4px', color: '#721c24', fontSize: '13px' }}>
+                Không có bác sĩ nào cho chuyên khoa này
+              </div>
+            ) : (
+              <select id="doctor_id" name="doctor_id" value={formData.doctor_id} onChange={handleChange} required>
+                <option value="">-- Chọn bác sĩ --</option>
+                {doctors.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.user?.full_name} ({doc.title || 'Bác sĩ'})
+                  </option>
+                ))}
+              </select>
+            )}
             <small>Nhóm sẽ bị tạm ngưng nếu bác sĩ này rời đi</small>
           </div>
 
@@ -353,7 +408,7 @@ const CreateGroupModal = ({ onClose, onSuccess }) => {
             <button type="button" className="chp-btn-secondary" onClick={onClose} disabled={loading}>
               <FaTimes /> Hủy
             </button>
-            <button type="submit" className="chp-btn-primary" disabled={loading}>
+            <button type="submit" className="chp-btn-primary" disabled={loading || !formData.specialty_id || !formData.doctor_id}>
               {loading ? <><FaSpinner /> Đang tạo...</> : <><FaCheckCircle /> Tạo Nhóm</>}
             </button>
           </div>
