@@ -720,6 +720,9 @@ const StaffManagementPage = () => {
   const [editingJobDesc, setEditingJobDesc] = useState(false);
   const [jobDescDraft, setJobDescDraft] = useState('');
   const [selectedDoctorIds, setSelectedDoctorIds] = useState([]);
+  // Audit logs for selected staff
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   // === INIT: Load user & data ===
   useEffect(() => {
@@ -806,8 +809,30 @@ const StaffManagementPage = () => {
       } else {
         setSelectedDoctorIds([]);
       }
+      // Load recent audit logs for this staff
+      loadAuditLogs(selectedStaff.id);
     }
   }, [selectedStaff]);
+
+  const loadAuditLogs = async (staffId) => {
+    if (!staffId) return;
+    try {
+      setAuditLoading(true);
+      const res = await auditService.getAuditLogs({ user_id: staffId, limit: 20 });
+      if (res && res.success) {
+        setAuditLogs(res.data || []);
+      } else if (res && res.data) {
+        setAuditLogs(res.data || []);
+      } else {
+        setAuditLogs([]);
+      }
+    } catch (error) {
+      console.error('Load audit logs error:', error);
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
 
   // === API CALLS ===
   const loadCurrentStaffInfo = async () => {
@@ -894,6 +919,8 @@ const StaffManagementPage = () => {
         // Reload selected staff
         const updatedStaff = staffByDepartment[activeDepartment]?.find(s => s.id === staffId);
         if (updatedStaff) setSelectedStaff({...updatedStaff, permissions});
+        // Refresh audit logs after permissions update
+        loadAuditLogs(staffId);
       }
     } catch (error) {
       console.error('Update permissions error:', error);
@@ -1704,7 +1731,32 @@ const StaffManagementPage = () => {
                                           </div>
                                         ));
                                       })()}
-                                            
+
+                                      {/* Audit history for this staff (recent) */}
+                                      <div style={{ marginTop: 20, borderTop: '1px dashed #eee', paddingTop: 12 }}>
+                                        <h5 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Lịch sử thay đổi (Audit)</h5>
+                                        {auditLoading ? (
+                                          <div style={{ color: '#666', marginTop: 8 }}>Đang tải lịch sử...</div>
+                                        ) : (
+                                          <div style={{ marginTop: 8, maxHeight: 220, overflowY: 'auto' }}>
+                                            {(!auditLogs || auditLogs.length === 0) ? (
+                                              <div style={{ color: '#777' }}>Chưa có lịch sử thay đổi</div>
+                                            ) : (
+                                              auditLogs.map(log => (
+                                                <div key={log.id} style={{ padding: '8px 10px', borderRadius: 8, background: '#fafafa', marginBottom: 8, border: '1px solid #f0f0f0' }}>
+                                                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                                    <div style={{ fontSize: 13, fontWeight: 600 }}>{auditService.formatActionType(log.action_type)}</div>
+                                                    <div style={{ fontSize: 12, color: '#999' }}>{new Date(log.created_at).toLocaleString('vi-VN')}</div>
+                                                  </div>
+                                                  <div style={{ fontSize: 13, color: '#444', marginTop: 6 }}>{log.details ? (typeof log.details === 'string' ? log.details : JSON.stringify(log.details)) : ''}</div>
+                                                  <div style={{ fontSize: 12, color: '#666', marginTop: 6 }}>Thực hiện bởi: {log.user?.full_name || log.user?.email || 'Hệ thống'}</div>
+                                                </div>
+                                              ))
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+
                                     </div>
                                   </div>
                                 )}

@@ -148,9 +148,15 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // Normalize role (some responses use object or nested role fields)
+  const rawRole = user?.role || user?.role_info || user?.roleData || user?.roleData?.role;
+  const roleStr = typeof rawRole === 'string'
+    ? rawRole.toLowerCase()
+    : (typeof rawRole === 'object' && rawRole?.name) ? String(rawRole.name).toLowerCase() : '';
+
   if (requiredRole) {
-    const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-    if (!allowedRoles.includes(user.role)) {
+    const allowedRoles = (Array.isArray(requiredRole) ? requiredRole : [requiredRole]).map(r => String(r).toLowerCase());
+    if (!allowedRoles.includes(roleStr)) {
       return <Navigate to="/dashboard" replace />;
     }
   }

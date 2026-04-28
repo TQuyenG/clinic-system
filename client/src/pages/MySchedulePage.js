@@ -130,6 +130,7 @@ const MySchedulePage = () => {
       // Xử lý link highlight từ thông báo
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab');
+      const dateParam = params.get('date');
       
       if (tab === 'register_schedule') {
         setActiveTab('register_schedule');
@@ -137,6 +138,15 @@ const MySchedulePage = () => {
       }
       if (tab === 'overtime') {
         setActiveTab('overtime');
+      }
+
+      if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        const targetDate = new Date(`${dateParam}T00:00:00`);
+        if (!Number.isNaN(targetDate.getTime())) {
+          setCurrentDate(targetDate);
+          setViewMode('day');
+          setActiveTab('schedule');
+        }
       }
 
     } catch (error) {

@@ -33,9 +33,9 @@ module.exports = (sequelize) => {
       comment: 'Slug duy nhất để truy cập bài viết'
     },
     content: { 
-      type: DataTypes.TEXT, 
+      type: DataTypes.TEXT('long'), 
       allowNull: false,
-      comment: 'Nội dung chi tiết của bài viết'
+      comment: 'Nội dung HTML chi tiết của bài viết, bao gồm ảnh/video nhúng'
     },
     category_id: { 
       type: DataTypes.BIGINT,

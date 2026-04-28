@@ -25,6 +25,8 @@ const ArticleReviewPage = () => {
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [processingReview, setProcessingReview] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   // Popup Từ chối / Yêu cầu đính chính
   const [showRejectPopup, setShowRejectPopup] = useState(false);
@@ -34,6 +36,16 @@ const ArticleReviewPage = () => {
   // Popup Ẩn/Hiện bài viết (Dành cho Admin)
   const [showHidePopup, setShowHidePopup] = useState(false);
   const [hideReason, setHideReason] = useState('');
+
+  const showToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+  };
+
+  const openConfirm = (action, note = '') => {
+    setConfirmAction({ action, note });
+  };
 
   const axiosConfig = { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } };
 
@@ -54,7 +66,7 @@ const ArticleReviewPage = () => {
       if (comRes.data?.success) setComments(comRes.data.comments);
       if (histRes.data?.success) setReviewHistory(histRes.data.history);
     } catch (error) {
-      alert('Không thể tải dữ liệu bài viết hoặc bạn không có quyền truy cập');
+      showToast('Không thể tải dữ liệu bài viết hoặc bạn không có quyền truy cập', 'error');
       navigate('/quan-ly-bai-viet');
     } finally {
       setLoading(false);
@@ -65,18 +77,18 @@ const ArticleReviewPage = () => {
   // HÀNH ĐỘNG PHÊ DUYỆT BÀI VIẾT
   // ============================================
   const handleReviewAction = async (action, note = '') => {
-    if (!window.confirm('Bạn có chắc chắn muốn thực hiện hành động này?')) return;
     setProcessingReview(true);
     try {
       const payload = { action, admin_note: note };
       await axios.post(`${API_BASE_URL}/api/articles/${id}/review`, payload, axiosConfig);
       
-      alert(action === 'approve' ? 'Đã duyệt bài viết thành công!' : 'Đã xử lý bài viết');
+      showToast(action === 'approve' ? 'Đã duyệt bài viết thành công!' : 'Đã xử lý bài viết', 'success');
       setShowRejectPopup(false);
       setRejectReason('');
+      setConfirmAction(null);
       fetchArticleData();
     } catch (error) {
-      alert('Lỗi: ' + (error.response?.data?.message || error.message));
+      showToast('Lỗi: ' + (error.response?.data?.message || error.message), 'error');
     } finally {
       setProcessingReview(false);
     }
@@ -87,17 +99,17 @@ const ArticleReviewPage = () => {
   // ============================================
   const handleToggleHide = async (e) => {
     e.preventDefault();
-    if (!hideReason.trim()) return alert('Vui lòng nhập lý do');
+    if (!hideReason.trim()) return showToast('Vui lòng nhập lý do', 'warning');
     setProcessingReview(true);
     try {
       const endpoint = article.status === 'hidden' ? 'unhide' : 'hide';
       await axios.post(`${API_BASE_URL}/api/articles/${id}/${endpoint}`, { reason: hideReason }, axiosConfig);
-      alert(`Đã ${article.status === 'hidden' ? 'hiện' : 'ẩn'} bài viết`);
+      showToast(`Đã ${article.status === 'hidden' ? 'hiện' : 'ẩn'} bài viết`, 'success');
       setShowHidePopup(false);
       setHideReason('');
       fetchArticleData();
     } catch (error) {
-      alert('Lỗi thao tác ẩn hiện');
+      showToast('Lỗi thao tác ẩn hiện', 'error');
     } finally {
       setProcessingReview(false);
     }
@@ -116,7 +128,7 @@ const ArticleReviewPage = () => {
       const comRes = await axios.get(`${API_BASE_URL}/api/articles/${id}/comments`, axiosConfig);
       if (comRes.data.success) setComments(comRes.data.comments);
     } catch (error) {
-      alert('Lỗi gửi comment');
+      showToast('Lỗi gửi comment', 'error');
     } finally {
       setSubmittingComment(false);
     }
@@ -128,6 +140,7 @@ const ArticleReviewPage = () => {
   // PHÂN QUYỀN GIAO DIỆN NÚT BẤM
   const isDoctorReviewer = user.role === 'doctor' && article.medical_reviewer_id === user.id;
   const isManagerOrAdmin = isAdmin || (user.role === 'staff' && hasPermission('articles', 'approve'));
+  const canReviewMedical = isAdmin || isDoctorReviewer;
 
   return (
     <div className="review-article-page">
@@ -199,9 +212,9 @@ const ArticleReviewPage = () => {
               <div className="review-article-actions-box">
                 
                 {/* Dành cho Bác sĩ */}
-                {isDoctorReviewer && article.status === 'pending_medical' && (
+                {canReviewMedical && article.status === 'pending_medical' && (
                   <>
-                    <button className="btn-review-action btn-approve-medical" onClick={() => handleReviewAction('approve')} disabled={processingReview}>
+                    <button className="btn-review-action btn-approve-medical" onClick={() => openConfirm('approve')} disabled={processingReview}>
                       <FaStethoscope /> Xác nhận chuyên môn
                     </button>
                     <button className="btn-review-action btn-reject" onClick={() => { setRejectActionType('reject'); setShowRejectPopup(true); }}>
@@ -211,9 +224,9 @@ const ArticleReviewPage = () => {
                 )}
 
                 {/* Dành cho Admin/Manager */}
-                {isManagerOrAdmin && article.status === 'pending' && (
+                {(isManagerOrAdmin || isAdmin) && article.status === 'pending' && (
                   <>
-                    <button className="btn-review-action btn-approve-publish" onClick={() => handleReviewAction('approve')} disabled={processingReview}>
+                    <button className="btn-review-action btn-approve-publish" onClick={() => openConfirm('approve')} disabled={processingReview}>
                       <FaCheckCircle /> Phê duyệt & Xuất bản
                     </button>
                     <button className="btn-review-action btn-reject" onClick={() => { setRejectActionType('reject'); setShowRejectPopup(true); }}>
@@ -263,6 +276,20 @@ const ArticleReviewPage = () => {
       </div>
 
       {/* POPUPS */}
+      {confirmAction && (
+        <div className="review-modal-overlay">
+          <div className="review-modal-content">
+            <h2>Xác nhận hành động</h2>
+            <p>Bạn chắc chắn muốn thực hiện thao tác này?</p>
+            <div className="review-modal-actions">
+              <button className="btn-cancel" onClick={() => setConfirmAction(null)}>Hủy</button>
+              <button className="btn-review-action btn-approve-publish" onClick={() => handleReviewAction(confirmAction.action, confirmAction.note)} disabled={processingReview}>
+                {processingReview ? 'Đang xử lý...' : 'Xác nhận'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Popup Yêu cầu sửa / Từ chối */}
       {showRejectPopup && (
@@ -295,6 +322,14 @@ const ArticleReviewPage = () => {
           </div>
         </div>
       )}
+
+      <div className="article-review-toast-container">
+        {toasts.map(toast => (
+          <div key={toast.id} className={`article-review-toast toast-${toast.type}`}>
+            <span>{toast.message}</span>
+          </div>
+        ))}
+      </div>
 
     </div>
   );

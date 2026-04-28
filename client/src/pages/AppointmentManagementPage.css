@@ -219,6 +219,8 @@
 .appointment-management-icon-pending  { background: #ffb74d; }
 .appointment-management-icon-confirmed { background: #64b5f6; }
 .appointment-management-icon-upcoming { background: #4dd0e1; }
+.appointment-management-icon-waiting-pay { background: #ffca28; }
+.appointment-management-icon-waiting-exam { background: #81c784; }
 .appointment-management-icon-in-progress { background: #ba68c8; }
 .appointment-management-icon-completed  { background: #4caf50; }
 .appointment-management-icon-passed     { background: #ff8a65; }
@@ -450,6 +452,8 @@
 .amp-status-pending    { background: #fff3e0; color: #bf360c; }
 .amp-status-confirmed  { background: #e3f2fd; color: #0d47a1; }
 .amp-status-upcoming   { background: #e8f5e9; color: #1b5e20; }
+.amp-status-waiting-pay { background: #fff8e1; color: #8d6e00; }
+.amp-status-waiting-exam { background: #e8f5e9; color: #2e7d32; }
 .amp-status-in-progress{ background: #e1f5fe; color: #01579b; }
 .amp-status-completed  { background: #e8f5e9; color: #2e7d32; }
 .amp-status-passed     { background: #fce4ec; color: #880e4f; }

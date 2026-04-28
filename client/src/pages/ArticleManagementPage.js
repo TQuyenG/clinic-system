@@ -1,10 +1,12 @@
-// ArticleManagementPage.js — VERSION 8.0
-// Layout mới: Modal 3 vùng (Ảnh bìa | Phân loại/Tags/Liên kết | Nội dung+Preview)
-// Fix: bộ lọc category_type → category_id cascade đúng như DoctorsListPage
-// Fix: AI popup dùng React Icon, spinner có animation khi đang chạy
+// ArticleManagementPage.js — VERSION 9.0
+// Layout 3 cột: [Ảnh bìa | Phân loại/Tags/Liên kết | Nội dung+Preview]
+// AI spinner có animation (brain pulse + ring + dots)
+// Tất cả popup khi đóng/click-outside → hiện confirm "Bạn muốn đóng?"
+// Scroll lock body khi popup mở
+// Bộ lọc cascade category_type → category_id (giống DoctorsListPage)
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
@@ -20,7 +22,7 @@ import {
   FaFileExcel, FaFileCsv, FaMagic, FaAlignLeft, FaCog,
   FaHospital, FaStethoscope, FaLayerGroup, FaBookOpen,
   FaBrain, FaLanguage, FaListUl, FaWrench, FaRobot,
-  FaExpandAlt, FaExternalLinkAlt
+  FaExpandAlt, FaExternalLinkAlt, FaQuestionCircle,
 } from 'react-icons/fa';
 import { MdAutoAwesome } from 'react-icons/md';
 import { BiLoaderAlt } from 'react-icons/bi';
@@ -33,8 +35,7 @@ import './ArticleManagementPage.css';
 function getColumnName(key) {
   const names = {
     id: 'ID', title: 'Tiêu đề', tags: 'Tags', category: 'Danh mục',
-    status: 'Trạng thái', author: 'Tác giả', created_at: 'Ngày tạo',
-    views: 'Lượt xem',
+    status: 'Trạng thái', author: 'Tác giả', created_at: 'Ngày tạo', views: 'Lượt xem',
   };
   return names[key] || key;
 }
@@ -44,6 +45,7 @@ function getColumnName(key) {
 // ─────────────────────────────────────────
 const ArticleManagementPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const API_BASE_URL = 'http://localhost:3001';
   const { user: authUser, canAccessModule, hasPermission, isAdmin } = usePermissions();
 
@@ -63,6 +65,9 @@ const ArticleManagementPage = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Close confirm popup — dùng chung cho mọi popup
+  const [closeConfirm, setCloseConfirm] = useState({ visible: false, onConfirm: null, title: '', message: '' });
 
   // ── FILTERS — cascade như DoctorsListPage ──
   const [filters, setFilters] = useState({
@@ -104,19 +109,39 @@ const ArticleManagementPage = () => {
   const [assignedDoctor, setAssignedDoctor] = useState(null);
   const [showDoctorSelectionModal, setShowDoctorSelectionModal] = useState(false);
   const [availableDoctors, setAvailableDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+  const [showReportsPopup, setShowReportsPopup] = useState(false);
+  const [articleToReport, setArticleToReport] = useState(null);
+  const [reportItems, setReportItems] = useState([]);
+  const [loadingReports, setLoadingReports] = useState(false);
 
-  // AI Feature States
+  // AI States
   const [showAISupportMenu, setShowAISupportMenu] = useState(false);
   const [selectedAIOption, setSelectedAIOption] = useState(null);
   const [customAIPrompt, setCustomAIPrompt] = useState('');
   const [aiPreviewData, setAiPreviewData] = useState(null);
   const [showAIWarning, setShowAIWarning] = useState(false);
 
-  // Preview popup state
+  // Preview popup
   const [showPreviewPopup, setShowPreviewPopup] = useState(false);
 
   const DELETE_COUNTDOWN = 5;
   const HIDE_COUNTDOWN = 5;
+
+  // ─────────────────────────────────────────
+  // CLOSE CONFIRM HELPER
+  // Dùng thay cho window.confirm — hiện popup đẹp hỏi xác nhận đóng
+  // ─────────────────────────────────────────
+  const askCloseConfirm = (title, message, onConfirm) => {
+    setCloseConfirm({ visible: true, onConfirm, title, message });
+  };
+  const handleCloseConfirmOk = () => {
+    closeConfirm.onConfirm?.();
+    setCloseConfirm({ visible: false, onConfirm: null, title: '', message: '' });
+  };
+  const handleCloseConfirmCancel = () => {
+    setCloseConfirm({ visible: false, onConfirm: null, title: '', message: '' });
+  };
 
   // ─────────────────────────────────────────
   // HELPERS JSX
@@ -170,8 +195,8 @@ const ArticleManagementPage = () => {
     setConfirmAction({ title, message, onConfirm, confirmText, type });
     setShowConfirmDialog(true);
   };
-  const closeConfirm = () => { setShowConfirmDialog(false); setConfirmAction(null); };
-  const handleConfirm = () => { confirmAction?.onConfirm(); closeConfirm(); };
+  const closeConfirmDialog = () => { setShowConfirmDialog(false); setConfirmAction(null); };
+  const handleConfirm = () => { confirmAction?.onConfirm(); closeConfirmDialog(); };
 
   // ─────────────────────────────────────────
   // CKEDITOR UPLOAD ADAPTER
@@ -208,28 +233,61 @@ const ArticleManagementPage = () => {
 
   useEffect(() => { fetchUserInfo(); fetchCategories(); }, []);
   useEffect(() => { fetchArticles(); }, [filters]);
+
   useEffect(() => {
-    const open = showModal || showHidePopup || showRejectPopup || showAdminEditWarning || showSubmitConfirm || showDoctorSelectionModal;
-    document.body.style.overflow = open ? 'hidden' : 'unset';
+    const params = new URLSearchParams(location.search);
+    const status = params.get('status');
+    if (status) {
+      setFilters(prev => ({ ...prev, status, page: 1 }));
+    }
+  }, [location.search]);
+
+  // Scroll lock — bao gồm cả closeConfirm popup
+  useEffect(() => {
+    const anyOpen = showModal || showHidePopup || showRejectPopup || showAdminEditWarning
+      || showSubmitConfirm || showDoctorSelectionModal || showAISupportMenu
+      || showAIWarning || showPreviewPopup || closeConfirm.visible;
+    document.body.style.overflow = anyOpen ? 'hidden' : 'unset';
     return () => { document.body.style.overflow = 'unset'; };
-  }, [showModal, showHidePopup, showRejectPopup, showAdminEditWarning, showSubmitConfirm, showDoctorSelectionModal]);
+  }, [showModal, showHidePopup, showRejectPopup, showAdminEditWarning,
+    showSubmitConfirm, showDoctorSelectionModal, showAISupportMenu,
+    showAIWarning, showPreviewPopup, closeConfirm.visible]);
+
   useEffect(() => {
     if (countdownSeconds > 0) { const t = setTimeout(() => setCountdownSeconds(p => p - 1), 1000); return () => clearTimeout(t); }
   }, [countdownSeconds]);
 
-  // Fetch doctors khi chọn specialty
   useEffect(() => {
-    if (!formData.specialty_id || !formData.is_medical_review_required) { setAvailableDoctors([]); setAssignedDoctor(null); return; }
+    if (!formData.specialty_id || !formData.is_medical_review_required) {
+      setAvailableDoctors([]); setAssignedDoctor(null); setLoadingDoctors(false); return;
+    }
     const fetchDoctors = async () => {
       try {
-        const r = await axios.get(`${API_BASE_URL}/api/specialties/${formData.specialty_id}/doctors`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        if (r.data.success || r.data.data) {
-          const doctors = r.data.data || r.data.doctors || [];
-          setAvailableDoctors(Array.isArray(doctors) ? doctors : []);
+        setLoadingDoctors(true);
+        const r = await axios.get(`${API_BASE_URL}/api/specialties/${formData.specialty_id}/doctors`);
+        if (r.data.success) {
+          const docs = r.data.doctors || r.data.data || [];
+          // Map về cấu trúc giống DoctorsListPage để hiện avatar, tên, pending_count
+          const mapped = docs.map(d => ({
+            id: d.id,
+            user_id: d.user_id || d.user?.id || d.id,
+            pending_count: d.pending_count || 0,
+            specialty: d.specialty || { name: d.specialty_name || '' },
+            user: {
+              full_name: d.full_name || d.user?.full_name,
+              avatar_url: d.avatar_url || d.user?.avatar_url,
+            }
+          }));
+          setAvailableDoctors(mapped);
+        } else {
+          setAvailableDoctors([]);
         }
-      } catch (e) { setAvailableDoctors([]); }
+      } catch (e) {
+        console.error('fetchDoctors error:', e);
+        setAvailableDoctors([]);
+      } finally {
+        setLoadingDoctors(false);
+      }
     };
     fetchDoctors();
   }, [formData.specialty_id, formData.is_medical_review_required]);
@@ -253,10 +311,7 @@ const ArticleManagementPage = () => {
   const fetchArticles = async () => {
     try {
       setLoading(true);
-      // Lọc params rỗng trước khi gửi — giống DoctorsListPage
-      const params = Object.fromEntries(
-        Object.entries(filters).filter(([_, v]) => v !== '')
-      );
+      const params = Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== ''));
       const r = await axios.get(`${API_BASE_URL}/api/articles`, {
         params,
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -271,12 +326,12 @@ const ArticleManagementPage = () => {
   };
 
   // ─────────────────────────────────────────
-  // FILTER HANDLERS — cascade category_type → category_id
+  // FILTER HANDLERS — cascade category_type → category_id (như DoctorsListPage)
   // ─────────────────────────────────────────
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     if (name === 'category_type') {
-      // Khi đổi loại bài, reset category_id về '' — giống DoctorsListPage reset specialty
+      // Khi đổi loại bài → reset category_id về '' (giống DoctorsListPage reset specialty_id)
       setFilters(prev => ({ ...prev, category_type: value, category_id: '', page: 1 }));
     } else {
       setFilters(prev => ({ ...prev, [name]: value, page: 1 }));
@@ -296,9 +351,7 @@ const ArticleManagementPage = () => {
       showToast('Nhập tiêu đề hoặc nội dung để AI hỗ trợ', 'warning');
       return;
     }
-    setSelectedAIOption(null);
-    setCustomAIPrompt('');
-    setShowAISupportMenu(true);
+    setSelectedAIOption(null); setCustomAIPrompt(''); setShowAISupportMenu(true);
   };
 
   const handleAIOptionSelect = async (option) => {
@@ -308,9 +361,7 @@ const ArticleManagementPage = () => {
       const res = await axios.post(
         `${API_BASE_URL}/api/articles/ai-analyze`,
         {
-          title: formData.title,
-          content: formData.content,
-          ai_task: option,
+          title: formData.title, content: formData.content, ai_task: option,
           custom_prompt: option === 'custom' ? customAIPrompt : undefined
         },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
@@ -323,8 +374,7 @@ const ArticleManagementPage = () => {
     } catch (err) {
       showToast(err.response?.data?.message || 'AI phân tích thất bại', 'error');
     } finally {
-      setAnalyzingAI(false);
-      setSelectedAIOption(null);
+      setAnalyzingAI(false); setSelectedAIOption(null);
     }
   };
 
@@ -348,9 +398,7 @@ const ArticleManagementPage = () => {
     }));
     setHasUnsavedChanges(true);
     showToast('Đã áp dụng gợi ý AI', 'success');
-    setShowAIWarning(false);
-    setAiPreviewData(null);
-    setSelectedAIOption(null);
+    setShowAIWarning(false); setAiPreviewData(null); setSelectedAIOption(null);
   };
 
   // ─────────────────────────────────────────
@@ -375,8 +423,7 @@ const ArticleManagementPage = () => {
   const handleSelectEntity = (entity) => {
     setSelectedEntity(entity);
     setFormData(prev => ({
-      ...prev,
-      entity_id: entity.id,
+      ...prev, entity_id: entity.id,
       entity_type: selectedCategoryType === 'thuoc' ? 'medicine' : 'disease',
       title: prev.title || `Thông tin về ${entity.name}`,
       tags_json: prev.tags_json.length === 0 ? [entity.name, entity.Category?.name || ''].filter(Boolean) : prev.tags_json
@@ -408,7 +455,9 @@ const ArticleManagementPage = () => {
     setModalType(type); setHasUnsavedChanges(false);
     if (type === 'create') { openCreateModal(); return; }
     if (type === 'edit' && article) {
-      if (article.status === 'approved' && user.role === 'admin') { setEditingApprovedArticle(article); setShowAdminEditWarning(true); return; }
+      if (article.status === 'approved' && user.role === 'admin') {
+        setEditingApprovedArticle(article); setShowAdminEditWarning(true); return;
+      }
       const a = articles.find(x => x.id === article.id);
       if (!a) { showToast('Không tìm thấy bài viết', 'error'); return; }
       setSelectedArticle(a);
@@ -432,11 +481,22 @@ const ArticleManagementPage = () => {
     }
   };
 
+  // Đóng modal form chính — hỏi xác nhận nếu có thay đổi
   const handleCloseModal = () => {
-    if (hasUnsavedChanges && !window.confirm('Bạn có thay đổi chưa lưu. Đóng không?')) return;
-    setShowModal(false); setModalType(''); setSelectedArticle(null); setHasUnsavedChanges(false);
-    setEntitySearch(''); setEntitySearchResults([]); setSelectedEntity(null);
-    setShowPreviewPopup(false);
+    const doClose = () => {
+      setShowModal(false); setModalType(''); setSelectedArticle(null); setHasUnsavedChanges(false);
+      setEntitySearch(''); setEntitySearchResults([]); setSelectedEntity(null);
+      setShowPreviewPopup(false);
+    };
+    if (hasUnsavedChanges) {
+      askCloseConfirm(
+        'Đóng form?',
+        'Bạn có thay đổi chưa lưu. Đóng form sẽ mất toàn bộ nội dung đang chỉnh sửa.',
+        doClose
+      );
+    } else {
+      doClose();
+    }
   };
 
   const handleFormChange = (e) => {
@@ -581,7 +641,10 @@ const ArticleManagementPage = () => {
     try {
       setHidingArticle(true);
       const ep = articleToHide.status === 'hidden' ? 'unhide' : 'hide';
-      const r = await axios.post(`${API_BASE_URL}/api/articles/${articleToHide.id}/${ep}`, { reason: hideReason }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      const r = await axios.post(`${API_BASE_URL}/api/articles/${articleToHide.id}/${ep}`,
+        { reason: hideReason },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+      );
       if (r.data.success) {
         showToast(`Đã ${articleToHide.status === 'hidden' ? 'hiện' : 'ẩn'} bài viết`, 'success');
         setShowHidePopup(false); setArticleToHide(null); setHideReason(''); fetchArticles();
@@ -621,7 +684,11 @@ const ArticleManagementPage = () => {
     if (!rejectReason.trim()) return showToast('Nhập lý do', 'error');
     try {
       setRejecting(true);
-      const r = await axios.post(`${API_BASE_URL}/api/articles/${articleToReject.id}/reject-edit-request`, { reason: rejectReason }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      const r = await axios.post(
+        `${API_BASE_URL}/api/articles/${articleToReject.id}/reject-edit-request`,
+        { reason: rejectReason },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+      );
       if (r.data.success) {
         showToast('Đã từ chối yêu cầu chỉnh sửa', 'success');
         setShowRejectPopup(false); setArticleToReject(null); setRejectReason(''); fetchArticles();
@@ -642,12 +709,71 @@ const ArticleManagementPage = () => {
     }
   };
 
-  const exportToCSV = () => showToast('Đã xuất file CSV', 'success');
-  const exportToExcel = () => showToast('Đã xuất file Excel', 'success');
+  const fetchArticleReports = async (article) => {
+    if (!article?.id) return;
+    setArticleToReport(article);
+    setShowReportsPopup(true);
+    setLoadingReports(true);
+    try {
+      const r = await axios.get(`${API_BASE_URL}/api/articles/${article.id}/reports`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setReportItems(r.data.reports || []);
+    } catch (error) {
+      setReportItems([]);
+      showToast(error.response?.data?.message || 'Không thể tải danh sách báo cáo', 'error');
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  const exportToCSV = () => {
+    const rows = articles.map(article => ({
+      ID: article.id,
+      'Tiêu đề': article.title,
+      'Danh mục': article.category?.name || '',
+      'Trạng thái': getStatusText(article.status),
+      'Tác giả': article.author?.full_name || '',
+      'Ngày tạo': new Date(article.created_at).toLocaleString('vi-VN'),
+      'Lượt xem': article.views || 0,
+      'Lượt thích': article.likes_count || 0,
+      'Lượt báo cáo': article.report_count || 0
+    }));
+    const headers = Object.keys(rows[0] || {});
+    const csv = [headers.join(',')]
+      .concat(rows.map(row => headers.map(key => `"${String(row[key] ?? '').replace(/"/g, '""')}"`).join(',')))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `articles-${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showToast('Đã xuất file CSV', 'success');
+  };
+  const exportToExcel = () => {
+    const rows = articles.map(article => ({
+      ID: article.id,
+      'Tiêu đề': article.title,
+      'Danh mục': article.category?.name || '',
+      'Trạng thái': getStatusText(article.status),
+      'Tác giả': article.author?.full_name || '',
+      'Ngày tạo': new Date(article.created_at).toLocaleString('vi-VN'),
+      'Lượt xem': article.views || 0,
+      'Lượt thích': article.likes_count || 0,
+      'Lượt báo cáo': article.report_count || 0
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Articles');
+    XLSX.writeFile(workbook, `articles-${Date.now()}.xlsx`);
+    showToast('Đã xuất file Excel', 'success');
+  };
   const viewHistory = (id) => navigate(`/phe-duyet-bai-viet/${id}`);
+  const openArticleReview = (article) => navigate(`/phe-duyet-bai-viet/${article.id}`);
 
   // ─────────────────────────────────────────
-  // RENDER ENTITY SEARCH (dùng trong cột giữa)
+  // RENDER: ENTITY SEARCH SECTION (cột giữa)
   // ─────────────────────────────────────────
   const renderEntitySearchSection = () => {
     if ((selectedCategoryType !== 'thuoc' && selectedCategoryType !== 'benh_ly') || !formData.category_id) return null;
@@ -675,7 +801,7 @@ const ArticleManagementPage = () => {
               value={entitySearch}
               onChange={e => handleEntitySearch(e.target.value)}
             />
-            {searchingEntity && <BiLoaderAlt className="article-mgmt-spinner-icon" style={{ animation: 'spin .7s linear infinite' }} />}
+            {searchingEntity && <BiLoaderAlt className="article-mgmt-spinner-icon" />}
             {entitySearchResults.length > 0 && (
               <div className="article-mgmt-entity-dropdown">
                 {entitySearchResults.map(e => (
@@ -693,17 +819,20 @@ const ArticleManagementPage = () => {
   };
 
   // ─────────────────────────────────────────
-  // RENDER PREVIEW POPUP
+  // RENDER: PREVIEW POPUP
   // ─────────────────────────────────────────
   const renderPreviewPopup = () => {
     if (!showPreviewPopup) return null;
     const categoryName = categories.find(c => c.id === formData.category_id)?.name || '';
+    const handleOverlayClick = () => {
+      askCloseConfirm('Đóng xem trước?', 'Bạn muốn đóng popup xem trước?', () => setShowPreviewPopup(false));
+    };
     return (
-      <div className="article-mgmt-preview-overlay" onClick={() => setShowPreviewPopup(false)}>
+      <div className="article-mgmt-preview-overlay" onClick={handleOverlayClick}>
         <div className="article-mgmt-preview-modal" onClick={e => e.stopPropagation()}>
           <div className="article-mgmt-preview-header">
             <h2><FaEye /> Xem trước bài viết</h2>
-            <button className="article-mgmt-btn-close-modal" onClick={() => setShowPreviewPopup(false)}><FaTimes /></button>
+            <button className="article-mgmt-btn-close-modal" onClick={handleOverlayClick}><FaTimes /></button>
           </div>
           <div className="article-mgmt-preview-body">
             {(coverImage || tempImageUrl) && (
@@ -725,15 +854,20 @@ const ArticleManagementPage = () => {
   };
 
   // ─────────────────────────────────────────
-  // RENDER MODAL — 3 PANEL LAYOUT
-  // Cột trái:   Ảnh bìa + Y Khoa
-  // Cột giữa:   Loại bài, Danh mục, Tags, Liên kết, Nguồn
-  // Cột phải:   Tab Nội dung (CKEditor + Import) + Xem trước
+  // RENDER: MODAL FORM — 3 PANEL LAYOUT
+  // Cột trái (200px):  Ảnh bìa + Tham vấn y khoa
+  // Cột giữa (260px):  Loại bài, Danh mục, Tags, Liên kết, Nguồn
+  // Cột phải (1fr):    Import + CKEditor + nút Xem trước
   // ─────────────────────────────────────────
   const renderModal = () => {
     if (!showModal) return null;
+
+    const handleOverlayClick = (e) => {
+      if (e.target === e.currentTarget) handleCloseModal();
+    };
+
     return (
-      <div className="article-mgmt-form-overlay" onClick={e => { if (e.target === e.currentTarget) handleCloseModal(); }}>
+      <div className="article-mgmt-form-overlay" onClick={handleOverlayClick}>
         <div className="article-mgmt-form-container article-mgmt-form-container--wide">
 
           {/* ── Header ── */}
@@ -742,7 +876,6 @@ const ArticleManagementPage = () => {
               {modalType === 'create' ? <><FaPlus /> Tạo bài viết mới</> : <><FaEdit /> Chỉnh sửa bài viết</>}
             </h2>
             <div className="article-mgmt-header-right">
-              {/* Nút AI */}
               <button type="button" className="btn-ai-assist" onClick={handleAIAnalyze} disabled={analyzingAI}>
                 {analyzingAI
                   ? <><BiLoaderAlt className="ai-spin-icon" /> Đang phân tích...</>
@@ -753,34 +886,32 @@ const ArticleManagementPage = () => {
             </div>
           </div>
 
-          {/* ── Tiêu đề (full-width trên 3 cột) ── */}
+          {/* ── Tiêu đề full-width ── */}
           <div className="article-mgmt-form-title-bar">
             <input
-              type="text"
-              name="title"
-              value={formData.title}
+              type="text" name="title" value={formData.title}
               onChange={handleFormChange}
               placeholder="Nhập tiêu đề bài viết..."
-              className="article-mgmt-form-input article-mgmt-title-input"
+              className="article-mgmt-title-input"
             />
           </div>
 
-          {/* ── 3 PANEL BODY ── */}
+          {/* ══ 3 PANEL BODY ══ */}
           <div className="article-mgmt-three-panel">
 
-            {/* ══ CỘT TRÁI: ẢNH BÌA + Y KHOA ══ */}
+            {/* ══ CỘT TRÁI: ẢNH BÌA ══ */}
             <div className="article-mgmt-panel article-mgmt-panel--left">
 
               {/* Ảnh bìa */}
               <div className="article-mgmt-panel-section">
                 <div className="article-mgmt-panel-section-title"><FaImage /> Ảnh bìa</div>
 
-                {/* Preview ảnh */}
-                <div className="article-mgmt-cover-preview article-mgmt-cover-preview--vertical">
+                <div className="article-mgmt-cover-preview--vertical">
                   {(coverImage || tempImageUrl) ? (
                     <>
                       <img src={coverImage || tempImageUrl} alt="Ảnh bìa" onError={e => { e.target.style.display = 'none'; }} />
-                      <button type="button" className="article-mgmt-btn-remove-image" onClick={() => { setCoverImage(null); setTempImageUrl(''); }}>
+                      <button type="button" className="article-mgmt-btn-remove-image"
+                        onClick={() => { setCoverImage(null); setTempImageUrl(''); }}>
                         <FaTimes />
                       </button>
                     </>
@@ -792,12 +923,13 @@ const ArticleManagementPage = () => {
                   )}
                 </div>
 
-                {/* Upload method tabs */}
                 <div className="article-mgmt-image-upload-tabs">
-                  <button type="button" className={`article-mgmt-tab-btn ${imageUploadMethod === 'file' ? 'active' : ''}`} onClick={() => setImageUploadMethod('file')}>
+                  <button type="button" className={`article-mgmt-tab-btn ${imageUploadMethod === 'file' ? 'active' : ''}`}
+                    onClick={() => setImageUploadMethod('file')}>
                     <FaUpload /> Upload
                   </button>
-                  <button type="button" className={`article-mgmt-tab-btn ${imageUploadMethod === 'url' ? 'active' : ''}`} onClick={() => setImageUploadMethod('url')}>
+                  <button type="button" className={`article-mgmt-tab-btn ${imageUploadMethod === 'url' ? 'active' : ''}`}
+                    onClick={() => setImageUploadMethod('url')}>
                     <FaLink /> URL
                   </button>
                 </div>
@@ -814,14 +946,16 @@ const ArticleManagementPage = () => {
                   </>
                 ) : (
                   <div className="article-mgmt-url-input-group">
-                    <input type="text" value={tempImageUrl} onChange={e => setTempImageUrl(e.target.value)} placeholder="https://..." className="article-mgmt-url-input" />
+                    <input type="text" value={tempImageUrl}
+                      onChange={e => setTempImageUrl(e.target.value)}
+                      placeholder="https://..." className="article-mgmt-url-input" />
                     <button type="button" className="article-mgmt-btn-add-url" onClick={handleImageUrlSubmit}>OK</button>
                   </div>
                 )}
                 <p className="article-mgmt-cover-hint">JPEG/PNG/WEBP · Tối đa 5MB</p>
               </div>
 
-              {/* Y Khoa / Bác sĩ tham vấn */}
+              {/* Tham vấn y khoa */}
               <div className="article-mgmt-panel-section">
                 <div className="article-mgmt-panel-section-title"><FaStethoscope /> Tham vấn y khoa</div>
                 <div className="article-mgmt-medical-review-section">
@@ -848,7 +982,8 @@ const ArticleManagementPage = () => {
                       </div>
                       {assignedDoctor ? (
                         <div className="article-mgmt-doctor-card">
-                          <img src={assignedDoctor.user?.avatar_url || '/placeholder.jpg'} alt="Doctor" className="doctor-avatar" onError={e => e.target.src = '/placeholder.jpg'} />
+                          <img src={assignedDoctor.user?.avatar_url || '/placeholder.jpg'} alt="Doctor"
+                            className="doctor-avatar" onError={e => e.target.src = '/placeholder.jpg'} />
                           <div>
                             <span className="doctor-title">Phân công:</span>
                             <strong className="doctor-name">BS. {assignedDoctor.user?.full_name}</strong>
@@ -867,94 +1002,93 @@ const ArticleManagementPage = () => {
             {/* ══ CỘT GIỮA: PHÂN LOẠI, TAGS, LIÊN KẾT, NGUỒN ══ */}
             <div className="article-mgmt-panel article-mgmt-panel--middle">
 
-              {/* Loại bài */}
-              <div className="article-mgmt-form-group">
-                <label className="article-mgmt-form-label required"><FaLayerGroup /> Loại bài viết</label>
-                <select value={selectedCategoryType} onChange={handleCategoryTypeChange} className="article-mgmt-form-select">
-                  <option value="">-- Chọn loại --</option>
-                  <option value="tin_tuc">📰 Tin tức</option>
-                  <option value="thuoc">💊 Thuốc</option>
-                  <option value="benh_ly">🦠 Bệnh lý</option>
-                </select>
-              </div>
-
-              {/* Danh mục — chỉ hiện khi đã chọn loại */}
-              {selectedCategoryType && (
-                <div className="article-mgmt-form-group">
-                  <label className="article-mgmt-form-label required"><FaBookOpen /> Danh mục</label>
-                  <select
-                    name="category_id"
-                    value={formData.category_id}
-                    onChange={handleCategoryChange}
-                    className="article-mgmt-form-select"
-                  >
-                    <option value="">-- Chọn danh mục --</option>
-                    {categories
-                      .filter(c => c.category_type === selectedCategoryType)
-                      .map(c => <option key={c.id} value={c.id}>{c.name}</option>)
-                    }
+              <div className="article-mgmt-panel-section">
+                {/* Loại bài */}
+                <div className="article-mgmt-form-group" style={{ marginBottom: 8 }}>
+                  <label className="article-mgmt-form-label required"><FaLayerGroup /> Loại bài viết</label>
+                  <select value={selectedCategoryType} onChange={handleCategoryTypeChange} className="article-mgmt-form-select">
+                    <option value="">-- Chọn loại --</option>
+                    <option value="tin_tuc">📰 Tin tức</option>
+                    <option value="thuoc">💊 Thuốc</option>
+                    <option value="benh_ly">🦠 Bệnh lý</option>
                   </select>
                 </div>
-              )}
 
-              {/* Tags */}
-              <div className="article-mgmt-form-group">
-                <label className="article-mgmt-form-label"><FaTags /> Tags</label>
-                <div className="article-mgmt-tags-input-wrapper">
-                  <div className="article-mgmt-tags-display">
-                    {formData.tags_json.map((tag, idx) => (
-                      <span key={idx} className="article-mgmt-tag-item">
-                        {tag}
-                        <button type="button" className="article-mgmt-btn-remove-tag" onClick={() => handleRemoveTag(tag)}>
-                          <FaTimes />
-                        </button>
-                      </span>
-                    ))}
+                {/* Danh mục — cascade, chỉ hiện khi đã chọn loại */}
+                {selectedCategoryType && (
+                  <div className="article-mgmt-form-group" style={{ marginBottom: 8 }}>
+                    <label className="article-mgmt-form-label required"><FaBookOpen /> Danh mục</label>
+                    <select
+                      name="category_id" value={formData.category_id}
+                      onChange={handleCategoryChange} className="article-mgmt-form-select"
+                    >
+                      <option value="">-- Chọn danh mục --</option>
+                      {categories
+                        .filter(c => c.category_type === selectedCategoryType)
+                        .map(c => <option key={c.id} value={c.id}>{c.name}</option>)
+                      }
+                    </select>
                   </div>
-                  <div className="article-mgmt-tags-input-group">
-                    <input
-                      type="text"
-                      value={tagInput}
-                      onChange={e => setTagInput(e.target.value)}
-                      onKeyPress={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }}
-                      placeholder="Thêm tag, Enter để lưu..."
-                      className="article-mgmt-tags-input"
-                    />
-                    <button type="button" onClick={handleAddTag} className="article-mgmt-btn-add-tag">Thêm</button>
+                )}
+
+                {/* Tags */}
+                <div className="article-mgmt-form-group" style={{ marginBottom: 8 }}>
+                  <label className="article-mgmt-form-label"><FaTags /> Tags</label>
+                  <div className="article-mgmt-tags-input-wrapper">
+                    <div className="article-mgmt-tags-display">
+                      {formData.tags_json.map((tag, idx) => (
+                        <span key={idx} className="article-mgmt-tag-item">
+                          {tag}
+                          <button type="button" className="article-mgmt-btn-remove-tag" onClick={() => handleRemoveTag(tag)}>
+                            <FaTimes />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="article-mgmt-tags-input-group">
+                      <input
+                        type="text" value={tagInput}
+                        onChange={e => setTagInput(e.target.value)}
+                        onKeyPress={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }}
+                        placeholder="Thêm tag, Enter để lưu..."
+                        className="article-mgmt-tags-input"
+                      />
+                      <button type="button" onClick={handleAddTag} className="article-mgmt-btn-add-tag">Thêm</button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Liên kết thuốc / bệnh lý */}
-              {renderEntitySearchSection()}
+                {/* Liên kết thuốc / bệnh lý */}
+                {renderEntitySearchSection()}
 
-              {/* Nguồn tham khảo */}
-              <div className="article-mgmt-form-group">
-                <label className="article-mgmt-form-label"><FaExternalLinkAlt /> Nguồn tham khảo</label>
-                <input
-                  type="text"
-                  name="source"
-                  value={formData.source || ''}
-                  onChange={handleFormChange}
-                  placeholder="https://..."
-                  className="article-mgmt-form-input"
-                />
+                {/* Nguồn tham khảo */}
+                <div className="article-mgmt-form-group">
+                  <label className="article-mgmt-form-label"><FaExternalLinkAlt /> Nguồn tham khảo</label>
+                  <input
+                    type="text" name="source" value={formData.source || ''}
+                    onChange={handleFormChange} placeholder="https://..."
+                    className="article-mgmt-form-input"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* ══ CỘT PHẢI: NỘI DUNG + XEM TRƯỚC ══ */}
+            {/* ══ CỘT PHẢI: IMPORT + CKEditor ══ */}
             <div className="article-mgmt-panel article-mgmt-panel--right">
 
-              {/* Import file */}
-              <div className="article-mgmt-form-group">
-                <label className="article-mgmt-form-label"><FaFileImport /> Import từ file</label>
+              {/* Import file bar */}
+              <div className="article-mgmt-import-bar">
+                <span className="article-mgmt-import-label"><FaFileImport /> Import:</span>
                 <input type="file" accept=".doc,.docx,.xls,.xlsx" onChange={handleFileImport} className="article-mgmt-file-input" />
-                <p style={{ fontSize: 10, color: 'var(--n400)', marginTop: 2 }}>Hỗ trợ Word (.docx), Excel (.xlsx)</p>
+                <span style={{ fontSize: 10, color: 'var(--n400)', whiteSpace: 'nowrap' }}>Word / Excel</span>
+                <button type="button" className="article-mgmt-btn-preview-inline" onClick={() => setShowPreviewPopup(true)} style={{ marginLeft: 'auto' }}>
+                  <FaEye /> Xem trước
+                </button>
               </div>
 
               {/* CKEditor */}
-              <div className="article-mgmt-form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <label className="article-mgmt-form-label required"><FaAlignLeft /> Nội dung bài viết</label>
+              <div className="article-mgmt-editor-container">
+                <div className="article-mgmt-editor-label required"><FaAlignLeft /> Nội dung bài viết</div>
                 <div id="toolbar-container"></div>
                 <div className="article-mgmt-editor-wrapper">
                   {DecoupledEditor ? (
@@ -1005,10 +1139,12 @@ const ArticleManagementPage = () => {
             <button type="button" className="article-mgmt-btn-submit article-mgmt-btn-secondary" onClick={handleCloseModal}>
               <FaTimes /> Hủy
             </button>
-            <button type="button" className="article-mgmt-btn-submit article-mgmt-btn-secondary" onClick={e => handleSubmit(e, true)} disabled={loading}>
+            <button type="button" className="article-mgmt-btn-submit article-mgmt-btn-secondary"
+              onClick={e => handleSubmit(e, true)} disabled={loading}>
               {loading ? <BiLoaderAlt className="ai-spin-icon" /> : <FaSave />} Lưu nháp
             </button>
-            <button type="button" className="article-mgmt-btn-submit article-mgmt-btn-primary" onClick={e => handleSubmit(e, false)} disabled={loading}>
+            <button type="button" className="article-mgmt-btn-submit article-mgmt-btn-primary"
+              onClick={e => handleSubmit(e, false)} disabled={loading}>
               {loading ? <><BiLoaderAlt className="ai-spin-icon" /> Đang xử lý...</> : <><FaPaperPlane /> Gửi phê duyệt / Đăng</>}
             </button>
           </div>
@@ -1033,6 +1169,9 @@ const ArticleManagementPage = () => {
               <div className="article-mgmt-stats-inline">
                 <span className="article-mgmt-stat-item">Tổng: <strong>{stats.total}</strong></span>
                 <span className="article-mgmt-stat-item article-mgmt-stat-pending">Chờ duyệt: <strong>{stats.pending}</strong></span>
+                <span className="article-mgmt-stat-item article-mgmt-stat-medical">Chờ BS: <strong>{stats.pending_medical || 0}</strong></span>
+                <span className="article-mgmt-stat-item article-mgmt-stat-warning">Cần xử lý: <strong>{stats.action_required || 0}</strong></span>
+                <span className="article-mgmt-stat-item article-mgmt-stat-danger">Báo cáo: <strong>{stats.reports || 0}</strong></span>
                 <span className="article-mgmt-stat-item">Đã duyệt: <strong>{stats.approved}</strong></span>
               </div>
             </div>
@@ -1050,25 +1189,18 @@ const ArticleManagementPage = () => {
             <div className="article-mgmt-filter-search">
               <FaSearch />
               <input
-                type="text"
-                name="search"
-                value={filters.search}
-                onChange={handleFilterChange}
-                placeholder="Tìm theo tiêu đề..."
+                type="text" name="search" value={filters.search}
+                onChange={handleFilterChange} placeholder="Tìm theo tiêu đề..."
               />
               {filters.search && (
-                <button onClick={() => setFilters(prev => ({ ...prev, search: '', page: 1 }))}>
-                  <FaTimes />
-                </button>
+                <button onClick={() => setFilters(prev => ({ ...prev, search: '', page: 1 }))}><FaTimes /></button>
               )}
             </div>
 
             {/* Loại bài — chọn trước */}
             <select
-              name="category_type"
-              value={filters.category_type}
-              onChange={handleFilterChange}
-              className="article-mgmt-filter-select"
+              name="category_type" value={filters.category_type}
+              onChange={handleFilterChange} className="article-mgmt-filter-select"
             >
               <option value="">Tất cả loại</option>
               <option value="tin_tuc">Tin tức</option>
@@ -1076,12 +1208,10 @@ const ArticleManagementPage = () => {
               <option value="benh_ly">Bệnh lý</option>
             </select>
 
-            {/* Danh mục — cascade theo loại bài đã chọn */}
+            {/* Danh mục — cascade, disable nếu chưa chọn loại */}
             <select
-              name="category_id"
-              value={filters.category_id}
-              onChange={handleFilterChange}
-              className="article-mgmt-filter-select"
+              name="category_id" value={filters.category_id}
+              onChange={handleFilterChange} className="article-mgmt-filter-select"
               disabled={!filters.category_type}
             >
               <option value="">
@@ -1113,6 +1243,37 @@ const ArticleManagementPage = () => {
           </div>
         </div>
 
+        <div className="article-mgmt-dashboard-grid">
+          <button className="article-mgmt-dashboard-card required" onClick={() => setFilters(prev => ({ ...prev, status: '', page: 1 }))}>
+            <span>Cần hành động</span>
+            <strong>{stats.action_required || 0}</strong>
+          </button>
+          <button className="article-mgmt-dashboard-card pending" onClick={() => setFilters(prev => ({ ...prev, status: 'pending', page: 1 }))}>
+            <span>Bài chờ duyệt</span>
+            <strong>{stats.pending || 0}</strong>
+          </button>
+          <button className="article-mgmt-dashboard-card medical" onClick={() => setFilters(prev => ({ ...prev, status: 'pending_medical', page: 1 }))}>
+            <span>Chờ bác sĩ</span>
+            <strong>{stats.pending_medical || 0}</strong>
+          </button>
+          <button className="article-mgmt-dashboard-card edit" onClick={() => setFilters(prev => ({ ...prev, status: 'request_edit', page: 1 }))}>
+            <span>Yêu cầu sửa</span>
+            <strong>{stats.request_edit || 0}</strong>
+          </button>
+          <button className="article-mgmt-dashboard-card rewrite" onClick={() => setFilters(prev => ({ ...prev, status: 'request_rewrite', page: 1 }))}>
+            <span>Yêu cầu viết lại</span>
+            <strong>{stats.request_rewrite || 0}</strong>
+          </button>
+          <button className="article-mgmt-dashboard-card hidden" onClick={() => setFilters(prev => ({ ...prev, status: 'hidden', page: 1 }))}>
+            <span>Bài bị ẩn</span>
+            <strong>{stats.hidden || 0}</strong>
+          </button>
+          <button className="article-mgmt-dashboard-card reports" onClick={() => setFilters(prev => ({ ...prev, status: '', page: 1 }))}>
+            <span>Tổng báo cáo</span>
+            <strong>{stats.reports || 0}</strong>
+          </button>
+        </div>
+
         {/* TABLE */}
         <div className="article-mgmt-table-wrapper">
           <table className="article-mgmt-table">
@@ -1124,6 +1285,9 @@ const ArticleManagementPage = () => {
                 <th>Danh mục</th>
                 <th>Trạng thái</th>
                 <th>Tác giả</th>
+                <th>Lượt xem</th>
+                <th>Lượt thích</th>
+                <th>Lượt báo cáo</th>
                 <th className="col-sortable" onClick={() => handleSortColumn('created_at')}>
                   Ngày tạo {filters.sort_by === 'created_at' && (filters.sort_order === 'DESC' ? <FaSortAmountDown /> : <FaSortAmountUp />)}
                 </th>
@@ -1132,20 +1296,27 @@ const ArticleManagementPage = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="6" className="article-mgmt-text-center"><BiLoaderAlt className="ai-spin-icon" /> Đang tải...</td></tr>
+                <tr><td colSpan="9" className="article-mgmt-text-center"><BiLoaderAlt className="ai-spin-icon" /> Đang tải...</td></tr>
               ) : articles.length === 0 ? (
-                <tr><td colSpan="6" className="article-mgmt-text-center">Không có bài viết nào</td></tr>
+                <tr><td colSpan="9" className="article-mgmt-text-center">Không có bài viết nào</td></tr>
               ) : articles.map(article => (
                 <tr key={article.id}>
                   <td className="col-fixed col-title">
                     <div className="article-title-cell">
                       {getCategoryIcon(article.category?.category_type)}
-                      <span className="article-title-text" title={article.title}>{article.title}</span>
+                      <button type="button" className="article-title-link" title="Mở trang phê duyệt" onClick={() => openArticleReview(article)}>{article.title}</button>
                     </div>
                   </td>
                   <td><span className="category-badge">{article.category?.name || '-'}</span></td>
                   <td><span className={`article-mgmt-status-badge ${getStatusClass(article.status)}`}>{getStatusText(article.status)}</span></td>
                   <td><div className="author-cell"><FaUser /><span>{article.author?.full_name || '-'}</span></div></td>
+                  <td>{article.views || 0}</td>
+                  <td>{article.likes_count || 0}</td>
+                  <td>
+                    <button type="button" className="article-report-link" onClick={() => fetchArticleReports(article)}>
+                      {article.report_count || 0}
+                    </button>
+                  </td>
                   <td>{new Date(article.created_at).toLocaleDateString('vi-VN')}</td>
                   <td className="col-fixed col-actions">
                     <div className="action-buttons">
@@ -1179,6 +1350,37 @@ const ArticleManagementPage = () => {
         {/* MODAL FORM */}
         {renderModal()}
 
+        {showReportsPopup && articleToReport && (
+          <div className="article-mgmt-modal-overlay" onClick={() => setShowReportsPopup(false)}>
+            <div className="article-mgmt-confirm-submit-modal article-mgmt-report-modal" onClick={e => e.stopPropagation()}>
+              <div className="article-mgmt-modal-header">
+                <h2><FaExclamationTriangle style={{ color: '#dc2626' }} /> Danh sách báo cáo</h2>
+                <button className="article-mgmt-modal-close" onClick={() => setShowReportsPopup(false)}><FaTimes /></button>
+              </div>
+              <div className="article-mgmt-modal-body">
+                <p className="article-mgmt-report-title">Bài viết: <strong>{articleToReport.title}</strong></p>
+                {loadingReports ? (
+                  <p className="article-mgmt-report-empty"><BiLoaderAlt className="ai-spin-icon" /> Đang tải báo cáo...</p>
+                ) : reportItems.length === 0 ? (
+                  <p className="article-mgmt-report-empty">Chưa có báo cáo nào.</p>
+                ) : (
+                  <div className="article-mgmt-report-list">
+                    {reportItems.map(item => (
+                      <div key={item.id} className="article-mgmt-report-item">
+                        <div className="article-mgmt-report-item-head">
+                          <strong>{item.user?.full_name || 'Ẩn danh'}</strong>
+                          <span>{new Date(item.created_at).toLocaleString('vi-VN')}</span>
+                        </div>
+                        <p>{item.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* PREVIEW POPUP */}
         {renderPreviewPopup()}
 
@@ -1210,10 +1412,7 @@ const ArticleManagementPage = () => {
               <h3 className="article-mgmt-confirm-title">{confirmAction.title}</h3>
               <p className="article-mgmt-confirm-message">{confirmAction.message}</p>
               {deleteArticleId && countdownSeconds > 0 && (
-                <div className="countdown-timer">
-                  <FaClock />
-                  <span>Vui lòng chờ {countdownSeconds} giây để xác nhận...</span>
-                </div>
+                <div className="countdown-timer"><FaClock /><span>Vui lòng chờ {countdownSeconds} giây để xác nhận...</span></div>
               )}
               <div className="article-mgmt-confirm-actions">
                 <button
@@ -1223,12 +1422,7 @@ const ArticleManagementPage = () => {
                 >
                   {deleteArticleId && countdownSeconds > 0 ? `Xác nhận (${countdownSeconds}s)` : confirmAction.confirmText}
                 </button>
-                {confirmAction.onCancelWithoutSave && (
-                  <button className="btn-confirm btn-danger" onClick={() => { confirmAction.onCancelWithoutSave(); closeConfirm(); }}>
-                    {confirmAction.cancelWithoutSaveText}
-                  </button>
-                )}
-                <button className="btn-confirm article-mgmt-btn-cancel" onClick={closeConfirm}>Quay lại</button>
+                <button className="btn-confirm article-mgmt-btn-cancel" onClick={closeConfirmDialog}>Quay lại</button>
               </div>
             </div>
           </div>
@@ -1236,14 +1430,22 @@ const ArticleManagementPage = () => {
 
         {/* HIDE POPUP */}
         {showHidePopup && articleToHide && (
-          <div className="article-mgmt-popup-overlay">
-            <div className="article-mgmt-popup">
+          <div className="article-mgmt-popup-overlay" onClick={() => {
+            askCloseConfirm('Đóng form?', 'Bạn có muốn đóng form ẩn/hiện bài viết không?', () => {
+              setShowHidePopup(false); setCountdownSeconds(0);
+            });
+          }}>
+            <div className="article-mgmt-popup" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-popup-header">
                 <div className="article-mgmt-popup-header-content">
                   {articleToHide.status === 'hidden' ? <FaEye className="article-mgmt-popup-icon" /> : <FaEyeSlash className="article-mgmt-popup-icon" />}
                   <h3>{articleToHide.status === 'hidden' ? 'Hiện bài viết' : 'Ẩn bài viết'}</h3>
                 </div>
-                <button onClick={() => setShowHidePopup(false)} className="article-mgmt-btn-close-popup"><FaTimes /></button>
+                <button onClick={() => {
+                  askCloseConfirm('Đóng form?', 'Bạn có muốn đóng form ẩn/hiện bài viết không?', () => {
+                    setShowHidePopup(false); setCountdownSeconds(0);
+                  });
+                }} className="article-mgmt-btn-close-popup"><FaTimes /></button>
               </div>
               <form onSubmit={handleHideArticle} className="article-mgmt-popup-body">
                 <div className="article-mgmt-popup-warning">
@@ -1269,15 +1471,22 @@ const ArticleManagementPage = () => {
                 </div>
                 <div className="article-mgmt-popup-form-group">
                   <label className="article-mgmt-popup-label">Lý do <span className="article-mgmt-required">*</span></label>
-                  <textarea value={hideReason} onChange={e => setHideReason(e.target.value)} placeholder={`Nhập lý do ${articleToHide.status === 'hidden' ? 'hiện' : 'ẩn'} bài viết...`} maxLength={500} rows={4} className="article-mgmt-popup-textarea" required />
+                  <textarea value={hideReason} onChange={e => setHideReason(e.target.value)}
+                    placeholder={`Nhập lý do ${articleToHide.status === 'hidden' ? 'hiện' : 'ẩn'} bài viết...`}
+                    maxLength={500} rows={4} className="article-mgmt-popup-textarea" required />
                   <small className="article-mgmt-char-count">{hideReason.length}/500</small>
                 </div>
                 <div className="article-mgmt-popup-footer">
                   {articleToHide?.status !== 'hidden' && countdownSeconds > 0 && (
                     <div className="countdown-notice"><FaClock /><span>Vui lòng chờ {countdownSeconds} giây...</span></div>
                   )}
-                  <button type="button" onClick={() => { setShowHidePopup(false); setCountdownSeconds(0); }} className="article-mgmt-btn-cancel" disabled={hidingArticle}>Hủy</button>
-                  <button type="submit" className="article-mgmt-btn-submit btn-hide-confirm" disabled={hidingArticle || !hideReason.trim() || (articleToHide?.status !== 'hidden' && countdownSeconds > 0)}>
+                  <button type="button" onClick={() => {
+                    askCloseConfirm('Đóng form?', 'Bạn có muốn đóng form ẩn/hiện bài viết không?', () => {
+                      setShowHidePopup(false); setCountdownSeconds(0);
+                    });
+                  }} className="article-mgmt-btn-cancel" disabled={hidingArticle}>Hủy</button>
+                  <button type="submit" className="article-mgmt-btn-submit btn-hide-confirm"
+                    disabled={hidingArticle || !hideReason.trim() || (articleToHide?.status !== 'hidden' && countdownSeconds > 0)}>
                     {hidingArticle ? <><BiLoaderAlt className="ai-spin-icon" /> Đang xử lý...</>
                       : countdownSeconds > 0 ? <><FaEyeSlash /> Xác nhận ({countdownSeconds}s)</>
                         : <>{articleToHide?.status === 'hidden' ? <FaEye /> : <FaEyeSlash />} Xác nhận {articleToHide?.status === 'hidden' ? 'hiện' : 'ẩn'}</>
@@ -1289,52 +1498,24 @@ const ArticleManagementPage = () => {
           </div>
         )}
 
-        {/* DOCTOR SELECTION MODAL */}
-        {showDoctorSelectionModal && (
-          <div className="article-mgmt-modal-overlay" onClick={e => e.stopPropagation()} style={{ pointerEvents: 'all' }}>
-            <div className="article-mgmt-confirm-submit-modal" onClick={e => e.stopPropagation()}>
-              <div className="article-mgmt-modal-header">
-                <h2><FaUser style={{ color: '#3b82f6' }} /> Chọn Bác Sĩ Phê Duyệt</h2>
-                <button className="article-mgmt-modal-close" onClick={() => setShowDoctorSelectionModal(false)}><FaTimes /></button>
-              </div>
-              <div className="article-mgmt-modal-body">
-                {availableDoctors.length === 0 ? (
-                  <p className="article-mgmt-no-doctors">Không có bác sĩ nào trong chuyên khoa này</p>
-                ) : (
-                  <div className="article-mgmt-doctors-list">
-                    {availableDoctors.map(doctor => (
-                      <button key={doctor.id} className="article-mgmt-doctor-item" onClick={() => {
-                        setFormData(prev => ({ ...prev, medical_reviewer_id: doctor.id }));
-                        setAssignedDoctor(doctor); setShowDoctorSelectionModal(false);
-                        setTimeout(() => handleSubmit(null, false, false), 100);
-                      }}>
-                        <img src={doctor.user?.avatar_url || '/placeholder.jpg'} alt="Doctor" onError={e => e.target.src = '/placeholder.jpg'} className="article-mgmt-doctor-item-avatar" />
-                        <div className="article-mgmt-doctor-item-info">
-                          <strong className="article-mgmt-doctor-item-name">BS. {doctor.user?.full_name}</strong>
-                          <small className="article-mgmt-doctor-item-specialty">{doctor.specialty?.name}</small>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="article-mgmt-modal-footer">
-                <button type="button" className="detail-report-cancel" onClick={() => setShowDoctorSelectionModal(false)}>Hủy</button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* POPUP TỪ CHỐI */}
         {showRejectPopup && articleToReject && (
-          <div className="article-mgmt-popup-overlay">
-            <div className="article-mgmt-popup">
+          <div className="article-mgmt-popup-overlay" onClick={() => {
+            askCloseConfirm('Đóng form?', 'Bạn có muốn đóng form từ chối yêu cầu không?', () => {
+              setShowRejectPopup(false); setRejectReason('');
+            });
+          }}>
+            <div className="article-mgmt-popup" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-popup-header">
                 <div className="article-mgmt-popup-header-content">
                   <FaBan className="article-mgmt-popup-icon" />
                   <h3>Từ chối yêu cầu chỉnh sửa</h3>
                 </div>
-                <button onClick={() => setShowRejectPopup(false)} className="article-mgmt-btn-close-popup"><FaTimes /></button>
+                <button onClick={() => {
+                  askCloseConfirm('Đóng form?', 'Bạn có muốn đóng form từ chối yêu cầu không?', () => {
+                    setShowRejectPopup(false); setRejectReason('');
+                  });
+                }} className="article-mgmt-btn-close-popup"><FaTimes /></button>
               </div>
               <form onSubmit={handleRejectEditRequest} className="article-mgmt-popup-body">
                 <div className="article-mgmt-popup-warning">
@@ -1358,12 +1539,19 @@ const ArticleManagementPage = () => {
                 </div>
                 <div className="article-mgmt-popup-form-group">
                   <label className="article-mgmt-popup-label">Lý do chi tiết <span className="article-mgmt-required">*</span></label>
-                  <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Nhập lý do từ chối..." maxLength={500} rows={4} className="article-mgmt-popup-textarea" required />
+                  <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                    placeholder="Nhập lý do từ chối..." maxLength={500} rows={4}
+                    className="article-mgmt-popup-textarea" required />
                   <small className="article-mgmt-char-count">{rejectReason.length}/500</small>
                 </div>
                 <div className="article-mgmt-popup-footer">
-                  <button type="button" onClick={() => { setShowRejectPopup(false); setRejectReason(''); }} className="article-mgmt-btn-cancel" disabled={rejecting}>Hủy</button>
-                  <button type="submit" className="article-mgmt-btn-submit btn-reject-confirm" disabled={rejecting || !rejectReason.trim()}>
+                  <button type="button" onClick={() => {
+                    askCloseConfirm('Đóng form?', 'Bạn có muốn đóng form từ chối yêu cầu không?', () => {
+                      setShowRejectPopup(false); setRejectReason('');
+                    });
+                  }} className="article-mgmt-btn-cancel" disabled={rejecting}>Hủy</button>
+                  <button type="submit" className="article-mgmt-btn-submit btn-reject-confirm"
+                    disabled={rejecting || !rejectReason.trim()}>
                     {rejecting ? <><BiLoaderAlt className="ai-spin-icon" /> Đang xử lý...</> : <><FaBan /> Xác nhận từ chối</>}
                   </button>
                 </div>
@@ -1372,13 +1560,70 @@ const ArticleManagementPage = () => {
           </div>
         )}
 
+        {/* DOCTOR SELECTION MODAL */}
+        {showDoctorSelectionModal && (
+          <div className="article-mgmt-modal-overlay" onClick={() => {
+            askCloseConfirm('Đóng?', 'Bạn có muốn đóng danh sách chọn bác sĩ không?', () => setShowDoctorSelectionModal(false));
+          }}>
+            <div className="article-mgmt-confirm-submit-modal" onClick={e => e.stopPropagation()}>
+              <div className="article-mgmt-modal-header">
+                <h2><FaUser style={{ color: '#3b82f6' }} /> Chọn Bác Sĩ Phê Duyệt</h2>
+                <button className="article-mgmt-modal-close" onClick={() => {
+                  askCloseConfirm('Đóng?', 'Bạn có muốn đóng danh sách chọn bác sĩ không?', () => setShowDoctorSelectionModal(false));
+                }}><FaTimes /></button>
+              </div>
+              <div className="article-mgmt-modal-body">
+                {loadingDoctors ? (
+                  <p style={{ color: 'var(--n400)', fontSize: 'var(--fs-sm)' }}><BiLoaderAlt className="ai-spin-icon" /> Đang tải bác sĩ...</p>
+                ) : availableDoctors.length === 0 ? (
+                  <p style={{ color: 'var(--n400)', fontSize: 'var(--fs-sm)' }}>Không có bác sĩ nào trong chuyên khoa này</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {availableDoctors.map(doctor => (
+                      <button key={doctor.id} style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '10px 12px', border: '1.5px solid var(--n200)',
+                        borderRadius: 8, cursor: 'pointer', background: 'var(--n0)',
+                        fontFamily: 'var(--font)', transition: 'all .15s', textAlign: 'left', width: '100%'
+                      }}
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, medical_reviewer_id: doctor.id }));
+                          setAssignedDoctor(doctor); setShowDoctorSelectionModal(false);
+                          setTimeout(() => handleSubmit(null, false, false), 100);
+                        }}>
+                        <img src={doctor.user?.avatar_url || '/placeholder.jpg'} alt="Doctor"
+                          onError={e => e.target.src = '/placeholder.jpg'}
+                          style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <strong style={{ fontSize: 'var(--fs-sm)', color: 'var(--n800)' }}>BS. {doctor.user?.full_name}</strong>
+                          <small style={{ fontSize: 'var(--fs-xs)', color: 'var(--n400)' }}>{doctor.specialty?.name}</small>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="article-mgmt-modal-footer">
+                <button type="button" className="article-mgmt-btn-cancel"
+                  onClick={() => {
+                    askCloseConfirm('Đóng?', 'Bạn có muốn đóng danh sách chọn bác sĩ không?', () => setShowDoctorSelectionModal(false));
+                  }}>Hủy</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ADMIN EDIT WARNING */}
         {showAdminEditWarning && (
-          <div className="article-mgmt-modal-overlay" onClick={e => e.stopPropagation()} style={{ pointerEvents: 'all' }}>
+          <div className="article-mgmt-modal-overlay" onClick={() => {
+            askCloseConfirm('Đóng?', 'Bạn có muốn đóng cảnh báo này không?', () => setShowAdminEditWarning(false));
+          }}>
             <div className="article-mgmt-warning-modal" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-modal-header">
                 <h2><FaExclamationTriangle style={{ color: '#f59e0b' }} /> Cảnh báo: Sửa bài đã duyệt</h2>
-                <button className="article-mgmt-modal-close" onClick={() => setShowAdminEditWarning(false)}><FaTimes /></button>
+                <button className="article-mgmt-modal-close" onClick={() => {
+                  askCloseConfirm('Đóng?', 'Bạn có muốn đóng cảnh báo này không?', () => setShowAdminEditWarning(false));
+                }}><FaTimes /></button>
               </div>
               <div className="article-mgmt-modal-body">
                 <p>Bài viết <strong>"{editingApprovedArticle?.title}"</strong> đang <strong style={{ color: '#10b981' }}>hiển thị công khai</strong>. Bạn muốn:</p>
@@ -1402,11 +1647,15 @@ const ArticleManagementPage = () => {
 
         {/* SUBMIT CONFIRM */}
         {showSubmitConfirm && (
-          <div className="article-mgmt-modal-overlay" onClick={e => e.stopPropagation()} style={{ pointerEvents: 'all' }}>
+          <div className="article-mgmt-modal-overlay" onClick={() => {
+            askCloseConfirm('Hủy gửi?', 'Bạn có muốn hủy việc gửi phê duyệt không?', () => setShowSubmitConfirm(false));
+          }}>
             <div className="article-mgmt-confirm-submit-modal" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-modal-header">
                 <h2><FaCheckCircle style={{ color: '#10b981' }} /> Xác nhận gửi phê duyệt</h2>
-                <button className="article-mgmt-modal-close" onClick={() => setShowSubmitConfirm(false)}><FaTimes /></button>
+                <button className="article-mgmt-modal-close" onClick={() => {
+                  askCloseConfirm('Hủy gửi?', 'Bạn có muốn hủy việc gửi phê duyệt không?', () => setShowSubmitConfirm(false));
+                }}><FaTimes /></button>
               </div>
               <div className="article-mgmt-modal-body">
                 <p>Bạn chắc chắn muốn <strong>gửi bài viết này để phê duyệt</strong>?</p>
@@ -1424,21 +1673,36 @@ const ArticleManagementPage = () => {
 
         {/* AI SUPPORT MENU */}
         {showAISupportMenu && (
-          <div className="article-mgmt-modal-overlay" onClick={() => setShowAISupportMenu(false)} style={{ pointerEvents: 'all' }}>
+          <div className="article-mgmt-modal-overlay" onClick={() => {
+            if (!analyzingAI) {
+              askCloseConfirm('Đóng AI?', 'Bạn có muốn đóng bảng AI hỗ trợ không?', () => {
+                setShowAISupportMenu(false); setSelectedAIOption(null);
+              });
+            }
+          }}>
             <div className="article-mgmt-ai-modal" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-modal-header">
                 <h2><MdAutoAwesome style={{ color: '#8b5cf6', fontSize: 18 }} /> Chọn chức năng AI hỗ trợ</h2>
-                <button className="article-mgmt-modal-close" onClick={() => { setShowAISupportMenu(false); setSelectedAIOption(null); }}><FaTimes /></button>
+                <button className="article-mgmt-modal-close" onClick={() => {
+                  if (!analyzingAI) {
+                    askCloseConfirm('Đóng AI?', 'Bạn có muốn đóng bảng AI hỗ trợ không?', () => {
+                      setShowAISupportMenu(false); setSelectedAIOption(null);
+                    });
+                  }
+                }}><FaTimes /></button>
               </div>
 
               <div className="article-mgmt-modal-body article-mgmt-modal-body-scrollable">
 
-                {/* Trạng thái đang phân tích */}
+                {/* Trạng thái đang phân tích — Icon chuyển động */}
                 {analyzingAI ? (
                   <div className="article-mgmt-ai-loading">
                     <div className="article-mgmt-ai-loading-anim">
-                      {/* Dùng BiLoaderAlt xoay tròn thay vì icon đứng yên */}
-                      <BiLoaderAlt className="article-mgmt-ai-loading-spinner" />
+                      {/* Ring + Brain icon pulse */}
+                      <div className="article-mgmt-ai-icon-ring">
+                        <FaBrain className="article-mgmt-ai-brain-icon" />
+                      </div>
+                      {/* Bouncing dots */}
                       <div className="article-mgmt-ai-loading-dots">
                         <span /><span /><span />
                       </div>
@@ -1492,11 +1756,20 @@ const ArticleManagementPage = () => {
               </div>
 
               <div className="article-mgmt-modal-footer">
-                <button type="button" className="article-mgmt-btn-cancel" onClick={() => { setShowAISupportMenu(false); setSelectedAIOption(null); setCustomAIPrompt(''); }} disabled={analyzingAI}>
+                <button type="button" className="article-mgmt-btn-cancel"
+                  onClick={() => {
+                    if (!analyzingAI) {
+                      askCloseConfirm('Đóng AI?', 'Bạn có muốn đóng bảng AI hỗ trợ không?', () => {
+                        setShowAISupportMenu(false); setSelectedAIOption(null); setCustomAIPrompt('');
+                      });
+                    }
+                  }}
+                  disabled={analyzingAI}>
                   Hủy
                 </button>
                 {selectedAIOption === 'custom' && !analyzingAI && (
-                  <button type="button" className="btn article-mgmt-btn-primary" onClick={() => handleAIOptionSelect('custom')} disabled={!customAIPrompt.trim()}>
+                  <button type="button" className="btn article-mgmt-btn-primary"
+                    onClick={() => handleAIOptionSelect('custom')} disabled={!customAIPrompt.trim()}>
                     <MdAutoAwesome /> Phân tích
                   </button>
                 )}
@@ -1507,11 +1780,15 @@ const ArticleManagementPage = () => {
 
         {/* AI WARNING POPUP */}
         {showAIWarning && aiPreviewData && (
-          <div className="article-mgmt-modal-overlay" onClick={() => setShowAIWarning(false)} style={{ pointerEvents: 'all' }}>
+          <div className="article-mgmt-modal-overlay" onClick={() => {
+            askCloseConfirm('Đóng?', 'Bạn có muốn bỏ qua gợi ý AI không?', () => setShowAIWarning(false));
+          }}>
             <div className="article-mgmt-confirm-submit-modal" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-modal-header">
                 <h2><FaExclamationTriangle style={{ color: '#f59e0b' }} /> Xác nhận áp dụng gợi ý AI</h2>
-                <button className="article-mgmt-modal-close" onClick={() => setShowAIWarning(false)}><FaTimes /></button>
+                <button className="article-mgmt-modal-close" onClick={() => {
+                  askCloseConfirm('Đóng?', 'Bạn có muốn bỏ qua gợi ý AI không?', () => setShowAIWarning(false));
+                }}><FaTimes /></button>
               </div>
               <div className="article-mgmt-modal-body">
                 <div className="article-mgmt-ai-warning-alert">
@@ -1548,6 +1825,21 @@ const ArticleManagementPage = () => {
                 <button type="button" className="btn article-mgmt-btn-primary" onClick={handleApplyAIChanges} style={{ background: '#8b5cf6' }}>
                   <FaCheck /> Áp dụng thay đổi
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ CLOSE CONFIRM POPUP — layer cao nhất ══ */}
+        {closeConfirm.visible && (
+          <div className="article-mgmt-close-confirm-overlay">
+            <div className="article-mgmt-close-confirm-box">
+              <FaQuestionCircle className="article-mgmt-close-confirm-icon" />
+              <h3 className="article-mgmt-close-confirm-title">{closeConfirm.title}</h3>
+              <p className="article-mgmt-close-confirm-msg">{closeConfirm.message}</p>
+              <div className="article-mgmt-close-confirm-actions">
+                <button className="btn-close-confirm-cancel" onClick={handleCloseConfirmCancel}>Không, ở lại</button>
+                <button className="btn-close-confirm-ok" onClick={handleCloseConfirmOk}>Đóng</button>
               </div>
             </div>
           </div>

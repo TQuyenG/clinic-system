@@ -9,7 +9,7 @@ const errorHandler = require('./middleware/errorHandler');
 const WebSocket = require('ws');
 const cron = require('node-cron');
 const path = require('path');
-const { Op } = require('sequelize'); // THÊM TỪ FILE 1
+const { Op, DataTypes } = require('sequelize'); // THÊM TỪ FILE 1
 const http = require('http');
 const passport = require('./config/passportConfig');
 const session = require('express-session');
@@ -660,6 +660,22 @@ async function startServer() {
     console.log('Đang khởi tạo cơ sở dữ liệu...');
     await initializeDatabase();
 
+      const ensureArticleContentLongText = async () => {
+        const queryInterface = sequelize.getQueryInterface();
+        const articleSchema = await queryInterface.describeTable('articles');
+        const contentColumn = articleSchema.content;
+        const contentType = String(contentColumn?.type || '').toLowerCase();
+
+        if (!contentType.includes('longtext')) {
+          console.log(`Đang nâng cột articles.content từ ${contentColumn?.type || 'unknown'} lên LONGTEXT...`);
+          await queryInterface.changeColumn('articles', 'content', {
+            type: DataTypes.TEXT('long'),
+            allowNull: false,
+          });
+          console.log('SUCCESS: articles.content đã được nâng lên LONGTEXT.');
+        }
+      };
+
     if (process.env.SYNC_MODE === 'force') {
       console.log('Đang đồng bộ force: Xóa và tạo lại toàn bộ bảng...');
       await sequelize.sync({ force: true, logging: console.log });
@@ -672,6 +688,7 @@ async function startServer() {
       console.log('Đang đồng bộ alter: Cập nhật bảng để khớp với model...');
       await sequelize.sync({ alter: true, logging: console.log });
       console.log('SUCCESS: Cập nhật bảng thành công, dữ liệu được giữ nguyên.');
+        await ensureArticleContentLongText();
 
       const userCount = await models.User.count();
       console.log(`Số lượng user hiện tại: ${userCount}`);
@@ -687,6 +704,7 @@ async function startServer() {
       console.log('Đang đồng bộ normal: Tạo bảng nếu chưa tồn tại...');
       await sequelize.sync({ logging: console.log });
       console.log('SUCCESS: Tất cả bảng đã được tạo hoặc đã tồn tại.');
+        await ensureArticleContentLongText();
 
       const userCount = await models.User.count();
       console.log(`Số lượng user hiện tại: ${userCount}`);

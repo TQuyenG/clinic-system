@@ -237,10 +237,19 @@ const ScheduleManagementPage = () => {
         // (Xử lý link highlight từ thông báo)
         const params = new URLSearchParams(window.location.search);
         const tab = params.get('tab');
+        const dateParam = params.get('date');
         if (tab === 'manage-registrations') {
           setActiveTab('manage-registrations');
           const subTab = params.get('sub_tab');
           if (subTab) setActiveSubTab(subTab);
+        }
+
+        if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+          const targetDate = new Date(`${dateParam}T00:00:00`);
+          if (!Number.isNaN(targetDate.getTime())) {
+            setCurrentDate(targetDate);
+            setViewMode('day');
+          }
         }
         
       } catch (error) { console.error('Parse user error:', error); }

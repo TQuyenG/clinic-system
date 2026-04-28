@@ -3,7 +3,7 @@
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import appointmentService from '../services/appointmentService';
 import medicalRecordService from '../services/medicalRecordService'; 
 import ConfirmModal from '../components/medical/ConfirmModal';
@@ -21,6 +21,7 @@ import './AppointmentManagementPage.css';
 
 const AppointmentManagementPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth(); 
   const [assignedDoctors, setAssignedDoctors] = useState([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
@@ -107,6 +108,30 @@ const AppointmentManagementPage = () => {
     payment_method: 'cash',
     paid_at: new Date().toISOString().slice(0, 16)
   });
+
+  useEffect(() => {
+    const allowedStatuses = new Set(['all', 'pending', 'confirmed', 'upcoming', 'waiting_pay', 'waiting_exam', 'in_progress', 'completed', 'passed', 'cancelled']);
+    const searchParams = new URLSearchParams(location.search);
+    const status = searchParams.get('status');
+    const date = searchParams.get('date');
+
+    const nextFilters = {};
+
+    if (status && allowedStatuses.has(status)) {
+      nextFilters.status = status;
+    }
+
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      nextFilters.date = date;
+    }
+
+    if (Object.keys(nextFilters).length > 0) {
+      setFilters((previousFilters) => ({
+        ...previousFilters,
+        ...nextFilters
+      }));
+    }
+  }, [location.search]);
 
   useEffect(() => {
     fetchAllAppointments();
@@ -358,6 +383,10 @@ const AppointmentManagementPage = () => {
         text = 'Đã xác nhận'; icon = <FaCheckCircle />; className = 'amp-status-confirmed'; break;
       case 'upcoming':
         text = 'Sắp tới'; icon = <FaClock />; className = 'amp-status-upcoming'; break;
+      case 'waiting_pay':
+        text = 'Chờ thanh toán'; icon = <FaMoneyBillWave />; className = 'amp-status-waiting-pay'; break;
+      case 'waiting_exam':
+        text = 'Chờ khám'; icon = <FaHospital />; className = 'amp-status-waiting-exam'; break;
       case 'in_progress':
         text = 'Đang khám'; icon = <FaClock />; className = 'amp-status-in-progress'; break;
       case 'completed':
@@ -407,6 +436,8 @@ const AppointmentManagementPage = () => {
     const filteredPending = filteredAppointments.filter(a => a.status === 'pending').length;
     const filteredConfirmed = filteredAppointments.filter(a => a.status === 'confirmed').length;
     const filteredUpcoming = filteredAppointments.filter(a => a.status === 'upcoming').length;
+    const filteredWaitingPay = filteredAppointments.filter(a => a.status === 'waiting_pay').length;
+    const filteredWaitingExam = filteredAppointments.filter(a => a.status === 'waiting_exam').length;
     const filteredInProgress = filteredAppointments.filter(a => a.status === 'in_progress').length;
     const filteredCompleted = filteredAppointments.filter(a => a.status === 'completed').length;
     const filteredPassed = filteredAppointments.filter(a => a.status === 'passed').length;
@@ -418,6 +449,8 @@ const AppointmentManagementPage = () => {
       filteredPending, 
       filteredConfirmed,
       filteredUpcoming,
+      filteredWaitingPay,
+      filteredWaitingExam,
       filteredInProgress,
       filteredCompleted,
       filteredPassed,
@@ -527,6 +560,20 @@ const AppointmentManagementPage = () => {
               </div>
             </div>
             <div className="appointment-management-stat-card">
+              <div className="appointment-management-stat-icon appointment-management-icon-pending"><FaMoneyBillWave /></div>
+              <div className="appointment-management-stat-info">
+                <span className="appointment-management-stat-label">Chờ Thanh Toán</span>
+                <span className="appointment-management-stat-value">{stats.filteredWaitingPay}</span>
+              </div>
+            </div>
+            <div className="appointment-management-stat-card">
+              <div className="appointment-management-stat-icon appointment-management-icon-confirmed"><FaHospital /></div>
+              <div className="appointment-management-stat-info">
+                <span className="appointment-management-stat-label">Chờ Khám</span>
+                <span className="appointment-management-stat-value">{stats.filteredWaitingExam}</span>
+              </div>
+            </div>
+            <div className="appointment-management-stat-card">
               <div className="appointment-management-stat-icon appointment-management-icon-in-progress"><FaPlay /></div>
               <div className="appointment-management-stat-info">
                 <span className="appointment-management-stat-label">Đang Khám</span>
@@ -582,6 +629,8 @@ const AppointmentManagementPage = () => {
                   <option value="pending">Chờ xác nhận</option>
                   <option value="confirmed">Đã xác nhận</option>
                   <option value="upcoming">Sắp tới</option>
+                  <option value="waiting_pay">Chờ thanh toán</option>
+                  <option value="waiting_exam">Chờ khám</option>
                   <option value="in_progress">Đang khám</option>
                   <option value="completed">Đã hoàn thành</option>
                   <option value="passed">Đã qua</option>

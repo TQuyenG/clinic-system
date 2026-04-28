@@ -148,6 +148,41 @@ const notifyManagersAndAdmins = async (type, message, link) => {
   }
 };
 
+const notifyArticleWorkflowUsers = async (type, message, link, extraUserIds = []) => {
+  try {
+    const recipientIds = new Set(extraUserIds.filter(Boolean));
+
+    const admins = await User.findAll({ where: { role: 'admin' } });
+    admins.forEach(admin => recipientIds.add(admin.id));
+
+    const managerContentStaff = await Staff.findAll({
+      where: { department: 'content', rank: 'manager' }
+    });
+    managerContentStaff.forEach(staff => {
+      if (staff.user_id) recipientIds.add(staff.user_id);
+    });
+
+    const allStaff = await Staff.findAll({ where: { permissions: { [Op.ne]: null } } });
+    for (const staff of allStaff) {
+      const articlePerms = staff.permissions?.articles;
+      if (!staff.user_id || !Array.isArray(articlePerms)) continue;
+      if (
+        articlePerms.includes('approve') ||
+        articlePerms.includes('approve_medicine') ||
+        articlePerms.includes('approve_disease')
+      ) {
+        recipientIds.add(staff.user_id);
+      }
+    }
+
+    for (const userId of recipientIds) {
+      await createNotification(userId, type, message, link);
+    }
+  } catch (error) {
+    console.error('✗ Lỗi khi gửi thông báo bài viết:', error);
+  }
+};
+
 // Thêm vào đâu đó trong phần Helper Functions trong articleController.js
 
 /**
@@ -658,34 +693,40 @@ exports.getArticles = async (req, res) => {
     // Xây dựng điều kiện where
     const where = {};
 
-    // ===== PHÂN QUYỀN MỚI =====
-    //  Check xem user có phải là Manager Content không
-    const isManager = await (async () => {
-      if (user.role === 'admin') return true;
-      if (user.role === 'staff') {
-        const staff = await models.Staff.findOne({ where: { user_id: user.id } });
-        return staff && staff.department === 'content' && staff.rank === 'manager';
-      }
-      return false;
-    })();
+    const staffProfile = user.role === 'staff'
+      ? await models.Staff.findOne({ where: { user_id: user.id } })
+      : null;
+    const doctorProfile = user.role === 'doctor'
+      ? await models.Doctor.findOne({ where: { user_id: user.id } })
+      : null;
 
-    if (!isManager) {
-      //  Staff thường hoặc Doctor: Chỉ thấy bài của mình
-      where.author_id = user.id;
-      console.log(` User ${user.username} chỉ xem bài của mình`);
-    } else {
-      //  Manager Content hoặc Admin: Thấy TẤT CẢ NHƯNG KHÔNG THẤY NHÁP CỦA NGƯỜI KHÁC
+    const articlePerms = Array.isArray(staffProfile?.permissions?.articles)
+      ? staffProfile.permissions.articles
+      : [];
+    const canReviewAllArticles = user.role === 'admin'
+      || (user.role === 'staff' && staffProfile && staffProfile.department === 'content' && staffProfile.rank === 'manager')
+      || articlePerms.includes('approve')
+      || articlePerms.includes('approve_medicine')
+      || articlePerms.includes('approve_disease');
+
+    if (user.role === 'doctor' && doctorProfile) {
+      where[Op.or] = [
+        { author_id: user.id },
+        { medical_reviewer_id: doctorProfile.id }
+      ];
+    } else if (canReviewAllArticles) {
       if (user.role === 'admin') {
-        // Admin: Xem tất cả kể cả nháp
-        console.log(` Admin xem tất cả bài viết (kể cả nháp)`);
+        console.log(' Admin xem tất cả bài viết (kể cả nháp)');
       } else {
-        // Manager Content: Xem tất cả TRỪĐỀ nháp của người khác
-        console.log(` Manager Content xem tất cả bài viết (trừ nháp người khác)`);
+        console.log(' Staff có quyền duyệt xem tất cả bài viết (trừ nháp người khác)');
         where[Op.or] = [
-          { status: { [Op.ne]: 'draft' } }, // Tất cả bài không phải nháp
-          { [Op.and]: [{ status: 'draft' }, { author_id: user.id }] } // Hoặc nháp của mình
+          { status: { [Op.ne]: 'draft' } },
+          { [Op.and]: [{ status: 'draft' }, { author_id: user.id }] }
         ];
       }
+    } else {
+      where.author_id = user.id;
+      console.log(` User ${user.username} chỉ xem bài của mình`);
     }
 
     // Bộ lọc tìm kiếm
@@ -744,12 +785,12 @@ exports.getArticles = async (req, res) => {
 
     // Tính stats cho từng trạng thái
     let statsWhere = {};
-    
+
     if (user.role === 'admin') {
       // Admin: Đếm tất cả (kể cả nháp)
       statsWhere = {};
-    } else if (isManager) {
-      // Manager Content: Đếm tất cả TRỪĐỀ nháp của người khác
+    } else if (canReviewAllArticles) {
+      // Manager Content / staff có quyền duyệt: đếm tất cả trừ nháp của người khác
       statsWhere = {
         [Op.or]: [
           { status: { [Op.ne]: 'draft' } },
@@ -757,7 +798,7 @@ exports.getArticles = async (req, res) => {
         ]
       };
     } else {
-      // Staff thường: Chỉ đếm bài của mình
+      // Staff thường / doctor: Chỉ đếm bài của mình
       statsWhere = { author_id: user.id };
     }
 
@@ -766,20 +807,46 @@ exports.getArticles = async (req, res) => {
       attributes: ['status']
     });
 
+    const reportCounts = await Interaction.findAll({
+      where: {
+        entity_type: 'article',
+        entity_id: { [Op.in]: rows.map(row => row.id) },
+        interaction_type: 'report'
+      },
+      attributes: [
+        'entity_id',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      group: ['entity_id']
+    });
+
+    const reportCountMap = new Map(
+      reportCounts.map(item => [String(item.entity_id), Number(item.getDataValue('count') || 0)])
+    );
+
+    const articlesWithEntityAndReports = articlesWithEntity.map(article => ({
+      ...article,
+      report_count: reportCountMap.get(String(article.id)) || 0
+    }));
+
     const stats = {
       total: allArticles.length,
       draft: allArticles.filter(a => a.status === 'draft').length,
       pending: allArticles.filter(a => a.status === 'pending').length,
+      pending_medical: allArticles.filter(a => a.status === 'pending_medical').length,
       approved: allArticles.filter(a => a.status === 'approved').length,
       rejected: allArticles.filter(a => a.status === 'rejected').length,
       hidden: allArticles.filter(a => a.status === 'hidden').length,
       request_edit: allArticles.filter(a => a.status === 'request_edit').length,
-      request_rewrite: allArticles.filter(a => a.status === 'request_rewrite').length
+      request_rewrite: allArticles.filter(a => a.status === 'request_rewrite').length,
+      reports: reportCounts.reduce((sum, item) => sum + Number(item.getDataValue('count') || 0), 0)
     };
+
+    stats.action_required = stats.pending + stats.pending_medical + stats.request_edit + stats.request_rewrite + stats.hidden + stats.reports;
 
     res.json({
       success: true,
-      articles: articlesWithEntity,
+      articles: articlesWithEntityAndReports,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(count / limit),
@@ -1203,6 +1270,7 @@ exports.reviewArticle = async (req, res) => {
   try {
     const { id } = req.params;
     const { action, admin_note } = req.body; // action: 'approve' | 'reject' | 'request_rewrite'
+    const articleUrl = `/phe-duyet-bai-viet/${id}`;
 
     const article = await Article.findByPk(id);
     if (!article) return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
@@ -1253,6 +1321,37 @@ exports.reviewArticle = async (req, res) => {
       new_status,
       admin_note: admin_note || (req.user.role === 'doctor' && action === 'approve' ? 'Bác sĩ đã xác nhận chuyên môn' : null)
     }, { transaction: t });
+
+    if (action === 'approve') {
+      if (req.user.role === 'doctor') {
+        await notifyArticleWorkflowUsers(
+          'article',
+          `Bài viết "${article.title}" đã được bác sĩ xác nhận chuyên môn và đang chờ duyệt xuất bản.`,
+          articleUrl
+        );
+      } else {
+        await createNotification(
+          article.author_id,
+          'article',
+          `Bài viết "${article.title}" đã được phê duyệt và xuất bản.`,
+          articleUrl
+        );
+      }
+    } else if (action === 'reject') {
+      await createNotification(
+        article.author_id,
+        'article',
+        `Bài viết "${article.title}" đã bị từ chối.`,
+        articleUrl
+      );
+    } else if (action === 'request_rewrite') {
+      await createNotification(
+        article.author_id,
+        'article',
+        `Bài viết "${article.title}" cần viết lại theo yêu cầu của người duyệt.`,
+        articleUrl
+      );
+    }
 
     await t.commit();
     res.json({ success: true, message: 'Đã lưu kết quả phê duyệt thành công', new_status });
@@ -2161,18 +2260,11 @@ exports.requestEdit = async (req, res) => {
     // Cập nhật trạng thái
     await article.update({ status: 'request_edit' }, { transaction: t });
 
-    // Tạo thông báo cho admin
-    const admins = await User.findAll({ where: { role: 'admin' } });
-    for (const admin of admins) {
-      await Notification.create({
-        user_id: admin.id,
-        type: 'article_request_edit',
-        title: 'Yêu cầu chỉnh sửa bài viết',
-        message: `${user.full_name} yêu cầu chỉnh sửa bài viết "${article.title}"`,
-        reference_type: 'article',
-        reference_id: article.id
-      }, { transaction: t });
-    }
+    await notifyArticleWorkflowUsers(
+      'article',
+      `${user.full_name} yêu cầu chỉnh sửa bài viết "${article.title}"`,
+      `/phe-duyet-bai-viet/${article.id}`
+    );
 
     await t.commit();
     res.json({ success: true, message: 'Đã gửi yêu cầu chỉnh sửa' });
@@ -2226,14 +2318,12 @@ exports.approveEditRequest = async (req, res) => {
     }, { transaction: t });
 
     // Thông báo cho tác giả
-    await Notification.create({
-      user_id: article.author_id,
-      type: 'article_edit_approved',
-      title: 'Yêu cầu chỉnh sửa được chấp nhận',
-      message: `Admin ${user.full_name} đã đồng ý cho bạn chỉnh sửa bài viết "${article.title}"`,
-      reference_type: 'article',
-      reference_id: article.id
-    }, { transaction: t });
+    await createNotification(
+      article.author_id,
+      'article',
+      `Admin ${user.full_name} đã đồng ý cho bạn chỉnh sửa bài viết "${article.title}"`,
+      `/articles/review/${article.id}`
+    );
 
     await t.commit();
     res.json({ success: true, message: 'Đã cho phép tác giả chỉnh sửa' });
@@ -2288,14 +2378,12 @@ exports.rejectEditRequest = async (req, res) => {
     }, { transaction: t });
 
     // Thông báo cho tác giả
-    await Notification.create({
-      user_id: article.author_id,
-      type: 'article_edit_rejected',
-      title: 'Yêu cầu chỉnh sửa bị từ chối',
-      message: `Admin ${user.full_name} đã từ chối yêu cầu chỉnh sửa bài viết "${article.title}". Lý do: ${reason || 'Không có lý do'}`,
-      reference_type: 'article',
-      reference_id: article.id
-    }, { transaction: t });
+    await createNotification(
+      article.author_id,
+      'article',
+      `Admin ${user.full_name} đã từ chối yêu cầu chỉnh sửa bài viết "${article.title}". Lý do: ${reason || 'Không có lý do'}`,
+      `/articles/review/${article.id}`
+    );
 
     await t.commit();
     res.json({ success: true, message: 'Đã từ chối yêu cầu chỉnh sửa' });
@@ -2349,14 +2437,12 @@ exports.requestRewrite = async (req, res) => {
     }, { transaction: t });
 
     // Thông báo cho tác giả
-    await Notification.create({
-      user_id: article.author_id,
-      type: 'article_rewrite_requested',
-      title: 'Yêu cầu viết lại bài viết',
-      message: `Admin ${user.full_name} yêu cầu bạn viết lại bài viết "${article.title}"`,
-      reference_type: 'article',
-      reference_id: article.id
-    }, { transaction: t });
+    await createNotification(
+      article.author_id,
+      'article',
+      `Admin ${user.full_name} yêu cầu bạn viết lại bài viết "${article.title}"`,
+      `/articles/review/${article.id}`
+    );
 
     await t.commit();
     res.json({ success: true, message: 'Đã gửi yêu cầu viết lại' });
