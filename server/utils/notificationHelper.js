@@ -15,7 +15,7 @@ const createNotification = async ({ user_id, type, title, message, link, data })
       user_id,
       type,
       title: title || 'Thông báo',
-      content: message, // Sửa 'message' thành 'content' để khớp với model
+      message, // Đúng với model và frontend
       link: link || null,
       data: data || null,
       is_read: false,

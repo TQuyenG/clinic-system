@@ -4,11 +4,11 @@
 const jwt = require('jsonwebtoken');
 const { models } = require('../config/db');
 
-// ✅ LỚP 1: USER CACHE - Cache user data
+//  LỚP 1: USER CACHE - Cache user data
 const userCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 phút
 
-// ✅ LỚP 2: IN-FLIGHT REQUEST CACHE - Tránh query trùng lặp
+//  LỚP 2: IN-FLIGHT REQUEST CACHE - Tránh query trùng lặp
 const inflightRequests = new Map();
 
 /**
@@ -23,7 +23,7 @@ const getUserById = async (userId) => {
     return cached.user;
   }
 
-  // ✅ Kiểm tra có request đang chờ không (request deduplication)
+  //  Kiểm tra có request đang chờ không (request deduplication)
   if (inflightRequests.has(userId)) {
     // Đợi request hiện tại hoàn thành
     return await inflightRequests.get(userId);
@@ -165,7 +165,7 @@ const authenticateToken = async (req, res, next) => {
       throw err;
     }
 
-    // ✅ Lấy user từ cache với request deduplication
+    //  Lấy user từ cache với request deduplication
     const user = await getUserById(decoded.id);
     
     if (!user) {
@@ -209,6 +209,50 @@ const authenticateToken = async (req, res, next) => {
       message: 'Lỗi xác thực', 
       error: error.message 
     });
+  }
+};
+
+/**
+ * Middleware xác thực "Mềm" (Optional)
+ * CẬP NHẬT: Cho phép khách vãng lai đi tiếp mà không ném lỗi 401
+ */
+const authenticateTokenOptional = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      req.user = null; // Khách vãng lai
+      return next();
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      req.user = null; // Token lỗi coi như khách vãng lai
+      return next();
+    }
+
+    const user = await getUserById(decoded.id);
+    
+    if (user) {
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        full_name: user.full_name,
+        is_active: user.is_active,
+        is_verified: user.is_verified
+      };
+    } else {
+      req.user = null;
+    }
+
+    next();
+  } catch (error) {
+    req.user = null;
+    next();
   }
 };
 
@@ -282,7 +326,7 @@ const checkOwnership = (req, res, next) => {
   next();
 };
 
-// ✅ Dọn dẹp cache định kỳ (mỗi 10 phút)
+//  Dọn dẹp cache định kỳ (mỗi 10 phút)
 setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
@@ -302,6 +346,7 @@ setInterval(() => {
 module.exports = {
   authenticateToken,
   authenticateTokenBasic,
+  authenticateTokenOptional, //  XUẤT HÀM NÀY ĐỂ ROUTE SỬ DỤNG
   authMiddleware: authenticateToken,
   authorize,
   checkOwnership,

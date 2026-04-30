@@ -46,6 +46,11 @@ module.exports = (sequelize) => {
       defaultValue: [],
       comment: 'Mảng ID user đã thả tim: [1, 2, 3]'
     },
+    saved_by: { //  ĐÃ THÊM CỘT LƯU BÀI VIẾT VÀO ĐÂY
+      type: DataTypes.JSON,
+      defaultValue: [],
+      comment: 'Mảng ID user đã lưu bài viết: [1, 2, 3]'
+    },
     comments_data: {
       type: DataTypes.JSON,
       defaultValue: [],

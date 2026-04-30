@@ -15,7 +15,7 @@ import {
   FaInfoCircle, FaTimesCircle, FaBrain, FaDumbbell, FaStethoscope,
   FaAppleAlt, FaLeaf, FaRunning, FaTooth, FaBaby, FaVial, FaPills,
   FaShieldAlt, FaFilter, FaChevronDown, FaImage, FaPaperclip, FaUserSecret,
-  FaClipboardCheck
+  FaClipboardCheck, FaCrown
 } from 'react-icons/fa';
 
 const GROUP_ICONS_MAP = {
@@ -48,7 +48,7 @@ const CustomAlert = ({ type = 'info', title = '', message = '', show = false, on
   };
 
   return (
-    <div className="forumpage-alert-overlay" onClick={onClose}>
+    <div className="forumpage-alert-overlay" onClick={onClose} style={{ zIndex: 99999 }}>
       <div className={`forumpage-alert forumpage-alert--${type}`} onClick={(e) => e.stopPropagation()}>
         <button className="forumpage-alert-close" onClick={onClose} aria-label="Đóng"><FaTimes /></button>
         <div className="forumpage-alert-header">
@@ -65,7 +65,7 @@ const CustomAlert = ({ type = 'info', title = '', message = '', show = false, on
 };
 
 // ==========================================
-// COMPONENT: ForumBanner (không có nút Đăng câu hỏi)
+// COMPONENT: ForumBanner
 // ==========================================
 const ForumBanner = () => {
   const [overview, setOverview] = useState({ totalQuestions: 0, totalAnswers: 0, topicCount: 0 });
@@ -75,9 +75,7 @@ const ForumBanner = () => {
       try {
         const res = await api.get('/forum/stats/overview');
         if (res.data && res.data.data) setOverview(res.data.data);
-      } catch (error) {
-        setOverview({ totalQuestions: 0, totalAnswers: 0, topicCount: 0 });
-      }
+      } catch (error) {}
     };
     fetchOverview();
   }, []);
@@ -132,7 +130,7 @@ const ForumBanner = () => {
 };
 
 // ==========================================
-// COMPONENT: FilterBar (responsive, có menu ẩn trên mobile)
+// COMPONENT: FilterBar
 // ==========================================
 const FilterBar = ({
   searchTerm, setSearchTerm, handleSearch,
@@ -175,10 +173,7 @@ const FilterBar = ({
       {/* Desktop selects */}
       <div className="forumpage-filterbar-selects">
         <div className="forumpage-filterbar-select-wrap">
-          <select
-            value={selectedTopic}
-            onChange={(e) => { setSelectedTopic(e.target.value); }}
-          >
+          <select value={selectedTopic} onChange={(e) => { setSelectedTopic(e.target.value); }}>
             <option value="">Tất cả chủ đề</option>
             {topics.map((topic) => (
               <option key={topic.id} value={topic.id}>{topic.title}</option>
@@ -188,10 +183,7 @@ const FilterBar = ({
         </div>
 
         <div className="forumpage-filterbar-select-wrap">
-          <select
-            value={selectedSpecialty}
-            onChange={(e) => { setSelectedSpecialty(e.target.value); }}
-          >
+          <select value={selectedSpecialty} onChange={(e) => { setSelectedSpecialty(e.target.value); }}>
             <option value="">Tất cả chuyên khoa</option>
             {specialties.map((specialty) => (
               <option key={specialty.id} value={specialty.id}>{specialty.name}</option>
@@ -294,7 +286,6 @@ const AskQuestionModal = ({
 }) => {
   if (!show) return null;
 
-  // Upload ảnh theo pattern ServiceManagementPage (fetch + token, nhận data.url)
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -307,10 +298,7 @@ const AskQuestionModal = ({
       const uploadedUrls = [];
       const newPreviews = [];
       for (const file of files) {
-        // Hiện preview tạm ngay lập tức
-        const localUrl = URL.createObjectURL(file);
-        newPreviews.push(localUrl);
-
+        newPreviews.push(URL.createObjectURL(file));
         const formData = new FormData();
         formData.append('image', file);
         const response = await fetch('http://localhost:3001/api/upload/image', {
@@ -318,10 +306,8 @@ const AskQuestionModal = ({
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
           body: formData,
         });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (data.success) {
-          // Ưu tiên data.url, fallback data.imageUrl
           uploadedUrls.push(data.url || data.imageUrl);
         }
       }
@@ -359,7 +345,6 @@ const AskQuestionModal = ({
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
           body: formData,
         });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (data.success && (data.url || data.imageUrl)) {
           uploadedUrls.push(data.url || data.imageUrl);
@@ -384,15 +369,15 @@ const AskQuestionModal = ({
   const selectedTopicObj = topics.find(t => String(t.id) === String(questionForm.topicId));
 
   return (
-    <div className="forumpage-modal-overlay" onClick={onClose}>
+    <div className="forumpage-modal-overlay" onClick={onClose} style={{ zIndex: 1000 }}>
       <div className="forumpage-modal forumpage-modal--ask" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="forumpage-modal__header">
           <div className="forumpage-modal__header-info">
             <FaQuestionCircle className="forumpage-modal__header-icon" />
             <div>
-              <h2 className="forumpage-modal__title">Đặt câu hỏi mới</h2>
-              <p className="forumpage-modal__subtitle">Câu hỏi sẽ được kiểm duyệt trước khi đăng lên cộng đồng</p>
+              <h2 className="forumpage-modal__title">Đặt câu hỏi y khoa</h2>
+              <p className="forumpage-modal__subtitle">Câu hỏi sẽ được kiểm duyệt trước khi hiển thị</p>
             </div>
           </div>
           <button className="forumpage-modal__close" onClick={onClose}><FaTimes /></button>
@@ -619,19 +604,236 @@ const AskQuestionModal = ({
 };
 
 // ==========================================
+// COMPONENT: CreateGroupModal (Form tạo nhóm Popup)
+// ==========================================
+const CreateGroupModal = ({ onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    name: '', description: '', privacy: 'public', specialty_id: '',
+    doctor_id: '', requires_post_approval: true, icon: 'FaUsers',
+    avatar_image: '', cover_image: ''
+  });
+  
+  const [specialties, setSpecialties] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchSpecialties = async () => {
+      try {
+        const response = await api.get('/specialties');
+        setSpecialties(response.data.specialties || response.data.data || []);
+      } catch (err) { }
+    };
+    fetchSpecialties();
+  }, []);
+
+  useEffect(() => {
+    if (!formData.specialty_id) {
+      setDoctors([]);
+      return;
+    }
+    const fetchDoctorsBySpecialty = async () => {
+      try {
+        const response = await api.get(`/users/doctors?status=active&specialty_id=${formData.specialty_id}`);
+        setDoctors(response.data.doctors || response.data.data || []);
+        setFormData(prev => ({ ...prev, doctor_id: '' }));
+      } catch (err) { setDoctors([]); }
+    };
+    fetchDoctorsBySpecialty();
+  }, [formData.specialty_id]);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleGroupImageUpload = async (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formUpload = new FormData();
+      formUpload.append('image', file);
+      const res = await api.post('/upload/image', formUpload, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (res.data.success) {
+        const url = res.data.url || res.data.imageUrl;
+        setFormData(prev => ({ ...prev, [type]: url }));
+      }
+    } catch (error) {
+      setError('Không thể upload ảnh, vui lòng thử lại!');
+    } finally { setUploading(false); }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!formData.name.trim()) { setError('Vui lòng nhập tên nhóm'); return; }
+
+    setLoading(true);
+    try {
+      const payload = {
+        name: formData.name, description: formData.description, privacy: formData.privacy,
+        doctor_id: formData.doctor_id ? parseInt(formData.doctor_id) : null,
+        requires_post_approval: formData.requires_post_approval,
+        icon: formData.icon, avatar_image: formData.avatar_image, cover_image: formData.cover_image
+      };
+      const res = await communityService.createGroup(payload);
+      onSuccess();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Lỗi tạo nhóm');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="forumpage-modal-overlay" onClick={onClose} style={{ zIndex: 2000 }}>
+      <div className="forumpage-modal forumpage-modal--ask" onClick={(e) => e.stopPropagation()}>
+        <div className="forumpage-modal__header">
+          <div className="forumpage-modal__header-info">
+            <FaUsers className="forumpage-modal__header-icon" />
+            <div>
+              <h2 className="forumpage-modal__title">Tạo Nhóm Cộng Đồng</h2>
+            </div>
+          </div>
+          <button className="forumpage-modal__close" onClick={onClose} disabled={loading || uploading}><FaTimes /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="forumpage-modal__form">
+          {error && <div className="forumpage-modal-error">{error}</div>}
+
+          <div className="forumpage-form-section">
+            <div className="forumpage-form-row">
+              <div className="forumpage-form-group">
+                <label>Tên Nhóm <span className="forumpage-required">*</span></label>
+                <input type="text" name="name" placeholder="Ví dụ: Nhóm Hỗ Trợ Đái Tháo Đường" value={formData.name} onChange={handleChange} maxLength="255" required />
+              </div>
+            </div>
+            <div className="forumpage-form-group">
+              <label>Mô Tả Nhóm</label>
+              <textarea name="description" rows="2" placeholder="Mục đích và đối tượng..." value={formData.description} onChange={handleChange} />
+            </div>
+          </div>
+
+          <div className="forumpage-form-section">
+            <div className="forumpage-upload-row">
+              <div className="forumpage-form-group">
+                <label>Icon / Ảnh đại diện</label>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', flex: 1 }}>
+                     {Object.keys(GROUP_ICONS_MAP).map(icKey => (
+                        <button type="button" key={icKey} onClick={() => setFormData(prev => ({ ...prev, icon: icKey }))}
+                          style={{ padding: '6px', borderRadius: '8px', border: formData.icon === icKey ? '2px solid #4CAF50' : '1px solid #ddd', background: formData.icon === icKey ? '#e8f5e9' : '#fff', cursor: 'pointer' }}>
+                          {GROUP_ICONS_MAP[icKey]}
+                        </button>
+                     ))}
+                   </div>
+                   <div style={{ textAlign: 'center' }}>
+                      <input type="file" id="group-avatar-file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleGroupImageUpload(e, 'avatar_image')} disabled={uploading} />
+                      <label htmlFor="group-avatar-file" style={{ display: 'inline-flex', width: '60px', height: '60px', borderRadius: '50%', border: '2px dashed #4CAF50', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', background: '#f1f8f4', overflow: 'hidden' }}>
+                         {formData.avatar_image ? <img src={formData.avatar_image.startsWith('http') ? formData.avatar_image : `http://localhost:3001${formData.avatar_image}`} alt="" style={{width: '100%', height:'100%', objectFit:'cover'}} /> : GROUP_ICONS_MAP[formData.icon] || <FaUsers size={24} color="#4CAF50"/>}
+                      </label>
+                   </div>
+                </div>
+              </div>
+
+              <div className="forumpage-form-group">
+                <label>Ảnh bìa nhóm</label>
+                <input type="file" id="group-cover-file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleGroupImageUpload(e, 'cover_image')} disabled={uploading} />
+                <label htmlFor="group-cover-file" style={{ display: 'flex', height: '100px', borderRadius: '10px', border: '2px dashed #4CAF50', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', background: formData.cover_image ? `url(${formData.cover_image.startsWith('http') ? formData.cover_image : `http://localhost:3001${formData.cover_image}`}) center/cover` : '#f1f8f4', color: '#4CAF50' }}>
+                   {!formData.cover_image && <span>{uploading ? 'Đang tải...' : 'Bấm chọn ảnh'}</span>}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="forumpage-form-section">
+             <div className="forumpage-form-row">
+               <div className="forumpage-form-group">
+                  <label>Lọc bác sĩ theo chuyên khoa</label>
+                  <div className="forumpage-filterbar-select-wrap">
+                    <select name="specialty_id" value={formData.specialty_id} onChange={handleChange}>
+                      <option value="">-- Không bắt buộc --</option>
+                      {specialties.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <FaChevronDown className="forumpage-select-arrow" />
+                  </div>
+               </div>
+               <div className="forumpage-form-group">
+                  <label>Bác sĩ phụ trách</label>
+                  <div className="forumpage-filterbar-select-wrap">
+                    <select name="doctor_id" value={formData.doctor_id} onChange={handleChange}>
+                      <option value="">-- Không có (Nhóm cộng đồng) --</option>
+                      {doctors.map(d => <option key={d.id} value={d.id}>BS. {d.user?.full_name}</option>)}
+                    </select>
+                    <FaChevronDown className="forumpage-select-arrow" />
+                  </div>
+               </div>
+             </div>
+          </div>
+          
+          <div className="forumpage-form-section">
+             <div className="forumpage-form-row">
+                <div className="forumpage-form-group">
+                  <label>Quyền riêng tư</label>
+                  <div className="forumpage-filterbar-select-wrap">
+                    <select name="privacy" value={formData.privacy} onChange={handleChange}>
+                      <option value="public">Công khai</option>
+                      <option value="private">Riêng tư</option>
+                      <option value="invite_only">Chỉ mời</option>
+                    </select>
+                    <FaChevronDown className="forumpage-select-arrow" />
+                  </div>
+                </div>
+                <div className="forumpage-form-group" style={{justifyContent: 'center'}}>
+                  <label className="forumpage-anonymous-toggle" style={{marginTop: '10px'}}>
+                    <input type="checkbox" name="requires_post_approval" checked={formData.requires_post_approval} onChange={handleChange} />
+                    <span className="forumpage-anonymous-label">Duyệt bài đăng trước khi hiển thị</span>
+                  </label>
+                </div>
+             </div>
+          </div>
+
+          <div className="forumpage-modal__actions">
+            <button type="button" className="forumpage-btn-muted" onClick={onClose} disabled={loading || uploading}>Hủy</button>
+            <button type="submit" className="forumpage-btn-primary" disabled={loading || uploading}>
+              {loading ? 'Đang tạo...' : 'Tạo Nhóm'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
 // COMPONENT: ForumPage (Chính)
 // ==========================================
 const ForumPage = () => {
   const authContext = useContext(AuthContext);
-  const storedUser = (() => {
-    try { const raw = localStorage.getItem('user'); return raw ? JSON.parse(raw) : null; }
-    catch (err) { return null; }
-  })();
-  const user = authContext?.user || storedUser;
-  const userRole = typeof user?.role === 'object' ? user?.role?.name?.toLowerCase() : user?.role?.toLowerCase();
-  const canCreateGroup = user && userRole && ['doctor', 'staff', 'admin'].includes(userRole);
+  const user = authContext?.user || null;
   const navigate = useNavigate();
   const location = useLocation();
+
+  // ĐỒNG BỘ ACTIVE TAB VỚI URL ROUTER
+  const currentPath = location.pathname;
+  let initialTab = 'forum';
+  if (currentPath.includes('/cong-dong/cua-toi')) initialTab = 'my_groups';
+  else if (currentPath.includes('/cong-dong')) initialTab = 'community';
+  
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    if (currentPath.includes('/cong-dong/cua-toi')) setActiveTab('my_groups');
+    else if (currentPath.includes('/cong-dong')) setActiveTab('community');
+    else setActiveTab('forum');
+  }, [currentPath]);
+
+  const handleTabChange = (tabName) => {
+    if (tabName === 'forum') navigate('/dien-dan-suc-khoe');
+    else if (tabName === 'community') navigate('/cong-dong');
+    else if (tabName === 'my_groups') navigate('/cong-dong/cua-toi');
+  };
 
   useEffect(() => {
     if (location.state?.openAskModal) {
@@ -640,41 +842,19 @@ const ForumPage = () => {
     }
   }, [location.state]);
 
-  const [activeTab, setActiveTab] = useState('forum');
   const [groups, setGroups] = useState([]);
-  const [myGroups, setMyGroups] = useState([]);
+  const [myCreatedGroups, setMyCreatedGroups] = useState([]);
+  const [myJoinedGroups, setMyJoinedGroups] = useState([]);
+
   const [groupSearch, setGroupSearch] = useState('');
   const [groupLoading, setGroupLoading] = useState(false);
   const [membershipMap, setMembershipMap] = useState({});
   const [groupFilter, setGroupFilter] = useState('all');
+  
+  // STATE MỞ MODAL & POPUP
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
-  const [availableDoctors, setAvailableDoctors] = useState([]);
-  const [groupSpecialties, setGroupSpecialties] = useState([]);
-  const [createGroupForm, setCreateGroupForm] = useState({
-    name: '', description: '', privacy: 'public',
-    specialty_id: '', doctor_id: '', icon: 'FaUsers', requires_post_approval: true,
-    avatar: '', cover_image: ''
-  });
-  const [createGroupError, setCreateGroupError] = useState('');
-  const [createGroupSubmitting, setCreateGroupSubmitting] = useState(false);
-  const [groupUploading, setGroupUploading] = useState(false);
-
-  const handleGroupImageUpload = async (e, type) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setGroupUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const res = await api.post('/upload/image', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      if (res.data.success) {
-        const url = res.data.url || res.data.imageUrl;
-        setCreateGroupForm(prev => ({ ...prev, [type]: url }));
-      }
-    } catch (error) {
-      setAlert({ show: true, type: 'error', title: 'Lỗi', message: 'Không thể upload ảnh, thử lại nhé!' });
-    } finally { setGroupUploading(false); }
-  };
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [groupSettings, setGroupSettings] = useState({ allowUserCreateGroup: true });
 
   const [questions, setQuestions] = useState([]);
   const [specialties, setSpecialties] = useState([]);
@@ -702,8 +882,6 @@ const ForumPage = () => {
   const [previewFiles, setPreviewFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [previewImages, setPreviewImages] = useState([]);
-
-  // Tags từ database: lấy từ questions đã load (20 tags gần nhất)
   const [recentTags, setRecentTags] = useState([]);
   const [formTags, setFormTags] = useState([]);
 
@@ -712,7 +890,7 @@ const ForumPage = () => {
     const body = document.body;
     const html = document.documentElement;
     const originalOverflow = body.style.overflow;
-    if (showAskModal) {
+    if (showAskModal || showCreateGroupModal || showSuccessPopup) {
       body.style.overflow = 'hidden';
       body.classList.add('forumpage-modal-open');
       if (html) html.classList.add('forumpage-modal-open');
@@ -726,7 +904,7 @@ const ForumPage = () => {
       body.classList.remove('forumpage-modal-open');
       if (html) html.classList.remove('forumpage-modal-open');
     };
-  }, [showAskModal]);
+  }, [showAskModal, showCreateGroupModal, showSuccessPopup]);
 
   const selectedSpecialtyName = useMemo(() => {
     if (!selectedSpecialty) return '';
@@ -734,7 +912,6 @@ const ForumPage = () => {
     return specialty ? specialty.name : '';
   }, [selectedSpecialty, specialties]);
 
-  // Lấy tags từ questions hiện tại (20 tags gần nhất, không hardcode)
   const extractTagsFromQuestions = useCallback((questionList) => {
     const tagMap = new Map();
     questionList.forEach(q => {
@@ -744,7 +921,6 @@ const ForumPage = () => {
         if (t) tagMap.set(t, (tagMap.get(t) || 0) + 1);
       });
     });
-    // Sắp xếp theo tần suất, lấy 20 tags
     return Array.from(tagMap.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 20)
@@ -769,7 +945,6 @@ const ForumPage = () => {
       if (payload.success) {
         const qs = payload.data?.questions || [];
         setQuestions(qs);
-        // Cập nhật tags từ câu hỏi thực tế
         const extracted = extractTagsFromQuestions(qs);
         if (extracted.length > 0) {
           setRecentTags(extracted);
@@ -786,7 +961,6 @@ const ForumPage = () => {
     }
   }, [currentPage, activeSearchTerm, selectedSpecialty, selectedTags, extractTagsFromQuestions]);
 
-  // Fetch tags gần nhất riêng (lấy nhiều hơn để có đủ tags cho bộ lọc)
   const fetchRecentTags = useCallback(async () => {
     try {
       const payload = await forumService.getPublicQuestions({ page: 1, limit: 50 });
@@ -798,17 +972,14 @@ const ForumPage = () => {
           setFormTags(extracted);
         }
       }
-    } catch (error) {
-      console.error('Error fetching recent tags:', error);
-    }
+    } catch (error) {}
   }, [extractTagsFromQuestions]);
 
   const fetchSpecialties = useCallback(async () => {
     try {
       const response = await api.get('/specialties');
       if (response.data.success) {
-        const fetched = response.data.specialties || [];
-        setSpecialties(fetched);
+        setSpecialties(response.data.specialties || []);
       }
     } catch (error) {}
   }, []);
@@ -826,81 +997,59 @@ const ForumPage = () => {
     fetchRecentTags();
   }, [fetchSpecialties, fetchTopics, fetchRecentTags]);
 
+  // Lấy cài đặt hệ thống (Quyền tạo nhóm)
   useEffect(() => {
-    if (activeTab !== 'community' && activeTab !== 'my_groups') return;
-    const fetchGroups = async () => {
-      setGroupLoading(true);
+    const fetchSettings = async () => {
       try {
-        const params = { limit: 20, page: 1 };
-        if (groupSearch) params.search = groupSearch;
-        if (groupFilter !== 'all') params.type = groupFilter;
-        const res = await communityService.getGroups(params);
-        const list = res?.data?.data?.groups || res?.data?.groups || [];
-        setGroups(list);
-        if (user) {
-          const map = {};
-          list.forEach(g => { if (g.members?.some(m => m.user_id === user.id)) map[g.id] = true; });
-          setMembershipMap(map);
-        }
-      } catch (e) {} finally { setGroupLoading(false); }
+        const res = await communityService.getGroupSettings();
+        if(res.data.success) setGroupSettings(res.data.data);
+      } catch (err) {}
     };
-    fetchGroups();
-  }, [activeTab, groupSearch, groupFilter, user]);
+    fetchSettings();
+  }, []);
 
-  // Fetch specialties khi modal tạo nhóm mở
+  const fetchGroupsData = useCallback(async () => {
+    setGroupLoading(true);
+    try {
+      const params = { limit: 20, page: 1 };
+      if (groupSearch) params.search = groupSearch;
+      if (groupFilter !== 'all') params.type = groupFilter;
+      const res = await communityService.getGroups(params);
+      const list = res?.data?.data?.groups || res?.data?.groups || [];
+      setGroups(list);
+      if (user) {
+        const map = {};
+        list.forEach(g => { if (g.members?.some(m => m.user_id === user.id)) map[g.id] = true; });
+        setMembershipMap(map);
+      }
+    } catch (e) {} finally { setGroupLoading(false); }
+  }, [groupSearch, groupFilter, user]);
+
   useEffect(() => {
-    if (!showCreateGroupModal) return;
-    const fetchSpecialties = async () => {
-      try {
-        const res = await api.get('/specialties');
-        const specs = res.data?.data || res.data?.specialties || [];
-        setGroupSpecialties(specs);
-      } catch (err) { setGroupSpecialties([]); }
-    };
-    fetchSpecialties();
-  }, [showCreateGroupModal]);
+    if (activeTab === 'community') fetchGroupsData();
+  }, [activeTab, fetchGroupsData]);
 
-  // Fetch doctors khi specialty_id thay đổi
-  useEffect(() => {
-    if (!createGroupForm.specialty_id) {
-      setAvailableDoctors([]);
-      return;
-    }
-    const fetchDoctorsBySpecialty = async () => {
-      try {
-        const res = await api.get('/users/doctors', { params: { limit: 100, status: 'active', specialty_id: createGroupForm.specialty_id } });
-        let docs = [];
-        if (Array.isArray(res.data)) docs = res.data;
-        else if (Array.isArray(res.data?.data)) docs = res.data.data;
-        else if (Array.isArray(res.data?.data?.doctors)) docs = res.data.data.doctors;
-        else if (Array.isArray(res.data?.doctors)) docs = res.data.doctors;
-        setAvailableDoctors(docs);
-        // Reset doctor_id khi thay đổi specialty
-        setCreateGroupForm(prev => ({ ...prev, doctor_id: '' }));
-      } catch (err) { setAvailableDoctors([]); }
-    };
-    fetchDoctorsBySpecialty();
-  }, [createGroupForm.specialty_id]);
-
+  // Gọi API lấy nhóm của tôi
   useEffect(() => {
     if (activeTab !== 'my_groups' || !user) return;
     const fetchMyGroups = async () => {
       setGroupLoading(true);
       try {
-        const res = await communityService.getGroups({ limit: 100, page: 1 });
-        const allGroups = res?.data?.data?.groups || res?.data?.groups || [];
-        const map = {};
-        allGroups.forEach(g => { if (g.members?.some(m => m.user_id === user.id)) map[g.id] = true; });
-        setMembershipMap(map);
-        setMyGroups(allGroups.filter(g => map[g.id] === true));
-      } catch (e) { setMyGroups([]); } finally { setGroupLoading(false); }
+        const res = await communityService.getMyGroups();
+        if(res.data.success) {
+          setMyCreatedGroups(res.data.data.createdGroups || []);
+          setMyJoinedGroups(res.data.data.joinedGroups || []);
+        }
+      } catch (e) {} finally { setGroupLoading(false); }
     };
     fetchMyGroups();
   }, [activeTab, user]);
 
   useEffect(() => {
-    fetchQuestions({ page: currentPage, specialty: selectedSpecialty, topic: selectedTopic, search: activeSearchTerm, tags: selectedTags });
-  }, [currentPage, selectedSpecialty, selectedTopic, selectedTags, activeSearchTerm]);
+    if(activeTab === 'forum') {
+      fetchQuestions({ page: currentPage, specialty: selectedSpecialty, topic: selectedTopic, search: activeSearchTerm, tags: selectedTags });
+    }
+  }, [currentPage, selectedSpecialty, selectedTopic, selectedTags, activeSearchTerm, activeTab, fetchQuestions]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -918,7 +1067,6 @@ const ForumPage = () => {
   const toggleFilterTag = (tag) => {
     setSelectedTags((prev) => {
       const newTags = prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag];
-      // Gọi fetchQuestions ngay với newTags (không chờ state update)
       fetchQuestions({ page: 1, search: activeSearchTerm, specialty: selectedSpecialty, topic: selectedTopic, tags: newTags });
       return newTags;
     });
@@ -1042,9 +1190,7 @@ const ForumPage = () => {
           q.id === questionId ? { ...q, likesCount: response.data.data.likesCount, isLiked: response.data.data.liked } : q
         ));
       }
-    } catch (error) {
-      setAlert({ show: true, type: 'error', title: 'Lỗi', message: error.response?.data?.message || 'Không thể thực hiện' });
-    }
+    } catch (error) {}
   };
 
   const handleSaveQuestion = async (questionId, e) => {
@@ -1061,33 +1207,7 @@ const ForumPage = () => {
           q.id === questionId ? { ...q, savesCount: response.data.data.savesCount, isSaved: response.data.data.saved } : q
         ));
       }
-    } catch (error) {
-      setAlert({ show: true, type: 'error', title: 'Lỗi', message: error.response?.data?.message || 'Có lỗi xảy ra' });
-    }
-  };
-
-  const handleCreateGroup = async () => {
-    if (!createGroupForm.name.trim()) return setCreateGroupError('Tên nhóm không được trống');
-    if (!createGroupForm.specialty_id) return setCreateGroupError('Vui lòng chọn chuyên khoa');
-    if (!createGroupForm.doctor_id) return setCreateGroupError('Vui lòng chọn bác sĩ phụ trách');
-    setCreateGroupSubmitting(true); setCreateGroupError('');
-    try {
-      await communityService.createGroup({ 
-        name: createGroupForm.name,
-        description: createGroupForm.description,
-        privacy: createGroupForm.privacy,
-        doctor_id: parseInt(createGroupForm.doctor_id),
-        requires_post_approval: createGroupForm.requires_post_approval,
-        icon: createGroupForm.icon,
-        avatar: createGroupForm.avatar,
-        cover_image: createGroupForm.cover_image
-      });
-      setAlert({ show: true, type: 'success', title: 'Thành công!', message: 'Tạo nhóm thành công! Đang chờ Admin duyệt.' });
-      setShowCreateGroupModal(false);
-      setCreateGroupForm({ name: '', description: '', privacy: 'public', specialty_id: '', doctor_id: '', icon: 'FaUsers', requires_post_approval: true, avatar: '', cover_image: '' });
-    } catch (e) {
-      setCreateGroupError(e?.response?.data?.message || 'Tạo nhóm thất bại');
-    } finally { setCreateGroupSubmitting(false); }
+    } catch (error) {}
   };
 
   const handleJoinGroup = async (group) => {
@@ -1120,26 +1240,34 @@ const ForumPage = () => {
     return date.toLocaleDateString('vi-VN');
   };
 
+  // CHECK QUYỀN TẠO NHÓM
+  const userRole = user?.role?.name?.toLowerCase() || user?.role?.toLowerCase();
+  const isPrivileged = ['admin', 'staff', 'doctor'].includes(userRole);
+  const canCreateGroup = user && (isPrivileged || groupSettings.allowUserCreateGroup);
+
   return (
     <div className="forumpage-root">
+      {/* HEADER BANNER CỐ ĐỊNH */}
       <ForumBanner />
 
-      {/* Tabs */}
+      {/* TABS ĐIỀU HƯỚNG CỐ ĐỊNH (React Router) */}
       <div className="forumpage-main-tabs forumpage-container">
-        <button className={`forumpage-main-tab ${activeTab === 'forum' ? 'active' : ''}`} onClick={() => setActiveTab('forum')}>
+        <button className={`forumpage-main-tab ${activeTab === 'forum' ? 'active' : ''}`} onClick={() => handleTabChange('forum')}>
           <FaComments /> Diễn đàn Q&amp;A
         </button>
-        <button className={`forumpage-main-tab ${activeTab === 'community' ? 'active' : ''}`} onClick={() => setActiveTab('community')}>
+        <button className={`forumpage-main-tab ${activeTab === 'community' ? 'active' : ''}`} onClick={() => handleTabChange('community')}>
           <FaUsers /> Nhóm cộng đồng
         </button>
         {user && (
-          <button className={`forumpage-main-tab ${activeTab === 'my_groups' ? 'active' : ''}`} onClick={() => setActiveTab('my_groups')}>
+          <button className={`forumpage-main-tab ${activeTab === 'my_groups' ? 'active' : ''}`} onClick={() => handleTabChange('my_groups')}>
             <FaUsers /> Nhóm của tôi
           </button>
         )}
       </div>
 
-      {/* TAB: Community */}
+      {/* NỘI DUNG THAY ĐỔI THEO TAB */}
+
+      {/* 1. TAB: NHÓM CỘNG ĐỒNG */}
       {activeTab === 'community' && (
         <div className="forumpage-community-tab forumpage-container">
           <div className="forumpage-community-toolbar">
@@ -1155,16 +1283,17 @@ const ForumPage = () => {
               </button>
             )}
           </div>
-          {groupLoading && <div className="forumpage-panel--loading">Đang tải nhóm...</div>}
-          {!groupLoading && groups.length === 0 && (
-            <div className="forumpage-empty-state"><FaUsers size={48} /><h3>Chưa có nhóm nào</h3><p>Hãy quay lại sau.</p></div>
-          )}
-          {!groupLoading && groups.length > 0 && (
+          
+          {groupLoading ? (
+             <div className="forumpage-panel--loading"><div className="forumpage-spinner"></div>Đang tải nhóm...</div>
+          ) : groups.length === 0 ? (
+            <div className="forumpage-empty-state"><FaUsers size={48} /><h3>Chưa có nhóm nào</h3><p>Hãy là người đầu tiên tạo nhóm.</p></div>
+          ) : (
             <div className="forumpage-groups-grid">
               {groups.map(g => (
                 <div key={g.id} className="forumpage-group-card">
-                  <div className="forumpage-group-cover" style={{ background: g.cover_image ? `url(${g.cover_image}) center/cover` : 'linear-gradient(135deg,#4CAF50,#2E7D32)' }}>
-                    <span className="forumpage-group-icon">{GROUP_ICONS_MAP[g.icon] || <FaUsers />}</span>
+                  <div className="forumpage-group-cover" style={{ background: g.cover_image ? `url(${g.cover_image.startsWith('http') ? g.cover_image : `http://localhost:3001${g.cover_image}`}) center/cover` : 'linear-gradient(135deg,#4CAF50,#2E7D32)' }}>
+                    <span className="forumpage-group-icon">{!g.cover_image && (GROUP_ICONS_MAP[g.icon] || <FaUsers />)}</span>
                     {g.type === 'official' && <span className="forumpage-group-official">✓ Chính thống</span>}
                   </div>
                   <div className="forumpage-group-body">
@@ -1190,92 +1319,104 @@ const ForumPage = () => {
         </div>
       )}
 
-      {/* TAB: My Groups */}
+      {/* 2. TAB: NHÓM CỦA TÔI */}
       {activeTab === 'my_groups' && user && (
         <div className="forumpage-community-tab forumpage-container">
-          {groupLoading && <div className="forumpage-panel--loading">Đang tải...</div>}
-          {!groupLoading && myGroups.length === 0 && (
-            <div className="forumpage-empty-state">
-              <FaUsers size={48} /><h3>Bạn chưa tham gia nhóm nào</h3>
-              <button className="forumpage-btn-outline" onClick={() => setActiveTab('community')}>→ Khám phá nhóm ngay</button>
-            </div>
-          )}
-          {!groupLoading && myGroups.length > 0 && (
-            <div className="forumpage-groups-grid">
-              {myGroups.map(g => (
-                <div key={g.id} className="forumpage-group-card">
-                  <div className="forumpage-group-cover" style={{ background: g.cover_image ? `url(${g.cover_image}) center/cover` : 'linear-gradient(135deg,#4CAF50,#2E7D32)' }}>
-                    <span className="forumpage-group-icon">{GROUP_ICONS_MAP[g.icon] || <FaUsers />}</span>
-                  </div>
-                  <div className="forumpage-group-body">
-                    <h4>{g.name}</h4><p>{g.description || 'Nhóm cộng đồng sức khỏe'}</p>
-                    <div className="forumpage-group-meta"><span><FaUsers /> {g.members_count || 0} thành viên</span></div>
-                    <div className="forumpage-group-actions">
-                      <button className="forumpage-btn-primary" onClick={() => handleViewGroup(g)}>Vào nhóm</button>
+          {groupLoading ? (
+            <div className="forumpage-panel--loading"><div className="forumpage-spinner"></div>Đang tải...</div>
+          ) : (
+            <div className="forumpage-my-groups-wrapper">
+              
+              <h3 style={{ borderBottom: '2px solid #e8f5e9', paddingBottom: '10px', marginBottom: '16px', color: '#2E7D32', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FaCrown /> Nhóm do tôi tạo
+              </h3>
+              {myCreatedGroups.length === 0 ? (
+                <p style={{ color: '#888', marginBottom: '32px' }}>Bạn chưa tạo nhóm nào.</p>
+              ) : (
+                <div className="forumpage-groups-grid" style={{ marginBottom: '40px' }}>
+                  {myCreatedGroups.map(g => (
+                    <div key={g.id} className="forumpage-group-card">
+                      <div className="forumpage-group-cover" style={{ background: g.cover_image ? `url(${g.cover_image.startsWith('http') ? g.cover_image : `http://localhost:3001${g.cover_image}`}) center/cover` : 'linear-gradient(135deg,#4CAF50,#2E7D32)' }}>
+                        <span className="forumpage-group-icon">{!g.cover_image && (GROUP_ICONS_MAP[g.icon] || <FaUsers />)}</span>
+                      </div>
+                      <div className="forumpage-group-body">
+                        <h4>{g.name}</h4>
+                        {/* Trạng thái duyệt */}
+                        <div style={{ margin: '6px 0' }}>
+                          {g.status === 'active' && <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>✓ Đang hoạt động</span>}
+                          {g.status === 'pending' && <span style={{ background: '#fff8e1', color: '#f57c00', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>Đang chờ duyệt</span>}
+                          {(g.status === 'suspended' || g.status === 'rejected') && <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>❌ Bị từ chối/Đình chỉ</span>}
+                        </div>
+                        {g.rejection_reason && <p style={{ color: '#c62828', fontSize: '12px', margin: '4px 0 0' }}>Lý do: {g.rejection_reason}</p>}
+                        
+                        <div className="forumpage-group-actions" style={{ marginTop: 'auto', paddingTop: '10px' }}>
+                           {g.status === 'active' ? (
+                             <button className="forumpage-btn-primary" style={{ width: '100%' }} onClick={() => navigate(`/cong-dong/nhom/${g.slug}`)}>Quản lý nhóm</button>
+                           ) : (
+                             <button className="forumpage-btn-muted" disabled style={{ width: '100%' }}>Chưa thể truy cập</button>
+                           )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              <h3 style={{ borderBottom: '2px solid #e8f5e9', paddingBottom: '10px', marginBottom: '16px', color: '#2E7D32', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FaUsers /> Nhóm tôi tham gia
+              </h3>
+              {myJoinedGroups.length === 0 ? (
+                <p style={{ color: '#888' }}>Bạn chưa tham gia nhóm nào.</p>
+              ) : (
+                <div className="forumpage-groups-grid">
+                  {myJoinedGroups.map(g => (
+                    <div key={g.id} className="forumpage-group-card">
+                      <div className="forumpage-group-cover" style={{ background: g.cover_image ? `url(${g.cover_image.startsWith('http') ? g.cover_image : `http://localhost:3001${g.cover_image}`}) center/cover` : 'linear-gradient(135deg,#4CAF50,#2E7D32)' }}>
+                        <span className="forumpage-group-icon">{!g.cover_image && (GROUP_ICONS_MAP[g.icon] || <FaUsers />)}</span>
+                      </div>
+                      <div className="forumpage-group-body">
+                        <h4>{g.name}</h4><p>{g.description || 'Nhóm cộng đồng sức khỏe'}</p>
+                        <div className="forumpage-group-meta"><span><FaUsers /> {g.members_count || 0} thành viên</span></div>
+                        <div className="forumpage-group-actions">
+                          <button className="forumpage-btn-primary" style={{ width: '100%' }} onClick={() => navigate(`/cong-dong/nhom/${g.slug}`)}>Vào nhóm</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
             </div>
           )}
         </div>
       )}
 
-      {/* TAB: Forum Q&A */}
+      {/* 3. TAB: DIỄN ĐÀN Q&A (GIỮ NGUYÊN 100% GIAO DIỆN CŨ) */}
       {activeTab === 'forum' && (
         <>
-          {/* Filter Bar */}
           <FilterBar
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            handleSearch={handleSearch}
-            selectedTopic={selectedTopic}
-            setSelectedTopic={(val) => {
-              setSelectedTopic(val);
-              setCurrentPage(1);
-              fetchQuestions({ page: 1, search: activeSearchTerm, specialty: selectedSpecialty, topic: val, tags: selectedTags });
-            }}
-            selectedSpecialty={selectedSpecialty}
-            setSelectedSpecialty={(val) => {
-              setSelectedSpecialty(val);
-              setCurrentPage(1);
-              fetchQuestions({ page: 1, search: activeSearchTerm, specialty: val, topic: selectedTopic, tags: selectedTags });
-            }}
-            topics={topics}
-            specialties={specialties}
-            clearFilters={clearFilters}
-            activeSearchTerm={activeSearchTerm}
-            selectedSpecialtyName={selectedSpecialtyName}
-            selectedTags={selectedTags}
-            handleClearSearch={handleClearSearch}
-            handleClearSpecialty={handleClearSpecialty}
-            toggleFilterTag={toggleFilterTag}
+            searchTerm={searchTerm} setSearchTerm={setSearchTerm} handleSearch={handleSearch}
+            selectedTopic={selectedTopic} setSelectedTopic={(val) => { setSelectedTopic(val); setCurrentPage(1); fetchQuestions({ page: 1, search: activeSearchTerm, specialty: selectedSpecialty, topic: val, tags: selectedTags }); }}
+            selectedSpecialty={selectedSpecialty} setSelectedSpecialty={(val) => { setSelectedSpecialty(val); setCurrentPage(1); fetchQuestions({ page: 1, search: activeSearchTerm, specialty: val, topic: selectedTopic, tags: selectedTags }); }}
+            topics={topics} specialties={specialties} clearFilters={clearFilters} activeSearchTerm={activeSearchTerm}
+            selectedSpecialtyName={selectedSpecialtyName} selectedTags={selectedTags}
+            handleClearSearch={handleClearSearch} handleClearSpecialty={handleClearSpecialty} toggleFilterTag={toggleFilterTag}
           />
 
           <section className="forumpage-content forumpage-container">
-            {/* Main feed */}
             <main className="forumpage-feed">
-              {/* Quick post card */}
               <div className="forumpage-create-card">
                 <div className="forumpage-create-card__icon"><FaQuestionCircle /></div>
                 <button type="button" className="forumpage-create-card__prompt" onClick={() => setShowAskModal(true)}>
-                  Chia sẻ điều bạn đang thắc mắc với cộng đồng...
+                  Bạn đang có thắc mắc gì về sức khỏe? Đặt câu hỏi ngay...
                 </button>
-                <button type="button" className="forumpage-create-card__submit" onClick={() => setShowAskModal(true)}>Đăng</button>
+                <button type="button" className="forumpage-create-card__submit" onClick={() => setShowAskModal(true)}>Đặt câu hỏi</button>
               </div>
 
               {loading ? (
-                <div className="forumpage-panel--loading">
-                  <div className="forumpage-spinner"></div>
-                  Đang tải dữ liệu...
-                </div>
+                <div className="forumpage-panel--loading"><div className="forumpage-spinner"></div>Đang tải dữ liệu...</div>
               ) : questions.length === 0 ? (
-                <div className="forumpage-empty-state">
-                  <FaQuestionCircle size={56} />
-                  <h3>Chưa có bài viết nào phù hợp</h3>
-                  <p>Hãy trở thành người đầu tiên chia sẻ câu hỏi về chủ đề này.</p>
-                  <button className="forumpage-btn-outline" onClick={() => setShowAskModal(true)}>Tạo bài viết mới</button>
-                </div>
+                <div className="forumpage-empty-state"><FaQuestionCircle size={56} /><h3>Chưa có câu hỏi nào phù hợp</h3><p>Hãy trở thành người đầu tiên chia sẻ câu hỏi về chủ đề này.</p><button className="forumpage-btn-outline" onClick={() => setShowAskModal(true)}>Đặt câu hỏi mới</button></div>
               ) : (
                 <div className="forumpage-post-feed">
                   {questions.map((question) => {
@@ -1379,7 +1520,6 @@ const ForumPage = () => {
                 </div>
               )}
 
-              {/* Pagination */}
               {totalPages > 1 && !loading && (
                 <div className="forumpage-pagination">
                   <button onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))} disabled={currentPage === 1}>← Trang trước</button>
@@ -1389,32 +1529,20 @@ const ForumPage = () => {
               )}
             </main>
 
-            {/* Sidebar */}
             <aside className="forumpage-sidebar">
-              {/* Tags sidebar */}
               <div className="forumpage-sidebar-card">
                 <h3><FaTags /> Tags phổ biến gần đây</h3>
                 <p>Lọc nhanh theo chủ đề bạn quan tâm</p>
                 <div className="forumpage-sidebar-search">
                   <FaSearch />
-                  <input
-                    type="text"
-                    placeholder="Tìm tag..."
-                    value={tagSearchTerm}
-                    onChange={(e) => setTagSearchTerm(e.target.value)}
-                  />
+                  <input type="text" placeholder="Tìm tag..." value={tagSearchTerm} onChange={(e) => setTagSearchTerm(e.target.value)} />
                 </div>
                 <div className="forumpage-sidebar-tags">
                   {filteredTagOptions.length === 0 ? (
                     <span className="forumpage-sidebar-tags__empty">Không tìm thấy tag phù hợp</span>
                   ) : (
                     filteredTagOptions.map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        className={`forumpage-sidebar-tag ${selectedTags.includes(tag) ? 'active' : ''}`}
-                        onClick={() => toggleFilterTag(tag)}
-                      >
+                      <button key={tag} type="button" className={`forumpage-sidebar-tag ${selectedTags.includes(tag) ? 'active' : ''}`} onClick={() => toggleFilterTag(tag)}>
                         #{tag}
                       </button>
                     ))
@@ -1422,9 +1550,8 @@ const ForumPage = () => {
                 </div>
               </div>
 
-              {/* Tips */}
               <div className="forumpage-sidebar-card forumpage-sidebar-tips">
-                <h3>💡 Mẹo đăng bài hay</h3>
+                <h3>💡 Mẹo đặt câu hỏi hay</h3>
                 <ul>
                   <li>Nêu rõ triệu chứng, thời gian và mức độ ảnh hưởng.</li>
                   <li>Chia sẻ xét nghiệm hoặc hình ảnh để bác sĩ dễ tư vấn.</li>
@@ -1436,28 +1563,43 @@ const ForumPage = () => {
         </>
       )}
 
-      {/* Modal: Đặt câu hỏi */}
-      <AskQuestionModal
-        show={showAskModal}
-        onClose={() => { setShowAskModal(false); setPreviewImages([]); setPreviewFiles([]); }}
-        onSubmit={handleAskQuestion}
-        questionForm={questionForm}
-        setQuestionForm={setQuestionForm}
-        topics={topics}
-        specialties={specialties}
-        formTags={formTags}
-        toggleTag={toggleTag}
-        toggleSpecialty={toggleSpecialty}
-        previewImages={previewImages}
-        setPreviewImages={setPreviewImages}
-        uploading={uploading}
-        setUploading={setUploading}
-        previewFiles={previewFiles}
-        setPreviewFiles={setPreviewFiles}
-        setAlert={setAlert}
-      />
+      {/* POPUP: Đặt Câu Hỏi */}
+      <AskQuestionModal show={showAskModal} onClose={() => { setShowAskModal(false); setPreviewImages([]); setPreviewFiles([]); }} onSubmit={handleAskQuestion} questionForm={questionForm} setQuestionForm={setQuestionForm} topics={topics} specialties={specialties} formTags={formTags} toggleTag={toggleTag} toggleSpecialty={toggleSpecialty} previewImages={previewImages} setPreviewImages={setPreviewImages} uploading={uploading} setUploading={setUploading} previewFiles={previewFiles} setPreviewFiles={setPreviewFiles} setAlert={setAlert} />
 
-      {/* Modal: Báo cáo */}
+      {/* POPUP: TẠO NHÓM MỚI */}
+      {showCreateGroupModal && canCreateGroup && (
+        <CreateGroupModal
+          onClose={() => setShowCreateGroupModal(false)}
+          onSuccess={() => {
+            setShowCreateGroupModal(false);
+            setShowSuccessPopup(true);
+            if(activeTab === 'community') fetchGroupsData(); 
+          }}
+        />
+      )}
+
+      {/* POPUP THÔNG BÁO TẠO THÀNH CÔNG */}
+      {showSuccessPopup && (
+        <div className="forumpage-modal-overlay" style={{ zIndex: 2000 }}>
+          <div className="forumpage-modal" style={{ maxWidth: '400px', textAlign: 'center', padding: '30px 24px', borderRadius: '16px' }}>
+            <FaCheckCircle color="#4CAF50" size={64} style={{ marginBottom: '16px' }} />
+            <h2 style={{ margin: '0 0 12px', color: '#2E7D32', fontSize: '1.4rem' }}>Tạo nhóm thành công!</h2>
+            <p style={{ color: '#555', marginBottom: '24px', lineHeight: '1.6', fontSize: '0.95rem' }}>
+              Nhóm cộng đồng của bạn đã được gửi đi. Nếu bạn không phải là Quản trị viên, nhóm sẽ nằm ở trạng thái <strong style={{ color: '#f57c00' }}>Chờ duyệt</strong> trước khi hiển thị công khai.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
+              <button className="forumpage-btn-primary" style={{ width: '100%', padding: '12px' }} onClick={() => { setShowSuccessPopup(false); handleTabChange('my_groups'); }}>
+                <FaEye /> Xem nhóm chờ duyệt
+              </button>
+              <button className="forumpage-btn-muted" style={{ width: '100%', padding: '12px', justifyContent: 'center' }} onClick={() => setShowSuccessPopup(false)}>
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP: Báo cáo */}
       {showReportModal && (
         <div className="forumpage-modal-overlay" onClick={() => setShowReportModal(false)}>
           <div className="forumpage-modal" onClick={(e) => e.stopPropagation()}>
@@ -1504,153 +1646,7 @@ const ForumPage = () => {
         </div>
       )}
 
-      {/* Modal: Tạo nhóm */}
-      {showCreateGroupModal && canCreateGroup && (
-        <div className="forumpage-modal-overlay" onClick={() => setShowCreateGroupModal(false)}>
-          <div className="forumpage-modal" onClick={e => e.stopPropagation()}>
-            <div className="forumpage-modal__header">
-              <div className="forumpage-modal__header-info">
-                <FaUsers className="forumpage-modal__header-icon" />
-                <div>
-                  <h2 className="forumpage-modal__title">Tạo nhóm cộng đồng mới</h2>
-                </div>
-              </div>
-              <button className="forumpage-modal__close" onClick={() => setShowCreateGroupModal(false)}><FaTimes /></button>
-            </div>
-            <div className="forumpage-modal__form">
-              {createGroupError && (
-                <div style={{ background: '#fff0f0', color: '#c0392b', padding: '10px 14px', borderRadius: '8px', borderLeft: '3px solid #c0392b', fontSize: '14px' }}>
-                  {createGroupError}
-                </div>
-              )}
-              <div className="forumpage-form-section">
-                <div className="forumpage-form-row">
-                  <div className="forumpage-form-group">
-                    <label>Tên nhóm <span className="forumpage-required">*</span></label>
-                    <input type="text" placeholder="VD: Hội bệnh nhân tiểu đường" value={createGroupForm.name} onChange={e => setCreateGroupForm({ ...createGroupForm, name: e.target.value })} />
-                  </div>
-                </div>
-                
-                <div className="forumpage-form-row">
-                  <div className="forumpage-form-group">
-                    <label>Chuyên khoa <span className="forumpage-required">*</span></label>
-                    <div className="forumpage-filterbar-select-wrap">
-                      <select value={createGroupForm.specialty_id} onChange={e => setCreateGroupForm({ ...createGroupForm, specialty_id: e.target.value })} required>
-                        <option value="">-- Chọn chuyên khoa --</option>
-                        {groupSpecialties.map(spec => (
-                          <option key={spec.id} value={spec.id}>{spec.name}</option>
-                        ))}
-                      </select>
-                      <FaChevronDown className="forumpage-select-arrow" />
-                    </div>
-                    <small>Chọn chuyên khoa trước để lọc danh sách bác sĩ phù hợp</small>
-                  </div>
-                  <div className="forumpage-form-group">
-                    <label>Bác sĩ phụ trách <span className="forumpage-required">*</span></label>
-                    {!createGroupForm.specialty_id ? (
-                      <div style={{ padding: '10px', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px', color: '#856404', fontSize: '13px' }}>
-                        Vui lòng chọn chuyên khoa trước
-                      </div>
-                    ) : availableDoctors.length === 0 ? (
-                      <div style={{ padding: '10px', background: '#f8d7da', border: '1px solid #f5c6cb', borderRadius: '4px', color: '#721c24', fontSize: '13px' }}>
-                        Không có bác sĩ nào cho chuyên khoa này
-                      </div>
-                    ) : (
-                      <div className="forumpage-filterbar-select-wrap">
-                        <select value={createGroupForm.doctor_id} onChange={e => setCreateGroupForm({ ...createGroupForm, doctor_id: e.target.value })} required>
-                          <option value="">-- Chọn bác sĩ --</option>
-                          {availableDoctors.map(d => (
-                            <option key={d.id} value={d.id}>BS. {d.user?.full_name || d.full_name || 'Ẩn danh'} ({d.title || 'Bác sĩ'})</option>
-                          ))}
-                        </select>
-                        <FaChevronDown className="forumpage-select-arrow" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="forumpage-form-group">
-                  <label>Mô tả</label>
-                  <textarea rows="3" placeholder="Mục đích và đối tượng của nhóm..." value={createGroupForm.description} onChange={e => setCreateGroupForm({ ...createGroupForm, description: e.target.value })} />
-                </div>
-                <div className="forumpage-form-row">
-                  <div className="forumpage-form-group">
-                    <label>Quyền riêng tư</label>
-                    <div className="forumpage-filterbar-select-wrap">
-                      <select value={createGroupForm.privacy} onChange={e => setCreateGroupForm({ ...createGroupForm, privacy: e.target.value })}>
-                        <option value="public">Công khai — Ai cũng join được</option>
-                        <option value="private">Riêng tư — Cần duyệt khi join</option>
-                        <option value="invite_only">Chỉ mời</option>
-                      </select>
-                      <FaChevronDown className="forumpage-select-arrow" />
-                    </div>
-                  </div>
-                  <div className="forumpage-form-group">
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'normal' }}>
-                      <input type="checkbox" style={{ accentColor: '#4CAF50', width: '18px', height: '18px' }} checked={createGroupForm.requires_post_approval} onChange={e => setCreateGroupForm({ ...createGroupForm, requires_post_approval: e.target.checked })} />
-                      Yêu cầu duyệt bài trước khi đăng
-                    </label>
-                  </div>
-                </div>
-                {/* Avatar upload */}
-                <div className="forumpage-form-group">
-                  <label>Icon / Avatar nhóm</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {Object.keys(GROUP_ICONS_MAP).map(icKey => (
-                        <button type="button" key={icKey} onClick={() => setCreateGroupForm({ ...createGroupForm, icon: icKey })}
-                          style={{ padding: '6px 10px', border: createGroupForm.icon === icKey ? '2px solid #4CAF50' : '1.5px solid #c5e6d6', borderRadius: '8px', fontSize: '18px', cursor: 'pointer', background: createGroupForm.icon === icKey ? '#F1F8F4' : '#fff' }}>
-                          {GROUP_ICONS_MAP[icKey]}
-                        </button>
-                      ))}
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <input type="file" id="group-avatar" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleGroupImageUpload(e, 'avatar')} disabled={groupUploading} />
-                      <label htmlFor="group-avatar" style={{ cursor: 'pointer', display: 'inline-block' }}>
-                        {createGroupForm.avatar ? (
-                          <img src={createGroupForm.avatar} alt="Avatar" style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #4CAF50' }} />
-                        ) : (
-                          <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#F1F8F4', border: '1px dashed #4CAF50', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
-                            {GROUP_ICONS_MAP[createGroupForm.icon] || <FaUsers />}
-                          </div>
-                        )}
-                        <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{groupUploading ? 'Đang tải...' : 'Đổi Avatar'}</div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-                {/* Cover image */}
-                <div className="forumpage-form-group">
-                  <label>Ảnh bìa (Cover Image)</label>
-                  <input type="file" id="group-cover" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleGroupImageUpload(e, 'cover_image')} disabled={groupUploading} />
-                  <label htmlFor="group-cover" style={{ display: 'block', width: '100%', height: '120px', borderRadius: '12px', cursor: 'pointer', background: createGroupForm.cover_image ? `url(${createGroupForm.cover_image}) center/cover` : '#F1F8F4', border: createGroupForm.cover_image ? 'none' : '1.5px dashed #4CAF50', position: 'relative', overflow: 'hidden' }}>
-                    {!createGroupForm.cover_image && (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4CAF50', fontWeight: '600' }}>
-                        {groupUploading ? 'Đang tải ảnh...' : '+ Chọn ảnh bìa'}
-                      </div>
-                    )}
-                  </label>
-                </div>
-              </div>
-              <div className="forumpage-modal__actions">
-                <button type="button" className="forumpage-btn-muted" onClick={() => setShowCreateGroupModal(false)}>Hủy</button>
-                <button type="button" className="forumpage-btn-primary" onClick={handleCreateGroup} disabled={createGroupSubmitting || !createGroupForm.specialty_id || !createGroupForm.doctor_id}>
-                  {createGroupSubmitting ? 'Đang tạo...' : 'Tạo nhóm'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <CustomAlert
-        show={alert.show}
-        type={alert.type}
-        title={alert.title}
-        message={alert.message}
-        onClose={() => setAlert({ ...alert, show: false })}
-        autoCloseDuration={5000}
-      />
+      <CustomAlert show={alert.show} type={alert.type} title={alert.title} message={alert.message} onClose={() => setAlert({ ...alert, show: false })} autoCloseDuration={5000} />
     </div>
   );
 };

@@ -52,63 +52,47 @@ const scanContent = (text) => {
  * Public: Lấy danh sách nhóm đang active
  * Không cần đăng nhập — ai cũng có thể xem danh sách nhóm
  */
+/**
+ * CẬP NHẬT: getGroups (Search công khai)
+ * Không bao giờ trả về nhóm invite_only
+ */
 const getGroups = async (req, res, next) => {
   try {
-    console.log("🚀 [DEBUG] Đang gọi API lấy danh sách nhóm...");
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, parseInt(req.query.limit) || 12);
     const offset = (page - 1) * limit;
     const search = (req.query.search || '').trim();
-    const type = req.query.type; // 'official' | 'community'
+    const type = req.query.type; 
 
-    const where = { status: 'active' };
+    // Chỉ lấy nhóm active và KHÔNG PHẢI invite_only
+    const where = { 
+      status: 'active',
+      privacy: { [Op.ne]: 'invite_only' } 
+    };
+
     if (search) {
       where[Op.or] = [
         { name: { [Op.like]: `%${search}%` } },
         { description: { [Op.like]: `%${search}%` } }
       ];
     }
-    if (type && ['official', 'community'].includes(type)) {
-      where.type = type;
-    }
+    if (type && ['official', 'community'].includes(type)) where.type = type;
 
-    console.log("🚀 [DEBUG] Bắt đầu truy vấn Database...");
-    
-    // Dùng findAll an toàn hơn findAndCountAll
     const groups = await models.CommunityGroup.findAll({
       where,
       include: [
         { model: models.User, as: 'owner', attributes: ['id', 'full_name', 'avatar_url'] },
-        {
-          model: models.Doctor,
-          as: 'doctor',
-          include: [{ model: models.User, as: 'user', attributes: ['id', 'full_name', 'avatar_url'] }]
-        },
-        // BỔ SUNG ĐOẠN NÀY ĐỂ KÉO THEO DANH SÁCH THÀNH VIÊN
-        {
-          model: models.GroupMember,
-          as: 'members',
-          attributes: ['user_id', 'role', 'status'],
-          required: false // Dùng LEFT JOIN để lấy cả những nhóm chưa có ai tham gia
-        }
+        { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'full_name', 'avatar_url'] }] },
+        { model: models.GroupMember, as: 'members', attributes: ['user_id', 'role', 'status'], required: false }
       ],
-      order: [['created_at', 'DESC']], // Bỏ sắp xếp phức tạp để tránh kẹt DB
-      limit,
-      offset
+      order: [['created_at', 'DESC']], 
+      limit, offset
     });
 
-    // Đếm số lượng độc lập để không gây lỗi ngầm
     const total = await models.CommunityGroup.count({ where });
 
-    console.log(`🚀 [DEBUG] Truy vấn thành công! Lấy được ${groups.length} nhóm.`);
-
-    return res.json({
-      success: true,
-      data: { groups, total, page, limit }
-    });
+    return res.json({ success: true, data: { groups, total, page, limit } });
   } catch (error) {
-    console.error("❌ [LỖI GET GROUPS]:", error);
-    // Bắt buộc trả về response 500, không được dùng next() để tránh treo request
     return res.status(500).json({ success: false, message: 'Lỗi server khi tải nhóm', error: error.message });
   }
 };
@@ -173,101 +157,67 @@ const getGroupBySlug = async (req, res, next) => {
 
 /**
  * POST /api/community/groups
- * Business rules áp dụng:
- * 1. Chỉ Doctor, Staff, Admin tạo được — Patient bị chặn ở middleware
- * 2. BẮT BUỘC có doctor_id hợp lệ
- * 3. Status mặc định = 'pending', chờ Admin duyệt
- * 4. Doctor tạo → type='official', Staff tạo → type='community'
- * 5. Owner tự động được thêm vào GroupMember với role='owner'
- * 6. Doctor phụ trách tự động được thêm vào GroupMember với role='moderator'
+ * Business rules:
+ * 1. Mọi user đều có thể tạo nhóm.
+ * 2. doctor_id là TÙY CHỌN (có thể null).
+ * 3. Nếu Role là Doctor, Staff, Admin -> nhóm type = 'official', User tạo -> type = 'community'.
+ * 4. Nếu Role là Admin -> nhóm status = 'active', người khác tạo -> status = 'pending'.
+ * 5. Owner tự động được thêm vào GroupMember với role='owner'.
+ * 6. Doctor phụ trách (nếu có) tự động được thêm vào GroupMember với role='moderator'.
+ */
+// ─────────────────────────────────────────────
+// API: TẠO NHÓM (CẬP NHẬT KIỂM TRA QUYỀN)
+// ─────────────────────────────────────────────
+/**
+ * CẬP NHẬT: createGroup
+ * Bệnh nhân không được tạo nhóm invite_only
  */
 const createGroup = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { name, description, cover_image, avatar_image, icon, privacy, doctor_id, requires_post_approval } = req.body;
-    const { id: userId, role } = req.user;
+    const { id: userId } = req.user;
+    const role = req.user?.role?.name?.toLowerCase() || req.user?.role?.toLowerCase();
+    const isPatient = !['admin', 'staff', 'doctor'].includes(role);
 
-    // Validate bắt buộc
-    if (!name || !doctor_id) {
+    // CHECK QUYỀN TẠO NHÓM
+    if (isPatient && !isUserGroupCreationAllowed) {
       await t.rollback();
-      return res.status(400).json({ success: false, message: 'Thiếu tên nhóm hoặc bác sĩ phụ trách' });
+      return res.status(403).json({ success: false, message: 'Hệ thống hiện đang tạm khóa chức năng tạo nhóm dành cho người dùng.' });
     }
 
-    // Kiểm tra doctor_id tồn tại và đang active (Hỗ trợ truyền cả Doctor PK hoặc User ID)
-    const doctor = await models.Doctor.findOne({
-      where: { 
-        [Op.or]: [{ id: doctor_id }, { user_id: doctor_id }],
-        work_status: 'active' 
-      },
-      include: [{ model: models.User, as: 'user', attributes: ['id'] }],
-      transaction: t
-    });
-    if (!doctor) {
+    // CHECK QUYỀN TẠO NHÓM NỘI BỘ (INVITE ONLY)
+    if (isPatient && privacy === 'invite_only') {
       await t.rollback();
-      return res.status(400).json({ success: false, message: 'Bác sĩ không tồn tại hoặc không đang hoạt động' });
+      return res.status(403).json({ success: false, message: 'Bệnh nhân không được phép tạo nhóm dành riêng cho nội bộ (Lời mời).' });
     }
 
-    // Tạo slug unique
+    if (!name) { await t.rollback(); return res.status(400).json({ success: false, message: 'Thiếu tên nhóm' }); }
+
+    let validDoctorId = null; let doctorUserId = null;
+    if (doctor_id) {
+      const doctor = await models.Doctor.findOne({ where: { [Op.or]: [{ id: doctor_id }, { user_id: doctor_id }], work_status: 'active' }, include: [{ model: models.User, as: 'user', attributes: ['id'] }], transaction: t });
+      if (!doctor) { await t.rollback(); return res.status(400).json({ success: false, message: 'Bác sĩ không tồn tại' }); }
+      validDoctorId = doctor.id; doctorUserId = doctor.user_id;
+    }
+
     const slug = generateSlug(name);
+    const groupType = !isPatient ? 'official' : 'community';
+    const initialStatus = role === 'admin' ? 'active' : 'pending';
 
-    // Doctor tạo → official, Staff/Admin tạo → community
-    const groupType = role === 'doctor' ? 'official' : 'community';
-
-    // Tạo nhóm với status='pending' — chờ Admin duyệt
     const group = await models.CommunityGroup.create({
-      name: name.trim(),
-      slug, // <--- có dấu phẩy
-      description: description ? description.trim() : null,
-      cover_image: cover_image || null,
-      avatar_image: avatar_image || null,
-      icon: icon || '👥',
-      type: groupType,
-      privacy: privacy || 'public',
-      status: 'pending', 
-      owner_id: userId,
-      doctor_id: doctor.id, 
-      requires_post_approval: requires_post_approval !== false
-    }, { transaction: t }); // <--- đóng ngoặc đầy đủ
-
-    // Owner tự động là member với role='owner'
-    await models.GroupMember.create({
-      group_id: group.id,
-      user_id: userId,
-      role: 'owner',
-      status: 'active',
-      joined_at: new Date()
+      name: name.trim(), slug, description: description ? description.trim() : null, cover_image: cover_image || null, avatar_image: avatar_image || null, icon: icon || '👥', type: groupType, privacy: privacy || 'public', status: initialStatus, owner_id: userId, doctor_id: validDoctorId, requires_post_approval: requires_post_approval !== false, approved_by: role === 'admin' ? userId : null, approved_at: role === 'admin' ? new Date() : null,
     }, { transaction: t });
 
-    // Doctor phụ trách tự động là moderator
-    // (chỉ thêm nếu doctor.user_id khác owner)
-    if (doctor.user_id !== userId) {
-      await models.GroupMember.create({
-        group_id: group.id,
-        user_id: doctor.user_id,
-        role: 'moderator',
-        status: 'active',
-        joined_at: new Date()
-      }, { transaction: t });
+    await models.GroupMember.create({ group_id: group.id, user_id: userId, role: 'owner', status: 'active', joined_at: new Date() }, { transaction: t });
+    if (doctorUserId && doctorUserId !== userId) {
+      await models.GroupMember.create({ group_id: group.id, user_id: doctorUserId, role: 'moderator', status: 'active', joined_at: new Date() }, { transaction: t });
     }
-
     await t.commit();
+    if (initialStatus === 'pending') { await notifyAllAdmins('community', `Có nhóm ${groupType === 'official' ? 'chính thống' : 'cộng đồng'} mới "${name}" cần được duyệt`, `/quan-ly-nhom-cong-dong?tab=pending`); }
 
-    // Thông báo Admin có nhóm mới cần duyệt
-    await notifyAllAdmins(
-      'community',
-      `Có nhóm cộng đồng mới "${name}" cần được duyệt`,
-      `/quan-ly-nhom-cong-dong?tab=pending`
-    );
-
-    res.status(201).json({
-      success: true,
-      message: 'Tạo nhóm thành công. Nhóm đang chờ Admin duyệt trước khi hiển thị.',
-      data: group
-    });
-  } catch (error) {
-    await t.rollback();
-    next(error);
-  }
+    res.status(201).json({ success: true, message: initialStatus === 'pending' ? 'Tạo nhóm thành công. Chờ Admin duyệt.' : 'Tạo nhóm thành công.', data: group });
+  } catch (error) { await t.rollback(); next(error); }
 };
 
 /**
@@ -298,14 +248,14 @@ const updateGroup = async (req, res, next) => {
     if (name            !== undefined) group.name            = name;
     if (description     !== undefined) group.description     = description;
     if (cover_image     !== undefined) group.cover_image     = cover_image;
-    if (avatar_image    !== undefined) group.avatar_image    = avatar_image; // ✅ FIX: lưu avatar
+    if (avatar_image    !== undefined) group.avatar_image    = avatar_image; //  FIX: lưu avatar
     if (icon            !== undefined) group.icon            = icon;
     if (privacy         !== undefined) group.privacy         = privacy;
     if (requires_post_approval !== undefined) group.requires_post_approval = requires_post_approval;
 
     await group.save();
 
-    // ✅ FIX: Lookup user_id thực sự của bác sĩ trước khi notify
+    //  FIX: Lookup user_id thực sự của bác sĩ trước khi notify
     if (group.doctor_id) {
       try {
         const doctor = await models.Doctor.findByPk(group.doctor_id, { attributes: ['user_id'] });
@@ -568,45 +518,41 @@ const inviteMember = async (req, res, next) => {
  * Lấy bài đăng đã approved trong nhóm
  * Cần là member mới xem được (public group cho xem preview)
  */
+/**
+ * CẬP NHẬT: getGroupPosts (Lấy bài viết)
+ * Chặn xem bài viết nếu nhóm là Private/Invite_only mà user chưa join
+ */
 const getGroupPosts = async (req, res, next) => {
   try {
     const { id } = req.params;
     const page  = parseInt(req.query.page)  || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
+    const currentUserId = req.user?.id || null;
+
+    const group = await models.CommunityGroup.findByPk(id);
+    if (!group || group.status !== 'active') return res.status(404).json({ success: false, message: 'Nhóm không tồn tại' });
+
+    // CHECK BẢO MẬT: Nhóm Kín/Lời mời -> Phải là thành viên mới được xem bài (Kể cả Admin)
+    if (group.privacy !== 'public') {
+      if (!currentUserId) {
+        return res.status(403).json({ success: false, message: 'Đây là nhóm riêng tư. Vui lòng đăng nhập và tham gia nhóm để xem nội dung.' });
+      }
+      const member = await models.GroupMember.findOne({ where: { group_id: id, user_id: currentUserId, status: 'active' }});
+      if (!member) {
+        return res.status(403).json({ success: false, message: 'Đây là nhóm riêng tư. Bạn cần tham gia nhóm để xem các bài viết.' });
+      }
+    }
 
     const { count, rows } = await models.GroupPost.findAndCountAll({
-      where: {
-        group_id: id,
-        status: 'approved', // ✅ FIX: chỉ lấy bài đã duyệt
-      },
-      include: [
-        {
-          model: models.User,
-          as: 'author',       // ✅ FIX: dùng alias đúng
-          attributes: ['id', 'full_name', 'avatar_url', 'role'],
-        },
-      ],
-      order: [
-        ['is_pinned', 'DESC'],
-        ['created_at', 'DESC'],
-      ],
-      limit,
-      offset,
+      where: { group_id: id, status: 'approved' },
+      include: [{ model: models.User, as: 'author', attributes: ['id', 'full_name', 'avatar_url', 'role'] }],
+      order: [['is_pinned', 'DESC'], ['created_at', 'DESC']],
+      limit, offset,
     });
 
-    return res.json({
-      success: true,
-      data: {
-        posts: rows,
-        total: count,
-        page,
-        totalPages: Math.ceil(count / limit),
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
+    return res.json({ success: true, data: { posts: rows, total: count, page, totalPages: Math.ceil(count / limit) }});
+  } catch (error) { next(error); }
 };
 
 /**
@@ -657,7 +603,7 @@ const createGroupPost = async (req, res, next) => {
     const isPrivileged = ['admin', 'doctor'].includes(userRole) ||
       ['owner', 'moderator'].includes(membership.role);
 
-    // ✅ FIX: Bài auto-approved nếu user có quyền, hoặc nhóm không yêu cầu duyệt
+    // Bài auto-approved nếu user có quyền, hoặc nhóm không yêu cầu duyệt
     const initialStatus = (!group.requires_post_approval || isPrivileged)
       ? 'approved'
       : 'pending';
@@ -669,6 +615,7 @@ const createGroupPost = async (req, res, next) => {
     const has_sensitive_content = SENSITIVE_KEYWORDS.some(kw => lower.includes(kw));
     const has_emergency_content = EMERGENCY_KEYWORDS.some(kw => lower.includes(kw));
 
+    // Tạo bài viết mới
     const post = await models.GroupPost.create({
       group_id:             id,
       author_id:            userId,
@@ -692,11 +639,20 @@ const createGroupPost = async (req, res, next) => {
       );
     }
 
+    //  TRUY VẤN LẠI ĐỂ KÈM THÔNG TIN TÁC GIẢ (AUTHOR)
+    const postWithAuthor = await models.GroupPost.findByPk(post.id, {
+      include: [{ 
+        model: models.User, 
+        as: 'author', 
+        attributes: ['id', 'full_name', 'avatar_url', 'role'] // Lấy role để frontend phân quyền màu sắc
+      }]
+    });
+
     const message = initialStatus === 'pending'
       ? 'Bài viết đang chờ được quản trị viên duyệt.'
       : 'Đăng bài thành công!';
 
-    return res.status(201).json({ success: true, message, data: post });
+    return res.status(201).json({ success: true, message, data: postWithAuthor });
   } catch (error) {
     next(error);
   }
@@ -937,11 +893,12 @@ const toggleLikePost = async (req, res, next) => {
       likedBy = likedBy.filter(id => id !== userId); // Bỏ tim
       post.likes_count = Math.max(0, post.likes_count - 1);
     } else {
-      likedBy.push(userId); // Thả tim
+      likedBy = [...likedBy, userId]; // Thả tim (Sử dụng spread operator tạo mảng mới)
       post.likes_count += 1;
     }
 
     post.liked_by = likedBy;
+    post.changed('liked_by', true); //  ÉP SEQUELIZE LƯU THAY ĐỔI JSON
     await post.save();
 
     res.json({ success: true, isLiked: !hasLiked, likesCount: post.likes_count });
@@ -965,24 +922,30 @@ const commentOnPost = async (req, res, next) => {
     const post = await models.GroupPost.findByPk(postId);
     if (!post) return res.status(404).json({ success: false, message: 'Bài đăng không tồn tại' });
 
-    // Lấy thông tin người bình luận để lưu cứng vào JSON
     const user = await models.User.findByPk(userId);
 
     let comments = post.comments_data || [];
     if (typeof comments === 'string') comments = JSON.parse(comments);
 
+    //  CHUẨN HÓA CẤU TRÚC JSON ĐỂ LƯU KÈM ROLE
     const newComment = {
-      id: Date.now(), // ID ảo để làm key map ở Frontend
-      user_id: userId,
-      user_name: user.full_name || 'Thành viên',
-      avatar_url: user.avatar_url || '/default-avatar.png',
+      id: Date.now(),
       content: content.trim(),
-      created_at: new Date()
+      author: {
+        id: user.id,
+        full_name: user.full_name || 'Thành viên',
+        avatar_url: user.avatar_url || null,
+        role: user.role // LƯU VAI TRÒ ĐỂ FRONTEND TÔ MÀU
+      },
+      created_at: new Date(),
+      replies: []
     };
 
-    comments.push(newComment);
+    comments = [...comments, newComment]; // Dùng mảng mới để Sequelize nhận diện
+    
     post.comments_data = comments;
     post.comments_count += 1;
+    post.changed('comments_data', true); // Ép lưu dữ liệu JSON
 
     await post.save();
 
@@ -1045,7 +1008,7 @@ const getPendingGroupPosts = async (req, res, next) => {
       include: [
         {
           model: models.User,
-          as: 'author',       // ✅ FIX: alias đúng
+          as: 'author',       //  FIX: alias đúng
           attributes: ['id', 'full_name', 'avatar_url'],
         },
       ],
@@ -1393,6 +1356,11 @@ const getMyGroupPosts = async (req, res, next) => {
 
     const { count, rows } = await models.GroupPost.findAndCountAll({
       where: { group_id: groupId, author_id: userId },
+      include: [{ 
+        model: models.User, 
+        as: 'author', 
+        attributes: ['id', 'full_name', 'avatar_url', 'role'] // ✅ PHẢI CÓ DÒNG NÀY ĐỂ HIỆN ẢNH
+      }],
       order: [['created_at', 'DESC']],
       limit,
       offset,
@@ -1402,9 +1370,7 @@ const getMyGroupPosts = async (req, res, next) => {
       success: true,
       data: { posts: rows, total: count, page, totalPages: Math.ceil(count / limit) },
     });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1487,31 +1453,72 @@ const savePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
     const userId = req.user.id;
-
     const post = await models.GroupPost.findByPk(postId);
     if (!post) return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết.' });
 
-    // saved_by lưu trong reports_data không phù hợp — dùng một field riêng
-    // Vì không thêm được cột mới, tạm dùng GroupMember hoặc cache client-side
-    // Giải pháp: lưu vào localStorage ở frontend; backend chỉ trả 200 OK
+    let savedBy = post.saved_by || [];
+    if (typeof savedBy === 'string') savedBy = JSON.parse(savedBy);
+    if (!savedBy.includes(userId)) {
+      post.saved_by = [...savedBy, userId];
+      post.changed('saved_by', true);
+      await post.save();
+    }
     return res.json({ success: true, message: 'Đã lưu bài viết.' });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
 
 const unsavePost = async (req, res, next) => {
   try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+    const post = await models.GroupPost.findByPk(postId);
+    if (!post) return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết.' });
+
+    let savedBy = post.saved_by || [];
+    if (typeof savedBy === 'string') savedBy = JSON.parse(savedBy);
+    if (savedBy.includes(userId)) {
+      post.saved_by = savedBy.filter(id => id !== userId);
+      post.changed('saved_by', true);
+      await post.save();
+    }
     return res.json({ success: true, message: 'Đã bỏ lưu bài viết.' });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
 
 const getSavedPosts = async (req, res, next) => {
   try {
-    // Trả mảng rỗng — client tự quản lý saved posts qua localStorage
-    return res.json({ success: true, data: { posts: [], total: 0 } });
+    const { id: groupId } = req.params;
+    const userId = req.user.id;
+    const page   = parseInt(req.query.page)  || 1;
+    const limit  = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Lấy toàn bộ bài viết của nhóm này
+    const allPosts = await models.GroupPost.findAll({
+      where: { group_id: groupId, status: 'approved' },
+      include: [{ model: models.User, as: 'author', attributes: ['id', 'full_name', 'avatar_url', 'role'] }],
+      order: [['created_at', 'DESC']]
+    });
+
+    // Lọc ra những bài viết mà mảng saved_by có chứa userId
+    const savedPosts = allPosts.filter(post => {
+      let savedBy = post.saved_by || [];
+      if (typeof savedBy === 'string') savedBy = JSON.parse(savedBy);
+      return savedBy.includes(userId);
+    });
+
+    // Phân trang thủ công (vì lọc array JSON trực tiếp bằng câu lệnh SQL khá phức tạp và tùy thuộc loại DB)
+    const paginatedPosts = savedPosts.slice(offset, offset + limit);
+
+    return res.json({ 
+      success: true, 
+      data: { 
+        posts: paginatedPosts, 
+        total: savedPosts.length, 
+        page, 
+        totalPages: Math.ceil(savedPosts.length / limit) 
+      } 
+    });
   } catch (error) {
     next(error);
   }
@@ -1730,6 +1737,202 @@ const adminRejectTransferDoctor = async (req, res, next) => {
   }
 };
 
+// ─────────────────────────────────────────────
+// CẤU HÌNH HỆ THỐNG (TẠM LƯU BỘ NHỚ TRONG)
+// Trong thực tế bạn có thể lưu biến này vào bảng SystemSettings
+// ─────────────────────────────────────────────
+let isUserGroupCreationAllowed = true;
+
+const getGroupSettings = async (req, res, next) => {
+  try {
+    res.json({ success: true, data: { allowUserCreateGroup: isUserGroupCreationAllowed } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const toggleGroupSettings = async (req, res, next) => {
+  try {
+    const role = req.user?.role?.name?.toLowerCase() || req.user?.role?.toLowerCase();
+    if (role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Chỉ Admin mới có quyền thao tác này.' });
+    }
+    
+    isUserGroupCreationAllowed = !isUserGroupCreationAllowed;
+    res.json({ 
+      success: true, 
+      message: `Đã ${isUserGroupCreationAllowed ? 'MỞ' : 'KHÓA'} quyền tạo nhóm của người dùng.`, 
+      data: { allowUserCreateGroup: isUserGroupCreationAllowed } 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─────────────────────────────────────────────
+// API: LẤY DANH SÁCH NHÓM CỦA TÔI (Gồm nhóm đã tạo mọi status + Nhóm đã tham gia)
+// ─────────────────────────────────────────────
+const getMyGroups = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    // 1. Nhóm DO TÔI TẠO (Lấy mọi trạng thái: pending, active, suspended, rejected)
+    const createdGroups = await models.CommunityGroup.findAll({
+      where: { owner_id: userId },
+      include: [
+        { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'full_name', 'avatar_url'] }] }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    // 2. Nhóm TÔI THAM GIA (Không phải do tôi tạo, và nhóm phải đang active)
+    const joinedGroupMembers = await models.GroupMember.findAll({
+      where: { user_id: userId, role: { [Op.ne]: 'owner' }, status: 'active' },
+      attributes: ['group_id']
+    });
+    const joinedGroupIds = joinedGroupMembers.map(m => m.group_id);
+    
+    let joinedGroups = [];
+    if (joinedGroupIds.length > 0) {
+      joinedGroups = await models.CommunityGroup.findAll({
+        where: { id: joinedGroupIds, status: 'active' },
+        include: [
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'full_name', 'avatar_url'] }] }
+        ],
+        order: [['created_at', 'DESC']]
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      data: { createdGroups, joinedGroups } 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * ADMIN: Cảnh báo nhóm
+ * Gửi thông báo trực tiếp đến Trưởng nhóm
+ */
+const adminWarnGroup = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    const group = await models.CommunityGroup.findByPk(id);
+    if (!group) return res.status(404).json({ success: false, message: 'Nhóm không tồn tại' });
+
+    // Gửi thông báo cho Owner
+    await createNotification({
+      user_id: group.owner_id,
+      type: 'community',
+      message: `[CẢNH BÁO TỪ HỆ THỐNG] Nhóm "${group.name}" của bạn có dấu hiệu vi phạm: ${reason || 'Vui lòng kiểm tra lại nội dung nhóm'}.`,
+      link: `/cong-dong/nhom/${group.slug}`
+    });
+
+    res.json({ success: true, message: 'Đã gửi cảnh báo đến Trưởng nhóm thành công.' });
+  } catch (error) { next(error); }
+};
+
+/**
+ * ADMIN: Cưỡng chế khóa/đình chỉ nhóm
+ */
+const adminForceSuspendGroup = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    const group = await models.CommunityGroup.findByPk(id);
+    if (!group) return res.status(404).json({ success: false, message: 'Nhóm không tồn tại' });
+
+    group.status = 'suspended';
+    group.rejection_reason = reason || 'Đình chỉ bởi Quản trị viên';
+    await group.save();
+
+    await createNotification({
+      user_id: group.owner_id,
+      type: 'community',
+      message: `Nhóm "${group.name}" của bạn đã bị ĐÌNH CHỈ hoạt động. Lý do: ${group.rejection_reason}`,
+    });
+
+    res.json({ success: true, message: 'Đã khóa nhóm thành công.' });
+  } catch (error) { next(error); }
+};
+
+/**
+ * ADMIN: Mở khóa nhóm (Force Active)
+ */
+const adminForceActiveGroup = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    const group = await models.CommunityGroup.findByPk(id);
+    if (!group) return res.status(404).json({ success: false, message: 'Nhóm không tồn tại' });
+
+    group.status = 'active';
+    group.rejection_reason = null;
+    await group.save();
+
+    await createNotification({
+      user_id: group.owner_id,
+      type: 'community',
+      message: `Nhóm "${group.name}" của bạn đã được khôi phục hoạt động.`,
+      link: `/cong-dong/nhom/${group.slug}`
+    });
+
+    res.json({ success: true, message: 'Đã khôi phục nhóm thành công.' });
+  } catch (error) { next(error); }
+};
+
+/**
+ * ADMIN: Xóa vĩnh viễn nhóm (Force Delete - Hard Delete nếu cần)
+ */
+const adminForceDeleteGroup = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const group = await models.CommunityGroup.findByPk(id);
+    if (!group) return res.status(404).json({ success: false, message: 'Nhóm không tồn tại' });
+
+    const groupName = group.name;
+    const ownerId = group.owner_id;
+
+    // Xóa nhóm (Paranoid = false nếu muốn xóa thật sự khỏi DB)
+    await group.destroy({ force: true });
+
+    await createNotification({
+      user_id: ownerId,
+      type: 'community',
+      message: `Nhóm "${groupName}" của bạn đã bị Hệ thống xóa vĩnh viễn do vi phạm nghiêm trọng.`,
+    });
+
+    res.json({ success: true, message: 'Đã xóa nhóm vĩnh viễn.' });
+  } catch (error) { next(error); }
+};
+
+// Lấy chi tiết 1 bài post trong nhóm
+// Lấy chi tiết 1 bài post trong nhóm
+const getGroupPostDetail = async (req, res, next) => {
+  try {
+    const { groupSlug, postId } = req.params;
+    const group = await models.CommunityGroup.findOne({ where: { slug: groupSlug } });
+    if (!group) return res.status(404).json({ success: false, message: 'Không tìm thấy nhóm.' });
+    const post = await models.GroupPost.findOne({
+      where: { id: postId, group_id: group.id, status: 'approved' },
+      include: [
+        { 
+          model: models.User, 
+          as: 'author', 
+          attributes: ['id', 'full_name', 'avatar_url', 'role'] //  ĐÃ THÊM 'role' VÀO ĐÂY
+        }
+      ]
+    });
+    if (!post) return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết.' });
+    res.json({ success: true, data: post });
+  } catch (error) { next(error); }
+};
+
 module.exports = {
   getGroups,
   getGroupBySlug,
@@ -1768,5 +1971,13 @@ module.exports = {
   adminApproveHideGroup,
   adminRejectHideGroup,
   adminApproveTransferDoctor,
-  adminRejectTransferDoctor
+  adminRejectTransferDoctor,
+  getGroupSettings,
+  toggleGroupSettings,
+  getMyGroups,
+  adminWarnGroup,
+  adminForceSuspendGroup,
+  adminForceActiveGroup,
+  adminForceDeleteGroup,
+  getGroupPostDetail,
 };

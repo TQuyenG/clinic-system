@@ -228,15 +228,18 @@ const DashboardPage = () => {
     fetchPaymentStats();
   }, [canViewPaymentWorkload]);
 
-  // Fetch Lịch Làm Việc
+  // Fetch Lịch Làm Việc (chỉ của chính user nếu là admin)
   useEffect(() => {
     const fetchScheduleStats = async () => {
       if (!canViewScheduleWorkload) return;
       try {
         setLoadingScheduleStats(true);
         const token = localStorage.getItem('token');
+        // Nếu là admin, chỉ lấy lịch của chính mình
+        const params = isAdmin && user?.id ? { user_id: user.id } : {};
         const response = await axios.get('http://localhost:3001/api/schedules/stats', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
+          params
         });
         if (response.data?.success) {
           setScheduleStats(response.data.data || {});
@@ -249,7 +252,7 @@ const DashboardPage = () => {
       }
     };
     fetchScheduleStats();
-  }, [canViewScheduleWorkload]);
+  }, [canViewScheduleWorkload, isAdmin, user?.id]);
 
   // Fetch Diễn Đàn
   useEffect(() => {
@@ -378,7 +381,7 @@ const DashboardPage = () => {
     fetchRegistrationStats();
   }, [canViewApprovalStats]);
 
-  // Fetch Calendar Events (Lịch Làm + Lịch Hẹn)
+  // Fetch Calendar Events (Lịch Làm + Lịch Hẹn) - chỉ của chính user nếu là admin
   useEffect(() => {
     const fetchCalendarEvents = async () => {
       if (!canViewScheduleWorkload && !canViewAppointmentWorkload) return;
@@ -395,13 +398,15 @@ const DashboardPage = () => {
         const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
         const dateFrom = formatDate(monthStart);
         const dateTo = formatDate(monthEnd);
-        
+        // Nếu là admin, chỉ lấy lịch của chính mình
+        const params = {
+          date_from: dateFrom,
+          date_to: dateTo,
+          types: 'schedules,appointments,leaves',
+          ...(isAdmin && user?.id ? { user_id: user.id } : {})
+        };
         const response = await axios.get('http://localhost:3001/api/calendar/view', {
-          params: { 
-            date_from: dateFrom, 
-            date_to: dateTo,
-            types: 'schedules,appointments,leaves'
-          },
+          params,
           headers: { Authorization: `Bearer ${token}` }
         });
         if (response.data?.success) {
@@ -415,7 +420,7 @@ const DashboardPage = () => {
       }
     };
     fetchCalendarEvents();
-  }, [canViewScheduleWorkload, canViewAppointmentWorkload, currentMonth]);
+  }, [canViewScheduleWorkload, canViewAppointmentWorkload, currentMonth, isAdmin, user?.id]);
 
   // Hàm xử lý lưu layout
   const handleLayoutChange = (currentLayout, allLayouts) => {
@@ -590,18 +595,20 @@ const DashboardPage = () => {
       id: 'schedules',
       visible: canViewScheduleWorkload,
       title: 'Lịch làm việc',
-      loading: canViewApprovalStats ? (loadingLeaveStats || loadingOvertimeStats || loadingRegistrationStats) : loadingScheduleStats,
-      totalValue: canViewApprovalStats ? (leaveStats?.total || 0) + (overtimeStats?.total || 0) + (registrationStats?.total || 0) : scheduleStats?.totalSchedules || 0,
+      loading: false,
+      totalValue: isAdmin ? '-' : (canViewApprovalStats ? (leaveStats?.total || 0) + (overtimeStats?.total || 0) + (registrationStats?.total || 0) : scheduleStats?.totalSchedules || 0),
       totalIcon: FaBusinessTime,
-      stats: canViewApprovalStats ? [
-        { key: 'leave', visible: canApproveLeave, label: 'Đơn nghỉ phép', value: leaveStats?.total || 0, icon: FaClock, className: 'is-warning', action: () => navigate('/quan-ly-nhan-vien') },
-        { key: 'overtime', visible: canApproveOvertime, label: 'Đơn tăng ca', value: overtimeStats?.total || 0, icon: FaCoins, className: 'is-info', action: () => navigate('/quan-ly-lich-lam-viec') },
-        { key: 'registration', visible: canApproveRegistration, label: 'Đơn đăng ký', value: registrationStats?.total || 0, icon: FaUserCheck, className: 'is-amber', action: () => navigate('/quan-ly-lich-lam-viec') }
-      ] : [
-        { key: 'pending', label: 'Chờ duyệt', value: scheduleStats?.pendingSchedules || 0, icon: FaClock, className: 'is-warning', action: () => navigate(isAdmin ? '/quan-ly-lich-lam-viec?status=pending' : '/lich-cua-toi?status=pending') },
-        { key: 'registered', label: 'Đã đăng ký', value: scheduleStats?.registeredSchedules || 0, icon: FaUserCheck, className: 'is-info', action: () => navigate(isAdmin ? '/quan-ly-lich-lam-viec?status=approved' : '/lich-cua-toi?status=approved') },
-        { key: 'completed', label: 'Hoàn thành', value: scheduleStats?.completedSchedules || 0, icon: FaCheckCircle, className: 'is-blue', action: () => navigate(isAdmin ? '/quan-ly-lich-lam-viec?status=completed' : '/lich-cua-toi?status=completed') }
-      ]
+      stats: canViewApprovalStats
+        ? [
+            { key: 'leave', visible: canApproveLeave, label: 'Đơn nghỉ phép', value: leaveStats?.total || 0, icon: FaClock, className: 'is-warning', action: () => navigate('/quan-ly-nhan-vien') },
+            { key: 'overtime', visible: canApproveOvertime, label: 'Đơn tăng ca', value: overtimeStats?.total || 0, icon: FaCoins, className: 'is-info', action: () => navigate('/quan-ly-lich-lam-viec') },
+            { key: 'registration', visible: canApproveRegistration, label: 'Đơn đăng ký', value: registrationStats?.total || 0, icon: FaUserCheck, className: 'is-amber', action: () => navigate('/quan-ly-lich-lam-viec') }
+          ]
+        : [
+            { key: 'pending', label: 'Chờ duyệt', value: scheduleStats?.pendingSchedules || 0, icon: FaClock, className: 'is-warning', action: () => navigate(isAdmin ? '/quan-ly-lich-lam-viec?status=pending' : '/lich-cua-toi?status=pending') },
+            { key: 'registered', label: 'Đã đăng ký', value: scheduleStats?.registeredSchedules || 0, icon: FaUserCheck, className: 'is-info', action: () => navigate(isAdmin ? '/quan-ly-lich-lam-viec?status=approved' : '/lich-cua-toi?status=approved') },
+            { key: 'completed', label: 'Hoàn thành', value: scheduleStats?.completedSchedules || 0, icon: FaCheckCircle, className: 'is-blue', action: () => navigate(isAdmin ? '/quan-ly-lich-lam-viec?status=completed' : '/lich-cua-toi?status=completed') }
+          ]
     },
     {
       id: 'forum',
@@ -772,134 +779,149 @@ const DashboardPage = () => {
 
           {/* Calendar Widget */}
           <div className="dashboard-calendar-widget">
+            {/* Hiển thị lịch bình thường cho tất cả user, kể cả admin */}
             <div className="dashboard-calendar-header">
-              <button onClick={previousMonth} className="dashboard-calendar-nav"><FaChevronLeft /></button>
-              <div className="dashboard-calendar-title">
-                <FaCalendarAlt className="dashboard-calendar-icon" />
-                <span>{monthName}</span>
-              </div>
-              <button onClick={nextMonth} className="dashboard-calendar-nav"><FaChevronRight /></button>
-            </div>
-            <div className="dashboard-calendar-grid">
-              {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(day => (
-                <div key={day} className="dashboard-calendar-weekday">{day}</div>
-              ))}
-              {[...Array(startingDayOfWeek)].map((_, i) => (
-                <div key={`empty-${i}`} className="dashboard-calendar-day dashboard-calendar-empty"></div>
-              ))}
-              {[...Array(daysInMonth)].map((_, i) => {
-                const day = i + 1;
-                const isToday = isCurrentMonth && day === today;
-                const eventClass = getDateEventClass(day);
-                const dayEvents = getDisplayEventsForDate(day);
-                const hasEvents = hasEventsOnDate(day);
-                
-                return (
-                  <div 
-                    key={day} 
-                    className={`dashboard-calendar-day ${isToday ? 'dashboard-calendar-today' : ''} ${eventClass}`}
-                    onClick={() => handleCalendarDayClick(day)}
-                    onMouseEnter={(e) => {
-                      if (hasEvents) {
-                        setHoveredDay(day);
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setTooltipPos({
-                          x: rect.left + rect.width / 2,
-                          y: rect.top
-                        });
-                      }
-                    }}
-                    onMouseLeave={() => setHoveredDay(null)}
-                    title={hasEvents ? 'Nhấn để xem chi tiết theo ngày' : 'Nhấn để mở lịch theo ngày'}
-                  >
-                    <span className="dashboard-calendar-day-number">{day}</span>
-                    {hasEvents && (
-                      <div className="dashboard-calendar-day-indicators">
-                        {dayEvents.schedules.length > 0 && <span className="indicator indicator-schedule" title="Lịch làm">•</span>}
-                        {dayEvents.appointments.length > 0 && <span className="indicator indicator-appointment" title="Lịch hẹn">•</span>}
-                        {dayEvents.leaves.length > 0 && <span className="indicator indicator-leave" title="Nghỉ phép">•</span>}
-                      </div>
-                    )}
+                  <button onClick={previousMonth} className="dashboard-calendar-nav"><FaChevronLeft /></button>
+                  <div className="dashboard-calendar-title">
+                    <FaCalendarAlt className="dashboard-calendar-icon" />
+                    <span>{monthName}</span>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Calendar Legend */}
-            <div className="dashboard-calendar-legend">
-              <div className="legend-item">
-                <span className="legend-dot schedule-dot"></span>
-                <span className="legend-label">Lịch làm</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot appointment-dot"></span>
-                <span className="legend-label">Lịch hẹn</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot leave-dot"></span>
-                <span className="legend-label">Nghỉ phép</span>
-              </div>
-            </div>
-
-            {/* Tooltip */}
-            {hoveredDay !== null && (
-              <div className="dashboard-calendar-tooltip" style={{
-                left: `${tooltipPos.x}px`,
-                top: `${tooltipPos.y - 10}px`,
-                transform: 'translate(-50%, -100%)'
-              }}>
-                {(() => {
-                  const dayEvents = getDisplayEventsForDate(hoveredDay);
-                  return (
-                    <div className="tooltip-content">
-                      <div className="tooltip-date">
-                        {hoveredDay} {monthName}
+                  <button onClick={nextMonth} className="dashboard-calendar-nav"><FaChevronRight /></button>
+                </div>
+                <div className="dashboard-calendar-grid">
+                  {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(day => (
+                    <div key={day} className="dashboard-calendar-weekday">{day}</div>
+                  ))}
+                  {[...Array(startingDayOfWeek)].map((_, i) => (
+                    <div key={`empty-${i}`} className="dashboard-calendar-day dashboard-calendar-empty"></div>
+                  ))}
+                  {[...Array(daysInMonth)].map((_, i) => {
+                    const day = i + 1;
+                    const isToday = isCurrentMonth && day === today;
+                    const eventClass = getDateEventClass(day);
+                    const dayEvents = getDisplayEventsForDate(day);
+                    const hasEvents = hasEventsOnDate(day);
+                    
+                    return (
+                      <div 
+                        key={day} 
+                        className={`dashboard-calendar-day ${isToday ? 'dashboard-calendar-today' : ''} ${eventClass}`}
+                        onClick={() => handleCalendarDayClick(day)}
+                        onMouseEnter={(e) => {
+                          if (hasEvents) {
+                            setHoveredDay(day);
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setTooltipPos({
+                              x: rect.left + rect.width / 2,
+                              y: rect.top
+                            });
+                          }
+                        }}
+                        onMouseLeave={() => setHoveredDay(null)}
+                        title={hasEvents ? 'Nhấn để xem chi tiết theo ngày' : 'Nhấn để mở lịch theo ngày'}
+                      >
+                        <span className="dashboard-calendar-day-number">{day}</span>
+                        {hasEvents && (
+                          <div className="dashboard-calendar-day-indicators">
+                            {dayEvents.schedules.length > 0 && <span className="indicator indicator-schedule" title="Lịch làm">•</span>}
+                            {dayEvents.appointments.length > 0 && <span className="indicator indicator-appointment" title="Lịch hẹn">•</span>}
+                            {dayEvents.leaves.length > 0 && <span className="indicator indicator-leave" title="Nghỉ phép">•</span>}
+                          </div>
+                        )}
                       </div>
-                      {dayEvents.schedules.length > 0 && (
-                        <div className="tooltip-section">
-                          <div className="tooltip-section-title">
-                            <span className="indicator-badge schedule-badge">📅</span>
-                            Lịch làm ({dayEvents.schedules.length})
+                    );
+                  })}
+                </div>
+
+                {/* Calendar Legend */}
+                <div className="dashboard-calendar-legend">
+                  <div className="legend-item">
+                    <span className="legend-dot schedule-dot"></span>
+                    <span className="legend-label">Lịch làm</span>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-dot appointment-dot"></span>
+                    <span className="legend-label">Lịch hẹn</span>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-dot leave-dot"></span>
+                    <span className="legend-label">Nghỉ phép</span>
+                  </div>
+                </div>
+
+                {/* Tooltip */}
+                {hoveredDay !== null && (
+                  <div className="dashboard-calendar-tooltip" style={{
+                    left: `${tooltipPos.x}px`,
+                    top: `${tooltipPos.y - 10}px`,
+                    transform: 'translate(-50%, -100%)'
+                  }}>
+                    {/* Tooltip content */}
+                    {(() => {
+                      const dayEvents = getDisplayEventsForDate(hoveredDay);
+                      return (
+                        <div className="tooltip-content">
+                          <div className="tooltip-date">
+                            {hoveredDay} {monthName}
                           </div>
-                          {dayEvents.schedules.map((schedule, idx) => (
-                            <div key={idx} className="tooltip-item">
-                              {schedule.name} - {schedule.start_time?.substring(0, 5)} ~ {schedule.end_time?.substring(0, 5)}
+                          {dayEvents.schedules.length > 0 && (() => {
+                            // Lọc các ca làm duy nhất theo start_time + end_time
+                            const uniqueShifts = [];
+                            const seen = new Set();
+                            dayEvents.schedules.forEach(sch => {
+                              const key = `${sch.start_time}-${sch.end_time}`;
+                              if (!seen.has(key)) {
+                                seen.add(key);
+                                uniqueShifts.push(sch);
+                              }
+                            });
+                            return (
+                              <div className="tooltip-section">
+                                <div className="tooltip-section-title">
+                                  <span className="indicator-badge schedule-badge"><FaBusinessTime /></span>
+                                  Lịch làm ({uniqueShifts.length})
+                                </div>
+                                {uniqueShifts.map((sch, idx) => (
+                                  <div key={idx} className="tooltip-item">
+                                    {sch.name ? sch.name + ' - ' : ''}{sch.start_time?.substring(0, 5)} ~ {sch.end_time?.substring(0, 5)}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                          {dayEvents.appointments.length > 0 && (
+                            <div className="tooltip-section">
+                              <div className="tooltip-section-title">
+                                <span className="indicator-badge appointment-badge"><FaUserCheck /></span>
+                                Lịch hẹn ({dayEvents.appointments.length})
+                              </div>
+                              {dayEvents.appointments.map((apt, idx) => (
+                                <div key={idx} className="tooltip-item">
+                                  {apt.appointment_start_time?.substring(0, 5)} - {apt.patient_name} - {apt.service_name}
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      )}
-                      {dayEvents.appointments.length > 0 && (
-                        <div className="tooltip-section">
-                          <div className="tooltip-section-title">
-                            <span className="indicator-badge appointment-badge">👤</span>
-                            Lịch hẹn ({dayEvents.appointments.length})
-                          </div>
-                          {dayEvents.appointments.map((apt, idx) => (
-                            <div key={idx} className="tooltip-item">
-                              {apt.appointment_start_time?.substring(0, 5)} - {apt.patient_name} - {apt.service_name}
+                          )}
+                          {dayEvents.leaves.length > 0 && (
+                            <div className="tooltip-section">
+                              <div className="tooltip-section-title">
+                                <span className="indicator-badge leave-badge"><FaClock /></span>
+                                Nghỉ phép ({dayEvents.leaves.length})
+                              </div>
+                              {dayEvents.leaves.slice(0, 2).map((leave, idx) => (
+                                <div key={idx} className="tooltip-item">
+                                  {leave.reason}
+                                </div>
+                              ))}
+                              {dayEvents.leaves.length > 2 && <div className="tooltip-more">... và {dayEvents.leaves.length - 2} khác</div>}
                             </div>
-                          ))}
+                          )}
                         </div>
-                      )}
-                      {dayEvents.leaves.length > 0 && (
-                        <div className="tooltip-section">
-                          <div className="tooltip-section-title">
-                            <span className="indicator-badge leave-badge">🏖️</span>
-                            Nghỉ phép ({dayEvents.leaves.length})
-                          </div>
-                          {dayEvents.leaves.slice(0, 2).map((leave, idx) => (
-                            <div key={idx} className="tooltip-item">
-                              {leave.reason}
-                            </div>
-                          ))}
-                          {dayEvents.leaves.length > 2 && <div className="tooltip-more">... và {dayEvents.leaves.length - 2} khác</div>}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+                      );
+                    })()}
+                  </div>
+                )}
+            {/* Tooltip and calendar content end */}
           </div>
         </aside>
       </div>

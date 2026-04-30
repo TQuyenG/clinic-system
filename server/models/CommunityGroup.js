@@ -61,7 +61,7 @@ module.exports = (sequelize) => {
     },
     doctor_id: {
       type: DataTypes.BIGINT,
-      allowNull: false,
+      allowNull: true,
     },
     requires_post_approval: {
       type: DataTypes.BOOLEAN,
