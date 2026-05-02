@@ -22,7 +22,7 @@
  * }
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import api from '../services/api';
 
 const usePermissions = () => {
@@ -70,23 +70,48 @@ else if (userData.role === 'admin') {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Hàm gọi API lấy quyền mới nhất từ Server để cập nhật LocalStorage
-  const refreshPermissions = async () => {
+  const refreshPermissions = useCallback(async () => {
     try {
+      const currentUser = JSON.parse(localStorage.getItem('user'));
+      if (!currentUser) return;
+
+      // Nếu là staff hoặc doctor, load từ API permissions mới
+      if (currentUser.role === 'staff' || currentUser.role === 'doctor') {
+        try {
+          // Lấy từ API permissions chi tiết (/me endpoint)
+          const { data: permData } = await api.get('/permissions/me');
+          if (permData.success && permData.data?.permissions) {
+            const updatedUser = { 
+              ...currentUser, 
+              role_info: {
+                ...currentUser.role_info,
+                permissions: permData.data.permissions
+              }
+            };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setPermissions(permData.data.permissions);
+            window.dispatchEvent(new Event('storage'));
+            return;
+          }
+        } catch (err) {
+          console.warn('Không thể lấy permissions từ /permissions/me:', err);
+          // Fallback: Lấy từ role-info endpoint cũ
+        }
+      }
+
+      // Fallback: Lấy từ endpoint role-info cũ
       const { data } = await api.get('/users/profile/role-info');
       if (data.success && data.user?.role_info) {
-        const currentUser = JSON.parse(localStorage.getItem('user'));
-        // Merge đúng: giữ nguyên user gốc, chỉ cập nhật role_info (permissions mới nhất)
         const updatedUser = { 
           ...currentUser, 
           role_info: data.user.role_info 
         };
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        // Cập nhật state trực tiếp không cần reload
         setPermissions(data.user.role_info.permissions || {});
         window.dispatchEvent(new Event('storage'));
       }
     } catch (err) { console.error("Không thể cập nhật quyền:", err); }
-  };
+  }, []);
   // --- [KẾT THÚC ĐOẠN SỬA] ---
 
   /**

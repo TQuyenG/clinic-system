@@ -90,6 +90,68 @@
   padding: 0.35rem;
 }
 
+/* ==================== USER HEADER & SECTION LABELS ==================== */
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  color: #0f5132;
+}
+.sidebar-user-avatar {
+  font-size: 1.15rem;
+  color: #16a34a;
+  flex-shrink: 0;
+}
+.sidebar-user-info {
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-user-name {
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: #064e3b;
+}
+.sidebar-user-role {
+  font-size: 0.72rem;
+  color: #25603a;
+  opacity: 0.9;
+}
+.sidebar-section-label {
+  padding: 0.25rem 0.75rem;
+  color: #065f46;
+  font-weight: 700;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+.sidebar-section-label-management {
+  margin-top: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+/* Horizontal divider between top 'Chung' and management sections */
+.sidebar-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 0.35rem 0.5rem;
+  border-radius: 2px;
+  opacity: 0.9;
+}
+
+/* Hide labels/divider when sidebar collapsed to keep compact look */
+.sidebar.sidebar-collapsed .sidebar-section-label,
+.sidebar.sidebar-collapsed .sidebar-section-label-management,
+.sidebar.sidebar-collapsed .sidebar-divider,
+.sidebar.sidebar-collapsed .sidebar-user {
+  display: none;
+}
+
+/* Slightly larger gap below 'Chung' */
+.sidebar-section-label + .sidebar-nav {
+  margin-bottom: 0.4rem;
+}
+
 /* ==================== MENU ITEMS ==================== */
 .sidebar-link,
 .sidebar-menu-toggle {
@@ -141,9 +203,9 @@
 
 /* Active state */
 .sidebar-link.sidebar-active {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  background: #16a34a;
   color: white;
-  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   font-weight: 600;
 }
 
@@ -258,7 +320,7 @@
 }
 
 .sidebar-submenu .sidebar-submenu-link.sidebar-active {
-  background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
+  background: #16a34a;
   color: white;
   font-weight: 600;
 }

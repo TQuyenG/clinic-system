@@ -113,6 +113,8 @@ const FrontDeskPage = () => {
   // Cashier State
   const [selectedBill, setSelectedBill] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
+  // --- [MỚI] State cho Thanh toán & In ấn ---
+  const [discountAmount, setDiscountAmount] = useState(0); // Tiền giảm giá
 
   // Pharmacy State
   const [pharmacyTab, setPharmacyTab] = useState('prescription');
@@ -914,13 +916,1008 @@ const FrontDeskPage = () => {
     );
   }
 
-  // --- CÁC TAB KHÁC GIỮ NGUYÊN (Cashier, Pharmacy) ---
-  const renderCashier = () => { /* ... Giữ nguyên 100% nội dung đã có ... */ };
-  const renderPharmacy = () => { /* ... Giữ nguyên 100% nội dung đã có ... */ };
+  const renderCashier = () => {
+    // Lấy khách hàng đang được chọn hoặc người đầu tiên trong hàng đợi để hiển thị "Đang gọi"
+    // [SỬA] Logic ưu tiên hiển thị đúng người đang gọi
+    const firstUnpaid = cashierList.find(p => !['paid', 'paid_at_clinic', 'paid_online'].includes(p.payment_status));
+    const currentCalling = manualCalling || selectedBill || firstUnpaid || cashierList[0];
 
-  // --- CÁC HÀM XỬ LÝ KHÁC (handlePaymentAndPrint, handleOpenPrintInvoice...) GIỮ NGUYÊN ---
-  const handleOpenPrintInvoice = (prescription) => { /* ... */ };
-  const handlePaymentAndPrint = async () => { /* ... */ };
+    return (
+    <div className="front-desk-page-content front-desk-page-layout-split">
+       {/* CỘT TRÁI: DANH SÁCH CHỜ */}
+       <div className="front-desk-page-panel">
+          
+          {/* [SỬA] Ô GỌI SỐ CÓ NÚT NEXT */}
+          {/* CALL BOX MỚI */}
+          <div className="fd-call-box">
+            <div>
+              <div className="call-label">
+                <FaHospital style={{marginRight: 5}}/> Đang mời thanh toán
+              </div>
+              <div className="call-name">
+                {currentCalling
+                  ? `${currentCalling.payment_queue_number ? 'Số ' + currentCalling.payment_queue_number + ' — ' : ''}${currentCalling.guest_name || currentCalling.Patient?.User?.full_name}`
+                  : '— Chưa có khách —'}
+              </div>
+              <div className="call-sub">
+                {currentCalling ? `Mã hồ sơ: ${currentCalling.code}` : 'Hàng đợi trống'}
+              </div>
+            </div>
+            <div style={{display: 'flex', alignItems: 'center', gap: 14}}>
+              <div style={{textAlign: 'center'}}>
+                <div className="call-number">{currentCalling?.payment_queue_number || '--'}</div>
+                <div className="call-counter">Quầy 1</div>
+              </div>
+              <button className="fd-next-btn" onClick={handleCallNext} title="Mời số tiếp theo">
+                <FaArrowRight /> GỌI TIẾP
+              </button>
+            </div>
+          </div>
+
+          <div className="front-desk-page-panel-header">
+             <span><FaMoneyBillWave /> DANH SÁCH CHỜ ({cashierList.length})</span>
+          </div>
+
+          {/* [MỚI] THANH CÔNG CỤ LỌC (Ngày tháng & Tìm kiếm) */}
+          {/* [ĐÃ SỬA] THANH CÔNG CỤ LỌC: Có mũi tên, icon lịch, nút Tất cả */}
+          <div className="fd-toolbar">
+          {/* Date navigator */}
+          <div className="fd-date-nav">
+            <button onClick={handleCashierPrevDay} title="Ngày trước"><FaChevronLeft size={10}/></button>
+            <input
+              type="date"
+              value={cashierFilter.date}
+              onChange={e => setCashierFilter({...cashierFilter, date: e.target.value})}
+            />
+            <button onClick={handleCashierNextDay} title="Ngày sau"><FaChevronRight size={10}/></button>
+          </div>
+        
+          {/* Status filter */}
+          <select
+            className="front-desk-page-select"
+            style={{width: 148, height: 30}}
+            value={cashierFilter.status}
+            onChange={e => setCashierFilter({...cashierFilter, status: e.target.value})}
+          >
+            <option value="all">Tất cả hồ sơ</option>
+            <option value="unpaid">Chờ thu tiền</option>
+            <option value="paid">Đã thu tiền</option>
+          </select>
+        
+          {/* Search */}
+          <div className="fd-search-box">
+            <FaSearch size={11} style={{color: 'var(--fd-gray-500)', flexShrink: 0}}/>
+            <input
+              placeholder="Tên BN, Mã hồ sơ, SĐT..."
+              value={cashierFilter.keyword}
+              onChange={e => setCashierFilter({...cashierFilter, keyword: e.target.value})}
+              onKeyDown={e => e.key === 'Enter' && loadCashierData()}
+            />
+          </div>
+          <button className="front-desk-page-btn front-desk-page-btn-primary front-desk-page-btn-sm" onClick={loadCashierData}>
+            Tìm
+          </button>
+        </div>
+
+          <div className="front-desk-page-panel-body p-0">
+             <table className="front-desk-page-table">
+                <thead>
+                    <tr>
+                        <th style={{width: '50px'}}>STT</th>
+                        <th style={{width: '100px'}}>Mã HS</th>
+                        <th>Họ tên</th>
+                        <th style={{width: '80px'}}>Giờ</th>
+                        <th>Bác sĩ</th>
+                        <th>Dịch vụ</th>
+                        <th className="text-end">Số tiền</th>
+                        <th className="text-center">Trạng thái</th>
+                        <th className="text-end">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                   {cashierList.map((p, index) => {
+                    // Kiểm tra xem đơn này đã thanh toán chưa
+                    const isPaid = ['paid_at_clinic', 'paid_online', 'paid'].includes(p.payment_status);
+
+                    return (
+                    <tr key={p.id} 
+                        className={selectedBill?.id === p.id ? 'active' : ''}
+                        // SỬA: Bỏ điều kiện !isPaid để luôn cho phép click xem chi tiết
+                        onClick={() => setSelectedBill(p)} 
+                        style={{cursor: 'pointer', backgroundColor: isPaid ? '#f0fdf4' : 'white'}} // Đổi màu xanh nhẹ nếu đã thu
+                    >
+                        <td>
+                            <span className={`front-desk-page-badge ${isPaid ? 'badge-grey' : 'badge-num'}`}>
+                              {index + 1}
+                            </span>
+                        </td>
+
+                        <td><span className="fw-bold">{p.code}</span></td>
+                        <td>{p.guest_name || p.Patient?.User?.full_name}</td>
+
+                        <td>
+                          <div className="fw-bold small">{p.appointment_start_time?.slice(0, 5)}</div>
+                        </td>
+
+                        <td>
+                          <div className="small text-primary fw-bold">
+                              {p.Doctor?.user?.full_name || 'Chưa chỉ định'}
+                          </div>
+                        </td>
+
+                        <td><small>{p.Service?.name}</small></td>
+                        
+                        {/* Cột số tiền: Nếu đã thu hiện màu xanh, chưa thu hiện màu đỏ */}
+                        <td className={`text-end fw-bold ${isPaid ? 'text-success' : 'text-danger'}`}>
+                            {formatMoney(p.Service?.price)}
+                        </td>
+                        
+                        {/* Cột trạng thái */}
+                        <td>
+                            {isPaid ? (
+                                <span className="badge bg-success text-white">Đã thu tiền</span>
+                            ) : (
+                                <span className="front-desk-page-badge badge-wait">Chờ thu</span>
+                            )}
+                        </td>
+
+                        {/* Cột thao tác: Hiện nút In hóa đơn nếu đã thu */}
+                        <td>
+                          <div className="d-flex justify-content-end gap-1">
+                              <button 
+                                className="btn btn-sm btn-light text-primary border"
+                                onClick={(e) => { e.stopPropagation(); openDetail(p); }}
+                                title="Xem chi tiết"
+                              >
+                                <FaInfoCircle />
+                              </button>
+                              
+                              {isPaid ? (
+                                  <button 
+                                    className="btn btn-sm btn-outline-dark d-flex align-items-center gap-1"
+                                    onClick={async (e) => { 
+                                    e.stopPropagation(); // Ngăn click nhầm vào dòng
+                                    try {
+                                        const token = localStorage.getItem('token');
+                                        // Gọi API lấy thông tin thanh toán chi tiết từ Database (đã sửa ở Bước 1)
+                                        const res = await axios.get(`http://localhost:3001/api/payments/appointment/${p.id}`, {
+                                            headers: { Authorization: `Bearer ${token}` }
+                                        });
+                                        
+                                        // Chuẩn bị dữ liệu in mặc định (Dự phòng)
+                                        let finalPrintData = { 
+                                            ...p,
+                                            payment_status: 'paid_at_clinic', // Đảm bảo trạng thái đúng để in ra Hóa Đơn
+                                            printType: 'invoice'
+                                        };
+
+                                        // Nếu API trả về dữ liệu thanh toán, gộp vào
+                                        if (res.data.success && res.data.data) {
+                                            const rawInfo = res.data.data.payment_info;
+                                            // Parse JSON chuỗi payment_info từ DB
+                                            const infoObj = (typeof rawInfo === 'string') ? JSON.parse(rawInfo) : rawInfo;
+                                            
+                                            finalPrintData.PaymentDetails = {
+                                                ...res.data.data,
+                                                info: infoObj || { amount_received: p.Service?.price, change_amount: 0 }
+                                            };
+                                        } else {
+                                            // Nếu không tìm thấy record thanh toán (lỗi DB), tự tạo dữ liệu giả để vẫn in được
+                                            finalPrintData.PaymentDetails = {
+                                                method: 'cash',
+                                                transaction_id: `OFFLINE-${p.id}`,
+                                                info: { amount_received: p.Service?.price, change_amount: 0 }
+                                            };
+                                        }
+                                        
+                                        setPrintData(finalPrintData);
+                                        setShowPrintModal(true); // Mở modal
+                                    } catch (err) {
+                                        console.error("Lỗi lấy thông tin in:", err);
+                                        // Trường hợp lỗi mạng, vẫn mở modal in với thông tin cơ bản
+                                        setPrintData({
+                                            ...p, 
+                                            payment_status: 'paid_at_clinic',
+                                            PaymentDetails: { method: 'cash', info: { amount_received: p.Service?.price, change_amount: 0 } }
+                                        }); 
+                                        setShowPrintModal(true); 
+                                    }
+                                }}
+                                  >
+                                    <FaPrint /> In HĐ
+                                  </button>
+                                ) : (
+                                  <button className="front-desk-page-btn front-desk-page-btn-primary front-desk-page-btn-sm">
+                                    Thu tiền
+                                  </button>
+                              )}
+                          </div>
+                        </td>
+                    </tr>
+                  )})}
+                  
+                   {cashierList.length === 0 && (
+                      <tr><td colSpan="9" className="text-center text-muted py-4">Không tìm thấy dữ liệu phù hợp</td></tr>
+                   )}
+                </tbody>
+             </table>
+          </div>
+       </div>
+
+       {/* CỘT PHẢI: FORM THANH TOÁN */}
+       <div className="front-desk-page-panel">
+          <div className="front-desk-page-panel-header d-flex justify-content-between align-items-center">
+              <span>THÔNG TIN THANH TOÁN</span>
+              {/* [THÊM] Nút đóng panel khi không dùng */}
+              {selectedBill && (
+                  <button 
+                      className="btn btn-sm btn-danger d-flex align-items-center justify-content-center p-0" 
+                      style={{width: '24px', height: '24px', borderRadius: '50%'}}
+                      onClick={() => setSelectedBill(null)}
+                      title="Đóng bảng thanh toán"
+                  >
+                      <span style={{marginTop: '-2px'}}>×</span>
+                  </button>
+              )}
+          </div>
+          <div className="front-desk-page-panel-body">
+            {selectedBill ? (
+              <div className="fd-payment-info">
+          
+                {/* Header bệnh nhân */}
+                <div style={{textAlign: 'center', paddingBottom: 12, marginBottom: 12, borderBottom: '1px solid var(--fd-gray-300)'}}>
+                  <div className="fd-queue-number">{selectedBill.payment_queue_number || '--'}</div>
+                  <div className="fd-patient-name">{selectedBill.guest_name || selectedBill.Patient?.User?.full_name}</div>
+                  <div className="fd-patient-code">{selectedBill.code}</div>
+                  {['paid','paid_at_clinic','paid_online'].includes(selectedBill.payment_status) && (
+                    <span className="fd-status-chip paid" style={{marginTop: 6}}>
+                      <FaCheckCircle size={9}/> Đã thanh toán
+                    </span>
+                  )}
+                </div>
+          
+                {/* Thông tin dịch vụ */}
+                <div style={{background: 'var(--fd-green-20)', borderRadius: 8, padding: '10px 12px', marginBottom: 10}}>
+                  <div className="fd-bill-row">
+                    <span style={{color: 'var(--fd-gray-500)', fontSize: 11}}>Dịch vụ</span>
+                    <span style={{fontWeight: 600, fontSize: 12, maxWidth: 160, textAlign: 'right'}}>{selectedBill.Service?.name}</span>
+                  </div>
+                  <div className="fd-bill-row">
+                    <span style={{color: 'var(--fd-gray-500)', fontSize: 11}}>Bác sĩ</span>
+                    <span style={{fontWeight: 600, fontSize: 12, color: 'var(--fd-blue-600)'}}>{selectedBill.Doctor?.user?.full_name || '—'}</span>
+                  </div>
+                  <div className="fd-bill-row">
+                    <span style={{color: 'var(--fd-gray-500)', fontSize: 11}}>Giờ khám</span>
+                    <span style={{fontWeight: 700, fontFamily: 'var(--fd-mono)', fontSize: 12}}>{selectedBill.appointment_start_time?.slice(0,5)}</span>
+                  </div>
+                </div>
+          
+                {/* Tổng tiền */}
+                <div className="fd-bill-total">
+                  <span className="label">Tổng cộng</span>
+                  <span className="amount">{formatMoney(selectedBill.Service?.price)}</span>
+                </div>
+          
+                {!['paid','paid_at_clinic','paid_online'].includes(selectedBill.payment_status) ? (
+                  <>
+                    {/* Mã giảm giá */}
+                    <div style={{marginBottom: 8}}>
+                      <div style={{fontSize: 11, fontWeight: 700, color: 'var(--fd-gray-500)', marginBottom: 3, textTransform: 'uppercase'}}>Voucher / Mã giảm giá</div>
+                      <div style={{display: 'flex', gap: 6}}>
+                        <input className="front-desk-page-input" placeholder="Nhập mã..." value={discountCode} onChange={e => setDiscountCode(e.target.value)}/>
+                        <button className="front-desk-page-btn front-desk-page-btn-outline front-desk-page-btn-sm" style={{flexShrink: 0}} onClick={() => toast.info('Đang cập nhật')}>
+                          <FaTag/>
+                        </button>
+                      </div>
+                    </div>
+          
+                    <div className="front-desk-page-divider"/>
+          
+                    {/* Phương thức */}
+                    <div style={{marginBottom: 10}}>
+                      <div style={{fontSize: 11, fontWeight: 700, color: 'var(--fd-gray-500)', marginBottom: 5, textTransform: 'uppercase'}}>Phương thức</div>
+                      <div className="fd-method-switcher">
+                        <button className={`fd-method-btn ${paymentMethod==='cash'?'active':''}`} onClick={() => setPaymentMethod('cash')}>
+                          <FaMoneyBillWave size={11}/> Tiền mặt
+                        </button>
+                        <button className={`fd-method-btn ${paymentMethod==='transfer'?'active':''}`} onClick={() => setPaymentMethod('transfer')}>
+                          <FaQrcode size={11}/> Chuyển khoản
+                        </button>
+                      </div>
+                    </div>
+          
+                    {/* Tiền khách đưa */}
+                    {paymentMethod === 'cash' ? (
+                      <div style={{marginBottom: 10}}>
+                        <div style={{fontSize: 11, fontWeight: 700, color: 'var(--fd-gray-500)', marginBottom: 4, textTransform: 'uppercase'}}>Tiền khách đưa</div>
+                        <input
+                          type="number"
+                          className="front-desk-page-input"
+                          style={{fontSize: 15, fontWeight: 700, color: 'var(--fd-green-700)', fontFamily: 'var(--fd-mono)'}}
+                          value={paymentAmount}
+                          onChange={e => setPaymentAmount(e.target.value)}
+                          placeholder="0"
+                          autoFocus
+                        />
+                        {paymentAmount && (
+                          <div className="fd-change-box" style={{marginTop: 6}}>
+                            <span style={{fontSize: 11, color: 'var(--fd-gray-500)'}}>Trả lại</span>
+                            <span style={{fontWeight: 700, color: 'var(--fd-green-700)', fontFamily: 'var(--fd-mono)'}}>
+                              {formatMoney(Math.max(0, parseInt(paymentAmount) - (selectedBill.Service?.price || 0)))}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{background: 'var(--fd-blue-50)', borderRadius: 8, padding: '10px 12px', marginBottom: 10, fontSize: 12, color: 'var(--fd-blue-600)', display: 'flex', gap: 8, alignItems: 'flex-start'}}>
+                        <FaInfoCircle style={{marginTop: 1, flexShrink: 0}}/>
+                        <span>Yêu cầu khách quét QR hoặc chuyển khoản theo thông tin ngân hàng tại quầy.</span>
+                      </div>
+                    )}
+          
+                    {/* Nút thu tiền */}
+                    <button className="fd-checkout-btn" onClick={handlePayment}>
+                      <FaCheckCircle size={13}/> XÁC NHẬN THANH TOÁN
+                    </button>
+                    <button
+                      className="front-desk-page-btn front-desk-page-btn-outline"
+                      style={{width: '100%', justifyContent: 'center', marginTop: 6}}
+                      onClick={() => setSelectedBill(null)}
+                    >
+                      Hủy bỏ
+                    </button>
+                  </>
+                ) : (
+                  <div className="fd-success-state">
+                    <div className="fd-success-icon"><FaCheckCircle/></div>
+                    <div style={{fontWeight: 700, color: 'var(--fd-green-700)', fontSize: 13}}>Giao dịch hoàn tất</div>
+                    <button
+                      className="front-desk-page-btn front-desk-page-btn-outline"
+                      style={{width: '100%', justifyContent: 'center', marginTop: 4}}
+                      onClick={async () => {
+                        const token = localStorage.getItem('token');
+                        let paymentData = null;
+                        try {
+                          const res = await axios.get(`http://localhost:3001/api/payments/appointment/${selectedBill.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                          if (res.data.success && res.data.data) {
+                            const rawInfo = res.data.data.payment_info;
+                            paymentData = { ...res.data.data, info: typeof rawInfo === 'string' ? JSON.parse(rawInfo) : rawInfo };
+                          }
+                        } catch(e) {}
+                        if (!paymentData) paymentData = { method: 'cash', transaction_id: `OFFLINE-${selectedBill.id}`, info: { amount_received: selectedBill.Service?.price, change_amount: 0 } };
+                        setPrintData({ ...selectedBill, PaymentDetails: paymentData });
+                        setShowPrintModal(true);
+                      }}
+                    >
+                      <FaPrint size={11}/> In lại hóa đơn
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="fd-empty-state">
+                <FaMoneyBillWave size={36}/>
+                <p>Chọn bệnh nhân<br/>để thu tiền</p>
+              </div>
+            )}
+          </div>
+       </div>
+    </div>
+  )};
+
+  // 3. PHARMACY VIEW (NHÀ THUỐC) - ĐÃ CẬP NHẬT GIAO DIỆN MỚI
+  // --- [MỚI] Hàm cập nhật số lượng/đơn vị thuốc và tính lại tổng tiền ---
+  const handleUpdatePrescriptionItem = (index, field, value) => {
+    if (!selectedPrescription) return;
+
+    // 1. Sao chép danh sách item hiện tại
+    const newItems = [...selectedPrescription.items];
+    const currentItem = { ...newItems[index] };
+
+    // 2. Cập nhật giá trị (Số lượng hoặc Đơn vị)
+    if (field === 'quantity') {
+      const qty = parseInt(value) || 0;
+      currentItem.quantity = qty;
+      // Tính lại thành tiền của dòng này
+      currentItem.total = qty * (currentItem.price || 0);
+    } else if (field === 'unit') {
+      currentItem.unit = value;
+    }
+
+    newItems[index] = currentItem;
+
+    // 3. Tính lại Tổng tiền toàn đơn
+    const newTotal = newItems.reduce((sum, item) => sum + (item.total || 0), 0);
+
+    // 4. Cập nhật State
+    const updatedPrescription = {
+      ...selectedPrescription,
+      items: newItems,
+      total: newTotal
+    };
+
+    setSelectedPrescription(updatedPrescription);
+
+    // Cập nhật cả trong danh sách lớn để đồng bộ
+    setPrescriptions(prev => prev.map(p => p.id === updatedPrescription.id ? updatedPrescription : p));
+  };
+
+  // 3. PHARMACY VIEW (NHÀ THUỐC) - ĐÃ CẬP NHẬT GIAO DIỆN MỚI
+  const renderPharmacy = () => {
+    return (
+      <div className="front-desk-page-content front-desk-page-layout-split">
+         {/* CỘT TRÁI: DANH SÁCH ĐƠN / THUỐC */}
+         <div className="front-desk-page-panel">
+            <div className="front-desk-page-panel-header">
+               <div className="front-desk-page-sub-tabs m-0">
+                  <div 
+                    className={`front-desk-page-sub-tab-btn ${pharmacyTab==='prescription'?'active':''}`}
+                    onClick={()=>setPharmacyTab('prescription')}
+                  >
+                     <FaFilePrescription /> Đơn thuốc Bác sĩ
+                  </div>
+                  <div 
+                    className={`front-desk-page-sub-tab-btn ${pharmacyTab==='retail'?'active':''}`}
+                    onClick={()=>setPharmacyTab('retail')}
+                  >
+                     <FaPills /> Bán lẻ
+                  </div>
+               </div>
+            </div>
+
+            {/* TAB: ĐƠN THUỐC */}
+            {pharmacyTab === 'prescription' && (
+               <div className="front-desk-page-panel-body p-0">
+                  <div className="p-2 border-bottom bg-light">
+                     <div className="position-relative">
+                        <FaSearch className="position-absolute top-50 start-0 translate-middle-y ms-2 text-muted"/>
+                        <input className="front-desk-page-input ps-4" placeholder="Tìm tên BN hoặc mã đơn..." />
+                     </div>
+                  </div>
+                  <table className="front-desk-page-table">
+                     <thead>
+                        <tr><th>Mã</th><th>Bệnh nhân</th><th>Bác sĩ</th><th>Trạng thái</th><th>Thao tác</th></tr>
+                     </thead>
+                     <tbody>
+                        {prescriptions.map(pr => (
+                           <tr 
+                              key={pr.id} 
+                              className={selectedPrescription?.id === pr.id ? 'active' : ''}
+                              onClick={() => setSelectedPrescription(pr)} // [FIX] Luôn cho phép click
+                              style={{ cursor: 'pointer' }}
+                           >
+                              <td><span className="fw-bold">{pr.id}</span></td>
+                              <td>{pr.patientName}<br/><small className="text-muted">{pr.patientCode}</small></td>
+                              <td>{pr.doctor}</td>
+                              <td>
+                                {/* [FIX] Hiển thị trạng thái dựa trên biến status mới */}
+                                {pr.status === 'sold' 
+                                    ? <span className="front-desk-page-badge badge-done">Đã bán</span>
+                                    : <span className="front-desk-page-badge badge-wait">Chờ bán</span>
+                                }
+                              </td>
+                              <td>
+                                 {/* Nút thao tác nhanh */}
+                                 {pr.status !== 'sold' && (
+                                   <button 
+                                      className="front-desk-page-btn front-desk-page-btn-primary front-desk-page-btn-sm" 
+                                      onClick={(e) => {
+                                          e.stopPropagation(); 
+                                          setSelectedPrescription(pr);
+                                      }}
+                                   >
+                                      Bán thuốc
+                                   </button>
+                                 )}
+                              </td>
+                           </tr>
+                        ))}
+                     </tbody>
+                  </table>
+               </div>
+            )}
+
+            {/* TAB: BÁN LẺ */}
+            {pharmacyTab === 'retail' && (
+               <div className="front-desk-page-panel-body p-0">
+                  {!showRetailForm ? (
+                    /* LIST HÓA ĐƠN */
+                    <div className="p-3">
+                      <div className="d-flex justify-content-between mb-3 align-items-center">
+                        <span className="fw-bold text-primary text-uppercase small">Lịch sử Bán lẻ</span>
+                        <button className="front-desk-page-btn front-desk-page-btn-primary" onClick={() => setShowRetailForm(true)}>
+                          <FaPills /> Tạo đơn mới
+                        </button>
+                      </div>
+                      <table className="front-desk-page-table border rounded">
+                        <thead>
+                          <tr><th>Mã HĐ</th><th>Khách hàng</th><th>SL</th><th>Tổng tiền</th><th>Ngày bán</th></tr>
+                        </thead>
+                        <tbody>
+                          {retailInvoices.map(inv => (
+                            <tr key={inv.id}>
+                              <td><span className="fw-bold text-primary">{inv.code}</span></td>
+                              <td>{inv.customer_name}<br/><small className="text-muted">{inv.customer_phone}</small></td>
+                              <td className="text-center">{inv.item_count}</td>
+                              <td className="fw-bold text-danger">{formatMoney(parseFloat(inv.amount))}</td>
+                              <td>{new Date(inv.created_at).toLocaleDateString('vi-VN')}</td>
+                            </tr>
+                          ))}
+                          {retailInvoices.length === 0 && <tr><td colSpan="5" className="text-center text-muted py-4">Chưa có dữ liệu</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    /* FORM TẠO ĐƠN MỚI - GIAO DIỆN CHUẨN PASTEL COMPACT */
+                    <div className="d-flex h-100 gap-2 p-2">
+                      {/* CỘT TRÁI: DANH SÁCH THUỐC (GRID) */}
+                      <div className="front-desk-page-panel flex-grow-1" style={{flex: 6}}>
+                          <div className="front-desk-page-panel-header bg-white border-bottom p-2">
+                             <div className="d-flex gap-2 w-100">
+                                <button className="front-desk-page-btn front-desk-page-btn-outline" onClick={() => setShowRetailForm(false)}>
+                                   <FaUndo /> Quay lại
+                                </button>
+                                <div className="position-relative flex-grow-1">
+                                   <FaSearch className="position-absolute top-50 start-0 translate-middle-y ms-2 text-muted"/>
+                                   <input 
+                                     className="front-desk-page-input ps-4" 
+                                     placeholder="Tìm thuốc nhanh..." 
+                                     value={medSearch} 
+                                     onChange={e=>setMedSearch(e.target.value)}
+                                     autoFocus
+                                   />
+                                </div>
+                             </div>
+                          </div>
+                          
+                          <div className="front-desk-page-panel-body p-2 bg-light">
+                              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px', padding: '8px'}}>
+                                {medicinesList
+                                  .filter(m => (m.name || '').toLowerCase().includes(medSearch.toLowerCase()))
+                                  .map(med => {
+                                    const stock = med.stock ?? med.quantity ?? 0;
+                                    const inCart = retailCart.find(i => i.id === med.id);
+                                    return (
+                                      <div
+                                        key={med.id}
+                                        className="fd-med-card"
+                                        style={inCart ? {borderColor: 'var(--fd-green-500)', background: 'var(--fd-green-20)'} : {}}
+                                        onClick={() => {
+                                          if (stock <= 0) return toast.warning('Thuốc đã hết hàng!');
+                                          const exist = retailCart.find(i => i.id === med.id);
+                                          if (exist) setRetailCart(retailCart.map(i => i.id === med.id ? {...i, qty: i.qty + 1} : i));
+                                          else setRetailCart([...retailCart, {...med, qty: 1}]);
+                                        }}
+                                      >
+                                        <div className="fd-med-name" title={med.name}>{med.name}</div>
+                                        <div className="fd-med-meta">
+                                          <span>{med.unit || '—'}</span>
+                                          <span className={stock <= 0 ? 'fd-med-stock-out' : stock <= 10 ? 'fd-med-stock-warn' : ''}>
+                                            {stock <= 0 ? 'Hết hàng' : `Kho: ${stock}`}
+                                          </span>
+                                        </div>
+                                        <div className="fd-med-footer">
+                                          <span className="fd-med-price">{formatMoney(med.price || med.export_price)}</span>
+                                          <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
+                                            {inCart && (
+                                              <span style={{fontSize: 10, fontWeight: 700, color: 'var(--fd-green-700)', background: 'var(--fd-green-100)', borderRadius: 10, padding: '1px 6px'}}>
+                                                ×{inCart.qty}
+                                              </span>
+                                            )}
+                                            <button
+                                              className="fd-add-btn"
+                                              disabled={stock <= 0}
+                                              style={stock <= 0 ? {opacity: 0.35, cursor: 'not-allowed'} : {}}
+                                              onClick={e => { e.stopPropagation(); }}
+                                            >+</button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })
+                                }
+                                {medicinesList.filter(m => (m.name || '').toLowerCase().includes(medSearch.toLowerCase())).length === 0 && (
+                                  <div style={{gridColumn: '1/-1', textAlign: 'center', color: 'var(--fd-gray-500)', padding: '40px 0', fontSize: 12}}>
+                                    Không tìm thấy thuốc phù hợp
+                                  </div>
+                                )}
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* CỘT PHẢI: GIỎ HÀNG & THANH TOÁN */}
+                      <div className="front-desk-page-panel" style={{flex: 4, minWidth: '320px'}}>
+                          <div className="front-desk-page-panel-header">
+                             <span><FaPills className="me-2"/> ĐƠN HÀNG ({retailCart.length})</span>
+                             <span className="text-danger">{transactionCode}</span>
+                          </div>
+
+                          {/* LIST GIỎ HÀNG */}
+                          <div className="front-desk-page-panel-body p-0" style={{background: 'var(--fd-white)'}}>
+                            <table className="front-desk-page-table">
+                              <thead>
+                                <tr>
+                                  <th>Tên thuốc</th>
+                                  <th className="text-center" style={{width: 60}}>SL</th>
+                                  <th className="text-end" style={{width: 80}}>Tiền</th>
+                                  <th style={{width: 28}}></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {retailCart.map((item, idx) => (
+                                  <tr key={idx}>
+                                    <td>
+                                      <div style={{fontWeight: 600, fontSize: 12, maxWidth: 130, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={item.name}>
+                                        {item.name}
+                                      </div>
+                                      <div style={{fontSize: 10, color: 'var(--fd-gray-500)', fontFamily: 'var(--fd-mono)'}}>
+                                        {formatMoney(item.price)}
+                                      </div>
+                                    </td>
+                                    <td className="text-center">
+                                      <input
+                                        type="number" min="1"
+                                        className="input-compact"
+                                        style={{width: 44}}
+                                        value={item.qty}
+                                        onChange={e => {
+                                          const val = Math.max(1, parseInt(e.target.value) || 1);
+                                          setRetailCart(retailCart.map((it, i) => i === idx ? {...it, qty: val} : it));
+                                        }}
+                                      />
+                                    </td>
+                                    <td className="text-end" style={{fontWeight: 700, fontFamily: 'var(--fd-mono)', color: 'var(--fd-red-600)'}}>
+                                      {formatMoney(item.price * item.qty)}
+                                    </td>
+                                    <td>
+                                      <button
+                                        style={{background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fd-red-600)', padding: 2}}
+                                        onClick={() => setRetailCart(retailCart.filter((_, i) => i !== idx))}
+                                      >
+                                        <FaTrash size={10}/>
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                                {retailCart.length === 0 && (
+                                  <tr>
+                                    <td colSpan="4" style={{textAlign: 'center', padding: '36px 0', color: 'var(--fd-gray-500)', fontSize: 12, fontStyle: 'italic'}}>
+                                      Giỏ hàng trống
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          
+                          {/* CHECKOUT FOOTER */}
+                          <div style={{padding: '12px', borderTop: '1px solid var(--fd-gray-300)', background: 'var(--fd-white)', flexShrink: 0}}>
+                            {/* Khách hàng */}
+                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8}}>
+                              <div>
+                                <div className="front-desk-page-label">Khách hàng</div>
+                                <input className="front-desk-page-input" placeholder="Tên khách..." value={retailCustomer.name} onChange={e => setRetailCustomer({...retailCustomer, name: e.target.value})}/>
+                              </div>
+                              <div>
+                                <div className="front-desk-page-label">Số điện thoại</div>
+                                <input className="front-desk-page-input" placeholder="0xxx..." value={retailCustomer.phone} onChange={e => setRetailCustomer({...retailCustomer, phone: e.target.value})}/>
+                              </div>
+                            </div>
+                          
+                            {/* Phương thức */}
+                            <div className="fd-method-switcher" style={{marginBottom: 8}}>
+                              <button className={`fd-method-btn ${paymentMethod==='cash'?'active':''}`} onClick={() => setPaymentMethod('cash')}>
+                                <FaMoneyBillWave size={11}/> Tiền mặt
+                              </button>
+                              <button className={`fd-method-btn ${paymentMethod==='transfer'?'active':''}`} onClick={() => setPaymentMethod('transfer')}>
+                                <FaQrcode size={11}/> Chuyển khoản
+                              </button>
+                            </div>
+                          
+                            {paymentMethod === 'cash' && (
+                              <div style={{marginBottom: 8}}>
+                                <div className="front-desk-page-label">Tiền khách đưa</div>
+                                <input
+                                  type="number"
+                                  className="front-desk-page-input"
+                                  style={{fontFamily: 'var(--fd-mono)', fontWeight: 700, fontSize: 14}}
+                                  placeholder="0"
+                                  value={paymentAmount}
+                                  onChange={e => setPaymentAmount(e.target.value)}
+                                />
+                                {paymentAmount && (
+                                  <div className="fd-change-box" style={{marginTop: 5}}>
+                                    <span style={{fontSize: 11}}>Trả lại</span>
+                                    <span style={{fontWeight: 700, fontFamily: 'var(--fd-mono)', color: 'var(--fd-green-700)'}}>
+                                      {formatMoney(Math.max(0, parseInt(paymentAmount) - retailCart.reduce((s,i) => s + i.price * i.qty, 0)))}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          
+                            {/* Tổng tiền */}
+                            <div className="fd-cart-total">
+                              <div>
+                                <div className="total-label">Tổng cộng</div>
+                                <div style={{fontSize: 10, color: 'rgba(255,255,255,0.6)'}}>{retailCart.length} sản phẩm</div>
+                              </div>
+                              <div className="total-amount">{formatMoney(retailCart.reduce((s, i) => s + i.price * i.qty, 0))}</div>
+                            </div>
+                          
+                            <button className="fd-checkout-btn" onClick={handleRetailCheckout} disabled={retailCart.length === 0}>
+                              <FaMoneyBillWave size={13}/> THANH TOÁN & IN HÓA ĐƠN
+                            </button>
+                          </div>
+                      </div>
+                    </div>
+                  )}
+               </div>
+            )}
+         </div>
+
+         {/* CỘT PHẢI: CHI TIẾT THANH TOÁN - KHÔI PHỤC ĐẦY ĐỦ THÔNG TIN */}
+         {(pharmacyTab === 'prescription' && selectedPrescription) && (
+         <div className="front-desk-page-panel d-flex flex-column h-100">
+            {/* 1. HEADER */}
+            <div className="front-desk-page-panel-header">
+               <span><FaFilePrescription className="me-2"/> CHI TIẾT ĐƠN THUỐC</span>
+               {selectedPrescription.status === 'sold' 
+                  ? <span className="front-desk-page-badge badge-done"><FaCheckCircle/> ĐÃ THANH TOÁN</span>
+                  : <span className="front-desk-page-badge badge-wait"><FaClock/> CHỜ THANH TOÁN</span>
+               }
+            </div>
+            
+            {/* BODY: Thông tin & Thuốc */}
+            <div className="front-desk-page-panel-body d-flex flex-column bg-light p-2">
+               
+               {/* 2. THÔNG TIN BỆNH NHÂN (Compact Card) */}
+               <div className="bg-white p-2 rounded border shadow-sm mb-2 d-flex gap-2 align-items-start">
+                  <div className="bg-success bg-opacity-10 text-success rounded p-2 d-flex align-items-center justify-content-center" style={{width: '40px', height: '40px'}}>
+                     <FaUser className="fs-5"/>
+                  </div>
+                  <div className="flex-grow-1">
+                      <div className="d-flex justify-content-between">
+                          <h6 className="fw-bold text-success mb-0 text-uppercase" style={{fontSize: '12px'}}>{selectedPrescription.patientName}</h6>
+                          <span className="small text-muted">{selectedPrescription.gender}</span>
+                      </div>
+                      <div className="d-flex justify-content-between small text-muted" style={{fontSize: '11px'}}>
+                          <span>Mã: {selectedPrescription.patientCode}</span>
+                          <span>BS: {selectedPrescription.doctor}</span>
+                      </div>
+                      <div className="small text-dark mt-1 fst-italic border-top pt-1" style={{fontSize: '11px'}}>
+                          <strong>Chẩn đoán:</strong> {selectedPrescription.diagnosis}
+                      </div>
+                  </div>
+               </div>
+
+               {/* 3. DANH SÁCH THUỐC (Table Compact - ĐÃ SỬA WIDTH) */ }
+               <div className="flex-grow-1 bg-white rounded border shadow-sm p-0 mb-2 overflow-auto" style={{minHeight: '150px'}}>
+                  <table className="front-desk-page-table">
+                    <thead>
+                        <tr>
+                            {/* Giảm cột tên thuốc xuống một chút để nhường chỗ */}
+                            <th className="ps-2">Tên thuốc</th>
+                            {/* Tăng độ rộng cột ĐV và SL lên 70px và 60px */}
+                            <th className="text-center" style={{width: '70px'}}>ĐV</th>
+                            <th className="text-center" style={{width: '60px'}}>SL</th>
+                            <th className="text-end pe-2">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {selectedPrescription.items.map((it, i) => (
+                            <tr key={i}>
+                                <td className="ps-2">
+                                    <div className="fw-bold text-dark text-truncate" style={{maxWidth: '140px'}} title={it.name}>{it.name}</div>
+                                    <div className="text-muted" style={{fontSize: '10px'}}>Giá: {formatMoney(it.price)}</div>
+                                </td>
+                                <td className="text-center">
+                                    {selectedPrescription.status !== 'sold' ? (
+                                      <input 
+                                        type="text" 
+                                        className="input-compact" // Class mới thêm ở CSS
+                                        value={it.unit || ''} onChange={(e) => handleUpdatePrescriptionItem(i, 'unit', e.target.value)}
+                                      />
+                                    ) : it.unit}
+                                </td>
+                                <td className="text-center">
+                                    {selectedPrescription.status !== 'sold' ? (
+                                      <input 
+                                        type="number" min="1" 
+                                        className="input-compact text-primary" // Class mới thêm ở CSS
+                                        value={it.quantity} onChange={(e) => handleUpdatePrescriptionItem(i, 'quantity', e.target.value)}
+                                      />
+                                    ) : it.quantity}
+                                </td>
+                                <td className="text-end pe-2 fw-bold text-danger">
+                                  {formatMoney(it.total)}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                  </table>
+               </div>
+
+               {/* 4. THANH TOÁN (Khôi phục đầy đủ) */}
+               <div className="bg-white p-2 rounded border shadow-sm flex-shrink-0">
+                   {selectedPrescription.status !== 'sold' ? (
+                       <div className="d-flex flex-column gap-2">
+                           
+                           {/* Mã giảm giá */}
+                           <div className="d-flex gap-1">
+                               <input 
+                                  className="front-desk-page-input" 
+                                  placeholder="Nhập mã giảm giá..." 
+                                  value={discountCode} onChange={e => setDiscountCode(e.target.value)} 
+                               />
+                               <button className="front-desk-page-btn front-desk-page-btn-outline front-desk-page-btn-sm" onClick={() => toast.info('Tính năng đang phát triển')}>
+                                 <FaTag/>
+                               </button>
+                           </div>
+
+                           <div className="front-desk-page-divider"></div>
+
+                           {/* Tính toán tiền */}
+                           <div className="d-flex justify-content-between small">
+                               <span className="text-muted">Tổng tiền:</span>
+                               <span className="fw-bold">{formatMoney(selectedPrescription.total)}</span>
+                           </div>
+                           {discountAmount > 0 && (
+                               <div className="d-flex justify-content-between small text-success">
+                                   <span>Giảm giá:</span>
+                                   <span>- {formatMoney(discountAmount)}</span>
+                               </div>
+                           )}
+                           <div className="d-flex justify-content-between align-items-end">
+                               <span className="fw-bold text-dark small">KHÁCH CẦN TRẢ:</span>
+                               <span className="text-danger fw-bold fs-5">
+                                 {formatMoney(selectedPrescription.total - (discountAmount || 0))}
+                               </span>
+                           </div>
+
+                           {/* Phương thức & Tiền khách đưa */}
+                           <div className="bg-light p-2 rounded border">
+                               <div className="d-flex gap-1 mb-2">
+                                  <button type="button" 
+                                    className={`flex-grow-1 front-desk-page-btn front-desk-page-btn-sm ${paymentMethod==='cash' ? 'front-desk-page-btn-primary' : 'front-desk-page-btn-outline'}`}
+                                    onClick={() => setPaymentMethod('cash')}
+                                  >
+                                    <FaMoneyBillWave/> Tiền mặt
+                                  </button>
+                                  <button type="button" 
+                                    className={`flex-grow-1 front-desk-page-btn front-desk-page-btn-sm ${paymentMethod==='transfer' ? 'front-desk-page-btn-primary' : 'front-desk-page-btn-outline'}`}
+                                    onClick={() => setPaymentMethod('transfer')}
+                                  >
+                                    <FaQrcode/> Chuyển khoản
+                                  </button>
+                               </div>
+
+                               {paymentMethod === 'cash' && (
+                                   <>
+                                   <div className="d-flex align-items-center mb-1">
+                                       <span className="small fw-bold text-muted me-2" style={{minWidth:'70px'}}>Khách đưa:</span>
+                                       <input 
+                                          type="number" 
+                                          className="front-desk-page-input fw-bold text-primary" 
+                                          value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} 
+                                          placeholder="0" 
+                                       />
+                                   </div>
+                                   <div className="d-flex align-items-center">
+                                       <span className="small fw-bold text-muted me-2" style={{minWidth:'70px'}}>Tiền thừa:</span>
+                                       <span className="fw-bold text-success">
+                                           {paymentAmount ? formatMoney(parseInt(paymentAmount) - (selectedPrescription.total - discountAmount)) : '0 đ'}
+                                       </span>
+                                   </div>
+                                   </>
+                               )}
+                           </div>
+
+                           <button 
+                              className="front-desk-page-btn front-desk-page-btn-primary w-100 justify-content-center py-2 text-uppercase shadow-sm" 
+                              onClick={handlePaymentAndPrint}
+                           >
+                               <FaPrint className="me-2"/> THANH TOÁN
+                           </button>
+                       </div>
+                   ) : (
+                       /* ĐÃ THANH TOÁN */
+                       <div className="text-center py-3">
+                           <div className="text-success fw-bold mb-2">
+                               <FaCheckCircle className="fs-4 mb-1 d-block mx-auto"/> 
+                               GIAO DỊCH HOÀN TẤT
+                           </div>
+                           <div className="small text-muted mb-3">
+                               Thực thu: {formatMoney(selectedPrescription.customerPaid || selectedPrescription.total)}
+                           </div>
+                           <button 
+                              className="front-desk-page-btn front-desk-page-btn-outline w-100 justify-content-center" 
+                              onClick={() => handleOpenPrintInvoice(selectedPrescription)}
+                           >
+                               <FaPrint className="me-2"/> IN LẠI HÓA ĐƠN
+                           </button>
+                       </div>
+                   )}
+               </div>
+            </div>
+         </div>
+         )}
+      </div>
+    );
+  };
+  // =========================================================
+  // [MỚI] CÁC HÀM XỬ LÝ THANH TOÁN & IN HÓA ĐƠN
+  // =========================================================
+
+  // 1. Hàm mở Modal In (Chuẩn bị dữ liệu)
+  const handleOpenPrintInvoice = (prescription) => {
+    const finalTotal = prescription.total - (prescription.discount || 0);
+    const customerPaid = prescription.customerPaid || finalTotal;
+    
+    setPrintData({
+      ...prescription,
+      finalTotal: finalTotal,
+      customerPaid: customerPaid,
+      changeAmount: customerPaid - finalTotal,
+      printDate: new Date().toLocaleString('vi-VN')
+    });
+    setShowPrintModal(true);
+  };
+
+  // 2. Hàm nhập tiền khách đưa
+  const handlePaymentInputChange = (e) => {
+    const val = parseInt(e.target.value) || 0;
+    setPaymentAmount(val);
+  };
+
+  // 3. Hàm Thanh toán & Mở In
+  const handlePaymentAndPrint = async () => {
+    if (!selectedPrescription) return;
+    
+    const finalTotal = selectedPrescription.total - discountAmount;
+    const received = parseInt(paymentAmount) || 0;
+
+    // Validate tiền mặt
+    if (paymentMethod === 'cash' && received < finalTotal) {
+       return toast.error('Số tiền khách đưa chưa đủ!');
+    }
+
+    try {
+        const token = localStorage.getItem('token');
+        // Gọi API cập nhật thanh toán
+        await axios.put(`http://localhost:3001/api/appointments/${selectedPrescription.appointment_id}/payment`, {
+            payment_status: 'paid_at_clinic',
+            payment_method: paymentMethod,
+            amount: finalTotal
+        }, { headers: { Authorization: `Bearer ${token}` } });
+
+        toast.success('Thanh toán thành công!');
+
+        // Cập nhật trạng thái ngay lập tức
+        const updatedPrescription = {
+            ...selectedPrescription,
+            status: 'sold', // Chuyển sang đã bán
+            discount: discountAmount,
+            customerPaid: received
+        };
+
+        // Cập nhật danh sách & item đang chọn
+        setPrescriptions(prev => prev.map(p => p.id === selectedPrescription.id ? updatedPrescription : p));
+        setSelectedPrescription(updatedPrescription);
+        
+        // Mở modal in
+        handleOpenPrintInvoice(updatedPrescription);
+        
+        // Reset form
+        setPaymentAmount('');
+        setDiscountCode('');
+        setDiscountAmount(0);
+
+    } catch (error) {
+        console.error(error);
+        toast.error('Lỗi thanh toán');
+    }
+  };
 
   return (
     <div className="frdeskpage-container">
@@ -1170,9 +2167,166 @@ const FrontDeskPage = () => {
         </FrdModal.Footer>
       </FrdModal>
 
-      {/* Các Modal chi tiết và Print giữ nguyên như cũ... */}
       <FrdModal show={showDetailModal} onHide={() => setShowDetailModal(false)} size="xl" className="frd-modal-detail">
-        {/* Nội dung modal chi tiết y nguyên bản cũ */}
+        <div className="frd-detail-header">
+          <div className="frd-detail-header-left">
+            <div className="frdeskpage-patient-avatar frd-detail-avatar">
+              <FaNotesMedical />
+            </div>
+            <div>
+              <h5 className="frd-detail-title">HỒ SƠ LỊCH HẸN</h5>
+              <small className="frd-detail-code">
+                Mã hồ sơ: <span className="frd-detail-code-val">#{selectedDetail?.code}</span>
+              </small>
+            </div>
+          </div>
+          <button type="button" className="frd-modal-close" onClick={() => setShowDetailModal(false)}>
+            <FaTimes />
+          </button>
+        </div>
+
+        <FrdModal.Body className="frd-detail-body">
+          {selectedDetail && (
+            <div className="frd-detail-layout">
+              <div className="frd-col-flex-col">
+                <div className="frdeskpage-panel">
+                  <div className="frdeskpage-panel-header">
+                    <FaCalendarAlt />
+                    <h6 className="frd-panel-h6">Thông tin lịch hẹn</h6>
+                    <div className="frd-ml-auto">
+                      {selectedDetail.status === 'pending' && <span className="frdeskpage-badge frdeskpage-badge-amber frdeskpage-badge-pill"><FaClock /> Chờ xác nhận</span>}
+                      {selectedDetail.status === 'confirmed' && <span className="frdeskpage-badge frdeskpage-badge-blue frdeskpage-badge-pill"><FaCheckCircle /> Đã xác nhận</span>}
+                      {selectedDetail.status === 'completed' && <span className="frdeskpage-badge frdeskpage-badge-green frdeskpage-badge-pill"><FaCheckCircle /> Hoàn thành</span>}
+                      {selectedDetail.status === 'cancelled' && <span className="frdeskpage-badge frdeskpage-badge-red frdeskpage-badge-pill"><FaBan /> Đã hủy</span>}
+                      {selectedDetail.status === 'waiting_exam' && <span className="frdeskpage-badge frdeskpage-badge-blue frdeskpage-badge-pill"><FaStethoscope /> Chờ khám</span>}
+                    </div>
+                  </div>
+                  <div className="frdeskpage-p-12">
+                    <div className="frd-info-grid-2">
+                      <div className="frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label"><FaTag /> Dịch vụ</span>
+                        <span className="frdeskpage-adp-value frdeskpage-adp-value-lg">{selectedDetail.Service?.name || '---'}</span>
+                      </div>
+                      <div className="frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label"><FaHeart /> Chuyên khoa</span>
+                        <span className="frdeskpage-adp-value">{selectedDetail.Specialty?.name || 'Đa khoa'}</span>
+                      </div>
+                      <div className="frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label"><FaUserMd /> Bác sĩ phụ trách</span>
+                        <span className="frdeskpage-adp-value">{selectedDetail.Doctor?.user?.full_name || 'Chưa chỉ định'}</span>
+                      </div>
+                      <div className="frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label"><FaVideo /> Hình thức</span>
+                        <span className="frdeskpage-adp-value">{selectedDetail.appointment_type === 'online' ? 'Tư vấn trực tuyến' : 'Khám tại viện'}</span>
+                      </div>
+                      <div className="frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label"><FaCalendarDay /> Ngày khám</span>
+                        <span className="frdeskpage-adp-value">{selectedDetail.appointment_date ? new Date(selectedDetail.appointment_date).toLocaleDateString('vi-VN') : '---'}</span>
+                      </div>
+                      <div className="frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label"><FaClock /> Giờ khám</span>
+                        <span className="frdeskpage-adp-value">{selectedDetail.appointment_start_time?.slice(0, 5)} - {selectedDetail.appointment_end_time?.slice(0, 5)}</span>
+                      </div>
+                      <div className="frd-col-full frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label"><FaMapMarkerAlt /> Địa chỉ</span>
+                        <span className="frdeskpage-adp-value">{selectedDetail.appointment_address || 'Tầng 1, Tòa nhà Clinic, 123 Đường Sức Khỏe, Quận 1, TP. HCM'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="frdeskpage-panel">
+                  <div className="frdeskpage-panel-header">
+                    <FaUser />
+                    <h6 className="frd-panel-h6">Thông tin bệnh nhân</h6>
+                  </div>
+                  <div className="frdeskpage-p-12">
+                    <div className="frd-info-grid-2">
+                      <div className="frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label">Họ và tên</span>
+                        <span className="frdeskpage-adp-value frd-uppercase">{selectedDetail.guest_name || selectedDetail.Patient?.User?.full_name}</span>
+                      </div>
+                      <div className="frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label">Số điện thoại</span>
+                        <span className="frdeskpage-adp-value">{selectedDetail.guest_phone || selectedDetail.Patient?.User?.phone || '---'}</span>
+                      </div>
+                      <div className="frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label">Email</span>
+                        <span className="frdeskpage-adp-value">{selectedDetail.guest_email || selectedDetail.Patient?.User?.email || '---'}</span>
+                      </div>
+                      <div className="frdeskpage-adp-info-group">
+                        <span className="frdeskpage-adp-label">Giới tính / Năm sinh</span>
+                        <span className="frdeskpage-adp-value">{selectedDetail.Patient?.User?.gender || '---'} - {selectedDetail.Patient?.User?.dob ? new Date(selectedDetail.Patient.User.dob).getFullYear() : '---'}</span>
+                      </div>
+                      <div className="frd-col-full frd-symptom-box">
+                        <strong className="frd-symptom-label"><FaStethoscope /> Lý do khám / Triệu chứng:</strong>
+                        <span className="frd-symptom-text">{selectedDetail.reason || 'Bệnh nhân không ghi chú thêm.'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="frd-col-flex-col">
+                <div className="frdeskpage-panel">
+                  <div className="frdeskpage-panel-header frd-header-green">
+                    <FaMoneyBillWave />
+                    <h6 className="frd-panel-h6 frd-white">Thanh toán</h6>
+                  </div>
+                  <div className="frd-payment-detail-body">
+                    <div className="frd-price-center">
+                      <span className="frdeskpage-adp-label frd-block">Tổng chi phí dịch vụ</span>
+                      <div className="frd-price-big">
+                        {selectedDetail.Service?.price ? selectedDetail.Service.price.toLocaleString('vi-VN') : '0'} <span className="frd-price-unit">VNĐ</span>
+                      </div>
+                    </div>
+
+                    <div className="frd-payment-status-block">
+                      <span className="frdeskpage-adp-label frd-block">Trạng thái thanh toán</span>
+                      {(selectedDetail.payment_status === 'paid' || selectedDetail.payment_status === 'paid_online' || selectedDetail.payment_status === 'paid_at_clinic') ? (
+                        <span className="frdeskpage-badge frdeskpage-badge-green frdeskpage-badge-pill">
+                          <FaCheckCircle /> ĐÃ THANH TOÁN
+                        </span>
+                      ) : (
+                        <span className="frdeskpage-badge frdeskpage-badge-amber frdeskpage-badge-pill">
+                          <FaClock /> CHƯA THANH TOÁN
+                        </span>
+                      )}
+                    </div>
+
+                    {['pending', 'confirmed', 'waiting_exam'].includes(selectedDetail.status) && selectedDetail.payment_status === 'unpaid' && (
+                      <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-full frdeskpage-btn-lg frd-mt-8" onClick={() => { setShowDetailModal(false); setSelectedBill(selectedDetail); setActiveTab('cashier'); }}>
+                        <FaMoneyBillWave /> Thu tiền ngay
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {selectedDetail.status === 'completed' && (
+                  <div className="frdeskpage-panel">
+                    <div className="frdeskpage-panel-header">
+                      <FaShieldAlt />
+                      <h6 className="frd-panel-h6">Kết quả khám</h6>
+                    </div>
+                    <div className="frdeskpage-p-12">
+                      {selectedDetail.MedicalRecord ? (
+                        <div className="frd-record-ok">
+                          <FaCheckCircle /> Đã có hồ sơ bệnh án
+                        </div>
+                      ) : (
+                        <div className="frd-record-empty">Bác sĩ chưa cập nhật kết quả.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <button className="frdeskpage-btn frdeskpage-btn-ghost frdeskpage-btn-full" onClick={() => setShowDetailModal(false)}>
+                  Đóng cửa sổ
+                </button>
+              </div>
+            </div>
+          )}
+        </FrdModal.Body>
       </FrdModal>
 
       <WorkShiftModal

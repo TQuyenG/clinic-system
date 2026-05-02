@@ -41,6 +41,7 @@ const marketingRoutes = require('./routes/marketingRoutes');
 const pharmacyRoutes = require('./routes/pharmacyRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const corporateBookingRoutes = require('./routes/corporateBookingRoutes');
+const permissionRoutes = require('./routes/permissionRoutes');
 
 // Khởi tạo ứng dụng Express
 const app = express();
@@ -113,6 +114,7 @@ app.use('/api/marketing', marketingRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/corporate', corporateBookingRoutes);
+app.use('/api/permissions', permissionRoutes);
 
 // ========== HEALTH CHECK ENDPOINT ==========
 app.get('/api/health', (req, res) => {

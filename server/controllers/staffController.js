@@ -2,6 +2,7 @@
 const { models } = require('../config/db');
 const { Op } = require('sequelize');
 const { getPermissionsTemplate, DEPARTMENT_PERMISSIONS } = require('../config/departmentPermissions');
+const PERMISSION_MODULES = require('../config/permissionModules');
 
 /**
  * Lấy danh sách Staff có filter (dùng cho dropdown chọn Manager hoặc Assign)
@@ -647,31 +648,22 @@ exports.updateStaffPermissions = async (req, res) => {
 
     // Cập nhật permissions
     if (permissions !== undefined) {
-      // 🛡️ BƯỚC BẢO MẬT TUYỆT ĐỐI: Lấy danh sách module được phép của phòng ban này
-      const currentDept = department || staff.department;
-      
-      // MỞ KHÓA: Lấy tất cả các module của phòng ban (gộp cả quyền của staff và manager)
-      // Để Admin có thể linh hoạt cấp quyền cấp cao (hoàn tiền, báo cáo) cho nhân viên thường
-      const deptPerms = DEPARTMENT_PERMISSIONS[currentDept];
-      const allowedModules = deptPerms ? [
-        ...new Set([
-          ...Object.keys(deptPerms.staff_permissions || {}),
-          ...Object.keys(deptPerms.manager_permissions || {})
-        ])
-      ] : [];
-
       const sanitizedPermissions = {};
       if (typeof permissions === 'object' && permissions !== null) {
         for (const [module, actions] of Object.entries(permissions)) {
-          // 👉 BƯỚC CHẶN 1: Kẻ xâm nhập! Nếu module không thuộc phòng ban này -> Đá ra ngoài ngay lập tức
-          if (!allowedModules.includes(module)) {
+          const moduleConfig = PERMISSION_MODULES[module];
+          if (!moduleConfig) {
             continue; 
           }
 
-          // 👉 BƯỚC CHẶN 2: Lọc rác (false, rỗng) như cũ
           if (Array.isArray(actions)) {
             const validActions = actions.filter(action => 
-              action && typeof action === 'string' && action.trim() !== '' && action !== 'false' && action !== 'off'
+              action &&
+              typeof action === 'string' &&
+              action.trim() !== '' &&
+              action !== 'false' &&
+              action !== 'off' &&
+              moduleConfig.permissions.some(permission => permission.key === action)
             );
             if (validActions.length > 0) {
               sanitizedPermissions[module] = validActions;
@@ -679,7 +671,15 @@ exports.updateStaffPermissions = async (req, res) => {
           } else if (actions === true || actions === 'true') {
              sanitizedPermissions[module] = true;
           } else if (typeof actions === 'object' && actions !== null && Object.keys(actions).length > 0) {
-             sanitizedPermissions[module] = actions;
+             const validObjectActions = {};
+             for (const [actionKey, actionValue] of Object.entries(actions)) {
+               if (actionValue === true && moduleConfig.permissions.some(permission => permission.key === actionKey)) {
+                 validObjectActions[actionKey] = true;
+               }
+             }
+             if (Object.keys(validObjectActions).length > 0) {
+               sanitizedPermissions[module] = validObjectActions;
+             }
           }
         }
       }

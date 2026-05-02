@@ -50,12 +50,15 @@ const Sidebar = ({ onToggle }) => {
   
   //  THÊM: Hook kiểm tra permissions
   const { canAccessModule, isAdmin, hasPermission, refreshPermissions } = usePermissions(); // <--- THÊM refreshPermissions VÀO ĐÂY
+  const isStaffUser = user?.role === 'staff';
+  const staffRank = user?.role_info?.rank || user?.staff?.rank;
   
   // Dropdown states
   const [isServiceMenuOpen, setServiceMenuOpen] = useState(false);
   const [isConsultationMenuOpen, setConsultationMenuOpen] = useState(false);
   const [isPaymentMenuOpen, setPaymentMenuOpen] = useState(false);
   const [isArticleMenuOpen, setArticleMenuOpen] = useState(false);
+  const [isStaffMenuOpen, setStaffMenuOpen] = useState(false);
   
   const location = useLocation();
 
@@ -98,11 +101,16 @@ const Sidebar = ({ onToggle }) => {
     handleResize();
     handleScroll();
 
+    const permissionRefreshInterval = setInterval(() => {
+      refreshPermissions();
+    }, 30000);
+
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', handleScroll);
+      clearInterval(permissionRefreshInterval);
     };
-  }, [onToggle]);
+  }, [onToggle, refreshPermissions]);
 
   //  Debug: Log sau khi user và canAccessModule sẵn sàng
   useEffect(() => {
@@ -120,6 +128,9 @@ const Sidebar = ({ onToggle }) => {
     }
     if (location.pathname.startsWith('/quan-ly-dich-vu') || location.pathname.startsWith('/quan-ly-danh-muc-dich-vu')) {
       setServiceMenuOpen(true);
+    }
+    if (location.pathname.startsWith('/quan-ly-nhan-vien')) {
+      setStaffMenuOpen(true);
     }
     if (location.pathname.startsWith('/quan-ly-thanh-toan')) {
       setPaymentMenuOpen(true);
@@ -222,6 +233,12 @@ const Sidebar = ({ onToggle }) => {
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [showToast, setShowToast] = useState(false);
 
+  // IDs that should appear in the top "General/Chung" section (visual grouping)
+  // include both patient and staff saved-articles IDs so "Bài viết đã lưu" shows in Chung
+  const topSectionIds = ['dashboard', 'profile', 'my_forum', 'saved_articles', 'saved_articles_staff'];
+  const firstManagementIndex = menuItems.findIndex(i => !topSectionIds.includes(i.id));
+  const firstMgmtIndexSafe = firstManagementIndex === -1 ? menuItems.length : firstManagementIndex;
+
   // Build menu items as structured data (top-level only). This mirrors the JSX below
   const buildMenu = () => {
     const items = [];
@@ -260,22 +277,27 @@ const Sidebar = ({ onToggle }) => {
           { to: '/san-qua', label: 'Vòng quay may mắn' } // Game
         ]
       });
-      return items;
+      // don't return early here so shared post-processing (e.g. moving saved-articles)
+      // still runs and places 'Bài viết đã lưu' in the top 'Chung' section.
+      // downstream checks (isAdminUser/isStaffUser) will be false for patient
+      // so no other admin items will be appended.
     }
     const isAdminUser = isAdmin;
-    const isStaffUser = user?.role === 'staff';
     const isDoctorUser = user?.role === 'doctor';
     const dept = user?.role_info?.department || user?.staff?.department;
     const rank = user?.role_info?.rank || user?.staff?.rank;
 
     if (isAdminUser || isStaffUser || isDoctorUser) {
-      addIf(canAccessModule('appointments'), { id: 'manage_appointments', type: 'item', to: '/quan-ly-lich-hen', icon: FaClipboardList, label: 'Quản lý lịch hẹn' });
+      // Doctors should see appointment management and work schedule even if module flag is off
+      addIf(canAccessModule('appointments') || isDoctorUser, { id: 'manage_appointments', type: 'item', to: '/quan-ly-lich-hen', icon: FaClipboardList, label: 'Quản lý lịch hẹn' });
       addIf(canAccessModule('appointments') || hasPermission('payments', 'pos'), { id: 'manage_reception', type: 'item', to: '/quay-tiep-don', icon: FaHeadset, label: 'Tiếp đón / Check-in' });
-      addIf(canAccessModule('medical_records'), { id: 'manage_medical_records', type: 'item', to: '/ho-so-benh-an', icon: FaFileMedicalAlt, label: 'Hồ sơ bệnh án' });
+      // Allow doctors to access medical records menu even if module flag is off
+      addIf(canAccessModule('medical_records') || isDoctorUser, { id: 'manage_medical_records', type: 'item', to: '/ho-so-benh-an', icon: FaFileMedicalAlt, label: 'Hồ sơ bệnh án' });
       addIf(canAccessModule('doctors') && (isAdminUser || (isStaffUser && dept !== 'clinical')), { id: 'manage_doctors', type: 'item', to: '/quan-ly-bac-si', icon: FaUserMd, label: 'Quản lý bác sĩ' });
       addIf(canAccessModule('patients'), { id: 'manage_patients', type: 'item', to: '/quan-ly-benh-nhan', icon: FaUsers, label: 'Quản lý bệnh nhân' });
-      addIf(canAccessModule('staff_management') || (isStaffUser && rank === 'manager'), { id: 'manage_staff', type: 'item', to: '/quan-ly-nhan-vien', icon: FaUserTie, label: 'Quản lý nhân viên' });
-      addIf(canAccessModule('work_shift'), { id: 'work_schedule', type: 'item', to: '/quan-ly-lich-lam-viec', icon: FaCalendarCheck, label: 'Quản lý lịch làm việc' });
+      addIf(canAccessModule('staff_management') || (isStaffUser && staffRank === 'manager'), { id: 'manage_staff', type: 'dropdown', icon: FaUserTie, label: 'Quản lý nhân viên' });
+      // Show work schedule for doctors and staff even if work_shift module flag is off
+      addIf(canAccessModule('work_shift') || isDoctorUser || isStaffUser, { id: 'work_schedule', type: 'item', to: '/quan-ly-lich-lam-viec', icon: FaCalendarCheck, label: 'Quản lý lịch làm việc' });
       addIf(canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call'), { id: 'manage_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
       addIf(canAccessModule('services') || canAccessModule('service_categories'), { id: 'manage_services', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý Dịch vụ' });
       addIf(canAccessModule('articles'), { id: 'manage_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
@@ -283,7 +305,7 @@ const Sidebar = ({ onToggle }) => {
         { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
         { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
       ]});
-      addIf(canAccessModule('forum'), { id: 'manage_forum', type: 'dropdownItems', icon: FaCommentDots, label: 'Diễn đàn & Cộng đồng', items: [
+      addIf(canAccessModule('forum'), { id: 'manage_forum', type: 'dropdownItems', icon: FaCommentDots, label: 'Quản lý Diễn đàn & Cộng đồng', items: [
         { to: '/quan-ly-dien-dan', label: 'Quản lý diễn đàn' },
         { to: '/quan-ly-nhom-cong-dong', label: 'Quản lý nhóm cộng đồng' }
       ]});
@@ -299,8 +321,7 @@ const Sidebar = ({ onToggle }) => {
       addIf(true, { id: 'admin_specialties', type: 'item', to: '/quan-ly-chuyen-khoa', icon: FaStethoscope, label: 'Quản lý chuyên khoa' });
       addIf(true, { id: 'admin_categories', type: 'item', to: '/quan-ly-danh-muc', icon: FaThList, label: 'Quản lý danh mục' });
       addIf(true, { id: 'pharmacy_stock_admin', type: 'item', to: '/quan-ly-kho-thuoc', icon: FaWarehouse, label: 'Quản lý Kho Thuốc' });
-      addIf(true, { id: 'admin_saved', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
-      addIf(true, { id: 'manage_marketing', type: 'dropdownItems', icon: FaBullhorn, label: 'Tiếp thị & Sự kiện', items: [
+      addIf(true, { id: 'manage_marketing', type: 'dropdownItems', icon: FaBullhorn, label: 'Quản lý Tiếp thị & Sự kiện', items: [
         { to: '/quan-ly-su-kien', label: 'Quản lý Sự kiện' },
         { to: '/quan-ly-khuyen-mai', label: 'Mã giảm giá & Game' }
       ]});
@@ -310,6 +331,42 @@ const Sidebar = ({ onToggle }) => {
       items.push({ id: 'marketing_dashboard', type: 'item', to: '/marketing-dashboard', icon: FaBullhorn, label: 'Bảng điều khiển Marketing' });
       items.push({ id: 'event_management', type: 'item', to: '/quan-ly-su-kien', icon: FaGift, label: 'Quản lý sự kiện' });
       items.push({ id: 'promotion_management', type: 'item', to: '/quan-ly-khuyen-mai', icon: FaGamepad, label: 'Quản lý khuyến mãi' });
+    }
+
+    // Normalize/dedupe saved-articles items: treat saved_articles_staff as the same
+    const hasSaved = items.some(i => i.id === 'saved_articles');
+    const hasSavedStaff = items.some(i => i.id === 'saved_articles_staff');
+    if (hasSavedStaff && !hasSaved) {
+      // rename staff variant to canonical id
+      items.forEach(i => {
+        if (i.id === 'saved_articles_staff') i.id = 'saved_articles';
+      });
+    }
+    if (hasSaved && hasSavedStaff) {
+      // remove duplicate staff variant if both exist
+      const seen = new Set();
+      const deduped = [];
+      for (const it of items) {
+        if (it.id === 'saved_articles_staff') continue;
+        if (!seen.has(it.id)) {
+          deduped.push(it);
+          seen.add(it.id);
+        }
+      }
+      // replace items with deduped list
+      while (items.length) items.pop();
+      deduped.forEach(x => items.push(x));
+    }
+
+    // ensure saved-articles appear in top 'Chung' section (canonical id 'saved_articles')
+    const savedItems = items.filter(i => i.id === 'saved_articles');
+    if (savedItems.length) {
+      const filtered = items.filter(i => i.id !== 'saved_articles');
+      const insertAfterId = 'my_forum';
+      const idxAfter = filtered.findIndex(i => i.id === insertAfterId);
+      const insertPos = idxAfter === -1 ? Math.min(3, filtered.length) : idxAfter + 1;
+      filtered.splice(insertPos, 0, ...savedItems);
+      return filtered;
     }
 
     return items;
@@ -327,7 +384,19 @@ const Sidebar = ({ onToggle }) => {
         const ordered = order.map(id => built.find(i => i.id === id)).filter(Boolean);
         // append any new items not in saved order
         const remaining = built.filter(i => !order.includes(i.id));
-        setMenuItems([...ordered, ...remaining]);
+        // combine then ensure saved-articles are positioned after 'my_forum'
+        const combined = [...ordered, ...remaining];
+        const savedIds = ['saved_articles', 'saved_articles_staff'];
+        const savedItems = combined.filter(i => savedIds.includes(i.id));
+        if (savedItems.length) {
+          const filtered = combined.filter(i => !savedIds.includes(i.id));
+          const idxAfter = filtered.findIndex(i => i.id === 'my_forum');
+          const insertPos = idxAfter === -1 ? Math.min(3, filtered.length) : idxAfter + 1;
+          filtered.splice(insertPos, 0, ...savedItems);
+          setMenuItems(filtered);
+        } else {
+          setMenuItems(combined);
+        }
         return;
       } catch (e) {
         console.error('Unable to parse sidebarOrder', e);
@@ -350,7 +419,6 @@ const Sidebar = ({ onToggle }) => {
     dragItemIndex.current = index;
     setDraggingIndex(index);
     e.dataTransfer.effectAllowed = 'move';
-    // for firefox
     e.dataTransfer.setData('text/plain', 'drag');
   };
 
@@ -377,7 +445,6 @@ const Sidebar = ({ onToggle }) => {
     dragItemIndex.current = null;
     setMenuItems(updated);
     saveOrder(updated);
-    // show confirmation toast briefly
     setShowToast(true);
     setTimeout(() => setShowToast(false), 1800);
   };
@@ -399,6 +466,18 @@ const Sidebar = ({ onToggle }) => {
       
       {/* Wrapper cho scroll */}
       <div className="sidebar-scroll-wrapper">
+        {/* User header + small 'Chung' label to visually separate common items */}
+        <div className="sidebar-user">
+          <div className="sidebar-user-avatar">
+            <FaUserCircle />
+          </div>
+          <div className="sidebar-user-info">
+            <div className="sidebar-user-name">{user?.full_name || user?.username || 'Người dùng'}</div>
+            {/* Do not show role label for patients */}
+            {user?.role && user.role !== 'patient' && <div className="sidebar-user-role">{user.role}</div>}
+          </div>
+        </div>
+        <div className="sidebar-section-label">Chung</div>
         <nav className="sidebar-nav">
           {menuItems.map((item, idx) => (
             <div
@@ -409,6 +488,13 @@ const Sidebar = ({ onToggle }) => {
               onDragOver={(e) => onDragOver(e, idx)}
               onDrop={(e) => onDrop(e, idx)}
             >
+              {/* Insert a management section label + divider when we reach the first non-top item */}
+              {idx === firstMgmtIndexSafe && idx !== 0 && (
+                <>
+                  <div className="sidebar-divider" aria-hidden="true" />
+                  <div className="sidebar-section-label sidebar-section-label-management">Quản lý</div>
+                </>
+              )}
               {item.type === 'item' && (
                 <MenuItem to={item.to} icon={item.icon} label={item.label} isActive={location.pathname === item.to} />
               )}
@@ -460,6 +546,19 @@ const Sidebar = ({ onToggle }) => {
                     >
                       {canAccessModule('service_categories') && <Link to="/quan-ly-danh-muc-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-danh-muc-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Danh mục Dịch vụ</Link>}
                       {canAccessModule('services') && <Link to="/quan-ly-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Dịch vụ</Link>}
+                    </MenuDropdown>
+                  )}
+
+                  {item.id === 'manage_staff' && (canAccessModule('staff_management') || (isStaffUser && staffRank === 'manager')) && (
+                    <MenuDropdown
+                      icon={FaUserTie}
+                      label={item.label}
+                      isOpen={isStaffMenuOpen}
+                      onToggle={() => setStaffMenuOpen(!isStaffMenuOpen)}
+                    >
+                      <Link to="/quan-ly-nhan-vien" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-nhan-vien' ? 'sidebar-active' : ''}`}>
+                        <span className="sidebar-submenu-dot">•</span> Danh sách nhân viên
+                      </Link>
                     </MenuDropdown>
                   )}
 
