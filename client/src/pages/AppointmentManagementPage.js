@@ -19,6 +19,22 @@ import {
 } from 'react-icons/fa';
 import './AppointmentManagementPage.css'; 
 
+const getPatientUser = (patient) => patient?.user || patient?.User || null;
+const getAppointmentPatientName = (appointment) => getPatientUser(appointment?.Patient)?.full_name || appointment?.guest_name || 'Khách vãng lai';
+const getAppointmentPatientPhone = (appointment) => getPatientUser(appointment?.Patient)?.phone || appointment?.guest_phone || 'N/A';
+const getAppointmentPatientEmail = (appointment) => getPatientUser(appointment?.Patient)?.email || appointment?.guest_email || 'N/A';
+const getAppointmentSourceLabel = (appointment) => {
+  const context = appointment?.booking_context || {};
+  if (context.source === 'front_desk_online') return 'Lễ tân đặt hộ';
+  if (context.source === 'front_desk_walkin') return 'Khách tại quầy';
+  if (context.booking_for === 'other') {
+    return `Người thân${context.relationship ? ` - ${context.relationship}` : ''}`;
+  }
+  if (appointment?.patient_id) return 'Bản thân';
+  if (!appointment?.patient_id && appointment?.guest_name) return 'Khách tại quầy';
+  return 'Không rõ';
+};
+
 const AppointmentManagementPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -209,7 +225,7 @@ const AppointmentManagementPage = () => {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(apt => 
         apt.code?.toLowerCase().includes(searchLower) ||
-        (apt.Patient?.user?.full_name || apt.guest_name)?.toLowerCase().includes(searchLower) ||
+        (getAppointmentPatientName(apt))?.toLowerCase().includes(searchLower) ||
         (apt.Patient?.user?.email || apt.guest_email)?.toLowerCase().includes(searchLower) ||
         (apt.Patient?.user?.phone || apt.guest_phone)?.includes(filters.search)
       );
@@ -462,7 +478,7 @@ const AppointmentManagementPage = () => {
     const headers = ["Mã Lịch Hẹn", "Bệnh nhân", "Liên hệ", "Email", "Dịch vụ", "Bác sĩ", "Ngày Khám", "Giờ Khám", "Trạng thái"];
     const rows = filteredAppointments.map(apt => [
       `"${apt.code}"`,
-      `"${apt.Patient?.user?.full_name || apt.guest_name || 'Khách'}"`,
+      `"${getAppointmentPatientName(apt) || 'Khách'}"`,
       `"${apt.Patient?.user?.phone || apt.guest_phone || 'N/A'}"`,
       `"${apt.Patient?.user?.email || apt.guest_email || 'N/A'}"`,
       `"${apt.Service?.name || 'N/A'}"`,
@@ -725,15 +741,18 @@ const AppointmentManagementPage = () => {
                           {/* SỬA LỖI: KIỂM TRA KỸ DỮ LIỆU BỆNH NHÂN */}
                           <td data-label="Bệnh nhân">
                             <div className="admin-appt-page-patient-info">
-                              <span className="amp-fw-bold text-wrap">{apt.Patient?.user?.full_name || apt.guest_name || 'Khách vãng lai'}</span>
+                              <span className="amp-fw-bold text-wrap">{getAppointmentPatientName(apt)}</span>
                               <div className="amp-text-muted amp-small">
-                                {apt.Patient?.user ? (
+                                <span className="frdeskpage-badge frdeskpage-badge-gray">{getAppointmentSourceLabel(apt)}</span>
+                              </div>
+                              <div className="amp-text-muted amp-small">
+                                {getPatientUser(apt.Patient) ? (
                                   <>
                                     <div className="amp-d-flex amp-align-items-center">
-                                      <FaPhone className="amp-me-1" size={10}/> {apt.Patient.user.phone || 'N/A'}
+                                      <FaPhone className="amp-me-1" size={10}/> {getAppointmentPatientPhone(apt)}
                                     </div>
                                     <div className="amp-d-flex amp-align-items-center amp-mt-1">
-                                      <FaEnvelope className="amp-me-1" size={10}/> {apt.Patient.user.email || 'N/A'}
+                                      <FaEnvelope className="amp-me-1" size={10}/> {getAppointmentPatientEmail(apt)}
                                     </div>
                                   </>
                                 ) : (
@@ -920,7 +939,8 @@ const AppointmentManagementPage = () => {
               <div className="admin-appt-page-modal-body">
                 <div className="admin-appt-page-appointment-summary">
                   <p><strong>Mã:</strong> {selectedAppointment.code}</p>
-                  <p><strong>Bệnh nhân:</strong> {selectedAppointment.Patient?.user?.full_name || selectedAppointment.guest_name}</p>
+                  <p><strong>Bệnh nhân:</strong> {getAppointmentPatientName(selectedAppointment)}</p>
+                  <p><strong>Đặt cho:</strong> {getAppointmentSourceLabel(selectedAppointment)}</p>
                   <p><strong>Thời gian:</strong> {new Date(selectedAppointment.appointment_date).toLocaleDateString('vi-VN')} lúc {formatTime(selectedAppointment.appointment_start_time)}</p>
                 </div>
                 {actionType === 'confirm' ? (
@@ -972,7 +992,8 @@ const AppointmentManagementPage = () => {
               <div className="admin-appt-page-modal-body">
                 <div className="admin-appt-page-appointment-summary">
                   <p><strong>Mã:</strong> {selectedAppointment.code}</p>
-                  <p><strong>Bệnh nhân:</strong> {selectedAppointment.Patient?.user?.full_name || selectedAppointment.guest_name}</p>
+                  <p><strong>Bệnh nhân:</strong> {getAppointmentPatientName(selectedAppointment)}</p>
+                  <p><strong>Đặt cho:</strong> {getAppointmentSourceLabel(selectedAppointment)}</p>
                   <p><strong>Dịch vụ:</strong> {selectedAppointment.Service?.name}</p>
                   <p><strong>Số tiền:</strong> {selectedAppointment.Service?.price?.toLocaleString('vi-VN')} đ</p>
                 </div>

@@ -1,6 +1,7 @@
 /* Override react-toastify so it always appears above floating widgets */
 .Toastify__toast-container {
-	z-index: 20000 !important;
+	z-index: 40000 !important;
+	bottom: 96px !important;
 }
 
 .Toastify__toast {
@@ -37,6 +38,7 @@
 		right: 12px !important;
 		width: auto !important;
 		padding: 0 !important;
+		bottom: 96px !important;
 	}
 
 	.Toastify__toast {

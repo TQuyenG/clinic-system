@@ -1,17 +1,17 @@
-// client/src/pages/AppointmentBookingPage.js
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import serviceService from '../services/serviceService';
+import serviceCategoryService from '../services/serviceCategoryService';
+import appointmentService from '../services/appointmentService';
 import {
   FaCalendarAlt, FaCheckCircle, FaSpinner, FaInfoCircle, FaSun, FaMoon, FaCloudSun,
-  FaExclamationTriangle, FaWallet, FaCreditCard, FaTimes, FaComments, FaStethoscope, FaArrowLeft
+  FaExclamationTriangle, FaWallet, FaCreditCard, FaTimes, FaComments, FaStethoscope, FaArrowLeft,
+  FaUserClock, FaSearch, FaLayerGroup, FaChevronRight
 } from 'react-icons/fa';
 import './AppointmentBookingPage.css';
 import { normalizeUserList } from '../utils/normalizeUser';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 const formatTimeDiff = (milliseconds) => {
   if (milliseconds < 0) return "đã qua";
@@ -23,15 +23,17 @@ const formatTimeDiff = (milliseconds) => {
 
 const AppointmentBookingPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const preSelectedServiceId = searchParams.get('service');
+  const restoredBookingState = location.state?.returnState?.appointmentBooking || location.state?.appointmentBookingReturnState || null;
 
   const [user, setUser] = useState(null);
   const [isGuest, setIsGuest] = useState(true);
 
   const [formData, setFormData] = useState({
     serviceId: preSelectedServiceId ? parseInt(preSelectedServiceId) : '',
-    specialtyFilter: '', // lọc chuyên khoa sau khi chọn dịch vụ
+    specialtyFilter: '', 
     doctorId: '',
     date: '',
     time: '',
@@ -41,23 +43,28 @@ const AppointmentBookingPage = () => {
     phone: '',
     gender: '',
     dob: '',
+    relationship: '',
     reason: '',
-    appointmentType: 'offline',
   });
 
   const [errors, setErrors] = useState({});
   const [services, setServices] = useState([]);
-  const [allDoctors, setAllDoctors] = useState([]); // toàn bộ bác sĩ của dịch vụ
-  const [doctors, setDoctors] = useState([]);        // bác sĩ sau khi lọc chuyên khoa
-  const [specialtiesFromDoctors, setSpecialtiesFromDoctors] = useState([]); // chuyên khoa rút ra từ danh sách bác sĩ
-  const [availableSlots, setAvailableSlots] = useState({ morning: [], afternoon: [], evening: [] });
+  const [serviceCategories, setServiceCategories] = useState([]);
+  const [allDoctors, setAllDoctors] = useState([]); 
+  const [doctors, setDoctors] = useState([]);        
+  const [specialtiesFromDoctors, setSpecialtiesFromDoctors] = useState([]); 
+  // [CẬP NHẬT] Đổi từ slot 30 phút sang lưu danh sách các Ca (Sức chứa Offline)
+  const [availableShifts, setAvailableShifts] = useState({ morning: [], afternoon: [], evening: [] });
 
   const [loading, setLoading] = useState({
     services: false, doctors: false, slots: false, submit: false,
   });
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
   const [warningModal, setWarningModal] = useState({
     isOpen: false, type: 'warning', title: '', message: '', details: ''
   });
@@ -99,6 +106,7 @@ const AppointmentBookingPage = () => {
             phone: userData.phone || '',
             gender: userData.gender || '',
             dob: userData.dob ? userData.dob.split('T')[0] : '',
+            relationship: '',
           }));
         }
       } catch (error) { console.error('Parse user error:', error); }
@@ -121,18 +129,42 @@ const AppointmentBookingPage = () => {
     const loadAllServices = async () => {
       try {
         setLoading(prev => ({ ...prev, services: true }));
-        const response = await serviceService.getPublicServices({ limit: 1000 });
-        if (response.data.success) {
-          setServices(response.data.data || []);
-          if (preSelectedServiceId) handleServiceChange(preSelectedServiceId, response.data.data);
-          const queriedSpecialty = searchParams.get('specialty');
-          if (queriedSpecialty) {
-            const matchingService = response.data.data.find(s => s.specialty_id === parseInt(queriedSpecialty));
-            if (matchingService) handleServiceChange(matchingService.id, response.data.data);
+        const [serviceResponse, categoryResponse] = await Promise.all([
+          serviceService.getPublicServices({ limit: 1000 }),
+          serviceCategoryService.getPublicServiceCategories()
+        ]);
+
+        const serviceData = serviceResponse.data.success ? (serviceResponse.data.data || []) : [];
+        setServices(serviceData);
+
+        if (categoryResponse?.data?.success) {
+          setServiceCategories(categoryResponse.data.data || []);
+        }
+
+        if (preSelectedServiceId) handleServiceChange(preSelectedServiceId, serviceData);
+        const queriedSpecialty = searchParams.get('specialty');
+        if (queriedSpecialty) {
+          const matchingService = serviceData.find(s => s.specialty_id === parseInt(queriedSpecialty));
+          if (matchingService) handleServiceChange(matchingService.id, serviceData);
+        }
+
+        if (restoredBookingState) {
+          const restoredServiceId = restoredBookingState.serviceId || preSelectedServiceId || '';
+          if (restoredServiceId) {
+            await handleServiceChange(restoredServiceId, serviceData);
           }
+
+          setFormData(prev => ({
+            ...prev,
+            ...restoredBookingState,
+            serviceId: restoredServiceId ? parseInt(restoredServiceId) : prev.serviceId,
+            doctorId: restoredBookingState.doctorId ? String(restoredBookingState.doctorId) : prev.doctorId,
+          }));
+
+          if (restoredBookingState.searchTerm) setSearchTerm(restoredBookingState.searchTerm);
+          if (restoredBookingState.selectedCategory) setSelectedCategory(restoredBookingState.selectedCategory);
         }
       } catch (error) {
-        console.error('Load services error:', error);
         toast.error('Không thể tải danh sách dịch vụ');
       } finally {
         setLoading(prev => ({ ...prev, services: false }));
@@ -141,14 +173,13 @@ const AppointmentBookingPage = () => {
     loadAllServices();
   }, [searchParams]);
 
-  // Khi chọn dịch vụ: load bác sĩ → rút ra chuyên khoa từ bác sĩ
   const handleServiceChange = async (serviceId, serviceList = services) => {
     setFormData(prev => ({ ...prev, serviceId, specialtyFilter: '', doctorId: '', date: '', time: '' }));
     setErrors(prev => ({ ...prev, serviceId: null, doctorId: null }));
     setAllDoctors([]);
     setDoctors([]);
     setSpecialtiesFromDoctors([]);
-    setAvailableSlots({ morning: [], afternoon: [], evening: [] });
+    setAvailableShifts({ morning: [], afternoon: [], evening: [] });
     if (!serviceId) return;
 
     try {
@@ -156,6 +187,8 @@ const AppointmentBookingPage = () => {
       const selectedService = serviceList.find(s => s.id === parseInt(serviceId));
       let doctorsData = [];
       if (selectedService && selectedService.allow_doctor_choice) {
+        // Vẫn dùng axios do API này thuộc Service, không đổi
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
         const response = await axios.get(`${API_URL}/services/${serviceId}/doctors`);
         if (response.data.success) doctorsData = response.data.doctors || [];
       } else if (selectedService && !selectedService.allow_doctor_choice) {
@@ -165,7 +198,6 @@ const AppointmentBookingPage = () => {
       setAllDoctors(normalized);
       setDoctors(normalized);
 
-      // Rút ra chuyên khoa duy nhất từ danh sách bác sĩ
       const specMap = new Map();
       normalized.forEach(d => {
         if (d.specialty?.id && d.specialty?.name) {
@@ -174,18 +206,16 @@ const AppointmentBookingPage = () => {
       });
       setSpecialtiesFromDoctors(Array.from(specMap.values()));
     } catch (error) {
-      console.error('Load doctors error:', error);
       toast.error('Lỗi tải danh sách bác sĩ cho dịch vụ này.');
     } finally {
       setLoading(prev => ({ ...prev, doctors: false }));
     }
   };
 
-  // Khi chọn/bỏ chuyên khoa: lọc danh sách bác sĩ
   const handleSpecialtyFilter = (specId) => {
     const newFilter = formData.specialtyFilter === specId ? '' : specId;
     setFormData(prev => ({ ...prev, specialtyFilter: newFilter, doctorId: '', date: '', time: '' }));
-    setAvailableSlots({ morning: [], afternoon: [], evening: [] });
+    setAvailableShifts({ morning: [], afternoon: [], evening: [] });
     if (newFilter) {
       setDoctors(allDoctors.filter(d => d.specialty?.id === newFilter));
     } else {
@@ -193,49 +223,56 @@ const AppointmentBookingPage = () => {
     }
   };
 
+  const filteredServices = services.filter(service => {
+    const matchesCategory = selectedCategory === 'all' || String(service.category_id) === String(selectedCategory);
+    const keyword = searchTerm.trim().toLowerCase();
+    const matchesKeyword = !keyword || [service.name, service.description, service.code]
+      .filter(Boolean)
+      .some(value => String(value).toLowerCase().includes(keyword));
+    return matchesCategory && matchesKeyword;
+  });
+
+  const selectedServiceCategoryName = serviceCategories.find(category => String(category.id) === String(selectedCategory))?.name;
+
+  // [CẬP NHẬT] Tính toán ca khám trực tiếp theo sức chứa offline
   useEffect(() => {
     const loadSlots = async () => {
       if (!formData.doctorId || !formData.date || !formData.serviceId) {
-        setAvailableSlots({ morning: [], afternoon: [], evening: [] });
+        setAvailableShifts({ morning: [], afternoon: [], evening: [] });
         return;
       }
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const selectedDate = new Date(formData.date); selectedDate.setHours(0, 0, 0, 0);
       if (selectedDate < today) {
-        setAvailableSlots({ morning: [], afternoon: [], evening: [] });
+        setAvailableShifts({ morning: [], afternoon: [], evening: [] });
         toast.error('Không thể chọn ngày trong quá khứ.');
         return;
       }
       try {
         setLoading(prev => ({ ...prev, slots: true }));
-        const response = await axios.get(`${API_URL}/appointments/available-slots`, {
-          params: { doctor_id: formData.doctorId, date: formData.date, service_id: formData.serviceId }
-        });
+        console.log('[LOG] Loading offline shifts for', formData.doctorId, formData.date, formData.serviceId);
+        const response = await appointmentService.getAvailableSlots(formData.doctorId, formData.date, formData.serviceId, 'offline');
         if (response.data.success) {
-          const grouped = response.data.data.grouped || { morning: [], afternoon: [], evening: [] };
-          const now = new Date();
-          const isToday = (formData.date === formatDateISO(now));
-          if (isToday) {
-            const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            const filterSlots = (slots) => slots.map(slot => {
-              const [h, m] = slot.time.split(':').map(Number);
-              if ((h * 60 + m) <= currentMinutes && slot.status === 'available')
-                return { ...slot, status: 'unavailable', reason: 'Đã qua giờ' };
-              return slot;
-            });
-            grouped.morning = filterSlots(grouped.morning);
-            grouped.afternoon = filterSlots(grouped.afternoon);
-            grouped.evening = filterSlots(grouped.evening);
-          }
-          setAvailableSlots(grouped);
+          const rawSlots = response.data.data.raw || [];
+          const grouped = { morning: [], afternoon: [], evening: [] };
+          rawSlots.forEach(slot => {
+            if (slot.status === 'available') {
+              if (!grouped[slot.shift_name]) grouped[slot.shift_name] = [];
+              grouped[slot.shift_name].push({
+                time: slot.time,
+                shift_name: slot.shift_name
+              });
+            }
+          });
+          setAvailableShifts(grouped);
         } else {
-          setAvailableSlots({ morning: [], afternoon: [], evening: [] });
-          toast.info(response.data.message || 'Không có khung giờ trống');
+          setAvailableShifts({ morning: [], afternoon: [], evening: [] });
+          toast.info(response.data.message || 'Hôm nay bác sĩ không có ca khám.');
         }
       } catch (error) {
         console.error('Load slots error:', error);
-        setAvailableSlots({ morning: [], afternoon: [], evening: [] });
-        toast.error(error.response?.data?.message || 'Lỗi tải khung giờ');
+        setAvailableShifts({ morning: [], afternoon: [], evening: [] });
+        toast.error(error.response?.data?.message || 'Lỗi tải lịch.');
       } finally {
         setLoading(prev => ({ ...prev, slots: false }));
       }
@@ -257,32 +294,19 @@ const AppointmentBookingPage = () => {
         setFormData(prev => ({
           ...prev, name: user.full_name || '', email: user.email || '',
           phone: user.phone || '', gender: user.gender || '',
-          dob: user.dob ? user.dob.split('T')[0] : '',
+          dob: user.dob ? user.dob.split('T')[0] : '', relationship: '',
         }));
       } else {
-        setFormData(prev => ({ ...prev, name: '', email: '', phone: '', gender: '', dob: '' }));
+        setFormData(prev => ({ ...prev, name: '', email: '', phone: '', gender: '', dob: '', relationship: '' }));
       }
       setErrors(prev => ({ ...prev, name: null, email: null, phone: null, dob: null }));
     }
   };
 
-  const handleTimeSelect = (timeSlot) => {
-    const now = new Date();
-    const isToday = (formData.date === formatDateISO(now));
-    if (isToday) {
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-      const [h, m] = timeSlot.time.split(':').map(Number);
-      if ((h * 60 + m) <= currentMinutes) {
-        toast.warn('Không thể chọn giờ trong quá khứ.');
-        return;
-      }
-    }
-    if (timeSlot.status === 'available') {
-      setFormData(prev => ({ ...prev, time: timeSlot.time }));
-      setErrors(prev => ({ ...prev, time: null }));
-    } else {
-      toast.warn(`Slot này không khả dụng: ${timeSlot.reason}`);
-    }
+  const handleShiftSelect = (shift) => {
+     // Vì là Khám Offline nên chọn ca nào cũng được, không bị khóa lố giờ
+     setFormData(prev => ({ ...prev, time: shift.time }));
+     setErrors(prev => ({ ...prev, time: null }));
   };
 
   const validateForm = () => {
@@ -290,11 +314,14 @@ const AppointmentBookingPage = () => {
     if (!formData.serviceId) newErrors.serviceId = 'Vui lòng chọn dịch vụ.';
     if (!formData.doctorId) newErrors.doctorId = 'Vui lòng chọn bác sĩ.';
     if (!formData.date) newErrors.date = 'Vui lòng chọn ngày khám.';
-    if (!formData.time) newErrors.time = 'Vui lòng chọn giờ khám.';
+    if (!formData.time) newErrors.time = 'Vui lòng chọn khung giờ khám.';
     if (!formData.name.trim()) newErrors.name = 'Vui lòng nhập họ tên.';
     if (!formData.email.trim()) newErrors.email = 'Vui lòng nhập email.';
     if (!formData.phone.trim()) newErrors.phone = 'Vui lòng nhập số điện thoại.';
     if (!formData.dob) newErrors.dob = 'Vui lòng chọn ngày sinh.';
+    if (!isGuest && formData.bookingFor === 'other' && !formData.relationship.trim()) {
+      newErrors.relationship = 'Vui lòng chọn mối quan hệ.';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -304,41 +331,9 @@ const AppointmentBookingPage = () => {
       toast.error('Vui lòng điền đầy đủ các trường bắt buộc.');
       return;
     }
-    const now = new Date();
-    const appointmentTime = new Date(`${formData.date}T${formData.time}:00`);
-    const diffInMillis = appointmentTime.getTime() - now.getTime();
-    const diffInHours = diffInMillis / (1000 * 60 * 60);
-    const nowStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    const apptDateStr = new Date(formData.date).toLocaleDateString('vi-VN');
-    const apptStr = `${formData.time} ngày ${apptDateStr}`;
-    const timeRemaining = formatTimeDiff(diffInMillis);
-
-    if (diffInHours < 6) {
-      setWarningModal({
-        isOpen: true, type: 'danger', title: 'Cảnh báo quan trọng!',
-        message: `Bạn đặt lịch vào lúc ${apptStr}. Hiện tại là ${nowStr} (chỉ còn ${timeRemaining}).`,
-        details: 'Bạn sẽ KHÔNG THỂ HỦY LỊCH hoặc ĐỔI LỊCH. Nếu không đến, khoản thanh toán online (nếu có) sẽ không được hoàn lại. Bạn có chắc chắn muốn tiếp tục?'
-      });
-      return;
-    }
-    if (diffInHours < 24) {
-      setWarningModal({
-        isOpen: true, type: 'warning', title: 'Lưu ý đổi lịch!',
-        message: `Bạn đặt lịch vào lúc ${apptStr}. Hiện tại là ${nowStr} (còn ${timeRemaining}).`,
-        details: 'Theo quy định, bạn sẽ KHÔNG THỂ ĐỔI LỊCH (cần đổi trước 24 giờ). Bạn có chắc chắn muốn tiếp tục?'
-      });
-      return;
-    }
+    // Đối với Offline, không cần check chặn lùi giờ gắt gao như Online.
+    // Hiển thị thẳng modal xác nhận.
     setShowConfirmModal(true);
-  };
-
-  const handleProceedFromWarning = () => {
-    setWarningModal({ isOpen: false, type: '', message: '', details: '' });
-    setShowConfirmModal(true);
-  };
-
-  const handleCloseWarning = () => {
-    setWarningModal({ isOpen: false, type: '', message: '', details: '' });
   };
 
   const handleSubmitBooking = async (paymentMethod) => {
@@ -346,23 +341,28 @@ const AppointmentBookingPage = () => {
     try {
       setLoading(prev => ({ ...prev, submit: true }));
       setShowConfirmModal(false);
-      setShowPaymentModal(false);
-      const token = localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      
       const payload = {
         service_id: formData.serviceId, doctor_id: formData.doctorId,
-        appointment_date: formData.date, appointment_start_time: formData.time,
-        appointment_type: formData.appointmentType, reason: formData.reason,
-        payment_method: paymentMethod, guest_name: formData.name,
+        appointment_date: formData.date, 
+        appointment_start_time: formData.time, // Giờ đại diện của ca
+        appointment_type: 'offline', // Khám dịch vụ luôn là trực tiếp tại viện
+        reason: formData.reason,
+        payment_method: paymentMethod, booking_for: formData.bookingFor,
+        relative_name: formData.bookingFor === 'other' ? formData.name : null,
+        relationship: formData.relationship || null,
+        guest_name: formData.name,
         guest_email: formData.email, guest_phone: formData.phone,
         guest_gender: formData.gender, guest_dob: formData.dob,
       };
-      const response = await axios.post(`${API_URL}/appointments`, payload, { headers });
+      
+      const response = await appointmentService.createAppointment(payload);
+      
       if (response.data.success) {
-        toast.success('Đặt lịch thành công!');
+        toast.success('Đặt lịch thành công! Số Ưu tiên của bạn đã được ghi nhận.');
         const appointmentData = response.data.data;
-        if (response.data.paymentRequired && response.data.paymentUrl) {
-          window.location.href = response.data.paymentUrl;
+        if (response.data.data.paymentRequired && response.data.data.paymentUrl) {
+          window.location.href = response.data.data.paymentUrl;
         } else {
           navigate(`/lich-hen/${appointmentData.appointment.code}`);
         }
@@ -379,15 +379,15 @@ const AppointmentBookingPage = () => {
   const nextThreeDays = getNextThreeDays();
   const selectedService = services.find(s => s.id === parseInt(formData.serviceId));
   const selectedDoctor = doctors.find(d => d.id === parseInt(formData.doctorId));
+  const selectedDoctorProfileCode = selectedDoctor?.code || selectedDoctor?.raw?.code || selectedDoctor?.raw?.user_code || selectedDoctor?.raw?.doctor_code;
+  const selectedDoctorCardImage = selectedDoctor?.avatar_url
+    ? (selectedDoctor.avatar_url.startsWith('http')
+      ? selectedDoctor.avatar_url
+      : `http://localhost:3001${selectedDoctor.avatar_url.startsWith('/') ? '' : '/'}${selectedDoctor.avatar_url}`)
+    : require('../assets/images/avatar-default.jpg');
 
   const renderError = (fieldName) => {
-    if (errors[fieldName]) {
-      return (
-        <small className="abp-error-text">
-          {errors[fieldName]}
-        </small>
-      );
-    }
+    if (errors[fieldName]) return <small className="abp-error-text">{errors[fieldName]}</small>;
     return null;
   };
 
@@ -401,7 +401,7 @@ const AppointmentBookingPage = () => {
             <FaArrowLeft /> Quay lại
           </button>
           <button className="abp-switch-btn" onClick={() => navigate('/dat-lich-tu-van')} title="Đặt lịch tư vấn">
-            <FaComments /> Tư vấn trực tuyến
+            <FaComments /> Sang trang Tư vấn Online
           </button>
         </div>
 
@@ -410,10 +410,10 @@ const AppointmentBookingPage = () => {
 
           {/* CARD HEADER */}
           <div className="abp-card-header">
-            <div className="abp-card-header-icon"><FaCalendarAlt /></div>
+            <div className="abp-card-header-icon"><FaUserClock /></div>
             <div className="abp-card-header-text">
-              <h1>Đặt Lịch Khám Bệnh</h1>
-              <p>Vui lòng hoàn tất các thông tin dưới đây để đặt lịch</p>
+              <h1>Đặt Lịch Khám Dịch Vụ</h1>
+              <p>Đặt lịch khám trực tiếp tại viện theo khung giờ thuận tiện</p>
             </div>
           </div>
 
@@ -431,6 +431,42 @@ const AppointmentBookingPage = () => {
                 <label className="abp-label">
                   Dịch vụ khám <span className="abp-required">*</span>
                 </label>
+                <div className="abp-filter-toolbar">
+                  <div className="abp-search-box">
+                    <FaSearch className="abp-search-icon" />
+                    <input
+                      type="text"
+                      className="abp-search-input"
+                      placeholder="Tìm dịch vụ, mã dịch vụ..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="abp-category-scroll" aria-label="Danh mục dịch vụ">
+                    <button
+                      type="button"
+                      className={`abp-category-card ${selectedCategory === 'all' ? 'active' : ''}`}
+                      onClick={() => setSelectedCategory('all')}
+                    >
+                      <span className="abp-category-card-icon"><FaLayerGroup /></span>
+                      <span className="abp-category-card-name">Tất cả</span>
+                    </button>
+                    {serviceCategories.map(category => (
+                      <button
+                        key={category.id}
+                        type="button"
+                        className={`abp-category-card ${String(selectedCategory) === String(category.id) ? 'active' : ''}`}
+                        onClick={() => setSelectedCategory(category.id)}
+                      >
+                        <span className="abp-category-card-icon"><FaLayerGroup /></span>
+                        <span className="abp-category-card-name">{category.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedServiceCategoryName && selectedCategory !== 'all' && (
+                    <small className="abp-filter-hint">Đang lọc theo danh mục {selectedServiceCategoryName}.</small>
+                  )}
+                </div>
                 <select
                   name="serviceId"
                   className={`abp-select ${errors.serviceId ? 'error' : ''}`}
@@ -438,7 +474,8 @@ const AppointmentBookingPage = () => {
                   onChange={handleFormChange}
                 >
                   <option value="">-- Chọn dịch vụ --</option>
-                  {services.map(service => (
+                  {filteredServices.length === 0 && <option value="" disabled>Không tìm thấy dịch vụ phù hợp</option>}
+                  {filteredServices.map(service => (
                     <option key={service.id} value={service.id}>
                       {service.name} ({service.price?.toLocaleString('vi-VN')} VNĐ)
                     </option>
@@ -487,9 +524,41 @@ const AppointmentBookingPage = () => {
                   ))}
                 </select>
                 {renderError('doctorId')}
+                {selectedDoctor && (
+                  <button
+                    type="button"
+                    className="abp-doctor-card"
+                    onClick={() => selectedDoctorProfileCode && navigate(`/bac-si/${selectedDoctorProfileCode}`, {
+                      state: {
+                        returnTo: location.pathname + location.search,
+                        returnState: {
+                          appointmentBooking: {
+                            ...formData,
+                            searchTerm,
+                            selectedCategory
+                          }
+                        }
+                      }
+                    })}
+                  >
+                    <img
+                      className="abp-doctor-avatar"
+                      src={selectedDoctorCardImage}
+                      onError={(e) => { e.target.onerror = null; e.target.src = require('../assets/images/avatar-default.jpg'); }}
+                      alt={selectedDoctor.full_name}
+                    />
+                    <div className="abp-doctor-info">
+                      <span className="abp-doctor-name">BS. {selectedDoctor.full_name}</span>
+                      <span className="abp-doctor-specialty">{selectedDoctor.specialty?.name || selectedDoctor.raw?.specialty?.name || 'Chưa cập nhật chuyên khoa'}</span>
+                    </div>
+                    <span className="abp-doctor-cta">
+                      Xem hồ sơ <FaChevronRight />
+                    </span>
+                  </button>
+                )}
                 {!selectedService?.allow_doctor_choice && formData.serviceId && (
                   <small className="abp-info-text">
-                    <FaInfoCircle /> Dịch vụ này sẽ được tự động phân công bác sĩ.
+                    <FaInfoCircle /> Dịch vụ này sẽ được tự động phân công bác sĩ tại quầy.
                   </small>
                 )}
               </div>
@@ -528,42 +597,45 @@ const AppointmentBookingPage = () => {
                 {renderError('date')}
               </div>
 
-              {/* TIME SLOTS */}
+              {/* TIME SLOTS (Ca khám trực tiếp) */}
               {formData.date && (
                 <div className="abp-slots-area">
+                  {/* [MỚI] Dòng giải thích Ưu tiên */}
+                  <div className="abp-info-text" style={{marginBottom: '14px', background: '#e3f2fd', borderColor: '#90caf9', color: '#0c4a6e'}}>
+                     <FaInfoCircle size={16}/> Việc chọn Ca nhằm mục đích giảm tải đám đông. Khi đến viện, bạn sẽ được tự động gọi theo Nhóm Số Ưu Tiên (U).
+                  </div>
+
                   {loading.slots ? (
                     <div className="abp-loading-slots">
-                      <FaSpinner className="abp-spin" /> Đang tải khung giờ...
+                      <FaSpinner className="abp-spin" /> Đang tải lịch...
                     </div>
                   ) : (
                     <>
                       {['morning', 'afternoon', 'evening'].map(pd => (
-                        availableSlots[pd]?.length > 0 && (
+                        availableShifts[pd]?.length > 0 && (
                           <div key={pd} className="abp-slot-section">
                             <div className="abp-slot-section-label">
                               {pd === 'morning' ? <FaSun /> : pd === 'afternoon' ? <FaCloudSun /> : <FaMoon />}
                               {pd === 'morning' ? 'Buổi sáng' : pd === 'afternoon' ? 'Buổi chiều' : 'Buổi tối'}
                             </div>
                             <div className="abp-slot-grid">
-                              {availableSlots[pd].map((slot) => (
+                              {availableShifts[pd].map((shift, idx) => (
                                 <button
-                                  key={slot.time}
+                                  key={idx}
                                   type="button"
-                                  className={`abp-slot-btn ${formData.time === slot.time ? 'active' : ''} ${slot.status !== 'available' ? 'disabled' : ''}`}
-                                  onClick={() => handleTimeSelect(slot)}
-                                  disabled={slot.status !== 'available'}
-                                  title={slot.reason}
+                                  className={`abp-slot-btn ${formData.time === shift.time ? 'active' : ''}`}
+                                  onClick={() => handleShiftSelect(shift)}
                                 >
-                                  {slot.time}
+                                  <strong>{shift.time}</strong>
                                 </button>
                               ))}
                             </div>
                           </div>
                         )
                       ))}
-                      {!availableSlots.morning.length && !availableSlots.afternoon.length && !availableSlots.evening.length && (
+                      {!availableShifts.morning.length && !availableShifts.afternoon.length && !availableShifts.evening.length && (
                         <div className="abp-no-slots">
-                          <FaExclamationTriangle /> Không có lịch trống ngày này.
+                          <FaExclamationTriangle /> Hôm nay bác sĩ đã kín lịch hoặc không có ca trực.
                         </div>
                       )}
                       {renderError('time')}
@@ -593,6 +665,22 @@ const AppointmentBookingPage = () => {
                       Người thân
                     </label>
                   </div>
+                </div>
+              )}
+
+              {!isGuest && formData.bookingFor === 'other' && (
+                <div className="abp-form-group">
+                  <label className="abp-label">Quan hệ với bệnh nhân <span className="abp-required">*</span></label>
+                  <select className={`abp-select ${errors.relationship ? 'error' : ''}`} name="relationship" value={formData.relationship} onChange={handleFormChange}>
+                    <option value="">-- Chọn --</option>
+                    <option value="Vợ/chồng">Vợ/chồng</option>
+                    <option value="Con">Con</option>
+                    <option value="Cha/mẹ">Cha/mẹ</option>
+                    <option value="Anh/chị/em">Anh/chị/em</option>
+                    <option value="Người giám hộ">Người giám hộ</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                  {renderError('relationship')}
                 </div>
               )}
 
@@ -659,10 +747,7 @@ const AppointmentBookingPage = () => {
               <div className="abp-policy-row">
                 <input type="checkbox" id="terms" defaultChecked />
                 <span className="abp-policy-text">
-                  Tôi đã đọc và đồng ý với{' '}
-                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="abp-policy-link">
-                    Chính sách bảo vệ dữ liệu cá nhân
-                  </a>.
+                  Tôi hiểu rằng khi đến viện tôi sẽ được gọi theo Nhóm số Ưu tiên (U).
                 </span>
               </div>
 
@@ -692,71 +777,25 @@ const AppointmentBookingPage = () => {
                 <div className="abp-confirm-row"><span>Dịch vụ</span><strong>{selectedService?.name}</strong></div>
                 <div className="abp-confirm-row"><span>Bác sĩ</span><strong>{selectedDoctor ? `BS. ${selectedDoctor.full_name}` : 'Sẽ được phân công'}</strong></div>
                 <div className="abp-confirm-row"><span>Ngày khám</span><strong>{formData.date}</strong></div>
-                <div className="abp-confirm-row"><span>Giờ khám</span><strong>{formData.time}</strong></div>
                 <div className="abp-confirm-row"><span>Khách hàng</span><strong>{formData.name}</strong></div>
                 <div className="abp-confirm-total">
                   <span>Tổng thanh toán</span>
                   <strong>{selectedService?.price?.toLocaleString('vi-VN')} VNĐ</strong>
                 </div>
+                <small className="abp-confirm-hint">
+                  Bạn có thể đặt lịch trước và chọn phương thức thanh toán sau trong trang chi tiết lịch hẹn.
+                </small>
               </div>
               <div className="abp-modal-footer">
                 <button className="abp-btn-secondary" onClick={() => setShowConfirmModal(false)}>Hủy</button>
-                <button className="abp-btn-primary" onClick={() => setShowPaymentModal(true)}>Chọn thanh toán</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL THANH TOÁN */}
-        {showPaymentModal && (
-          <div className="abp-modal-overlay" onClick={() => setShowPaymentModal(false)}>
-            <div className="abp-modal" onClick={e => e.stopPropagation()}>
-              <div className="abp-modal-header">
-                <h3><FaWallet style={{ color: '#3aaa6f' }} /> Chọn phương thức thanh toán</h3>
-              </div>
-              <div className="abp-modal-body">
-                <button className="abp-payment-item" onClick={() => handleSubmitBooking('cash')} disabled={loading.submit}>
-                  <FaWallet /> Thanh toán tiền mặt
-                  <small>Thanh toán khi đến khám</small>
-                </button>
-                <button className="abp-payment-item" onClick={() => handleSubmitBooking('online')} disabled={loading.submit}>
-                  <FaCreditCard /> Thanh toán online
-                  <small>VNPay, MoMo, ATM...</small>
-                </button>
-              </div>
-              <div className="abp-modal-footer">
-                <button className="abp-btn-secondary full" onClick={() => setShowPaymentModal(false)}>Quay lại</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL CẢNH BÁO */}
-        {warningModal.isOpen && (
-          <div className="abp-modal-overlay" onClick={handleCloseWarning}>
-            <div className={`abp-modal ${warningModal.type || ''}`} onClick={e => e.stopPropagation()}>
-              <div className={`abp-modal-header ${warningModal.type || ''}`}>
-                <h3>
-                  <FaExclamationTriangle /> {warningModal.title}
-                </h3>
-                <button className="abp-modal-close-btn" onClick={handleCloseWarning}><FaTimes /></button>
-              </div>
-              <div className="abp-modal-body">
-                <p className="abp-modal-message">{warningModal.message}</p>
-                {warningModal.details && <small className="abp-modal-details">{warningModal.details}</small>}
-              </div>
-              <div className="abp-modal-footer">
-                <button className="abp-btn-secondary" onClick={handleCloseWarning}>Chọn lại</button>
-                <button
-                  className={`abp-btn-primary ${warningModal.type === 'danger' ? 'btn-danger' : ''}`}
-                  onClick={handleProceedFromWarning}
-                >
-                  Tôi hiểu, Tiếp tục
+                <button className="abp-btn-primary" onClick={() => handleSubmitBooking()} disabled={loading.submit}>
+                  Xác nhận đặt lịch
                 </button>
               </div>
             </div>
           </div>
         )}
+        
 
       </div>
     </div>

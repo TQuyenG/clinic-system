@@ -3,6 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const appointmentController = require('../controllers/appointmentController');
+const appointmentOptimizer = require('../controllers/appointmentOptimizationController');
 const { authenticateToken, authorize } = require('../middleware/authMiddleware');
 
 // ========== PUBLIC ROUTES ==========
@@ -201,6 +202,92 @@ router.get('/by-user',
   authenticateToken,
   authorize('doctor', 'admin', 'staff'),  
   appointmentController.getAppointmentsForCalendar
+);
+
+// ===== [MỚI] APPOINTMENT OPTIMIZATION: SERVICE INDICATIONS & EDGE CASES =====
+
+/**
+ * Check-in lịch hẹn tại phòng khám (cấp STT động)
+ * PUT /api/appointments/:id/check-in
+ * Body: {}
+ */
+router.put('/:id/check-in',
+  authenticateToken,
+  authorize('admin', 'staff'),
+  appointmentOptimizer.checkInAppointment
+);
+
+/**
+ * Bác sĩ chỉ định dịch vụ phụ (Siêu âm, Lấy máu...)
+ * POST /api/appointments/:id/service-indications
+ * Body: { indications: [{ service_name, service_code, order_sequence, dependencies }] }
+ */
+router.post('/:id/service-indications',
+  authenticateToken,
+  authorize('doctor', 'staff'),
+  appointmentOptimizer.addServiceIndications
+);
+
+/**
+ * Bệnh nhân quẹt mã tại phòng dịch vụ (check-in động)
+ * PUT /api/appointments/:id/service-indications/:indication_id
+ * Body: {}
+ */
+router.put('/:id/service-indications/:indication_id/check-in',
+  authenticateToken,
+  appointmentOptimizer.checkInServiceRoom
+);
+
+/**
+ * Hoàn thành dịch vụ cận lâm sàng
+ * PATCH /api/appointments/:id/service-indications/:indication_id/complete
+ * Body: { result: '...' }
+ */
+router.patch('/:id/service-indications/:indication_id/complete',
+  authenticateToken,
+  authorize('doctor', 'staff'),
+  appointmentOptimizer.completeServiceIndication
+);
+
+/**
+ * Bác sĩ đánh dấu vắng mặt (no-show) cho lịch Online
+ * PATCH /api/appointments/:id/no-show
+ * Body: { reason: '...' }
+ */
+router.patch('/:id/no-show',
+  authenticateToken,
+  authorize('doctor', 'staff'),
+  appointmentOptimizer.handleNoShow
+);
+
+/**
+ * Lấy danh sách xếp hàng của bác sĩ (gọi số tiếp theo)
+ * GET /api/appointments/doctor/:doctor_id/queue
+ */
+router.get('/doctor/:doctor_id/queue',
+  authenticateToken,
+  authorize('doctor', 'staff', 'admin'),
+  appointmentOptimizer.getQueueForDoctor
+);
+
+/**
+ * Ưu tiên khám của bệnh nhân chờ quá lâu
+ * PUT /api/appointments/:id/prioritize-now
+ * Body: {}
+ */
+router.put('/:id/prioritize-now',
+  authenticateToken,
+  authorize('staff'),
+  appointmentOptimizer.prioritizeNow
+);
+
+/**
+ * PUT /api/appointments/:code/change-payment-method
+ * Đổi phương thức thanh toán (chỉ nếu pending + unpaid)
+ * Body: { payment_method: 'cash' | 'vnpay' | 'momo' | 'bank_transfer' }
+ */
+router.put('/:code/change-payment-method',
+  appointmentController.changePaymentMethod
 );
 
 module.exports = router;

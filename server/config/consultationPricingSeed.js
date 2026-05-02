@@ -17,112 +17,92 @@ module.exports = async function seedConsultationPricing(models, transaction, con
   const packages = [
     // ===== GÓI MIỄN PHÍ =====
     {
-      package_name: 'Tư vấn Chat Miễn phí',
-      description: 'Gói tư vấn qua chat cơ bản, phù hợp cho các câu hỏi nhanh về sức khỏe',
+      package_code: 'CONS-001-FREE',
+      package_name: 'Chat Trực Tiếp Miễn Phí',
+      description: 'Tư vấn qua chat cơ bản, phù hợp cho các câu hỏi nhanh về sức khỏe. Thời gian: 15 phút',
       package_type: 'chat',
       duration_minutes: 15,
-      price: 0.00,
+      price: 0,
       is_active: true,
-      notes: 'Gói miễn phí cho người dùng mới',
-      doctor_codes: JSON.stringify([doctor1Code, doctor2Code]) // 2 bác sĩ
+      doctor_codes: JSON.stringify([doctor1Code, doctor2Code])
     },
     {
-      package_name: 'Tư vấn Video Miễn phí',
-      description: 'Gói tư vấn video call miễn phí, giới hạn 10 phút',
+      package_code: 'CONS-002-FREE',
+      package_name: 'Video Call Miễn Phí',
+      description: 'Gói tư vấn video call miễn phí, giới hạn 10 phút. Thích hợp cho tư vấn sơ bộ.',
       package_type: 'video',
       duration_minutes: 10,
-      price: 0.00,
+      price: 0,
       is_active: true,
-      notes: 'Gói dùng thử miễn phí',
       doctor_codes: JSON.stringify([doctor1Code])
     },
 
     // ===== GÓI 50,000 VNĐ =====
     {
-      package_name: 'Tư vấn Chat Cơ bản',
-      description: 'Tư vấn qua chat với bác sĩ chuyên khoa, thời gian 30 phút',
+      package_code: 'CONS-003-50K',
+      package_name: 'Chat Cơ Bản (30 phút)',
+      description: 'Tư vấn qua chat với bác sĩ chuyên khoa. Gồm tư vấn chi tiết và có thể gửi tài liệu.',
       package_type: 'chat',
       duration_minutes: 30,
-      price: 50000.00,
+      price: 50000,
       is_active: true,
-      notes: 'Gói phổ biến nhất',
       doctor_codes: JSON.stringify([doctor1Code, doctor2Code, doctor3Code])
     },
     {
-      package_name: 'Tư vấn Video Cơ bản',
-      description: 'Tư vấn video call trực tiếp với bác sĩ, thời gian 20 phút',
+      package_code: 'CONS-004-50K',
+      package_name: 'Video Call Cơ Bản (20 phút)',
+      description: 'Tư vấn video call trực tiếp với bác sĩ. Gặp mặt 1-1 qua video HD.',
       package_type: 'video',
       duration_minutes: 20,
-      price: 50000.00,
+      price: 50000,
       is_active: true,
-      notes: 'Video call 1-1 với bác sĩ',
       doctor_codes: JSON.stringify([doctor2Code, doctor3Code])
-    },
-    {
-      package_name: 'Khám tại phòng khám',
-      description: 'Khám trực tiếp tại phòng khám, bao gồm thăm khám và tư vấn chi tiết',
-      package_type: 'offline',
-      duration_minutes: 30,
-      price: 50000.00,
-      is_active: true,
-      notes: 'Phí khám tại phòng khám',
-      doctor_codes: null // Tất cả bác sĩ
     },
 
     // ===== GÓI 100,000 VNĐ =====
     {
-      package_name: 'Tư vấn Chat Nâng cao',
-      description: 'Gói tư vấn chat chuyên sâu với bác sĩ giàu kinh nghiệm, 45 phút',
+      package_code: 'CONS-005-100K',
+      package_name: 'Chat Chuyên Sâu (45 phút)',
+      description: 'Tư vấn chat chuyên sâu với bác sĩ giàu kinh nghiệm. Bao gồm kê đơn điện tử.',
       package_type: 'chat',
       duration_minutes: 45,
-      price: 100000.00,
+      price: 100000,
       is_active: true,
-      notes: 'Bao gồm kê đơn thuốc điện tử',
-      doctor_codes: JSON.stringify([doctor2Code])
+      doctor_codes: JSON.stringify([doctor1Code, doctor2Code])
     },
     {
-      package_name: 'Tư vấn Video Nâng cao',
-      description: 'Video call chuyên sâu với bác sĩ chuyên khoa, 30 phút',
+      package_code: 'CONS-006-100K',
+      package_name: 'Video Call Chuyên Sâu (30 phút)',
+      description: 'Video call chuyên sâu với bác sĩ chuyên khoa. Hỗ trợ chia sẻ màn hình, xem kết quả xét nghiệm.',
       package_type: 'video',
       duration_minutes: 30,
-      price: 100000.00,
+      price: 100000,
       is_active: true,
-      notes: 'Hỗ trợ chia sẻ màn hình, xem kết quả xét nghiệm',
       doctor_codes: JSON.stringify([doctor1Code, doctor3Code])
     },
 
-    // ===== GÓI 200,000 VNĐ =====
+    // ===== GÓI 300,000 VNĐ =====
     {
-      package_name: 'Tư vấn Video Premium',
-      description: 'Gói video call cao cấp với bác sĩ chuyên gia, thời gian 60 phút',
+      package_code: 'CONS-007-300K',
+      package_name: 'Video Call Premium (60 phút)',
+      description: 'Gói video call cao cấp với bác sĩ chuyên gia. Tư vấn chi tiết, kê đơn, và theo dõi sau điều trị.',
       package_type: 'video',
       duration_minutes: 60,
-      price: 200000.00,
+      price: 300000,
       is_active: true,
-      notes: 'Bao gồm tư vấn chi tiết, kê đơn, và theo dõi sau điều trị',
       doctor_codes: JSON.stringify([doctor3Code])
-    },
-    {
-      package_name: 'Khám tổng quát tại phòng khám',
-      description: 'Gói khám tổng quát toàn diện tại phòng khám',
-      package_type: 'offline',
-      duration_minutes: 60,
-      price: 200000.00,
-      is_active: true,
-      notes: 'Bao gồm các xét nghiệm cơ bản',
-      doctor_codes: null
     },
 
     // ===== GÓI TẠM NGƯNG =====
     {
-      package_name: 'Tư vấn Chat VIP (Tạm ngưng)',
-      description: 'Gói VIP không giới hạn thời gian (đang bảo trì)',
+      package_code: 'CONS-008-VIP',
+      package_name: 'Chat VIP Không Giới Hạn (Tạm Ngưng)',
+      description: 'Gói VIP không giới hạn thời gian (đang bảo trì). Đăng ký để được thông báo khi khôi phục.',
       package_type: 'chat',
       duration_minutes: 120,
-      price: 500000.00,
+      price: 500000,
       is_active: false,
-      notes: 'Tạm ngưng do đang nâng cấp hệ thống',
-      doctor_codes: null
+      doctor_codes: JSON.stringify([doctor1Code])
     }
   ];
 

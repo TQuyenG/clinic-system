@@ -10,7 +10,7 @@ import * as Icons from 'react-icons/fa';
 import {
   FaCalendarAlt, FaUser, FaStethoscope, FaComments, FaVideo,
   FaPaperclip, FaCheckCircle, FaMoneyBillWave, FaArrowLeft, FaSun, FaMoon, FaCloudSun,
-  FaWallet, FaCreditCard, FaTimes, FaExclamationTriangle
+  FaWallet, FaCreditCard, FaTimes, FaExclamationTriangle, FaSearch, FaChevronRight
 } from 'react-icons/fa';
 import './ConsultationBookingPage.css';
 
@@ -57,6 +57,7 @@ const ConsultationBookingPage = () => {
   const [availableSlots, setAvailableSlots] = useState({ morning: [], afternoon: [], evening: [] });
 
   const [filterType, setFilterType] = useState(consultationType || 'chat');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [errors, setErrors] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -77,6 +78,46 @@ const ConsultationBookingPage = () => {
     return days;
   };
   const nextThreeDays = getNextThreeDays();
+  const selectedDoctorProfileCode = selectedDoctor?.code || selectedDoctor?.user_code || selectedDoctor?.doctor_code || selectedDoctor?.roleData?.code;
+  const selectedDoctorCardImage = selectedDoctor?.avatar_url
+    ? (selectedDoctor.avatar_url.startsWith('http')
+      ? selectedDoctor.avatar_url
+      : `http://localhost:3001${selectedDoctor.avatar_url.startsWith('/') ? '' : '/'}${selectedDoctor.avatar_url}`)
+    : require('../assets/images/avatar-default.jpg');
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredSpecialties = specialties.filter(s => {
+    if (!normalizedSearch) return true;
+    return [s.name, s.slug].filter(Boolean).some(value => String(value).toLowerCase().includes(normalizedSearch));
+  });
+  const filteredDoctors = doctors.filter(d => {
+    if (!normalizedSearch) return true;
+    return [d.fullName, d.specialty?.name].filter(Boolean).some(value => String(value).toLowerCase().includes(normalizedSearch));
+  });
+  const filteredPackages = allPackages.filter(p => {
+    if (p.package_type !== filterType) return false;
+    if (!normalizedSearch) return true;
+    return [p.package_name, p.short_description, p.description].filter(Boolean).some(value => String(value).toLowerCase().includes(normalizedSearch));
+  });
+
+  useEffect(() => {
+    const restoredBookingState = location.state?.returnState?.consultationBooking || location.state?.consultationBookingReturnState || null;
+    if (!restoredBookingState) return;
+
+    setFormData(prev => ({
+      ...prev,
+      ...restoredBookingState,
+      doctor_id: restoredBookingState.doctor_id || prev.doctor_id,
+      consultation_pricing_id: restoredBookingState.consultation_pricing_id ?? prev.consultation_pricing_id,
+    }));
+
+    if (restoredBookingState.filterType) {
+      setFilterType(restoredBookingState.filterType);
+    }
+    if (restoredBookingState.searchTerm) {
+      setSearchTerm(restoredBookingState.searchTerm);
+    }
+  }, [location.state]);
 
   const renderIcon = (iconName) => {
     const IconComponent = Icons[iconName] || Icons.FaStethoscope;
@@ -98,6 +139,21 @@ const ConsultationBookingPage = () => {
 
         if (doctorId) {
           await loadDoctorDetails(doctorId);
+        }
+        // If navigated with a packageId (from ServicesPage), load public packages and preselect
+        const statePackageId = location.state?.packageId;
+        try {
+          const pkgRes = await consultationService.getAllPublicPackages({ limit: 200 });
+          const pkgData = pkgRes?.data?.data || pkgRes?.data || [];
+          setAllPackages(Array.isArray(pkgData) ? pkgData : []);
+          if (statePackageId) {
+            setFormData(prev => ({ ...prev, consultation_pricing_id: statePackageId }));
+            // Try set filter type from package if available
+            const selectedPkg = (Array.isArray(pkgData) ? pkgData : []).find(p => String(p.id) === String(statePackageId));
+            if (selectedPkg && selectedPkg.consultation_type) setFilterType(selectedPkg.consultation_type);
+          }
+        } catch (e) {
+          // ignore package load errors
         }
       } catch (error) {
         console.error("Init Error:", error);
@@ -380,8 +436,20 @@ const ConsultationBookingPage = () => {
                 <label className="consultation-booking-label">
                   Chuyên khoa <span className="consultation-booking-required">*</span>
                 </label>
+                <div className="consultation-booking-filter-toolbar">
+                  <div className="consultation-booking-search-box">
+                    <FaSearch className="consultation-booking-search-icon" />
+                    <input
+                      type="text"
+                      className="consultation-booking-search-input"
+                      placeholder="Tìm chuyên khoa, bác sĩ, gói dịch vụ..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
                 <div className="consultation-booking-specialty-list">
-                  {Array.isArray(specialties) && specialties.map(s => (
+                  {filteredSpecialties.map(s => (
                     <button
                       key={s.id}
                       type="button"
@@ -409,7 +477,7 @@ const ConsultationBookingPage = () => {
                   disabled={!formData.specialty_id}
                 >
                   <option value="">-- Chọn bác sĩ --</option>
-                  {doctors.map(d => (
+                  {filteredDoctors.map(d => (
                     <option key={d.userId} value={d.userId}>
                       BS. {d.fullName}
                     </option>
@@ -420,22 +488,36 @@ const ConsultationBookingPage = () => {
 
               {/* CARD BÁC SĨ ĐÃ CHỌN */}
               {selectedDoctor && (
-                <div className="consultation-booking-doctor-card">
+                <button
+                  type="button"
+                  className="consultation-booking-doctor-card consultation-booking-doctor-card-clickable"
+                    onClick={() => selectedDoctorProfileCode && navigate(`/bac-si/${selectedDoctorProfileCode}`, {
+                      state: {
+                        returnTo: location.pathname,
+                        returnState: {
+                          consultationBooking: {
+                            ...formData,
+                            filterType,
+                            searchTerm
+                          }
+                        }
+                      }
+                    })}
+                >
                   <img
                     className="consultation-booking-doctor-avatar"
-                    src={selectedDoctor.avatar_url
-                      ? (selectedDoctor.avatar_url.startsWith('http')
-                        ? selectedDoctor.avatar_url
-                        : `http://localhost:3001${selectedDoctor.avatar_url.startsWith('/') ? '' : '/'}${selectedDoctor.avatar_url}`)
-                      : require('../assets/images/avatar-default.jpg')}
+                    src={selectedDoctorCardImage}
                     onError={(e) => { e.target.onerror = null; e.target.src = require('../assets/images/avatar-default.jpg'); }}
                     alt="avatar"
                   />
                   <div className="consultation-booking-doctor-info">
                     <span className="consultation-booking-doctor-name">BS. {selectedDoctor.full_name}</span>
-                    <span className="consultation-booking-doctor-specialty">{selectedDoctor.roleData?.specialty?.name}</span>
+                    <span className="consultation-booking-doctor-specialty">{selectedDoctor.roleData?.specialty?.name || selectedDoctor.specialty?.name || 'Chưa cập nhật chuyên khoa'}</span>
                   </div>
-                </div>
+                  <span className="consultation-booking-doctor-cta">
+                    Xem hồ sơ <FaChevronRight />
+                  </span>
+                </button>
               )}
 
               {/* HÌNH THỨC TƯ VẤN */}
@@ -467,10 +549,12 @@ const ConsultationBookingPage = () => {
                   Gói dịch vụ <span className="consultation-booking-required">*</span>
                 </label>
                 <div className="consultation-booking-pkg-list">
-                  {allPackages.filter(p => p.package_type === filterType).length === 0 ? (
-                    <div className="consultation-booking-pkg-empty">Bác sĩ chưa thiết lập gói dịch vụ này.</div>
+                  {filteredPackages.length === 0 ? (
+                    <div className="consultation-booking-pkg-empty">
+                      {normalizedSearch ? 'Không tìm thấy gói dịch vụ phù hợp.' : 'Bác sĩ chưa thiết lập gói dịch vụ này.'}
+                    </div>
                   ) : (
-                    allPackages.filter(p => p.package_type === filterType).map(pkg => (
+                    filteredPackages.map(pkg => (
                       <label key={pkg.id} className={`consultation-booking-pkg-item ${formData.consultation_pricing_id === pkg.id ? 'selected' : ''}`}>
                         <input
                           type="radio" className="consultation-booking-pkg-radio" name="pkg"
@@ -701,10 +785,17 @@ const ConsultationBookingPage = () => {
                   <span>Thời gian</span>
                   <strong>{formData.time} — {formData.date}</strong>
                 </div>
+                <div className="consultation-booking-confirm-row">
+                  <span>Khách hàng</span>
+                  <strong>{formData.name}</strong>
+                </div>
                 <div className="consultation-booking-confirm-total">
                   <span>Tổng thanh toán</span>
                   <strong>{formatCurrency(allPackages.find(p => p.id === formData.consultation_pricing_id)?.price)}</strong>
                 </div>
+                <small className="consultation-booking-confirm-hint">
+                  Kiểm tra kỹ thông tin bác sĩ, gói dịch vụ và thời gian trước khi thanh toán để hoàn tất lịch tư vấn.
+                </small>
               </div>
               <div className="consultation-booking-modal-footer">
                 <button className="consultation-booking-btn-secondary" onClick={() => setShowConfirmModal(false)}>Hủy</button>

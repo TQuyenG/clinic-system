@@ -68,6 +68,7 @@ const MedicalRecordFormPage = () => {
   // [MỚI] State quản lý gợi ý thuốc
   const [medicineSuggestions, setMedicineSuggestions] = useState([]); 
   const [showSuggestionsIndex, setShowSuggestionsIndex] = useState(null);
+  const [serviceIndicationText, setServiceIndicationText] = useState('');
 
   // === Tải dữ liệu ===
   useEffect(() => {
@@ -269,6 +270,15 @@ const MedicalRecordFormPage = () => {
         submissionData.append('prescription_json', JSON.stringify(validPrescriptions));
       }
 
+      const validIndications = serviceIndicationText
+        .split(/\n|,/)
+        .map(item => item.trim())
+        .filter(Boolean);
+
+      if (validIndications.length > 0) {
+        submissionData.append('service_indication_text', JSON.stringify(validIndications));
+      }
+
       // 4. Thêm file
       // 4a. File MỚI (để backend xử lý)
       newTestImages.forEach(file => {
@@ -292,6 +302,21 @@ const MedicalRecordFormPage = () => {
       } else {
         await medicalRecordService.createMedicalRecord(submissionData);
         toast.success('Tạo hồ sơ y tế thành công!');
+      }
+
+      if (!isUpdateMode && validIndications.length > 0 && appointment?.id) {
+        try {
+          const indications = validIndications.map((serviceName, index) => ({
+            service_name: serviceName,
+            order_sequence: index + 1,
+            dependencies: []
+          }));
+          await appointmentService.addServiceIndications(appointment.id, indications);
+          console.log('[LOG] Added service indications from MedicalRecordFormPage:', indications);
+        } catch (indicationError) {
+          console.error('Service indication error:', indicationError);
+          toast.warn('Hồ sơ đã lưu, nhưng chưa đồng bộ được chỉ định dịch vụ phụ.');
+        }
       }
 
       // 6. Điều hướng
@@ -470,6 +495,20 @@ const MedicalRecordFormPage = () => {
                     value={formData.advice}
                     onChange={handleFormChange}
                   />
+                </div>
+
+                {/* Chỉ định dịch vụ phụ */}
+                <div className="medical-record-form-page-form-group full-span">
+                  <label htmlFor="service_indication_text">Chỉ định dịch vụ phụ (nếu có)</label>
+                  <textarea
+                    id="service_indication_text"
+                    className="medical-record-form-page-textarea"
+                    rows="3"
+                    placeholder="Nhập mỗi dịch vụ một dòng, ví dụ: Siêu âm bụng\nXét nghiệm máu"
+                    value={serviceIndicationText}
+                    onChange={(e) => setServiceIndicationText(e.target.value)}
+                  />
+                  <small style={{ color: '#6b7280', display: 'block', marginTop: '4px' }}>Đã gắn ngay trong form kết quả khám để bác sĩ xử lý từ trang quản lý lịch hẹn.</small>
                 </div>
               </div>
             </div>

@@ -1933,6 +1933,39 @@ const getGroupPostDetail = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+/**
+ * GET /api/community/groups/managed
+ * Trả về các nhóm mà user là owner hoặc moderator (quản lý)
+ */
+const getManagedGroups = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    // Tìm các group mà user là owner hoặc moderator
+    const memberships = await models.GroupMember.findAll({
+      where: {
+        user_id: userId,
+        role: ['owner', 'moderator'],
+        status: 'active'
+      },
+      attributes: ['group_id', 'role']
+    });
+    const groupIds = memberships.map(m => m.group_id);
+    if (!groupIds.length) return res.json({ success: true, groups: [] });
+    const groups = await models.CommunityGroup.findAll({
+      where: { id: groupIds, status: 'active' },
+      include: [
+        { model: models.User, as: 'owner', attributes: ['id', 'full_name', 'avatar_url'] },
+        { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'full_name', 'avatar_url'] }] },
+        { model: models.GroupMember, as: 'members', attributes: ['user_id', 'role', 'status'], required: false }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+    res.json({ success: true, groups });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getGroups,
   getGroupBySlug,
@@ -1980,4 +2013,5 @@ module.exports = {
   adminForceActiveGroup,
   adminForceDeleteGroup,
   getGroupPostDetail,
+  getManagedGroups,
 };

@@ -55,7 +55,7 @@ const ServiceManagementPage = () => {
   
   const [formData, setFormData] = useState({
     name: '', detailed_content: '', short_description: '', price: '', duration: 30,
-    category_id: '', status: 'active', image_url: '', allow_doctor_choice: true
+    category_id: '', specialty_id: '', status: 'active', image_url: '', allow_doctor_choice: true
   });
 
   useEffect(() => {
@@ -228,7 +228,7 @@ const ServiceManagementPage = () => {
   const resetForm = () => {
     setFormData({
       name: '', detailed_content: '', short_description: '', price: '', duration: 30,
-      category_id: '', status: 'active', image_url: '', allow_doctor_choice: true
+      category_id: '', specialty_id: '', status: 'active', image_url: '', allow_doctor_choice: true
     });
     setSelectedDoctors([]);
     setIsEditing(false);
@@ -247,7 +247,7 @@ const ServiceManagementPage = () => {
     setFormData({
       id: service.id, name: service.name, detailed_content: service.detailed_content || '', 
       short_description: service.short_description || '', price: service.price,
-      duration: service.duration, category_id: service.category_id || '',
+      duration: service.duration, category_id: service.category_id || '', specialty_id: service.specialty_id || '',
       status: service.status, image_url: service.image_url || '',
       allow_doctor_choice: service.allow_doctor_choice
     });
@@ -538,6 +538,14 @@ const ServiceManagementPage = () => {
                             {Array.isArray(categories) && categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                           </select>
                         </div>
+
+                        <div className="smp-form-group">
+                          <label className="smp-form-label">Chuyên khoa ưu tiên</label>
+                          <select name="specialty_id" value={formData.specialty_id || ''} onChange={handleInputChange} className="smp-form-select">
+                            <option value="">-- Không giới hạn --</option>
+                            {Array.isArray(specialties) && specialties.map(sp => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
+                          </select>
+                        </div>
                         
                         {/* ✅ THAY ĐỔI GIAO DIỆN TRẠNG THÁI TRONG FORM EDIT */}
                         <div className="smp-form-group">
@@ -600,6 +608,7 @@ const ServiceManagementPage = () => {
                       <div className="smp-form-group">
                         <label className="smp-form-label">Mô tả ngắn</label>
                         <input type="text" name="short_description" value={formData.short_description} onChange={handleInputChange} className="smp-form-input" placeholder="Mô tả tóm tắt..." />
+                        <small style={{ color: '#6b7280', marginTop: '4px', display: 'block' }}>Hiển thị ở danh sách dịch vụ và màn hình đặt lịch.</small>
                       </div>
 
                       <div className="smp-form-group">
@@ -611,6 +620,15 @@ const ServiceManagementPage = () => {
                           className="smp-form-textarea" 
                           placeholder="Mô tả chi tiết nội dung, quy trình..."
                         ></textarea>
+                        <small style={{ color: '#6b7280', marginTop: '4px', display: 'block' }}>Dùng cho mô tả quy trình, lưu ý trước khám, và nội dung hướng dẫn bệnh nhân.</small>
+                      </div>
+
+                      <div className="smp-form-group" style={{ marginTop: '8px' }}>
+                        <label className="smp-form-label">Quyền chọn bác sĩ</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#374151' }}>
+                          <input type="checkbox" name="allow_doctor_choice" checked={!!formData.allow_doctor_choice} onChange={handleInputChange} />
+                          Bệnh nhân được chọn bác sĩ khi đặt lịch
+                        </label>
                       </div>
                     </div>
 

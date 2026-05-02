@@ -17,7 +17,7 @@ const Toast = ({
   message = '', 
   show = false, 
   onClose = () => {}, 
-  duration = 3000 
+  duration = 5000 
 }) => {
   
   // Tự động đóng sau duration
@@ -44,8 +44,12 @@ const Toast = ({
     }
   };
 
+  const animationStyle = {
+    animation: `slideInRight 0.3s ease, slideOutRight 0.3s ease ${Math.max(duration - 300, 0)}ms forwards`
+  };
+
   return (
-    <div className={`toast toast--${type}`}>
+    <div className={`toast toast--${type}`} style={animationStyle}>
       {getIcon()}
       <span className="toast__message">{message}</span>
       <button 

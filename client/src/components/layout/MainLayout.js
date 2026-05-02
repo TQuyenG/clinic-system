@@ -29,6 +29,7 @@ const MainLayout = ({ children }) => {
 ];
 
   const showSidebar = !!token && dashboardPaths.some(path => location.pathname.startsWith(path));
+  const showCommonChrome = !showSidebar;
 
   useEffect(() => {
     const handleResize = () => {
@@ -47,7 +48,7 @@ const MainLayout = ({ children }) => {
 
   return (
     <div className="main-layout">
-      <Header />
+      {showCommonChrome && <Header />}
       <Navbar />
       {showSidebar ? (
         <div className="layout-body">
@@ -61,7 +62,7 @@ const MainLayout = ({ children }) => {
           {children}
         </main>
       )}
-      <Footer />
+      {showCommonChrome && <Footer />}
       <Chatbot />
     </div>
   );

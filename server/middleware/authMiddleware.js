@@ -343,12 +343,36 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
+/**
+ * Middleware kiểm tra role admin
+ * Phải chạy sau authenticateToken
+ */
+const allowAdminOnly = async (req, res, next) => {
+  try {
+    console.log('[AUTH-MIDDLEWARE] allowAdminOnly - Checking admin role');
+    if (!req.user) {
+      console.log('[AUTH-MIDDLEWARE] ⚠️ No user in request');
+      return res.status(401).json({ success: false, message: 'Unauthorized: No user in request' });
+    }
+    if (req.user.role !== 'admin') {
+      console.log(`[AUTH-MIDDLEWARE] ❌ User ${req.user.id} (role: ${req.user.role}) không phải admin`);
+      return res.status(403).json({ success: false, message: 'Forbidden: Admin role required' });
+    }
+    console.log(`[AUTH-MIDDLEWARE] ✅ Admin check passed for user ${req.user.id}`);
+    next();
+  } catch (error) {
+    console.error('[AUTH-MIDDLEWARE] Error in allowAdminOnly:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   authenticateToken,
   authenticateTokenBasic,
   authenticateTokenOptional, //  XUẤT HÀM NÀY ĐỂ ROUTE SỬ DỤNG
   authMiddleware: authenticateToken,
   authorize,
+  allowAdminOnly,
   checkOwnership,
   clearUserCache,
   clearAllCache

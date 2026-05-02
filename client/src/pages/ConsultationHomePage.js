@@ -235,8 +235,13 @@ const ConsultationHomePage = () => {
     }
   };
 
-  const handleViewDoctorProfile = (doctorId) => {
-    navigate(`/bac-si/${doctorId}`);
+  const handleViewDoctorProfile = (doctor) => {
+    // Route expects doctor code (slug). Try common fallbacks.
+    const code = doctor?.code || doctor?.user_code || doctor?.doctor_code || doctor?.id || doctor?.User?.code || doctor?.User?.user_code;
+    if (!code) {
+      console.warn('No doctor code available for profile link, using id fallback');
+    }
+    navigate(`/bac-si/${code}`);
   };
 
   const handleBookConsultation = (doctorId, type) => {
@@ -527,7 +532,7 @@ const ConsultationHomePage = () => {
                     <div className="consultation-home-doctor-actions">
                       <button
                         className="consultation-home-action-btn consultation-home-btn-profile"
-                        onClick={() => handleViewDoctorProfile(doctor.id)}
+                        onClick={() => handleViewDoctorProfile(doctor)}
                         title="Xem hồ sơ"
                       >
                         Hồ sơ
@@ -632,7 +637,7 @@ const ConsultationHomePage = () => {
 
                   <button
                     className="consultation-home-btn-top-doctor"
-                    onClick={() => handleViewDoctorProfile(doctor.id)}
+                    onClick={() => handleViewDoctorProfile(doctor)}
                   >
                     Xem chi tiết
                     <FaArrowRight />

@@ -29,7 +29,7 @@ const showNotification = (message, type = 'info') => {
       padding: 16px 24px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 9999;
+      z-index: 40000;
       animation: slideIn 0.3s ease;
       max-width: 400px;
     }
@@ -75,7 +75,7 @@ const showNotification = (message, type = 'info') => {
   setTimeout(() => {
     notification.style.animation = 'slideIn 0.3s ease reverse';
     setTimeout(() => notification.remove(), 300);
-  }, 3000);
+  }, 5000);
 };
 
 const handleLogout = () => {

@@ -226,13 +226,21 @@ const Sidebar = ({ onToggle }) => {
   const buildMenu = () => {
     const items = [];
 
+    const addIf = (condition, item) => {
+      if (condition) items.push(item);
+    };
+
+    const addDropdown = (condition, item) => {
+      if (condition) items.push(item);
+    };
+
     // Common
     items.push({ id: 'dashboard', type: 'item', to: '/dashboard', icon: FaTachometerAlt, label: 'Tổng quan' });
     items.push({ id: 'profile', type: 'item', to: '/ho-so-nguoi-dung', icon: FaUserCircle, label: 'Tài khoản' });
     items.push({ id: 'my_forum', type: 'item', to: '/dien-dan-cua-toi', icon: FaRegComments, label: 'Diễn đàn của tôi' });
     
 
-    // Patient
+    // Patient giữ menu cố định theo vai trò
     if (user && user.role === 'patient') {
       items.push({ id: 'book', type: 'item', to: '/dat-lich-hen', icon: FaCalendarPlus, label: 'Đặt lịch hẹn' });
       items.push({ id: 'my_appointments', type: 'item', to: '/lich-hen-cua-toi', icon: FaCalendarAlt, label: 'Lịch hẹn của tôi' });
@@ -252,151 +260,56 @@ const Sidebar = ({ onToggle }) => {
           { to: '/san-qua', label: 'Vòng quay may mắn' } // Game
         ]
       });
+      return items;
+    }
+    const isAdminUser = isAdmin;
+    const isStaffUser = user?.role === 'staff';
+    const isDoctorUser = user?.role === 'doctor';
+    const dept = user?.role_info?.department || user?.staff?.department;
+    const rank = user?.role_info?.rank || user?.staff?.rank;
+
+    if (isAdminUser || isStaffUser || isDoctorUser) {
+      addIf(canAccessModule('appointments'), { id: 'manage_appointments', type: 'item', to: '/quan-ly-lich-hen', icon: FaClipboardList, label: 'Quản lý lịch hẹn' });
+      addIf(canAccessModule('appointments') || hasPermission('payments', 'pos'), { id: 'manage_reception', type: 'item', to: '/quay-tiep-don', icon: FaHeadset, label: 'Tiếp đón / Check-in' });
+      addIf(canAccessModule('medical_records'), { id: 'manage_medical_records', type: 'item', to: '/ho-so-benh-an', icon: FaFileMedicalAlt, label: 'Hồ sơ bệnh án' });
+      addIf(canAccessModule('doctors') && (isAdminUser || (isStaffUser && dept !== 'clinical')), { id: 'manage_doctors', type: 'item', to: '/quan-ly-bac-si', icon: FaUserMd, label: 'Quản lý bác sĩ' });
+      addIf(canAccessModule('patients'), { id: 'manage_patients', type: 'item', to: '/quan-ly-benh-nhan', icon: FaUsers, label: 'Quản lý bệnh nhân' });
+      addIf(canAccessModule('staff_management') || (isStaffUser && rank === 'manager'), { id: 'manage_staff', type: 'item', to: '/quan-ly-nhan-vien', icon: FaUserTie, label: 'Quản lý nhân viên' });
+      addIf(canAccessModule('work_shift'), { id: 'work_schedule', type: 'item', to: '/quan-ly-lich-lam-viec', icon: FaCalendarCheck, label: 'Quản lý lịch làm việc' });
+      addIf(canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call'), { id: 'manage_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
+      addIf(canAccessModule('services') || canAccessModule('service_categories'), { id: 'manage_services', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý Dịch vụ' });
+      addIf(canAccessModule('articles'), { id: 'manage_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
+        { to: '/quan-ly-bai-viet', label: 'Bài viết' },
+        { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
+        { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
+      ]});
+      addIf(canAccessModule('forum'), { id: 'manage_forum', type: 'dropdownItems', icon: FaCommentDots, label: 'Diễn đàn & Cộng đồng', items: [
+        { to: '/quan-ly-dien-dan', label: 'Quản lý diễn đàn' },
+        { to: '/quan-ly-nhom-cong-dong', label: 'Quản lý nhóm cộng đồng' }
+      ]});
+      addIf(canAccessModule('payments'), { id: 'manage_finance', type: 'dropdown', icon: FaMoneyBillWave, label: 'Quản lý Tài chính' });
+      addIf(canAccessModule('system_settings'), { id: 'manage_system', type: 'item', to: '/quan-ly-he-thong', icon: FaCogs, label: 'Quản lý hệ thống' });
+      addIf(canAccessModule('contact') || dept === 'support', { id: 'manage_contact', type: 'item', to: '/quan-ly-lien-he', icon: FaEnvelope, label: 'Quản lý liên hệ' });
+      addIf(canAccessModule('articles') || canAccessModule('medicines') || canAccessModule('diseases'), { id: 'saved_articles_staff', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
     }
 
-    // Marketing
+    if (isAdminUser) {
+      addIf(true, { id: 'admin_stats', type: 'item', to: '/thong-ke', icon: FaChartPie, label: 'Thống kê' });
+      addIf(true, { id: 'admin_users', type: 'item', to: '/quan-ly-nguoi-dung', icon: FaUsers, label: 'Quản lý người dùng' });
+      addIf(true, { id: 'admin_specialties', type: 'item', to: '/quan-ly-chuyen-khoa', icon: FaStethoscope, label: 'Quản lý chuyên khoa' });
+      addIf(true, { id: 'admin_categories', type: 'item', to: '/quan-ly-danh-muc', icon: FaThList, label: 'Quản lý danh mục' });
+      addIf(true, { id: 'pharmacy_stock_admin', type: 'item', to: '/quan-ly-kho-thuoc', icon: FaWarehouse, label: 'Quản lý Kho Thuốc' });
+      addIf(true, { id: 'admin_saved', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
+      addIf(true, { id: 'manage_marketing', type: 'dropdownItems', icon: FaBullhorn, label: 'Tiếp thị & Sự kiện', items: [
+        { to: '/quan-ly-su-kien', label: 'Quản lý Sự kiện' },
+        { to: '/quan-ly-khuyen-mai', label: 'Mã giảm giá & Game' }
+      ]});
+    }
+
     if (user && user.role === 'marketing') {
       items.push({ id: 'marketing_dashboard', type: 'item', to: '/marketing-dashboard', icon: FaBullhorn, label: 'Bảng điều khiển Marketing' });
       items.push({ id: 'event_management', type: 'item', to: '/quan-ly-su-kien', icon: FaGift, label: 'Quản lý sự kiện' });
       items.push({ id: 'promotion_management', type: 'item', to: '/quan-ly-khuyen-mai', icon: FaGamepad, label: 'Quản lý khuyến mãi' });
-    }
-
-    // Doctor
-    if (user && user.role === 'doctor') {
-      items.push({ id: 'doctor_my_appointments', type: 'item', to: '/lich-hen-cua-toi', icon: FaCalendarAlt, label: 'Lịch hẹn của tôi' });
-      items.push({ id: 'doctor_medical_records', type: 'item', to: '/ho-so-benh-an', icon: FaFileMedicalAlt, label: 'Hồ sơ bệnh nhân' });
-      items.push({ id: 'doctor_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
-      items.push({ id: 'doctor_schedule', type: 'item', to: '/lich-cua-toi', icon: FaCalendarCheck, label: 'Lịch của tôi' });
-      items.push({ id: 'doctor_community', type: 'item', to: '/quan-ly-nhom-cong-dong', icon: FaUsers, label: 'Nhóm cộng đồng' });
-      items.push({ id: 'manage_articles_doctor', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
-        { to: '/quan-ly-bai-viet', label: 'Bài viết' },
-        { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
-        { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
-      ]});
-      items.push({ id: 'pharmacy_stock_doctor', type: 'item', to: '/quan-ly-kho-thuoc', icon: FaWarehouse, label: 'Quản lý Kho Thuốc' });
-      items.push({ id: 'saved_articles_2', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
-    }
-
-    // Staff
-    if (user && user.role === 'staff') {
-      const dept = user?.role_info?.department || user?.staff?.department;
-      const rank = user?.role_info?.rank || user?.staff?.rank;
-
-      // Lịch cá nhân — luôn hiện
-      items.push({ id: 'staff_schedule', type: 'item', to: '/lich-cua-toi', icon: FaCalendarCheck, label: 'Lịch của tôi' });
-
-      // Quản lý nhân viên — manager hoặc staff có quyền staff_management
-      if (rank === 'manager' || canAccessModule('staff_management')) {
-        items.push({ id: 'manage_staff', type: 'item', to: '/quan-ly-nhan-vien', icon: FaUserTie, label: 'Quản lý nhân viên' });
-      }
-      // === CLINICAL ===
-      if (canAccessModule('patients')) {
-        items.push({ id: 'manage_patients', type: 'item', to: '/quan-ly-benh-nhan', icon: FaUsers, label: 'Quản lý bệnh nhân' });
-      }
-      // Khóa vĩnh viễn menu Quản lý Bác sĩ đối với phòng Vận hành lâm sàng
-      if (canAccessModule('doctors') && dept !== 'clinical') {
-        items.push({ id: 'manage_doctors_staff', type: 'item', to: '/quan-ly-bac-si', icon: FaUserMd, label: 'Quản lý bác sĩ' });
-      }
-      if (canAccessModule('medical_records')) {
-        items.push({ id: 'manage_medical_records', type: 'item', to: '/ho-so-benh-an', icon: FaFileMedicalAlt, label: 'Hồ sơ bệnh án' });
-      }
-      if (canAccessModule('appointments')) {
-      items.push({ id: 'manage_appointments', type: 'item', to: '/quan-ly-lich-hen', icon: FaClipboardList, label: 'Quản lý lịch hẹn' });
-      }
-      // --- BẮT ĐẦU SỬA: CHỈ HIỆN "QUẢN LÝ LỊCH LÀM VIỆC" CHO MANAGER HOẶC NGƯỜI CÓ QUYỀN DUYỆT ---
-      if (
-        rank === 'manager' || 
-        hasPermission('work_shift', 'approve_shift') || 
-        hasPermission('work_shift', 'approve_leave') || 
-        hasPermission('work_shift', 'approve_overtime')
-      ) {
-        items.push({ id: 'work_schedule', type: 'item', to: '/quan-ly-lich-lam-viec', icon: FaCalendarCheck, label: 'Quản lý lịch làm việc' });
-      }
-      // --- KẾT THÚC SỬA ---
-
-      if (dept === 'clinical' && canAccessModule('pharmacy')) { // Giả sử module bạn đặt tên là pharmacy
-        items.push({ id: 'pharmacy_stock_staff', type: 'item', to: '/quan-ly-kho-thuoc', icon: FaWarehouse, label: 'Quản lý Kho Thuốc' });
-      }
-
-      // === SUPPORT / FINANCE (Tư vấn & Giám sát sự cố) ===
-      if (canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call')) {
-        items.push({ id: 'manage_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
-      }
-
-      // === SYSTEM (Dịch vụ) ===
-      if (canAccessModule('services') || canAccessModule('service_categories')) {
-        items.push({ id: 'manage_services', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý Dịch vụ' });
-      }
-      if (canAccessModule('system_settings')) {
-        items.push({ id: 'manage_system', type: 'item', to: '/quan-ly-he-thong', icon: FaCogs, label: 'Quản lý hệ thống' });
-      }
-
-      // === CONTENT (Bài viết, Diễn đàn) ===
-      if (canAccessModule('articles')) {
-        items.push({ id: 'manage_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
-          { to: '/quan-ly-bai-viet', label: 'Bài viết' },
-          { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
-          { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
-        ]});
-      }
-      if (canAccessModule('forum')) {
-        items.push({ id: 'manage_forum', type: 'dropdownItems', icon: FaCommentDots, label: 'Diễn đàn & Cộng đồng', items: [
-          { to: '/quan-ly-dien-dan', label: 'Quản lý diễn đàn' },
-          { to: '/quan-ly-nhom-cong-dong', label: 'Quản lý nhóm cộng đồng' }
-        ]});
-      }
-      
-      // THÊM QUẢN LÝ LIÊN HỆ (Chỉ hiện đối với staff chăm sóc khách hàng)
-      if (dept === 'support') {
-        items.push({ id: 'manage_contact', type: 'item', to: '/quan-ly-lien-he', icon: FaEnvelope, label: 'Quản lý liên hệ' });
-      }
-
-      // === FINANCE (Thanh toán) ===
-      if (canAccessModule('payments')) {
-        items.push({ id: 'stats', type: 'item', to: '/thong-ke', icon: FaChartPie, label: 'Thống kê tổng quan' });
-        items.push({ id: 'manage_finance', type: 'dropdown', icon: FaMoneyBillWave, label: 'Quản lý Tài chính' });
-      }
-
-      items.push({ id: 'saved_articles_staff', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
-    }
-
-      
-
-    // Admin
-    if (user && user.role === 'admin') {
-      items.push({ id: 'admin_stats', type: 'item', to: '/thong-ke', icon: FaChartPie, label: 'Thống kê' });
-      items.push({ id: 'admin_manage_appointments', type: 'item', to: '/quan-ly-lich-hen', icon: FaClipboardList, label: 'Quản lý lịch hẹn' });
-      items.push({ id: 'admin_work_schedule', type: 'item', to: '/quan-ly-lich-lam-viec', icon: FaCalendarCheck, label: 'Quản lý lịch làm việc' });
-      items.push({ id: 'admin_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
-      items.push({ id: 'admin_finance', type: 'dropdown', icon: FaMoneyBillWave, label: 'Quản lý Tài chính' });
-      items.push({ id: 'admin_forum', type: 'dropdownItems', icon: FaCommentDots, label: 'Diễn đàn & Cộng đồng', items: [
-        { to: '/quan-ly-dien-dan', label: 'Quản lý diễn đàn' },
-        { to: '/quan-ly-nhom-cong-dong', label: 'Quản lý nhóm cộng đồng' }
-      ]});
-      items.push({ id: 'admin_contact', type: 'item', to: '/quan-ly-lien-he', icon: FaEnvelope, label: 'Quản lý liên hệ' }); // <-- THÊM DÒNG NÀY
-      items.push({ id: 'admin_users', type: 'item', to: '/quan-ly-nguoi-dung', icon: FaUsers, label: 'Quản lý người dùng' });
-      items.push({ id: 'admin_staff', type: 'item', to: '/quan-ly-nhan-vien', icon: FaUserTie, label: 'Quản lý nhân viên' });
-      items.push({ id: 'admin_specialties', type: 'item', to: '/quan-ly-chuyen-khoa', icon: FaStethoscope, label: 'Quản lý chuyên khoa' });
-      items.push({ id: 'admin_services_dropdown', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý Dịch vụ' });
-      items.push({ id: 'admin_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
-        { to: '/quan-ly-bai-viet', label: 'Bài viết' },
-        { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
-        { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
-      ]});
-      items.push({ id: 'admin_categories', type: 'item', to: '/quan-ly-danh-muc', icon: FaThList, label: 'Quản lý danh mục' });
-      items.push({ 
-        id: 'manage_marketing', 
-        type: 'dropdownItems', 
-        icon: FaBullhorn, 
-        label: 'Tiếp thị & Sự kiện', 
-        items: [
-          { to: '/quan-ly-su-kien', label: 'Quản lý Sự kiện' },
-          { to: '/quan-ly-khuyen-mai', label: 'Mã giảm giá & Game' }
-        ]
-      });
-      items.push({ id: 'admin_system', type: 'item', to: '/quan-ly-he-thong', icon: FaCogs, label: 'Quản lý hệ thống' });
-      items.push({ id: 'pharmacy_stock_admin', type: 'item', to: '/quan-ly-kho-thuoc', icon: FaWarehouse, label: 'Quản lý Kho Thuốc' });
-      items.push({ id: 'admin_saved', type: 'item', to: '/bai-viet-da-luu', icon: FaBookmark, label: 'Bài viết đã lưu' });
     }
 
     return items;

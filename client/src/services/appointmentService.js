@@ -1,8 +1,7 @@
-// client/src/services/appointmentService.js
-import axios from 'axios'; // THÊM DÒNG NÀY
+import axios from 'axios';
 import api from './api';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api'; // THÊM DÒNG NÀY
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 const appointmentService = {
   /**
@@ -29,7 +28,6 @@ const appointmentService = {
     return api.get(`/appointments/${code}`);
   },
 
-  // 👇👇👇 THÊM ĐOẠN NÀY VÀO 👇👇👇
   getAppointmentById: (id) => {
     return api.get(`/appointments/${id}`);
   },
@@ -50,11 +48,17 @@ const appointmentService = {
   },
 
   /**
-   * Lấy lịch trống của bác sĩ theo ngày
+   * Lấy lịch trống của bác sĩ theo ngày (CẬP NHẬT MỚI: Thêm serviceId và appointmentType)
+   * Phân biệt rõ lấy slot cho Online hay tính capacity cho Offline
    */
-  getAvailableSlots: (doctorId, date) => {
+  getAvailableSlots: (doctorId, date, serviceId, appointmentType = 'offline') => {
     return api.get('/appointments/available-slots', {
-      params: { doctor_id: doctorId, date }
+      params: { 
+        doctor_id: doctorId, 
+        date: date,
+        service_id: serviceId,
+        appointment_type: appointmentType
+      }
     });
   },
 
@@ -66,26 +70,10 @@ const appointmentService = {
   },
 
   /**
-   * Admin/Staff: Lấy tất cả lịch hẹn
-   */
-  getAllAppointments: (params = {}) => {
-    return api.get('/appointments/admin/all', { params });
-  },
-
-  // 👇👇👇 THÊM ĐOẠN NÀY VÀO 👇👇👇
-  /**
    * Staff: Lấy danh sách lịch hẹn thuộc các bác sĩ do Staff quản lý
    */
   getStaffManagedAppointments: (params = {}) => {
     return api.get('/appointments/staff/managed', { params });
-  },
-  // 👆👆👆 KẾT THÚC THÊM 👇👇👇
-
-  /**
-   * Admin/Staff: Xác nhận lịch hẹn
-   */
-  confirmAppointment: (id) => {
-    return api.put(`/appointments/${id}/confirm`);
   },
 
   /**
@@ -137,6 +125,80 @@ const appointmentService = {
     return api.put(`/appointments/${code}/check-in`, { type });
   },
 
+  // ===== [MỚI] APPOINTMENT OPTIMIZATION: Service Indications & Edge Cases =====
+
+  /**
+   * Check-in lịch hẹn tại phòng khám (cấp STT động)
+   * POST /api/appointments/:id/check-in
+   * Body: { is_late?: bool, override_queue?: bool }
+   */
+  checkInAppointment: (appointmentId, data = {}) => {
+    console.log(`[LOG] checkInAppointment: ${appointmentId}`, data);
+    return api.put(`/appointments/${appointmentId}/check-in`, data);
+  },
+
+  /**
+   * Bác sĩ chỉ định dịch vụ phụ (Siêu âm, Lấy máu...)
+   * POST /api/appointments/:id/service-indications
+   * Body: { indications: [{ service_name, service_code, order_sequence, dependencies }] }
+   */
+  addServiceIndications: (appointmentId, indications) => {
+    console.log(`[LOG] addServiceIndications: ${appointmentId}`, indications);
+    return api.post(`/appointments/${appointmentId}/service-indications`, { indications });
+  },
+
+  /**
+   * Bệnh nhân quẹt mã tại phòng dịch vụ (check-in động)
+   * PUT /api/appointments/:id/service-indications/:indication_id/check-in
+   * Body: {}
+   */
+  checkInServiceRoom: (appointmentId, indicationId) => {
+    console.log(`[LOG] checkInServiceRoom: ${appointmentId}, indication: ${indicationId}`);
+    return api.put(`/appointments/${appointmentId}/service-indications/${indicationId}/check-in`, {});
+  },
+
+  /**
+   * Hoàn thành dịch vụ cận lâm sàng
+   * PATCH /api/appointments/:id/service-indications/:indication_id/complete
+   * Body: { result: '...' }
+   */
+  completeServiceIndication: (appointmentId, indicationId, result) => {
+    console.log(`[LOG] completeServiceIndication: ${appointmentId}, indication: ${indicationId}`);
+    return api.patch(
+      `/appointments/${appointmentId}/service-indications/${indicationId}/complete`,
+      { result }
+    );
+  },
+
+  /**
+   * Bác sĩ đánh dấu vắng mặt (no-show) cho lịch Online
+   * PATCH /api/appointments/:id/no-show
+   * Body: { reason: '...' }
+   */
+  markNoShow: (appointmentId, reason) => {
+    console.log(`[LOG] markNoShow: ${appointmentId}, reason: ${reason}`);
+    return api.patch(`/appointments/${appointmentId}/no-show`, { reason });
+  },
+
+  /**
+   * Lấy danh sách xếp hàng của bác sĩ (gọi số tiếp theo)
+   * GET /api/appointments/doctor/:doctor_id/queue
+   */
+  getQueueForDoctor: (doctorId, date) => {
+    console.log(`[LOG] getQueueForDoctor: ${doctorId}, date: ${date}`);
+    return api.get(`/appointments/doctor/${doctorId}/queue`, { params: { date } });
+  },
+
+  /**
+   * Ưu tiên khám của bệnh nhân chờ quá lâu
+   * PUT /api/appointments/:id/prioritize-now
+   * Body: {}
+   */
+  prioritizeNow: (appointmentId) => {
+    console.log(`[LOG] prioritizeNow: ${appointmentId}`);
+    return api.put(`/appointments/${appointmentId}/prioritize-now`, {});
+  },
+
   /**
    * Staff lâm sàng: Lấy danh sách lịch hẹn theo ngày để nhập hồ sơ
    * params: { date, doctor_id, status, search }
@@ -151,6 +213,19 @@ const appointmentService = {
   recoverAppointmentCodes: (contact, date) => {
     // API này là public, không dùng 'api' (instance có token)
     return axios.post(`${API_URL}/appointments/recover-codes`, { contact, date });
+  },
+
+  /**
+   * Đổi phương thức thanh toán
+   * Route: PUT /api/appointments/:code/change-payment-method
+   * Body: { payment_method: 'cash' | 'vnpay' | 'momo' | 'bank_transfer' }
+   */
+  changePaymentMethod: (code, payload, guestToken = null) => {
+    const config = {};
+    if (guestToken) {
+      config.params = { token: guestToken };
+    }
+    return api.put(`/appointments/${code}/change-payment-method`, payload, config);
   }
 };
 

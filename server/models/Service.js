@@ -20,6 +20,12 @@ module.exports = (sequelize) => {
       references: { model: 'specialties', key: 'id' },
       comment: 'Khóa ngoại liên kết tới chuyên khoa (nếu có)'
     },
+    code: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      unique: true,
+      comment: 'Mã dịch vụ, ví dụ: SVC-001, KHTQ-001'
+    },
     name: {
       type: DataTypes.STRING(255),
       allowNull: false,
@@ -80,6 +86,17 @@ module.exports = (sequelize) => {
       defaultValue: true,
       allowNull: false,
       comment: 'Cho phép bệnh nhân tự chọn bác sĩ'
+    },
+    is_corp: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+      comment: 'Dịch vụ dành cho đặt lịch theo doanh nghiệp/sự kiện'
+    },
+    corp_opts: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Tùy chọn corporate: { window_days_limit, max_participants, price_per_person, requires_approval }'
     },
     status: {
       type: DataTypes.ENUM('active', 'inactive'),

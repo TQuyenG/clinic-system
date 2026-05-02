@@ -8,6 +8,16 @@ module.exports = async function seedUsers(models, transaction) {
 
   const usersData = [];
 
+  const familyNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương'];
+  const middleNames = ['Văn', 'Thị', 'Minh', 'Gia', 'Hữu', 'Thanh'];
+  const givenNames = ['An', 'Bình', 'Chi', 'Dũng', 'Hà', 'Khánh', 'Lan', 'Mai'];
+  const buildDoctorName = (index) => {
+    const family = familyNames[index % familyNames.length];
+    const middle = middleNames[Math.floor(index / familyNames.length) % middleNames.length];
+    const given = givenNames[Math.floor(index / (familyNames.length * middleNames.length)) % givenNames.length];
+    return `${family} ${middle} ${given}`;
+  };
+
   // 10 patients
   for (let i = 1; i <= 10; i++) {
     usersData.push({
@@ -143,13 +153,13 @@ module.exports = async function seedUsers(models, transaction) {
   }
   // ===== KẾT THÚC BỔ SUNG =====
 
-  // 10 doctors
-  for (let i = 1; i <= 10; i++) {
+  // 42 doctors để mỗi chuyên khoa có ít nhất 2 và dao động lên đến 5 bác sĩ
+  for (let i = 1; i <= 42; i++) {
     usersData.push({
       username: `doctor${i}`,
       email: `doctor${i}@example.com`,
       password_hash: hashedPassword,
-      full_name: `Bác sĩ ${i}`,
+      full_name: `BS. ${buildDoctorName(i - 1)}`,
       phone: `0920000${String(300 + i).slice(-3)}`,
       role: 'doctor',
       avatar_url: `/avatars/doctor${i}.jpg`,

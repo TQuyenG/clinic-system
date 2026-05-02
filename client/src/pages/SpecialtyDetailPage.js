@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
 import * as Icons from 'react-icons/fa'; // Import toàn bộ icon để map
@@ -9,6 +9,7 @@ import './SpecialtyDetailPage.css';
 const SpecialtyDetailPage = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [specialty, setSpecialty] = useState(null);
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +52,11 @@ const SpecialtyDetailPage = () => {
     <div className="specialty-detail-page">
       <Breadcrumb items={[{ label: 'Trang chủ', url: '/' }, { label: 'Chuyên khoa', url: '/chuyen-khoa' }, { label: specialty.name, url: null }]} />
 
-      <button onClick={() => navigate('/chuyen-khoa')} className="specialty-detail-page__btn-back">
+      <button onClick={() => {
+        const returnTo = location.state?.returnTo;
+        const returnState = location.state?.returnState;
+        if (returnTo) navigate(returnTo, { state: returnState }); else navigate('/chuyen-khoa');
+      }} className="specialty-detail-page__btn-back">
         <Icons.FaArrowLeft /> Quay lại danh sách
       </button>
 
@@ -72,7 +77,10 @@ const SpecialtyDetailPage = () => {
         <h2 className="specialty-detail-page__doctors-title">Đội ngũ bác sĩ</h2>
         <div className="specialty-detail-page__doctors-grid">
           {doctors.map(doctor => (
-            <div key={doctor.id} className="specialty-detail-page__doctor-card" onClick={() => navigate(`/bac-si/${doctor.code}`)}>
+            <div key={doctor.id} className="specialty-detail-page__doctor-card" onClick={() => navigate(`/bac-si/${doctor.code}`, { state: {
+              returnTo: location.pathname + location.search,
+              returnState: { specialty: { slug } }
+            } })}>
               <div className="specialty-detail-page__doctor-avatar">
                 <img src={doctor.avatar_url} alt={doctor.full_name} onError={(e) => e.target.src = 'https://via.placeholder.com/200?text=Doctor'} />
               </div>

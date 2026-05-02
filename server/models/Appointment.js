@@ -1,9 +1,4 @@
 // server/models/Appointment.js
-// PHIÊN BẢN MỚI NHẤT:
-// 1. Dùng hook 'beforeValidate' để tự sinh mã 'code' (Đã sửa lỗi)
-// 2. Thêm trạng thái 'in_progress' vào ENUM 'status' (Mới)
-// 3. Thêm trường 'appointment_address' (Mới)
-
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -24,39 +19,31 @@ module.exports = (sequelize) => {
     guest_gender: { type: DataTypes.STRING, allowNull: true },
     guest_dob: { type: DataTypes.DATEONLY, allowNull: true },
     guest_token: { type: DataTypes.STRING, allowNull: true, unique: true },
+    booking_context: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Lưu ngữ cảnh đặt lịch: bản thân/người thân, quan hệ, tên người được đặt'
+    },
     appointment_type: { type: DataTypes.ENUM('offline', 'online'), defaultValue: 'offline' },
     appointment_date: { type: DataTypes.DATEONLY, allowNull: false },
-    appointment_start_time: { type: DataTypes.TIME, allowNull: false },
-    appointment_end_time: { type: DataTypes.TIME, allowNull: false },
+    appointment_start_time: { type: DataTypes.TIME, allowNull: false }, // Vẫn lưu giờ bắt đầu làm mốc (hoặc giờ bắt đầu Ca)
+    appointment_end_time: { type: DataTypes.TIME, allowNull: true }, // [SỬA]: Cho phép null vì Offline không có end_time cố định
     
-    // TRẠNG THÁI WORKFLOW (luồng xử lý chính)
+    // TRẠNG THÁI WORKFLOW
     status: { 
       type: DataTypes.ENUM('pending', 'confirmed', 'upcoming','waiting_pay','waiting_exam', 'in_progress', 'completed', 'passed', 'cancelled'), 
-      defaultValue: 'pending',
-      comment: 'pending: chờ duyệt | confirmed: đã duyệt | upcoming: sắp tới (24h trước) | in_progress: đang diễn ra | completed: hoàn thành | passed: đã qua (1 ngày sau hoàn thành) | cancelled: đã hủy'
+      defaultValue: 'pending'
     },
     
-    // TRẠNG THÁI THANH TOÁN (tách riêng để rõ ràng)
+    // TRẠNG THÁI THANH TOÁN
     payment_status: { 
       type: DataTypes.ENUM('unpaid', 'paid_online', 'paid_at_clinic', 'not_required'), 
-      defaultValue: 'unpaid',
-      comment: 'unpaid: chưa thanh toán | paid_online: đã thanh toán online | paid_at_clinic: đã thanh toán tại quầy | not_required: không cần thanh toán (free)'
+      defaultValue: 'unpaid'
     },
-    // PHƯƠNG THỨC THANH TOÁN (momo, vnpay, cash, bank_transfer...)
-    payment_method: {
-      type: DataTypes.STRING(50),
-      allowNull: true,
-      comment: 'Phương thức thanh toán đã chọn'
-    },
-
-    // Thời gian thanh toán thực tế
-    paid_at: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      comment: 'Thời điểm thanh toán diễn ra'
-    },
-    
+    payment_method: { type: DataTypes.STRING(50), allowNull: true },
+    paid_at: { type: DataTypes.DATE, allowNull: true },
     payment_hold_until: { type: DataTypes.DATE, allowNull: true },
+    
     reason: { type: DataTypes.TEXT, allowNull: true },
     cancel_reason: { type: DataTypes.TEXT, allowNull: true },
     cancelled_by: { type: DataTypes.STRING, allowNull: true },
@@ -69,38 +56,64 @@ module.exports = (sequelize) => {
     completed_by: { type: DataTypes.INTEGER, allowNull: true },
     code: { type: DataTypes.STRING(20), unique: true, allowNull: false },
 
-    // --- [THÊM MỚI QUẢN LÝ SỐ THỨ TỰ] ---
-    // STT Thanh toán (Reset theo ngày, dùng chung cho cả sảnh)
+    // --- [SỬA]: QUẢN LÝ SỐ THỨ TỰ (QUEUE SYSTEM) ---
+    queue_type: {
+      type: DataTypes.ENUM('priority', 'normal'),
+      defaultValue: 'normal',
+      comment: 'priority: Đặt lịch trước (U) | normal: Walk-in tại quầy (N)'
+    },
     payment_queue_number: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null },
-    
-    // STT Khám bệnh (Reset theo ngày, riêng cho từng Bác sĩ/Phòng khám)
-    queue_number: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null },
-    
-    // Thời điểm check-in tại quầy
+    queue_number: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null }, // STT thô (số nguyên)
+    display_queue: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+      comment: 'Mã STT hiển thị, VD: U01, N02'
+    },
     checked_in_at: { type: DataTypes.DATE, allowNull: true },
-    // -------------------------------------
+    // ---------------------------------------------
     
-    // MỚI: Thêm địa chỉ
-    appointment_address: { 
-      type: DataTypes.STRING, 
-      allowNull: true, 
-      comment: 'Địa chỉ khám (nếu cần ghi đè địa chỉ mặc định của phòng khám)' 
-    },
-
-    reschedule_count: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      allowNull: false,
-      comment: 'Số lần đã đổi lịch (tối đa 3)'
-    },
-    
-    // TRẠNG THÁI HỒ SƠ Y TẾ (để theo dõi việc nhập kết quả)
+    appointment_address: { type: DataTypes.STRING, allowNull: true },
+    reschedule_count: { type: DataTypes.INTEGER, defaultValue: 0, allowNull: false },
     medical_record_status: {
       type: DataTypes.ENUM('no_record', 'has_record'),
       defaultValue: 'no_record',
-      allowNull: false,
-      comment: 'no_record: chưa có hồ sơ y tế | has_record: đã có hồ sơ y tế'
+      allowNull: false
+    },
+    corp_window: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      comment: 'Mã cửa sổ đặt lịch doanh nghiệp nếu có (ví dụ: CW-2026-05-COMPANY001)'
+    },
+    corp_data: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Thông tin doanh nghiệp/tổ chức: { corp_name, corp_id, corp_code, window_id, reg_user_id, ... }'
+    },
+
+    // ===== [MỚI] PHỤ LỤC CẬN LÂM SÀNG & NGOẠI LỆ (Appointment Optimization) =====
+    // Mảng chứa các chỉ định dịch vụ phụ (Siêu âm, Lấy máu, X-quang...)
+    // Cấu trúc: [{ id, service_name, service_code, status, queue_number, order_sequence, dependencies, ... }]
+    service_indications: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Mảng chỉ định dịch vụ cận lâm sàng, dùng cho multi-stop journey'
+    },
+
+    // JSON lưu các cờ ngoại lệ (late_arrival, no_show, wait_time_exceeded...)
+    // Cấu trúc: { late_arrival: bool, late_minutes: int, wait_time_exceeded: bool, ... }
+    edge_case_flags: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Lưu các cờ xử lý ngoại lệ (late arrival, no-show, urgency...)'
+    },
+
+    // Thời gian bệnh nhân đến thực tế (để kiểm tra late arrival)
+    actual_arrival_time: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: 'Thời gian check-in thực tế (để so sánh với appointment_start_time)'
     }
+    // ========================================================================
     
   }, {
     tableName: 'appointments',
@@ -108,20 +121,17 @@ module.exports = (sequelize) => {
     indexes: [
       { fields: ['patient_id'] },
       { fields: ['status'] },
-      { fields: ['guest_token'] }
+      { fields: ['guest_token'] },
+      { fields: ['appointment_date', 'doctor_id', 'queue_type'] } // Index hỗ trợ lấy STT
     ],
     hooks: {
-      // Dùng 'beforeValidate' để đảm bảo 'code' được sinh ra
-      // TRƯỚC KHI validation 'allowNull: false' chạy
       beforeValidate: async (appointment, options) => {
         if (!appointment.code) {
           const date = new Date();
           const datePart = `${String(date.getDate()).padStart(2, '0')}${String(date.getMonth() + 1).padStart(2, '0')}`;
-          
           let newCode = '';
           let existing = null;
           let attempts = 0;
-
           do {
             if (attempts < 5) {
               const randomPart = String(Math.floor(1000 + Math.random() * 9000));
@@ -129,15 +139,12 @@ module.exports = (sequelize) => {
             } else {
               newCode = `AP-${datePart}-${Date.now() % 100000}`;
             }
-            
             existing = await sequelize.models.Appointment.findOne({ 
               where: { code: newCode }, 
               transaction: options.transaction 
             });
-            
             attempts++;
           } while (existing);
-
           appointment.code = newCode;
         }
       }

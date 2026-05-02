@@ -10,7 +10,7 @@ const useToast = () => {
     show: false,
     type: 'info',
     message: '',
-    duration: 3000,
+    duration: 5000,
   });
 
   // Mostrar toast
@@ -29,10 +29,10 @@ const useToast = () => {
   }, []);
 
   // Helpers para cada tipo
-  const success = (message) => showToast(message, 'success', 3000);
-  const error = (message) => showToast(message, 'error', 3000);
-  const warning = (message) => showToast(message, 'warning', 3000);
-  const info = (message) => showToast(message, 'info', 3000);
+  const success = (message) => showToast(message, 'success', 5000);
+  const error = (message) => showToast(message, 'error', 5000);
+  const warning = (message) => showToast(message, 'warning', 5000);
+  const info = (message) => showToast(message, 'info', 5000);
 
   return {
     showToast,

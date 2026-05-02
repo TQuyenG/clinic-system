@@ -6,10 +6,11 @@ import axios from 'axios';
 import consultationService from '../../services/consultationService';
 import specialtyService from '../../services/specialtyService';
 import { useAuth } from '../../contexts/AuthContext';
+import { toast } from 'react-toastify';
 import { 
   FaCog, FaEdit, FaSave, FaTimes, FaEye, FaPlus, FaSearch, FaFilter, 
   FaCheckCircle, FaTimesCircle, FaTrash, FaBox, FaCommentDots, 
-  FaVideo, FaHospital, FaClipboardList, FaExclamationTriangle,
+  FaVideo, FaClipboardList, FaExclamationTriangle,
   FaChevronLeft, FaChevronRight, FaInfoCircle, FaUserMd, FaUsers
 } from 'react-icons/fa';
 import Select from 'react-select';
@@ -18,6 +19,7 @@ import './ConsultationPackageManagement.css';
 export const ConsultationPackageManagement = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const toastOptions = { autoClose: 5000 };
   
   // Permission checks
   const hasPermission = (module, permission) => {
@@ -56,10 +58,9 @@ export const ConsultationPackageManagement = () => {
     description: '',
     package_type: 'chat',
     duration_minutes: 30,
-    price: 100000,
-    notes: '',
+    price: 0,
     is_active: true,
-    doctor_codes: [] // Thêm field doctor_codes
+    doctor_codes: []
   });
   
   const [filters, setFilters] = useState({
@@ -74,6 +75,11 @@ export const ConsultationPackageManagement = () => {
     total: 0,
     totalPages: 0
   });
+
+  const specialtyOptions = specialties.map(spec => ({
+    value: spec.id,
+    label: spec.name
+  }));
 
   const fetchPackages = useCallback(async () => {
     try {
@@ -99,8 +105,7 @@ export const ConsultationPackageManagement = () => {
       }
     } catch (error) {
       console.error('Error fetching packages:', error);
-      // Sử dụng toast hoặc custom alert thay vì window.alert để đẹp hơn (tạm thời giữ alert theo logic cũ nhưng bỏ emoji)
-      alert('Lỗi khi tải danh sách gói dịch vụ');
+      toast.error('Lỗi khi tải danh sách gói dịch vụ', toastOptions);
     } finally {
       setLoading(false);
     }
@@ -174,11 +179,11 @@ export const ConsultationPackageManagement = () => {
   const handleCreatePackage = async () => {
     try {
       if (!createData.package_name) {
-        alert('Vui lòng nhập tên gói dịch vụ');
+        toast.warning('Vui lòng nhập tên gói dịch vụ', toastOptions);
         return;
       }
       if (!createData.package_type) {
-         alert('Vui lòng chọn hình thức tư vấn');
+         toast.warning('Vui lòng chọn hình thức tư vấn', toastOptions);
          return;
       }
 
@@ -187,30 +192,29 @@ export const ConsultationPackageManagement = () => {
         description: createData.description,
         package_type: createData.package_type,
         duration_minutes: parseInt(createData.duration_minutes),
-        price: parseFloat(createData.price) || 0,
-        notes: createData.notes,
+        price: parseInt(createData.price) || 0,
         is_active: true,
-        doctor_codes: selectedDoctors.map(d => d.code) // Thêm doctor_codes
+        doctor_codes: selectedDoctors.map(d => d.code)
       };
 
       const response = await consultationService.createPackage(dataToSend);
       
       if (response.data.success) {
-        alert('Tạo gói dịch vụ mới thành công!');
+        toast.success('Tạo gói dịch vụ mới thành công!', toastOptions);
         setShowCreateModal(false);
         resetCreateForm();
         fetchPackages();
       }
     } catch (error) {
       console.error('Error creating package:', error);
-      alert('Lỗi khi tạo gói dịch vụ: ' + (error.response?.data?.message || error.message));
+      toast.error('Lỗi khi tạo gói dịch vụ: ' + (error.response?.data?.message || error.message), toastOptions);
     }
   };
 
   const handleUpdatePackage = async () => {
     try {
       if (!editData.package_name) {
-        alert('Vui lòng nhập tên gói dịch vụ');
+        toast.warning('Vui lòng nhập tên gói dịch vụ', toastOptions);
         return;
       }
       
@@ -219,22 +223,21 @@ export const ConsultationPackageManagement = () => {
         description: editData.description,
         package_type: editData.package_type,
         duration_minutes: parseInt(editData.duration_minutes),
-        price: parseFloat(editData.price) || 0,
-        notes: editData.notes,
+        price: parseInt(editData.price) || 0,
         is_active: editData.is_active,
-        doctor_codes: selectedDoctors.map(d => d.code) // Thêm doctor_codes
+        doctor_codes: selectedDoctors.map(d => d.code)
       };
 
       const response = await consultationService.updatePackage(selectedPackage.id, dataToSend);
       
       if (response.data.success) {
-        alert('Cập nhật gói dịch vụ thành công!');
+        toast.success('Cập nhật gói dịch vụ thành công!', toastOptions);
         setShowEditModal(false);
         fetchPackages();
       }
     } catch (error) {
       console.error('Error updating package:', error);
-      alert('Lỗi khi cập nhật: ' + (error.response?.data?.message || error.message));
+      toast.error('Lỗi khi cập nhật: ' + (error.response?.data?.message || error.message), toastOptions);
     }
   };
 
@@ -245,11 +248,11 @@ export const ConsultationPackageManagement = () => {
 
     try {
       await consultationService.deletePackage(pkg.id);
-      alert('Xóa gói dịch vụ thành công!');
+      toast.success('Xóa gói dịch vụ thành công!', toastOptions);
       fetchPackages();
     } catch (error) {
       console.error('Error deleting package:', error);
-      alert('Lỗi khi xóa: ' + (error.response?.data?.message || error.message));
+      toast.error('Lỗi khi xóa: ' + (error.response?.data?.message || error.message), toastOptions);
     }
   };
 
@@ -268,7 +271,7 @@ export const ConsultationPackageManagement = () => {
       fetchPackages();
     } catch (error) {
       console.error('Error toggling status:', error);
-      alert('Lỗi khi thay đổi trạng thái');
+      toast.error('Lỗi khi thay đổi trạng thái', toastOptions);
     }
   };
 
@@ -278,12 +281,12 @@ export const ConsultationPackageManagement = () => {
       description: '',
       package_type: 'chat',
       duration_minutes: 30,
-      price: 100000,
-      notes: '',
+      price: 0,
       is_active: true,
       doctor_codes: []
     });
-    setSelectedDoctors([]); // Reset selected doctors
+    setSelectedDoctors([]);
+    setSelectedSpecialtyFilter([]);
   };
 
   const openEditModal = (pkg) => {
@@ -298,13 +301,31 @@ export const ConsultationPackageManagement = () => {
       is_active: Boolean(pkg.is_active)
     });
     
-    // Load selected doctors từ package
-    if (pkg.doctor_codes && Array.isArray(pkg.doctor_codes)) {
-      const selected = allDoctors.filter(d => pkg.doctor_codes.includes(d.code));
-      setSelectedDoctors(selected);
+    // Load selected doctors từ package doctor_codes
+    if (pkg.doctor_codes) {
+      let doctorCodes = [];
+      if (typeof pkg.doctor_codes === 'string') {
+        try {
+          doctorCodes = JSON.parse(pkg.doctor_codes);
+        } catch {
+          doctorCodes = [];
+        }
+      } else if (Array.isArray(pkg.doctor_codes)) {
+        doctorCodes = pkg.doctor_codes;
+      }
+      
+      if (doctorCodes && doctorCodes.length > 0) {
+        const selected = allDoctors.filter(d => doctorCodes.includes(d.code));
+        setSelectedDoctors(selected);
+      } else {
+        setSelectedDoctors([]);
+      }
     } else {
       setSelectedDoctors([]);
     }
+    
+    // Reset specialty filter khi mở edit
+    setSelectedSpecialtyFilter([]);
     
     setShowEditModal(true);
   };
@@ -423,7 +444,6 @@ export const ConsultationPackageManagement = () => {
                 <option value="all">Tất cả hình thức</option>
                 <option value="chat">Chat Realtime</option>
                 <option value="video">Video Call</option>
-                <option value="offline">Tại bệnh viện</option>
               </select>
           </div>
         </div>
@@ -478,7 +498,6 @@ export const ConsultationPackageManagement = () => {
                           <div className="cpm-type-badge">
                             {pkg.package_type === 'chat' && <><FaCommentDots className="cpm-text-info"/> <span>Chat</span></>}
                             {pkg.package_type === 'video' && <><FaVideo className="cpm-text-warning"/> <span>Video</span></>}
-                            {pkg.package_type === 'offline' && <><FaHospital className="cpm-text-muted"/> <span>Offline</span></>}
                           </div>
                         </td>
                         <td>{pkg.duration_minutes}p</td>
@@ -582,10 +601,6 @@ export const ConsultationPackageManagement = () => {
                 {selectedPackage.is_active ? 'Đang hoạt động' : 'Tạm ngưng'}
               </span>
             </div>
-            <div className="cpm-detail-group full-width">
-              <label>Mô tả:</label>
-              <div className="cpm-text-block">{selectedPackage.description || 'Không có mô tả'}</div>
-            </div>
             <div className="cpm-divider"></div>
             <div className="cpm-detail-row">
                <span>Hình thức:</span>
@@ -601,12 +616,6 @@ export const ConsultationPackageManagement = () => {
                  {parseFloat(selectedPackage.price).toLocaleString()} VNĐ
                </strong>
             </div>
-            {selectedPackage.notes && (
-              <div className="cpm-detail-group full-width" style={{marginTop: '10px'}}>
-                <label>Ghi chú:</label>
-                <div className="cpm-text-block sm">{selectedPackage.notes}</div>
-              </div>
-            )}
           </div>
           <div className="cpm-modal-footer">
             <button className="cpm-btn cpm-btn-secondary" onClick={() => setShowDetailModal(false)}>Đóng</button>
@@ -626,7 +635,7 @@ export const ConsultationPackageManagement = () => {
             allDoctors={allDoctors}
             selectedDoctors={selectedDoctors}
             setSelectedDoctors={setSelectedDoctors}
-            specialties={specialties}
+            specialtyOptions={specialtyOptions}
             selectedSpecialtyFilter={selectedSpecialtyFilter}
             setSelectedSpecialtyFilter={setSelectedSpecialtyFilter}
             filteredDoctors={filteredDoctors}
@@ -646,7 +655,7 @@ export const ConsultationPackageManagement = () => {
             allDoctors={allDoctors}
             selectedDoctors={selectedDoctors}
             setSelectedDoctors={setSelectedDoctors}
-            specialties={specialties}
+            specialtyOptions={specialtyOptions}
             selectedSpecialtyFilter={selectedSpecialtyFilter}
             setSelectedSpecialtyFilter={setSelectedSpecialtyFilter}
             filteredDoctors={filteredDoctors}
@@ -668,189 +677,223 @@ const PackageForm = ({
   allDoctors, 
   selectedDoctors, 
   setSelectedDoctors,
-  specialties,
+  specialtyOptions,
   selectedSpecialtyFilter,
   setSelectedSpecialtyFilter,
   filteredDoctors,
   selectAllFilteredDoctors
-}) => (
-  <div className="cpm-form">
-    <div className="cpm-form-row">
-      <div className="cpm-form-group full">
-        <label>Tên gói <span className="cpm-req">*</span></label>
-        <input 
-          className="cpm-input" 
-          value={data.package_name} 
-          onChange={e => setData({...data, package_name: e.target.value})}
-          placeholder="Ví dụ: Tư vấn Online"
-        />
+}) => {
+  const formatCurrency = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    const numericValue = String(value).replace(/\D/g, '');
+    return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const parseCurrency = (value) => {
+    if (!value) return '';
+    return String(value).replace(/\./g, '').replace(/\D/g, '');
+  };
+
+  const handlePriceChange = (event) => {
+    const numericValue = parseCurrency(event.target.value);
+    setData({ ...data, price: numericValue });
+  };
+
+  const handleSpecialtyFilterChange = (selected) => {
+    setSelectedSpecialtyFilter(selected || []);
+  };
+
+  const handleDoctorSelectChange = (selected) => {
+    setSelectedDoctors(selected || []);
+  };
+
+  return (
+    <div className="cpm-form">
+      <div className="cpm-form-row">
+        <div className="cpm-form-group full">
+          <label>Tên gói <span className="cpm-req">*</span></label>
+          <input 
+            className="cpm-input" 
+            value={data.package_name} 
+            onChange={e => setData({ ...data, package_name: e.target.value })}
+            placeholder="Ví dụ: Tư vấn Online"
+          />
+        </div>
+        <div className="cpm-form-group full">
+          <label>Mô tả</label>
+          <textarea 
+            className="cpm-input cpm-textarea" 
+            value={data.description} 
+            onChange={e => setData({ ...data, description: e.target.value })}
+            rows="2"
+          />
+        </div>
       </div>
-      <div className="cpm-form-group full">
-        <label>Mô tả</label>
-        <textarea 
-          className="cpm-input cpm-textarea" 
-          value={data.description} 
-          onChange={e => setData({...data, description: e.target.value})}
-          rows="2"
-        />
-      </div>
-    </div>
-    <div className="cpm-form-row three-col">
-       <div className="cpm-form-group">
-         <label>Hình thức <span className="cpm-req">*</span></label>
-         <select 
+
+      <div className="cpm-form-row three-col">
+        <div className="cpm-form-group">
+          <label>Hình thức <span className="cpm-req">*</span></label>
+          <select 
             className="cpm-select"
             value={data.package_type}
-            onChange={e => setData({...data, package_type: e.target.value})}
-         >
-           <option value="chat">Chat</option>
-           <option value="video">Video Call</option>
-           <option value="offline">Tại viện</option>
-         </select>
-       </div>
-       <div className="cpm-form-group">
-         <label>Thời lượng (phút) <span className="cpm-req">*</span></label>
-         <input 
+            onChange={e => setData({ ...data, package_type: e.target.value })}
+          >
+            <option value="chat">Chat</option>
+            <option value="video">Video Call</option>
+          </select>
+        </div>
+        <div className="cpm-form-group">
+          <label>Thời lượng (phút) <span className="cpm-req">*</span></label>
+          <input 
             type="number" className="cpm-input"
             value={data.duration_minutes}
-            onChange={e => setData({...data, duration_minutes: e.target.value})}
-         />
-       </div>
-       <div className="cpm-form-group">
-         <label>Giá (VNĐ)</label>
-         <input 
-            type="number" className="cpm-input"
-            value={data.price}
-            onChange={e => setData({...data, price: e.target.value})}
-         />
-       </div>
-    </div>
-    
-    {/* Bộ lọc chuyên khoa */}
-    <div className="cpm-form-group full">
-      <label>
-        <FaFilter style={{ marginRight: '8px', color: '#22c55e' }} />
-        Lọc theo chuyên khoa
-      </label>
-      <Select
-        isMulti
-        options={specialties}
-        value={selectedSpecialtyFilter}
-        onChange={setSelectedSpecialtyFilter}
-        placeholder="Chọn chuyên khoa để lọc..."
-        noOptionsMessage={() => 'Không tìm thấy chuyên khoa'}
-        className="cpm-react-select"
-        classNamePrefix="cpm-select"
-        styles={{
-          control: (base) => ({
-            ...base,
-            minHeight: '42px',
-            borderColor: '#d1d5db',
-            '&:hover': { borderColor: '#22c55e' }
-          }),
-          multiValue: (base) => ({
-            ...base,
-            backgroundColor: '#e0f2fe',
-            borderRadius: '6px'
-          }),
-          multiValueLabel: (base) => ({
-            ...base,
-            color: '#0c4a6e',
-            fontWeight: '500'
-          }),
-          multiValueRemove: (base) => ({
-            ...base,
-            color: '#0284c7',
-            ':hover': { backgroundColor: '#bae6fd', color: '#0369a1' }
-          })
-        }}
-      />
-    </div>
-
-    {/* Nút chọn nhanh tất cả bác sĩ đã lọc */}
-    {filteredDoctors.length > 0 && (
-      <div className="cpm-form-group full" style={{ marginTop: '-8px', marginBottom: '8px' }}>
-        <button
-          type="button"
-          className="cpm-btn cpm-btn-secondary"
-          onClick={selectAllFilteredDoctors}
-          style={{
-            padding: '8px 16px',
-            fontSize: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <FaUsers />
-          {selectedDoctors.length === filteredDoctors.length && filteredDoctors.length > 0
-            ? 'Bỏ chọn tất cả'
-            : `Chọn tất cả đã lọc (${filteredDoctors.length} bác sĩ)`}
-        </button>
+            onChange={e => setData({ ...data, duration_minutes: e.target.value })}
+            min="1"
+          />
+        </div>
+        <div className="cpm-form-group">
+          <label>Giá (VNĐ)</label>
+          <div className="cpm-price-input-group">
+            <input 
+              type="text" 
+              className="cpm-input"
+              value={formatCurrency(data.price)}
+              onChange={handlePriceChange}
+              placeholder="0"
+            />
+            <span className="cpm-price-display">VNĐ</span>
+          </div>
+        </div>
       </div>
-    )}
-    
-    {/* Phần chọn bác sĩ - giống ServiceModal */}
-    <div className="cpm-form-group full">
-      <label>
-        <FaUserMd style={{ marginRight: '8px', color: '#22c55e' }} />
-        Chọn bác sĩ thực hiện
-      </label>
-      <Select
-        isMulti
-        options={filteredDoctors}
-        value={selectedDoctors}
-        onChange={setSelectedDoctors}
-        placeholder="Chọn bác sĩ..."
-        noOptionsMessage={() => 'Không tìm thấy bác sĩ'}
-        className="cpm-react-select"
-        classNamePrefix="cpm-select"
-        styles={{
-          control: (base) => ({
-            ...base,
-            minHeight: '42px',
-            borderColor: '#d1d5db',
-            '&:hover': { borderColor: '#22c55e' }
-          }),
-          multiValue: (base) => ({
-            ...base,
-            backgroundColor: '#dcfce7',
-            borderRadius: '6px'
-          }),
-          multiValueLabel: (base) => ({
-            ...base,
-            color: '#14532d',
-            fontWeight: '500'
-          }),
-          multiValueRemove: (base) => ({
-            ...base,
-            color: '#16a34a',
-            ':hover': { backgroundColor: '#bbf7d0', color: '#15803d' }
-          })
-        }}
-      />
-      <small style={{ color: '#6b7280', marginTop: '4px', display: 'block' }}>
-        {selectedDoctors.length === 0 
-          ? 'Nếu không chọn, tất cả bác sĩ đều có thể thực hiện dịch vụ này' 
-          : `Đã chọn ${selectedDoctors.length} bác sĩ`}
-      </small>
+
+      {specialtyOptions.length > 0 && (
+        <div className="cpm-form-group full">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+            <label>
+              <FaFilter style={{ marginRight: '8px', color: '#22c55e' }} />
+              Lọc bác sĩ theo chuyên khoa
+            </label>
+            {selectedSpecialtyFilter.length > 0 && (
+              <span className="cpm-text-muted" style={{ fontSize: '12px' }}>
+                {selectedSpecialtyFilter.length} chuyên khoa
+              </span>
+            )}
+          </div>
+          <Select
+            isMulti
+            options={specialtyOptions}
+            value={selectedSpecialtyFilter}
+            onChange={handleSpecialtyFilterChange}
+            placeholder="Chọn chuyên khoa để lọc bác sĩ..."
+            noOptionsMessage={() => 'Không tìm thấy chuyên khoa'}
+            className="cpm-react-select"
+            classNamePrefix="cpm-select"
+            styles={{
+              control: (base) => ({
+                ...base,
+                minHeight: '42px',
+                borderColor: '#d1d5db',
+                '&:hover': { borderColor: '#22c55e' }
+              }),
+              multiValue: (base) => ({
+                ...base,
+                backgroundColor: '#e0f2fe',
+                borderRadius: '6px'
+              }),
+              multiValueLabel: (base) => ({
+                ...base,
+                color: '#0c4a6e',
+                fontWeight: '500'
+              }),
+              multiValueRemove: (base) => ({
+                ...base,
+                color: '#0284c7',
+                ':hover': { backgroundColor: '#bae6fd', color: '#0369a1' }
+              })
+            }}
+          />
+          <small style={{ color: '#6b7280', marginTop: '4px', display: 'block' }}>
+            Chọn chuyên khoa để lọc danh sách bác sĩ bên dưới
+          </small>
+        </div>
+      )}
+
+      {filteredDoctors.length > 0 && (
+        <div className="cpm-form-group full" style={{ marginTop: '-8px', marginBottom: '8px' }}>
+          <button
+            type="button"
+            className="cpm-btn cpm-btn-secondary"
+            onClick={selectAllFilteredDoctors}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <FaUsers />
+            {selectedDoctors.length === filteredDoctors.length && filteredDoctors.length > 0
+              ? 'Bỏ chọn tất cả'
+              : `Chọn tất cả đã lọc (${filteredDoctors.length} bác sĩ)`}
+          </button>
+        </div>
+      )}
+
+      <div className="cpm-form-group full">
+        <label>
+          <FaUserMd style={{ marginRight: '8px', color: '#22c55e' }} />
+          Chọn bác sĩ thực hiện
+        </label>
+        <Select
+          isMulti
+          options={filteredDoctors}
+          value={selectedDoctors}
+          onChange={handleDoctorSelectChange}
+          placeholder={filteredDoctors.length > 0 ? 'Chọn bác sĩ...' : 'Không có bác sĩ phù hợp'}
+          noOptionsMessage={() => 'Không tìm thấy bác sĩ'}
+          className="cpm-react-select"
+          classNamePrefix="cpm-select"
+          isDisabled={filteredDoctors.length === 0}
+          styles={{
+            control: (base) => ({
+              ...base,
+              minHeight: '42px',
+              borderColor: '#d1d5db',
+              '&:hover': { borderColor: '#22c55e' }
+            }),
+            multiValue: (base) => ({
+              ...base,
+              backgroundColor: '#dcfce7',
+              borderRadius: '6px'
+            }),
+            multiValueLabel: (base) => ({
+              ...base,
+              color: '#14532d',
+              fontWeight: '500'
+            }),
+            multiValueRemove: (base) => ({
+              ...base,
+              color: '#16a34a',
+              ':hover': { backgroundColor: '#bbf7d0', color: '#15803d' }
+            })
+          }}
+        />
+        <small style={{ color: '#6b7280', marginTop: '4px', display: 'block' }}>
+          {filteredDoctors.length > 0
+            ? 'Nếu không chọn, tất cả bác sĩ đều có thể thực hiện dịch vụ này'
+            : 'Vui lòng chọn chuyên khoa để lọc bác sĩ'
+          }
+        </small>
+      </div>
+
+      <div className="cpm-modal-footer">
+        <button className="cpm-btn cpm-btn-secondary" onClick={onCancel}><FaTimes/> Hủy</button>
+        <button className="cpm-btn cpm-btn-primary" onClick={onSubmit}><FaSave/> Lưu</button>
+      </div>
     </div>
-    
-    <div className="cpm-form-group full">
-      <label>Ghi chú nội bộ</label>
-      <textarea 
-        className="cpm-input cpm-textarea" 
-        value={data.notes} 
-        onChange={e => setData({...data, notes: e.target.value})}
-        rows="2"
-      />
-    </div>
-    <div className="cpm-modal-footer">
-      <button className="cpm-btn cpm-btn-secondary" onClick={onCancel}><FaTimes/> Hủy</button>
-      <button className="cpm-btn cpm-btn-primary" onClick={onSubmit}><FaSave/> Lưu</button>
-    </div>
-  </div>
-);
+  );
+};
 
 // Component con: Modal Wrapper
 const ModalWrapper = ({ title, children, onClose }) => (

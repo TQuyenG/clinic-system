@@ -1,8 +1,9 @@
 // client/src/pages/ServiceDetailPage.js
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import CorporateBookingModal from '../components/CorporateBookingModal';
 import {
   FaTag,
   FaClock,
@@ -17,17 +18,20 @@ import {
   FaStethoscope,
   FaClipboardList,
   FaShieldAlt,
-  FaHeartbeat
+  FaHeartbeat,
+  FaBriefcase
 } from 'react-icons/fa';
 import './ServiceDetailPage.css';
 
 const ServiceDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showCorporateModal, setShowCorporateModal] = useState(false);
 
   useEffect(() => {
     fetchServiceDetail();
@@ -52,13 +56,13 @@ const ServiceDetailPage = () => {
     }
   };
 
-  const handleBookService = () => {
+  const handleBookServiceWithType = (appointmentType) => {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
 
     if (!token || !userStr) {
       toast.warning('Vui lòng đăng nhập để đặt lịch khám.');
-      navigate('/login', { state: { from: `/dat-lich-hen?service=${id}` } });
+      navigate('/login', { state: { from: '/dat-lich-tu-van' } });
       return;
     }
     try {
@@ -67,7 +71,11 @@ const ServiceDetailPage = () => {
         toast.error('Chỉ bệnh nhân mới có thể đặt lịch khám.');
         return;
       }
-      navigate(`/dat-lich-hen?service=${id}`);
+      navigate('/dat-lich-tu-van', { state: {
+        consultationType: appointmentType === 'online' ? 'video' : 'chat',
+        returnTo: location.pathname + location.search,
+        returnState: { serviceDetail: { id } }
+      } });
     } catch {
       toast.error('Lỗi xác thực. Vui lòng đăng nhập lại.');
       navigate('/login');
@@ -100,7 +108,11 @@ const ServiceDetailPage = () => {
             <div className="servicedetail-error-icon"><FaInfoCircle /></div>
             <h2>{error ? 'Có lỗi xảy ra' : 'Không tìm thấy dịch vụ'}</h2>
             <p>{error || 'Dịch vụ này không tồn tại hoặc đã bị xóa.'}</p>
-            <button className="servicedetail-btn-back-err" onClick={() => navigate('/dich-vu')}>
+            <button className="servicedetail-btn-back-err" onClick={() => {
+              const returnTo = location.state?.returnTo;
+              const returnState = location.state?.returnState;
+              if (returnTo) navigate(returnTo, { state: returnState }); else navigate('/dich-vu');
+            }}>
               <FaArrowLeft /> Quay lại danh sách dịch vụ
             </button>
           </div>
@@ -115,7 +127,11 @@ const ServiceDetailPage = () => {
       <div className="servicedetail-container">
 
         {/* Back button */}
-        <button className="servicedetail-back-btn" onClick={() => navigate('/dich-vu')}>
+        <button className="servicedetail-back-btn" onClick={() => {
+          const returnTo = location.state?.returnTo;
+          const returnState = location.state?.returnState;
+          if (returnTo) navigate(returnTo, { state: returnState }); else navigate('/dich-vu');
+        }}>
           <FaArrowLeft /> Quay lại danh sách dịch vụ
         </button>
 
@@ -360,9 +376,22 @@ const ServiceDetailPage = () => {
                   <span className="servicedetail-detail-value">Trực tiếp / Online</span>
                 </div>
 
-                <button className="servicedetail-btn-book" onClick={handleBookService}>
+                <button className="servicedetail-btn-book" onClick={() => handleBookServiceWithType('offline')}>
                   <FaCalendarAlt /> Đặt lịch ngay
                 </button>
+                <button className="servicedetail-btn-book servicedetail-btn-book-secondary" onClick={() => handleBookServiceWithType('online')}>
+                  <FaClock /> Đặt lịch tư vấn online
+                </button>
+
+                {service.is_corp && (
+                  <button 
+                    className="servicedetail-btn-book servicedetail-btn-book-corporate"
+                    onClick={() => setShowCorporateModal(true)}
+                    title="Đặt lịch khám cho doanh nghiệp, trường học, hoặc sự kiện"
+                  >
+                    <FaBriefcase /> Đặt lịch - Công ty/Tổ chức
+                  </button>
+                )}
 
                 <div className="servicedetail-note-box">
                   <FaInfoCircle />
@@ -375,6 +404,21 @@ const ServiceDetailPage = () => {
 
         </div>{/* end .servicedetail-layout */}
       </div>
+
+      {/* Corporate Booking Modal */}
+      <CorporateBookingModal 
+        isOpen={showCorporateModal}
+        onClose={() => setShowCorporateModal(false)}
+        onSuccess={(data) => {
+          console.log('[ServiceDetailPage] Corporate booking success:', data);
+          toast.success('Bạn sẽ được chuyển hướng để hoàn tất đặt lịch và thanh toán...');
+          setTimeout(() => {
+            setShowCorporateModal(false);
+            // TODO: Tạo appointment tự động dựa trên corporate window data
+            // Hoặc chuyển sang trang thanh toán
+          }, 1500);
+        }}
+      />
     </div>
   );
 };

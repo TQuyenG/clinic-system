@@ -116,7 +116,9 @@ const DashboardPage = () => {
   // Kiểm tra quyền xem các widget mới
   const canViewScheduleWorkload = !!user?.role && user.role !== 'patient';
   const canViewForumWorkload = isAdmin || user?.role === 'staff' || user?.role === 'doctor' || hasAnyPermission('forum', ['create_topic', 'edit_topic', 'delete_topic', 'toggle_topic', 'assign_moderators']);
-  const canViewCommunityWorkload = isAdmin || ['staff', 'doctor'].includes(user?.role);
+  // Luôn hiển thị widget nhóm cộng đồng nếu user là trưởng nhóm của ít nhất 1 nhóm
+  const isGroupLeader = (communityStats?.groups?.length || 0) > 0;
+  const canViewCommunityWorkload = isAdmin || ['staff', 'doctor'].includes(user?.role) || isGroupLeader;
   
   // Kiểm tra quyền phê duyệt theo permission thực tế
   const canApproveLeave = isAdmin || hasAnyPermission('work_shift', ['approve_leave']);
@@ -275,27 +277,30 @@ const DashboardPage = () => {
   }, [canViewForumWorkload]);
 
   // Fetch Nhóm Cộng Đồng
+  // Cải tiến: Lấy danh sách nhóm user quản lý (leader), kèm thống kê từng nhóm
   useEffect(() => {
     const fetchCommunityStats = async () => {
       if (!canViewCommunityWorkload) return;
       try {
         setLoadingCommunityStats(true);
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:3001/api/community/groups', {
-          params: { page: 1, limit: 10, status: 'approved' },
+        // API trả về danh sách nhóm user là leader, mỗi nhóm có stats riêng
+        const response = await axios.get('http://localhost:3001/api/community/groups/managed', {
           headers: { Authorization: `Bearer ${token}` }
         });
+        // Debug log dữ liệu trả về từ API nhóm cộng đồng
+        console.log('API /groups/managed response:', response.data);
         if (response.data?.success) {
-          const totalGroups = response.data.pagination?.total || response.data.data?.length || 0;
           setCommunityStats({
-            totalGroups,
-            pendingGroups: response.data.pendingCount || 0,
-            activeMembers: response.data.totalMembers || 0
+            groups: response.data.groups || [],
+            totalGroups: response.data.groups?.length || 0
           });
+        } else {
+          setCommunityStats({ groups: [], totalGroups: 0 });
         }
       } catch (error) {
         console.error('Error fetching community stats:', error);
-        setCommunityStats({ totalGroups: 0, pendingGroups: 0, activeMembers: 0 });
+        setCommunityStats({ groups: [], totalGroups: 0 });
       } finally {
         setLoadingCommunityStats(false);
       }
@@ -431,6 +436,10 @@ const DashboardPage = () => {
   const handleLogout = () => {
     if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) logout();
   };
+
+  // State cho widget nhóm cộng đồng (community)
+  const [expandedGroup, setExpandedGroup] = React.useState(null);
+  const [showAllGroups, setShowAllGroups] = React.useState(false);
 
   // Logic Đồng hồ
   const hours = currentTime.getHours() % 12;
@@ -631,12 +640,7 @@ const DashboardPage = () => {
       loading: loadingCommunityStats,
       totalValue: communityStats?.totalGroups || 0,
       totalIcon: FaUsers,
-      stats: [
-        { key: 'groups', label: 'Nhóm hoạt động', value: communityStats?.totalGroups || 0, icon: FaUsers, className: 'is-success', action: () => navigate('/quan-ly-nhom-cong-dong') },
-        { key: 'pending', label: 'Nhóm chờ duyệt', value: communityStats?.pendingGroups || 0, icon: FaClock, className: 'is-warning', action: () => navigate(isAdmin ? '/quan-ly-nhom-cong-dong?status=pending' : '/quan-ly-nhom-cong-dong') },
-        { key: 'members', label: 'Thành viên', value: communityStats?.activeMembers || 0, icon: FaCheckCircle, className: 'is-info' },
-        { key: 'posts', label: 'Bài đăng', value: communityStats?.totalPosts || 0, icon: FaNewspaper, className: 'is-blue' }
-      ]
+      stats: [] // Không dùng stats cũ, custom render widget bên dưới
     }
   ];
 
@@ -645,7 +649,9 @@ const DashboardPage = () => {
       ...widget,
       stats: (widget.stats || []).filter((stat) => stat.visible !== false)
     }))
-    .filter((widget) => widget.visible && widget.stats.length > 0);
+    .filter((widget) =>
+      widget.visible && (widget.id === 'community' || widget.stats.length > 0)
+    );
 
   return (
     <div className="dashboard-container">
@@ -704,7 +710,7 @@ const DashboardPage = () => {
             className="dashboard-grid-layout"
             layouts={layouts}
             breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-            cols={{ lg: 12, md: 12, sm: 12, xs: 1, xxs: 1 }}
+            cols={{ lg: 12, md: 12, sm: 8, xs: 4, xxs: 2 }}
             rowHeight={80}
             onLayoutChange={handleLayoutChange}
             isDraggable={isBoardEditMode}
@@ -712,39 +718,93 @@ const DashboardPage = () => {
             margin={[16, 16]}
             useCSSTransforms={true}
           >
+            {/* State cho widget nhóm cộng đồng */}
+            const [expandedGroup, setExpandedGroup] = React.useState(null);
+            const [showAllGroups, setShowAllGroups] = React.useState(false);
             {visibleWidgets.map((widget) => {
+              if (widget.id !== 'community') {
+                const WidgetIcon = widget.totalIcon;
+                return (
+                  <div key={widget.id} className={`dashboard-widget-card ${isBoardEditMode ? 'is-editing' : ''}`}>
+                    <div className="widget-header">
+                      <h2><WidgetIcon className="widget-icon-title" /> {widget.title}</h2>
+                      {!isBoardEditMode && (
+                        <span className="widget-total-badge" title="Tổng số">{widget.totalValue}</span>
+                      )}
+                    </div>
+                    {widget.loading ? (
+                      <div className="widget-loading">Đang tải dữ liệu...</div>
+                    ) : (
+                      <div className="widget-content">
+                        <div className="widget-stat-grid">
+                          {widget.stats.map(stat => {
+                            const StatIcon = stat.icon;
+                            return (
+                              <div 
+                                key={stat.key} 
+                                className={`widget-stat-item ${stat.className} ${isBoardEditMode ? 'disabled-click' : ''}`}
+                                onClick={!isBoardEditMode ? stat.action : undefined}
+                              >
+                                <div className="stat-icon-wrapper"><StatIcon /></div>
+                                <div className="stat-info">
+                                  <span>{stat.label}</span>
+                                  <strong>{stat.value}</strong>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              // Custom widget nhóm cộng đồng
               const WidgetIcon = widget.totalIcon;
+              const groups = communityStats?.groups || [];
+              const maxShow = 5;
+              const displayGroups = showAllGroups ? groups : groups.slice(0, maxShow);
               return (
                 <div key={widget.id} className={`dashboard-widget-card ${isBoardEditMode ? 'is-editing' : ''}`}>
                   <div className="widget-header">
                     <h2><WidgetIcon className="widget-icon-title" /> {widget.title}</h2>
                     {!isBoardEditMode && (
-                      <span className="widget-total-badge" title="Tổng số">{widget.totalValue}</span>
+                      <span className="widget-total-badge" title="Tổng số">{groups.length}</span>
                     )}
                   </div>
-                  
                   {widget.loading ? (
                     <div className="widget-loading">Đang tải dữ liệu...</div>
                   ) : (
-                    <div className="widget-content">
-                      <div className="widget-stat-grid">
-                        {widget.stats.map(stat => {
-                          const StatIcon = stat.icon;
-                          return (
-                            <div 
-                              key={stat.key} 
-                              className={`widget-stat-item ${stat.className} ${isBoardEditMode ? 'disabled-click' : ''}`}
-                              onClick={!isBoardEditMode ? stat.action : undefined}
-                            >
-                              <div className="stat-icon-wrapper"><StatIcon /></div>
-                              <div className="stat-info">
-                                <span>{stat.label}</span>
-                                <strong>{stat.value}</strong>
-                              </div>
+                    <div className="widget-content community-widget-content">
+                      {groups.length === 0 && <div>Không có nhóm bạn quản lý.</div>}
+                      {displayGroups.map((group, idx) => (
+                        <div key={group._id || idx} className={`community-group-accordion${expandedGroup === group._id ? ' expanded' : ''}`}>
+                          <div className="community-group-header" onClick={() => setExpandedGroup(expandedGroup === group._id ? null : group._id)}>
+                            <span className="community-group-title">{group.name}</span>
+                            <span className="community-group-badges">
+                              <span className="badge is-success" onClick={e => { e.stopPropagation(); navigate(`/quan-ly-nhom-cong-dong/${group._id}?tab=posts&filter=pending`); }}>Bài chờ duyệt: {group.pendingPosts || 0}</span>
+                              <span className="badge is-warning">Báo cáo: {group.reportedPosts || 0}</span>
+                              <span className="badge is-info" onClick={e => { e.stopPropagation(); navigate(`/quan-ly-nhom-cong-dong/${group._id}?tab=members&filter=pending`); }}>Thành viên chờ: {group.pendingMembers || 0}</span>
+                            </span>
+                          </div>
+                          {expandedGroup === group._id && (
+                            <div className="community-group-details">
+                              <div><b>Tổng thành viên:</b> {group.totalMembers || 0}</div>
+                              <div><b>Bài đăng:</b> {group.totalPosts || 0}</div>
+                              <div><b>Bài chờ duyệt:</b> <span className="badge is-success" onClick={() => navigate(`/quan-ly-nhom-cong-dong/${group._id}?tab=posts&filter=pending`)} style={{cursor:'pointer'}}> {group.pendingPosts || 0}</span></div>
+                              <div><b>Báo cáo:</b> {group.reportedPosts || 0}</div>
+                              <div><b>Thành viên chờ duyệt:</b> <span className="badge is-info" onClick={() => navigate(`/quan-ly-nhom-cong-dong/${group._id}?tab=members&filter=pending`)} style={{cursor:'pointer'}}> {group.pendingMembers || 0}</span></div>
+                              <button className="community-group-manage-btn" onClick={() => navigate(`/quan-ly-nhom-cong-dong/${group._id}`)}>Quản lý nhóm</button>
                             </div>
-                          );
-                        })}
-                      </div>
+                          )}
+                        </div>
+                      ))}
+                      {groups.length > maxShow && !showAllGroups && (
+                        <button className="community-group-showmore-btn" onClick={() => setShowAllGroups(true)}>Xem thêm nhóm...</button>
+                      )}
+                      {showAllGroups && (
+                        <button className="community-group-showmore-btn" onClick={() => setShowAllGroups(false)}>Ẩn bớt</button>
+                      )}
                     </div>
                   )}
                 </div>

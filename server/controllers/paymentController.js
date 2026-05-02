@@ -150,7 +150,11 @@ exports.createPayment = async (req, res) => {
     const userId = req.user?.id || 1; 
     const { appointment_id, payment_method, proof_image_url, payment_info } = req.body;
 
-    if (!appointment_id) return res.status(400).json({ success: false, message: 'Thiếu thông tin' });
+        if (!appointment_id || !payment_method) {
+            return res.status(400).json({ success: false, message: 'Thiếu thông tin thanh toán' });
+        }
+
+        const normalizedMethod = payment_method === 'transfer' ? 'bank_transfer' : payment_method;
 
     // Tìm Appointment
     const appointment = await models.Appointment.findOne({
@@ -164,18 +168,23 @@ exports.createPayment = async (req, res) => {
     });
     
 
-    if (!appointment) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
+        if (!appointment) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
 
-    
+        const amount = appointment.Service?.price || 0;
+        const isClinicCashier = ['admin', 'staff'].includes(req.user?.role) && ['cash', 'card'].includes(normalizedMethod);
+        const targetPaymentRecordStatus = isClinicCashier ? 'paid' : 'pending';
+        const appointmentPaymentStatus = isClinicCashier ? 'paid_at_clinic' : 'unpaid';
+        const orderId = `AP_${appointment.code}_${Date.now()}`;
 
-    // Kiểm tra/Update Payment cũ
+        // Kiểm tra/Update Payment cũ
     let payment = await models.Payment.findOne({ where: { appointment_id: appointment.id } });
     const paymentData = {
         user_id: userId,
         appointment_id: appointment.id,
-        amount: appointment.Service.price,
-        status: 'paid', // Sửa luôn thành 'paid' nếu là thanh toán tại quầy
-        method: payment_method,
+                amount,
+                status: targetPaymentRecordStatus,
+                method: normalizedMethod,
+                transaction_id: targetPaymentRecordStatus === 'paid' ? `MANUAL_${Date.now()}` : orderId,
         // SỬA: Lưu đúng thông tin chi tiết tiền khách đưa
         payment_info: payment_info ? JSON.stringify(payment_info) : JSON.stringify({ note: 'Created via UI' }),
         proof_image_url: proof_image_url || null
@@ -189,12 +198,35 @@ exports.createPayment = async (req, res) => {
         payment = await models.Payment.create(paymentData);
     }
 
-    // Cập nhật trạng thái appointment
-    await appointment.update({ 
-      payment_status: payment_method === 'cash' ? 'paid_at_clinic' : 'unpaid' 
-    });
+        // Cập nhật trạng thái appointment theo đúng ngữ nghĩa luồng thanh toán
+        const appointmentUpdates = {
+            payment_status: appointmentPaymentStatus,
+            payment_method: normalizedMethod
+        };
+        if (isClinicCashier) {
+            appointmentUpdates.status = 'confirmed';
+            appointmentUpdates.paid_at = new Date();
+        }
+        await appointment.update(appointmentUpdates);
 
-    res.status(201).json({ success: true, message: 'Tạo thanh toán thành công', data: payment });
+        let paymentUrl = null;
+        if (normalizedMethod === 'vnpay') {
+            paymentUrl = vnpayService.createPaymentUrl({
+                orderId,
+                amount,
+                orderInfo: `Thanh toan lich hen ${appointment.code}`,
+                ipAddr: req.ip || '127.0.0.1'
+            });
+        } else if (normalizedMethod === 'momo' && !proof_image_url) {
+            const momoResult = await momoService.createPayment({
+                orderId,
+                amount,
+                orderInfo: `Thanh toan lich hen ${appointment.code}`
+            });
+            if (momoResult.success) paymentUrl = momoResult.payUrl;
+        }
+
+        res.status(201).json({ success: true, message: 'Tạo thanh toán thành công', data: payment, paymentUrl });
 
   } catch (e) { 
     console.error('❌ CreatePayment Error:', e);
@@ -391,7 +423,7 @@ exports.handleBankWebhook = async (req, res) => {
                      console.log('📧 Đã gửi email hóa đơn');
                  }
 
-                 // B. GỬI THÔNG BÁO (NOTIFICATION)
+                 // B. GỬI THÔNG BÁO CHO BỆNH NHÂN
                  if (fullAppt.Patient?.User?.id) {
                      await notificationHelper.createNotification({
                          user_id: fullAppt.Patient.User.id,
@@ -400,6 +432,40 @@ exports.handleBankWebhook = async (req, res) => {
                          message: `Lịch hẹn ${fullAppt.code} đã được thanh toán và tự động xác nhận.`,
                          link: `/lich-hen/${fullAppt.code}`
                      });
+                 }
+
+                 // C. GỬI THÔNG BÁO CHO BÁC SĨ & NHÂN VIÊN
+                 const doctorNotifications = [];
+                 if (fullAppt.Doctor?.user_id) {
+                     doctorNotifications.push({
+                         user_id: fullAppt.Doctor.user_id,
+                         type: 'appointment_confirmed',
+                         title: `[Xác nhận] Lịch hẹn ${fullAppt.code}`,
+                         message: `Lịch hẹn ${fullAppt.code} được xác nhận: ${patientName} - ${serviceName} lúc ${timeStr}`,
+                         link: `/lich-hen/${fullAppt.code}`,
+                         data: { appointment_id: fullAppt.id, appointment_code: fullAppt.code }
+                     });
+                 }
+                 if (fullAppt.staff_id) {
+                     // Lấy user_id của staff
+                     const staffUser = await models.User.findOne({ 
+                         where: { role: 'staff', id: fullAppt.staff_id } 
+                     });
+                     if (staffUser) {
+                         doctorNotifications.push({
+                             user_id: staffUser.id,
+                             type: 'appointment_confirmed',
+                             title: `[Xác nhận] Lịch hẹn ${fullAppt.code}`,
+                             message: `Lịch hẹn ${fullAppt.code} được xác nhận: ${patientName} - ${serviceName} lúc ${timeStr} (BS. ${doctorName})`,
+                             link: `/lich-hen/${fullAppt.code}`,
+                             data: { appointment_id: fullAppt.id, appointment_code: fullAppt.code }
+                         });
+                     }
+                 }
+
+                 if (doctorNotifications.length > 0) {
+                     await notificationHelper.createNotifications(doctorNotifications);
+                     console.log(`📢 Đã gửi thông báo xác nhận cho ${doctorNotifications.length} người (Doctor + Staff)`);
                  }
              }
         } else {

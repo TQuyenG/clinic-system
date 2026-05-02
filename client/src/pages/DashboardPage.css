@@ -1,3 +1,27 @@
+/* Community group badges: allow wrapping and responsive layout */
+.community-group-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: 0.7rem;
+  vertical-align: middle;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.18em 0.7em;
+  border-radius: 12px;
+  font-size: 0.82em;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #64748b;
+  margin-right: 0.2em;
+  margin-bottom: 0.2em;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  word-break: break-word;
+  white-space: normal;
+}
 /* client/src/pages/DashboardPage.css */
 
 :root {

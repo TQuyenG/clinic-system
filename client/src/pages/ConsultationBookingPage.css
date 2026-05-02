@@ -56,6 +56,12 @@
   font-family: 'Be Vietnam Pro', sans-serif;
 }
 
+.consultation-booking-page *,
+.consultation-booking-page *::before,
+.consultation-booking-page *::after {
+  box-sizing: border-box;
+}
+
 @media (max-width: 600px) {
   .consultation-booking-page {
     padding: 10px 8px;
@@ -228,6 +234,7 @@
 .consultation-booking-textarea {
   width: 100%;
   max-width: 100%;
+  min-height: 44px;
   padding: 11px 14px;
   box-sizing: border-box;
   border: 1.5px solid var(--consultation-booking-border);
@@ -286,27 +293,72 @@
   gap: 4px;
 }
 
+.consultation-booking-inline-action-row {
+  margin-top: 6px;
+}
+
+.consultation-booking-inline-link {
+  color: var(--consultation-booking-primary);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.consultation-booking-inline-link:hover {
+  text-decoration: underline;
+}
+
+/* ===== FILTER TOOLBAR ===== */
+.consultation-booking-filter-toolbar {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.consultation-booking-search-box {
+  position: relative;
+}
+
+.consultation-booking-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--consultation-booking-text-muted);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.consultation-booking-search-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px 11px 38px;
+  border: 1.5px solid var(--consultation-booking-border);
+  border-radius: var(--consultation-booking-radius-md);
+  background: var(--consultation-booking-surface);
+  color: var(--consultation-booking-text-dark);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: var(--consultation-booking-transition);
+}
+
+.consultation-booking-search-input:focus {
+  border-color: var(--consultation-booking-primary);
+  box-shadow: 0 0 0 3px rgba(58,170,111,0.12);
+}
+
+.consultation-booking-search-input::placeholder {
+  color: #98afa3;
+}
+
 /* ===== BỘ LỌC CHUYÊN KHOA — STYLED ===== */
 /* Dạng card ngang có icon + tên */
 .consultation-booking-specialty-list {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 8px;
   margin-top: 4px;
-  flex-wrap: wrap;
-  scrollbar-width: thin;
-  scrollbar-color: var(--consultation-booking-border) transparent;
-}
-
-.consultation-booking-specialty-list::-webkit-scrollbar {
-  height: 4px;
-}
-
-.consultation-booking-specialty-list::-webkit-scrollbar-thumb {
-  background: var(--consultation-booking-border);
-  border-radius: 4px;
 }
 
 .consultation-booking-specialty-btn {
@@ -315,16 +367,16 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 88px;
-  max-width: 100px;
-  padding: 10px 8px;
+  min-height: 84px;
+  width: 100%;
+  padding: 12px 10px;
   border: 1.5px solid var(--consultation-booking-border);
   background: var(--consultation-booking-surface-alt);
   border-radius: var(--consultation-booking-radius-md);
   cursor: pointer;
   transition: var(--consultation-booking-transition);
   font-family: inherit;
-  flex-shrink: 0; /* không bị co lại khi scroll ngang */
+  text-align: center;
 }
 
 .consultation-booking-specialty-btn:hover {
@@ -369,7 +421,6 @@
   line-height: 1.2;
   color: var(--consultation-booking-text-body);
   transition: color 0.2s;
-  /* Giới hạn 2 dòng, hiện "..." nếu quá dài */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -669,6 +720,20 @@
   margin-bottom: 20px;
 }
 
+.consultation-booking-doctor-card-clickable {
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: var(--consultation-booking-transition);
+}
+
+.consultation-booking-doctor-card-clickable:hover {
+  border-color: var(--consultation-booking-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(58,170,111,0.12);
+}
+
 .consultation-booking-doctor-avatar {
   width: 52px;
   height: 52px;
@@ -695,6 +760,21 @@
   font-size: 12px;
   color: var(--consultation-booking-primary);
   font-weight: 500;
+}
+
+.consultation-booking-doctor-cta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--consultation-booking-primary);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.consultation-booking-doctor-cta svg {
+  font-size: 11px;
 }
 
 /* ===== RIGHT COLUMN ===== */
@@ -807,6 +887,7 @@
 /* ===== SUBMIT BUTTON ===== */
 .consultation-booking-submit-btn {
   width: 100%;
+  min-height: 48px;
   padding: 15px;
   background: linear-gradient(135deg, var(--consultation-booking-primary), var(--consultation-booking-primary-hover));
   color: #fff;
@@ -856,8 +937,9 @@
   background: var(--consultation-booking-surface);
   width: 95%;
   max-width: 460px;
+  max-height: 92vh;
   border-radius: var(--consultation-booking-radius-lg);
-  overflow: hidden;
+  overflow: auto;
   box-shadow: var(--consultation-booking-shadow-lg);
   animation: cbpSlideUp 0.28s ease-out;
 }
@@ -935,6 +1017,14 @@
   color: var(--consultation-booking-primary);
 }
 
+.consultation-booking-confirm-hint {
+  display: block;
+  margin-top: 10px;
+  color: var(--consultation-booking-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .consultation-booking-modal-footer {
   padding: 14px 22px;
   border-top: 1px solid var(--consultation-booking-border);
@@ -947,6 +1037,7 @@
 /* Payment items */
 .consultation-booking-payment-item {
   width: 100%;
+  min-height: 52px;
   padding: 16px;
   margin-bottom: 12px;
   border: 1.5px solid var(--consultation-booking-border);
@@ -977,6 +1068,7 @@
 
 /* Modal Buttons */
 .consultation-booking-btn-secondary {
+  min-height: 44px;
   padding: 10px 22px;
   border: 1.5px solid var(--consultation-booking-border);
   background: var(--consultation-booking-surface);
@@ -995,6 +1087,7 @@
 }
 
 .consultation-booking-btn-primary {
+  min-height: 44px;
   padding: 10px 22px;
   border: none;
   background: var(--consultation-booking-primary);
@@ -1010,6 +1103,7 @@
 .consultation-booking-btn-primary:hover { background: var(--consultation-booking-primary-hover); }
 
 .consultation-booking-btn-danger {
+  min-height: 44px;
   padding: 10px 22px;
   border: none;
   background: var(--consultation-booking-danger);
@@ -1096,6 +1190,85 @@
   .consultation-booking-right-col {
     width: 100% !important;
     box-sizing: border-box;
+  }
+}
+
+@media (max-width: 640px) {
+  .consultation-booking-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .consultation-booking-back-btn,
+  .consultation-booking-switch-btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .consultation-booking-left-col,
+  .consultation-booking-right-col {
+    padding: 16px 14px 20px;
+  }
+
+  .consultation-booking-for-toggle {
+    grid-template-columns: 1fr;
+  }
+
+  .consultation-booking-pkg-item {
+    align-items: flex-start;
+  }
+
+  .consultation-booking-pkg-price {
+    margin-left: auto;
+  }
+
+  .consultation-booking-modal {
+    width: calc(100vw - 14px);
+    border-radius: 12px;
+  }
+
+  .consultation-booking-modal-header,
+  .consultation-booking-modal-body,
+  .consultation-booking-modal-footer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .consultation-booking-modal-footer {
+    flex-direction: column;
+  }
+
+  .consultation-booking-btn-secondary,
+  .consultation-booking-btn-primary,
+  .consultation-booking-btn-danger {
+    width: 100%;
+  }
+
+  .consultation-booking-payment-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .consultation-booking-page {
+    padding: 8px;
+  }
+
+  .consultation-booking-container {
+    padding: 0 4px;
+  }
+
+  .consultation-booking-confirm-row {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .consultation-booking-confirm-row strong {
+    text-align: right;
+    word-break: break-word;
   }
 }
 

@@ -5,7 +5,7 @@
 // - Thay thế axios bằng service và localStorage bằng useAuth
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 
@@ -33,6 +33,7 @@ const AppointmentDetailPage = () => {
   const { code } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const guestToken = searchParams.get('token');
 
   // Dùng useAuth để lấy user
@@ -53,6 +54,11 @@ const AppointmentDetailPage = () => {
   const [newTime, setNewTime] = useState('');
   const [availableSlots, setAvailableSlots] = useState([]);
   
+  // State cho modal đổi phương thức thanh toán
+  const [showChangePaymentModal, setShowChangePaymentModal] = useState(false);
+  const [newPaymentMethod, setNewPaymentMethod] = useState(appointment?.payment_method || 'cash');
+  const [changingPayment, setChangingPayment] = useState(false);
+  
   // State cho modal mật khẩu
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
@@ -69,6 +75,8 @@ const AppointmentDetailPage = () => {
   const [showRefundModal, setShowRefundModal] = useState(false);
   // ... các state cũ ...
   const [refundPolicyText, setRefundPolicyText] = useState(''); // State lưu quy định
+  // Payment reminder
+  const [showPaymentReminder, setShowPaymentReminder] = useState(false);
 
   // Thêm useEffect này để lấy cấu hình khi mở Modal
   useEffect(() => {
@@ -338,6 +346,7 @@ const AppointmentDetailPage = () => {
     navigate(`/thanh-toan/${code}${guestToken ? `?token=${guestToken}` : ''}`);
   };
 
+
   // Handler Cập nhật của Admin
   const handleAdminUpdate = async () => {
     if (adminStatus === 'cancelled' && !adminCancelReason.trim()) {
@@ -406,6 +415,56 @@ const AppointmentDetailPage = () => {
     }
   };
 
+  // ========== PAYMENT REMINDER ==========
+  useEffect(() => {
+    if (!appointment) return;
+    try {
+      const PAYMENT_REMINDER_MINUTES = 30; // mặc định nhắc 30 phút trước
+      if (appointment.payment_status === 'unpaid' && appointment.status === 'confirmed') {
+        const apptDate = new Date(`${appointment.appointment_date} ${appointment.appointment_start_time}`);
+        const now = new Date();
+        const diffMin = (apptDate.getTime() - now.getTime()) / 60000;
+        const shownKey = `paymentReminderShown_${appointment.code}`;
+        if (diffMin > 0 && diffMin <= PAYMENT_REMINDER_MINUTES && !sessionStorage.getItem(shownKey)) {
+          setShowPaymentReminder(true);
+          sessionStorage.setItem(shownKey, '1');
+        }
+      }
+    } catch (err) {
+      console.error('Payment reminder check error:', err);
+    }
+  }, [appointment]);
+
+  // Handler đổi phương thức thanh toán
+  const handleChangePaymentMethod = async () => {
+    if (!newPaymentMethod) {
+      toast.warning('Vui lòng chọn phương thức thanh toán');
+      return;
+    }
+
+    if (newPaymentMethod === appointment.payment_method) {
+      toast.info('Phương thức thanh toán không thay đổi');
+      return;
+    }
+
+    try {
+      setChangingPayment(true);
+      const response = await appointmentService.changePaymentMethod(code, {
+        payment_method: newPaymentMethod
+      }, guestToken);
+
+      if (response.data.success) {
+        toast.success('Đổi phương thức thanh toán thành công!');
+        setShowChangePaymentModal(false);
+        loadAppointment();
+      }
+    } catch (error) {
+      console.error('Change payment error:', error);
+      toast.error(error.response?.data?.message || 'Lỗi khi đổi phương thức thanh toán');
+    } finally {
+      setChangingPayment(false);
+    }
+  };
 
   // ========== HELPERS (Format) ==========
   const getStatusInfo = (status) => {
@@ -485,17 +544,32 @@ const AppointmentDetailPage = () => {
     return (
       <div className="appointment-detail-page-container">
         <div className="appointment-detail-page-wrapper">
-          <div className="appointment-detail-page-error">
-            <FaTimesCircle />
+          <div className="appointment-detail-page-notfound">
+            <div className="notfound-illustration" aria-hidden>
+              <FaTimesCircle />
+            </div>
             <h2>Không tìm thấy lịch hẹn</h2>
-            <p>Lịch hẹn không tồn tại hoặc bạn không có quyền xem.</p>
-            <button
-              className="appointment-detail-page-btn-action btn-primary"
-              onClick={() => navigate('/')}
-            >
-              <FaArrowLeft />
-              Về trang chủ
-            </button>
+            <p className="notfound-sub">Lịch hẹn không tồn tại hoặc bạn không có quyền xem.</p>
+
+            <div className="notfound-actions">
+              <button
+                className="btn-home"
+                onClick={() => navigate('/')}
+                aria-label="Về trang chủ"
+              >
+                <FaArrowLeft />
+                <span>Về trang chủ</span>
+              </button>
+
+              <button
+                className="appointment-detail-page-btn-action btn-secondary"
+                onClick={() => navigate(-1)}
+                aria-label="Quay lại"
+                style={{ marginLeft: 12 }}
+              >
+                <FaArrowLeft /> Quay lại
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -510,6 +584,10 @@ const AppointmentDetailPage = () => {
   const isPatient = user && user.role === 'patient';
   const isAdminOrDoctor = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'staff');
   const isOwner = isPatient && user.id === appointment.Patient?.user_id;
+  const doctorProfileCode = appointment?.Doctor?.user?.code
+    || appointment?.Doctor?.User?.code
+    || appointment?.Doctor?.code
+    || appointment?.doctor_code;
 
   return (
     <div className="appointment-detail-page-container">
@@ -566,6 +644,27 @@ const AppointmentDetailPage = () => {
                 
               </div>
             )}
+
+            {/* Payment reminder popup (nếu cần) */}
+            {showPaymentReminder && (
+              <div className="abp-modal-overlay" onClick={() => setShowPaymentReminder(false)}>
+                <div className="abp-modal" onClick={e => e.stopPropagation()}>
+                  <div className="abp-modal-header">
+                    <h3><FaExclamationTriangle style={{ color: '#f57c00' }} /> Nhắc thanh toán</h3>
+                    <button className="abp-modal-close-btn" onClick={() => setShowPaymentReminder(false)}><FaTimes /></button>
+                  </div>
+                  <div className="abp-modal-body">
+                    <p>
+                      Lịch hẹn <strong>{appointment.code}</strong> chưa được thanh toán. Vui lòng thanh toán trước <strong>30 phút</strong> để khi đến viện bạn có thể check-in và nhận số ưu tiên.
+                    </p>
+                  </div>
+                  <div className="abp-modal-footer">
+                    <button className="abp-btn-secondary" onClick={() => setShowPaymentReminder(false)}>Nhắc sau</button>
+                    <button className="abp-btn-primary" onClick={() => { setShowPaymentReminder(false); handlePaymentClick(); }}>Thanh toán ngay</button>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Hủy lịch */}
             {appointment.status === 'cancelled' && (
@@ -608,7 +707,27 @@ const AppointmentDetailPage = () => {
                 </div>
                 <div className="appointment-detail-page-info-item">
                   <div className="appointment-detail-page-info-label"><FaUserMd /> Bác sĩ</div>
-                  <div className="appointment-detail-page-info-value">BS. {appointment.Doctor?.user?.full_name}</div>
+                  <div className="appointment-detail-page-info-value doctor-value">
+                    <span>BS. {appointment.Doctor?.user?.full_name || appointment.Doctor?.User?.full_name || 'Chưa cập nhật'}</span>
+                    {doctorProfileCode && (
+                      <Link
+                        to={`/bac-si/${doctorProfileCode}`}
+                        state={{
+                          returnTo: location.pathname + location.search,
+                          returnState: {
+                            appointmentDetail: {
+                              code,
+                              token: guestToken
+                            }
+                          }
+                        }}
+                        className="appointment-detail-page-inline-link"
+                        rel="noopener noreferrer"
+                      >
+                        Xem hồ sơ bác sĩ
+                      </Link>
+                    )}
+                  </div>
                 </div>
                 <div className="appointment-detail-page-info-item">
                   <div className="appointment-detail-page-info-label"><FaHospital /> Hình thức</div>
@@ -743,12 +862,35 @@ const AppointmentDetailPage = () => {
                   </div>
                 </div>
                 <div className="appointment-detail-page-info-item">
+                  <div className="appointment-detail-page-info-label">Phương thức</div>
+                  <div className="appointment-detail-page-info-value">
+                    {appointment.payment_method === 'cash' ? '💰 Tiền mặt' : 
+                     appointment.payment_method === 'vnpay' ? '🏦 VNPay' :
+                     appointment.payment_method === 'momo' ? '📱 MoMo' :
+                     appointment.payment_method === 'bank_transfer' ? '🏦 Chuyển khoản' :
+                     appointment.payment_method || 'Chưa chọn'}
+                  </div>
+                </div>
+                <div className="appointment-detail-page-info-item">
                   <div className="appointment-detail-page-info-label">Trạng thái</div>
                   <div className={`appointment-detail-page-payment-status ${paymentInfo.class}`}>
                     {paymentInfo.icon}
                     {paymentInfo.text}
                   </div>
                 </div>
+                {appointment.payment_hold_until && appointment.payment_status === 'unpaid' && (
+                  <div className="appointment-detail-page-info-item">
+                    <div className="appointment-detail-page-info-label">Hạn thanh toán</div>
+                    <div className="appointment-detail-page-info-value" style={{ color: '#d32f2f', fontWeight: 'bold' }}>
+                      {new Date(appointment.payment_hold_until).toLocaleString('vi-VN')}
+                      {paymentTimeRemaining && (
+                        <span style={{ display: 'block', fontSize: '0.85rem', color: '#f57c00' }}>
+                          Còn {paymentTimeRemaining.hours}h {paymentTimeRemaining.minutes}m
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               {needPayment() && (
                 <button
@@ -757,6 +899,19 @@ const AppointmentDetailPage = () => {
                 >
                   <FaCreditCard />
                   Thanh toán ngay
+                </button>
+              )}
+              {needPayment() && appointment.status === 'pending' && (
+                <button
+                  className="appointment-detail-page-btn-action btn-secondary"
+                  onClick={() => {
+                    setNewPaymentMethod(appointment.payment_method || 'cash');
+                    setShowChangePaymentModal(true);
+                  }}
+                  style={{ marginTop: '10px' }}
+                >
+                  <FaEdit />
+                  {appointment.payment_method ? 'Đổi phương thức thanh toán' : 'Chọn phương thức thanh toán'}
                 </button>
               )}
               {/* --- [BẮT ĐẦU] CODE THÊM NÚT HOÀN TIỀN --- */}
@@ -1036,88 +1191,65 @@ const AppointmentDetailPage = () => {
         onConfirm={handlePasswordConfirm}
       />
 
-      {/* --- MODAL HOÀN TIỀN (Giao diện Pastel, Chi tiết) --- */}
-      {showRefundModal && (
-        <div className="appointment-detail-page-modal-overlay" onClick={() => setShowRefundModal(false)}>
-          <div className="appointment-detail-page-modal-content modal-refund" onClick={(e) => e.stopPropagation()}>
-            <div className="appointment-detail-page-modal-header refund-header">
-              <h2><FaShieldAlt /> Yêu cầu Hoàn tiền</h2>
-              <button className="appointment-detail-page-btn-close" onClick={() => setShowRefundModal(false)}><FaTimes /></button>
+      {/* MODAL ĐỔI PHƯƠNG THỨC THANH TOÁN */}
+      {showChangePaymentModal && (
+        <div className="appointment-detail-page-modal-overlay" onClick={() => setShowChangePaymentModal(false)}>
+          <div className="appointment-detail-page-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="appointment-detail-page-modal-header">
+              <h2><FaMoneyBillWave /> Đổi phương thức thanh toán</h2>
+              <button className="appointment-detail-page-btn-close" onClick={() => setShowChangePaymentModal(false)}><FaTimes /></button>
             </div>
             
             <div className="appointment-detail-page-modal-body">
-              {/* Quy chế hoàn tiền - MỚI (Động) */}
-              <div className="appointment-detail-page-policy-box">
-                <h5><FaInfoCircle /> Quy định hoàn tiền:</h5>
-                {refundPolicyText ? (
-                  // Hiển thị text từ cấu hình (hỗ trợ xuống dòng)
-                  <div style={{ whiteSpace: 'pre-line', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                    {refundPolicyText}
-                  </div>
-                ) : (
-                  // Fallback: Nếu chưa cấu hình thì hiện mặc định
-                  <ul>
-                    <li>Hủy trước 24h: Hoàn 100% phí dịch vụ.</li>
-                    <li>Hủy trước 6-24h: Hoàn 50% phí dịch vụ.</li>
-                    <li>Tiền sẽ được hoàn về tài khoản trong 3-5 ngày làm việc.</li>
-                  </ul>
-                )}
+              <p style={{ marginBottom: '20px', color: '#666' }}>
+                Chọn hoặc đổi phương thức thanh toán cho lịch hẹn chưa thanh toán.
+              </p>
+              
+              <div className="appointment-detail-page-form-group">
+                <label>Phương thức thanh toán *</label>
+                <select 
+                  className="appointment-detail-page-form-control"
+                  value={newPaymentMethod}
+                  onChange={(e) => setNewPaymentMethod(e.target.value)}
+                >
+                  <option value="cash">💰 Tiền mặt (Thanh toán tại quầy)</option>
+                  <option value="vnpay">🏦 VNPay (Chuyển khoản qua ứng dụng VNPay)</option>
+                  <option value="momo">📱 MoMo (Chuyển khoản qua ứng dụng MoMo)</option>
+                  <option value="bank_transfer">🏦 Chuyển khoản Ngân hàng (Quốc tế/Nội địa)</option>
+                </select>
               </div>
 
-              <div className="appointment-detail-page-refund-amount">
-                <span>Số tiền dự kiến hoàn:</span>
-                <strong>{appointment.Service?.price?.toLocaleString('vi-VN')} VNĐ</strong>
-              </div>
-
-              <div className="appointment-detail-page-form-grid compact">
-                <div className="appointment-detail-page-form-group">
-                  <label>Ngân hàng nhận *</label>
-                  <input 
-                    className="appointment-detail-page-form-control"
-                    placeholder="VD: Vietcombank, Techcombank..."
-                    value={refundData.bankName}
-                    onChange={(e) => setRefundData({...refundData, bankName: e.target.value})}
-                  />
-                </div>
-                <div className="appointment-detail-page-form-group">
-                  <label>Số tài khoản *</label>
-                  <input 
-                    className="appointment-detail-page-form-control"
-                    placeholder="VD: 0123456789"
-                    value={refundData.accountNumber}
-                    onChange={(e) => setRefundData({...refundData, accountNumber: e.target.value})}
-                  />
-                </div>
-                <div className="appointment-detail-page-form-group full">
-                  <label>Tên chủ tài khoản (Viết hoa không dấu) *</label>
-                  <input 
-                    className="appointment-detail-page-form-control"
-                    placeholder="NGUYEN VAN A"
-                    value={refundData.accountHolder}
-                    onChange={(e) => setRefundData({...refundData, accountHolder: e.target.value.toUpperCase()})}
-                  />
-                </div>
-                <div className="appointment-detail-page-form-group full">
-                  <label>Lý do yêu cầu *</label>
-                  <textarea 
-                    className="appointment-detail-page-form-control"
-                    rows="2"
-                    placeholder="Nhập lý do bạn muốn hoàn tiền..."
-                    value={refundData.reason}
-                    onChange={(e) => setRefundData({...refundData, reason: e.target.value})}
-                  />
-                </div>
+              <div className="appointment-detail-page-info-box" style={{ 
+                backgroundColor: '#f1f8e9', 
+                border: '1px solid #c8e6c9', 
+                borderRadius: '6px', 
+                padding: '12px',
+                marginTop: '15px'
+              }}>
+                <p style={{ fontSize: '0.9rem', margin: '0', color: '#558b2f' }}>
+                  <FaInfoCircle style={{ marginRight: '8px' }} />
+                  <strong>Lưu ý:</strong> 
+                  {newPaymentMethod === 'cash' 
+                    ? ' Bạn sẽ thanh toán tiền mặt tại quầy lễ tân. Không có hạn thanh toán.'
+                    : ' Bạn sẽ thanh toán qua ứng dụng/chuyển khoản. Hạn thanh toán: 30 phút trước giờ khám.'}
+                </p>
               </div>
             </div>
 
             <div className="appointment-detail-page-modal-footer">
-              <button className="appointment-detail-page-btn-modal btn-secondary" onClick={() => setShowRefundModal(false)}>Hủy bỏ</button>
+              <button 
+                className="appointment-detail-page-btn-modal btn-secondary" 
+                onClick={() => setShowChangePaymentModal(false)}
+                disabled={changingPayment}
+              >
+                Hủy bỏ
+              </button>
               <button 
                 className="appointment-detail-page-btn-modal btn-primary"
-                onClick={handleRefundSubmit}
-                disabled={submitting}
+                onClick={handleChangePaymentMethod}
+                disabled={changingPayment}
               >
-                {submitting ? <FaSpinner className="fa-spin" /> : 'Gửi yêu cầu'}
+                {changingPayment ? <FaSpinner className="fa-spin" /> : 'Xác nhận'}
               </button>
             </div>
           </div>

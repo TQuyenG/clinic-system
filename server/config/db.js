@@ -29,8 +29,7 @@ const seedPayments = require('./paymentsSeed');
 const seedTopics = require('./topicsSeed_v2'); // Seed riêng cho Topics
 const seedForum = require('./forumSeed');
 const seedConsultationChat = require('./consultationChatSeed');
-const seedConsultationPricing = require('./consultationPricingSeed');
-
+const seedConsultationPricing = require('./consultationPricingSeed');const seedCorporateServices = require('./corporateServicesSeed');
 // Load environment variables from server/.env (app.js already loads dotenv,
 // but ensure config files loaded when required directly)
 require('dotenv').config({
@@ -211,6 +210,11 @@ async function seedData() {
     const services = await seedServices(models, transaction, { serviceCategories, specialties });
     console.log('SUCCESS: Thêm dữ liệu mẫu cho bảng services.');
 
+    // 6.2.1) Corporate Services (MỚI)
+    console.log('6.2.1. Thêm Corporate Services...');
+    const corporateServices = await seedCorporateServices(models, transaction);
+    console.log('SUCCESS: Thêm dữ liệu mẫu cho corporate services.');
+
     // 6.3) WorkShiftConfig (Ca làm việc)
     console.log('6.3. Thêm WorkShiftConfig...');
     const workShifts = await seedWorkShiftConfig(models, transaction);
@@ -267,6 +271,28 @@ async function seedData() {
     console.log('12. Thêm SystemSetting cho Consultation...');
     await seedConsultationSetting(models, transaction, { admins });
     console.log('SUCCESS: Thêm SystemSetting cho consultation.');
+
+    // ===== [MỚI] 12.3) Appointment Capacity Config =====
+    console.log('12.3. Thêm SystemSetting cho Appointment Optimization...');
+    const defaultSettings = getDefaultSystemSettings();
+    const appointmentCapacityConfig = defaultSettings.find(s => s.setting_key === 'appointment_capacity_config');
+    
+    if (appointmentCapacityConfig) {
+      // Avoid duplicate insertion if a previous seed already created this setting
+      const exists = await models.SystemSetting.findOne({ where: { setting_key: appointmentCapacityConfig.setting_key }, transaction });
+      if (!exists) {
+        await models.SystemSetting.create({
+          setting_key: appointmentCapacityConfig.setting_key,
+          value_json: appointmentCapacityConfig.value_json,
+          updated_by: admins[0].user_id,
+          created_at: new Date(),
+          updated_at: new Date()
+        }, { transaction });
+        console.log('✅ SUCCESS: Thêm Appointment Capacity Config.');
+      } else {
+        console.log('SKIP: Appointment Capacity Config đã tồn tại, không thêm nữa.');
+      }
+    }
 
     // 12.5) Consultation Pricing (Gói dịch vụ tư vấn)
     console.log('12.5. Thêm gói dịch vụ tư vấn (ConsultationPricing)...');

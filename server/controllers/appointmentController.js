@@ -56,122 +56,159 @@ const createInternalNotification = async (data, transaction = null) => {
     }
 };
 
-const getAvailableSlotsLogic = async (doctorId, serviceId, date, transaction = null) => {
-  const SLOT_DURATION = 30;
+// =================================================================
+// TÍNH TOÁN CHỖ TRỐNG: PHÂN BIỆT ONLINE (SLOT) VÀ OFFLINE (CA/SỨC CHỨA)
+// =================================================================
+const getAvailableSlotsLogic = async (doctorId, serviceId, date, appointmentType = 'offline', transaction = null) => {
+  const SLOT_DURATION = 30; // Phân bổ Slot 30 phút cho Online
   const service = await models.Service.findByPk(serviceId, { attributes: ['duration'], transaction }); 
   if (!service) throw new Error('Không tìm thấy dịch vụ');
-  const serviceDuration = service.duration; 
+  
+  const serviceDuration = service.duration || 15; // Thời gian khám trung bình 1 ca (Mặc định 15p)
+  
   const doctor = await models.Doctor.findByPk(doctorId, { transaction });
   if (!doctor) throw new Error('Không tìm thấy bác sĩ');
-  const shifts = await models.WorkShiftConfig.findAll({ where: { is_active: true }, transaction }); 
+
+  const selectedDayOfWeek = new Date(date).getDay();
+  const now = new Date();
+  const isToday = new Date(date).toDateString() === now.toDateString();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  // 1. Lấy lịch bác sĩ xin nghỉ phép
   const onLeave = await models.LeaveRequest.findOne({ 
     where: {
       user_id: doctor.user_id,
       status: 'approved',
       date_from: { [Op.lte]: date },
-      [Op.or]: [
-        { date_to: null, date_from: date },
-        { date_to: { [Op.gte]: date } }
-      ]
-    },
-    transaction
+      [Op.or]: [ { date_to: null, date_from: date }, { date_to: { [Op.gte]: date } } ]
+    }, transaction
   });
+
+  if (onLeave && onLeave.leave_type !== 'time_range') return []; // Nghỉ cả ngày thì không còn slot
+
+  // 2. Lấy danh sách Ca làm việc (Shifts)
   const fixedSchedules = await models.Schedule.findAll({ 
-      where: {
-          user_id: doctor.user_id,
-          date: date,
-          schedule_type: 'fixed',
-          status: 'available'
-      },
+      where: { user_id: doctor.user_id, date: date, schedule_type: 'fixed', status: 'available' },
       transaction
   });
-  const existingAppointments = await models.Appointment.findAll({ 
-    where: {
-      doctor_id: doctorId,
-      appointment_date: date,
-      status: { [Op.notIn]: ['cancelled'] }
-    },
-    attributes: ['appointment_start_time', 'appointment_end_time'],
-    raw: true,
-    transaction
-  });
-  const busySlots = existingAppointments.map(appt => ({
-    start: timeToMinutes(appt.appointment_start_time), 
-    end: timeToMinutes(appt.appointment_end_time) 
-  }));
-  const availableSlots = [];
-  const selectedDayOfWeek = new Date(date).getDay();
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const selectedDateObj = new Date(date);
-  const isToday = selectedDateObj.getTime() === today.getTime();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const shifts = fixedSchedules.length > 0 ? fixedSchedules : await models.WorkShiftConfig.findAll({ where: { is_active: true }, transaction }); 
 
-  if (onLeave && onLeave.leave_type !== 'time_range') { 
-      return []; 
-  }
-  let sourceShifts = [];
-  if (fixedSchedules.length > 0) {
-      sourceShifts = fixedSchedules.map(s => ({
-          start_time: s.start_time, 
-          end_time: s.end_time, 
-          days_of_week: [selectedDayOfWeek]
+  // 3. Lấy các lịch hẹn ĐÃ CÓ của bác sĩ trong ngày này
+  const existingAppointments = await models.Appointment.findAll({ 
+    where: { doctor_id: doctorId, appointment_date: date, status: { [Op.notIn]: ['cancelled', 'passed'] } },
+    attributes: ['appointment_type', 'appointment_start_time', 'appointment_end_time'],
+    raw: true, transaction
+  });
+
+  const availableSlots = [];
+
+  // ================= LUỒNG 1: TƯ VẤN ONLINE (Khóa cứng Slot) =================
+  if (appointmentType === 'online') {
+    const busySlots = existingAppointments
+      .filter(a => a.appointment_type === 'online') // Chỉ tránh đụng độ với lịch Online khác
+      .map(appt => ({
+        start: timeToMinutes(appt.appointment_start_time), 
+        end: timeToMinutes(appt.appointment_end_time) 
       }));
-  } else {
-      sourceShifts = shifts;
-  }
-  for (const shift of sourceShifts) {
-    if (!shift.days_of_week.includes(selectedDayOfWeek)) { 
-      continue;
-    }
-    const shiftStart = timeToMinutes(shift.start_time); 
-    const shiftEnd = timeToMinutes(shift.end_time); 
-    for (let slotStart = shiftStart; slotStart < shiftEnd; slotStart += SLOT_DURATION) {
-      const slotEnd = slotStart + serviceDuration;
-      let status = 'available';
-      let reason = '';
-      if (slotEnd > shiftEnd) {
-        status = 'unavailable';
-        reason = 'Thời gian dịch vụ vượt quá giờ làm việc';
-        const slotHour = Math.floor(slotStart / 60);
-        const slotMin = slotStart % 60;
-        const timeStr = `${String(slotHour).padStart(2, '0')}:${String(slotMin).padStart(2, '0')}`;
-        if (slotStart + SLOT_DURATION > shiftEnd) {
-             availableSlots.push({ time: timeStr, status: status, reason: reason });
+
+    for (const shift of shifts) {
+      if (shift.days_of_week && !shift.days_of_week.includes(selectedDayOfWeek)) continue;
+      
+      const shiftStart = timeToMinutes(shift.start_time); 
+      const shiftEnd = timeToMinutes(shift.end_time); 
+      
+      for (let slotStart = shiftStart; slotStart < shiftEnd; slotStart += SLOT_DURATION) {
+        const slotEnd = slotStart + serviceDuration;
+        let status = 'available';
+        let reason = '';
+
+        if (slotEnd > shiftEnd) continue; // Khung giờ lố ca
+        if (isToday && slotStart < currentMinutes + 15) { // Tránh đặt gấp trước 15p
+          status = 'unavailable'; reason = 'Đã qua giờ';
         }
-        continue;
-      }
-      if (isToday && slotStart < currentMinutes) {
-        status = 'unavailable';
-        reason = 'Đã qua giờ';
-      }
-      if (status === 'available' && onLeave && onLeave.leave_type === 'time_range') { 
-          const leaveStart = timeToMinutes(onLeave.time_from);
-          const leaveEnd = timeToMinutes(onLeave.time_to);
-          if (Math.max(slotStart, leaveStart) < Math.min(slotEnd, leaveEnd)) {
-              status = 'unavailable';
-              reason = 'Bác sĩ nghỉ phép';
-          }
-      }
-      if (status === 'available') {
-        for (const busy of busySlots) {
-          if (Math.max(slotStart, busy.start) < Math.min(slotEnd, busy.end)) {
-            status = 'unavailable';
-            reason = 'Đã có lịch hẹn';
-            break;
+        
+        // Kiểm tra nghỉ phép theo giờ
+        if (status === 'available' && onLeave && onLeave.leave_type === 'time_range') { 
+            const leaveStart = timeToMinutes(onLeave.time_from);
+            const leaveEnd = timeToMinutes(onLeave.time_to);
+            if (Math.max(slotStart, leaveStart) < Math.min(slotEnd, leaveEnd)) {
+                status = 'unavailable'; reason = 'Bác sĩ nghỉ phép';
+            }
+        }
+
+        // Kiểm tra đụng Slot Online khác
+        if (status === 'available') {
+          for (const busy of busySlots) {
+            if (Math.max(slotStart, busy.start) < Math.min(slotEnd, busy.end)) {
+              status = 'unavailable'; reason = 'Đã có lịch hẹn'; break;
+            }
           }
         }
+
+        const timeStr = `${String(Math.floor(slotStart / 60)).padStart(2, '0')}:${String(slotStart % 60).padStart(2, '0')}`;
+        availableSlots.push({ time: timeStr, status, reason, shift_name: shift.shift_name });
       }
-      const slotHour = Math.floor(slotStart / 60);
-      const slotMin = slotStart % 60;
-      const timeStr = `${String(slotHour).padStart(2, '0')}:${String(slotMin).padStart(2, '0')}`;
-      availableSlots.push({
-        time: timeStr,
-        status: status,
-        reason: status === 'available' ? `Dự kiến kết thúc lúc ${Math.floor(slotEnd/60)}:${String(slotEnd%60).padStart(2, '0')}` : reason
-      });
+    }
+  } 
+  // ================= LUỒNG 2: KHÁM TẠI VIỆN (Tính theo Sức chứa) =================
+  else {
+    for (const shift of shifts) {
+      if (shift.days_of_week && !shift.days_of_week.includes(selectedDayOfWeek)) continue;
+
+      const shiftStart = timeToMinutes(shift.start_time); 
+      const shiftEnd = timeToMinutes(shift.end_time); 
+      
+      // Tính thời gian làm việc thực tế của Ca này (Phút)
+      let actualWorkMinutes = shiftEnd - shiftStart;
+
+      // Trừ đi thời gian bác sĩ nghỉ phép
+      if (onLeave && onLeave.leave_type === 'time_range') {
+        const leaveStart = timeToMinutes(onLeave.time_from);
+        const leaveEnd = timeToMinutes(onLeave.time_to);
+        const overlapStart = Math.max(shiftStart, leaveStart);
+        const overlapEnd = Math.min(shiftEnd, leaveEnd);
+        if (overlapStart < overlapEnd) {
+          actualWorkMinutes -= (overlapEnd - overlapStart);
+        }
+      }
+
+      // Trừ đi thời gian bác sĩ phải tiếp bệnh nhân ONLINE (đã đặt cứng)
+      const onlineApptsInShift = existingAppointments.filter(a => 
+        a.appointment_type === 'online' &&
+        timeToMinutes(a.appointment_start_time) >= shiftStart &&
+        timeToMinutes(a.appointment_end_time) <= shiftEnd
+      );
+      for (const appt of onlineApptsInShift) {
+        actualWorkMinutes -= (timeToMinutes(appt.appointment_end_time) - timeToMinutes(appt.appointment_start_time));
+      }
+
+      // Tổng Sức Chứa (Số lượng bệnh nhân Offline tối đa có thể nhận)
+      const maxCapacity = Math.floor(actualWorkMinutes / serviceDuration);
+
+      // Đếm số lượng bệnh nhân Offline đã đặt trong Ca này
+      const offlineBookedCount = existingAppointments.filter(a => 
+        a.appointment_type === 'offline' &&
+        timeToMinutes(a.appointment_start_time) >= shiftStart && 
+        timeToMinutes(a.appointment_start_time) < shiftEnd
+      ).length;
+
+      // Nếu còn sức chứa -> Sinh ra CÁC MỐC THỜI GIAN ĐẠI DIỆN để bệnh nhân chọn (nhằm giãn cách)
+      if (offlineBookedCount < maxCapacity) {
+         for (let h = Math.floor(shiftStart/60); h < Math.floor(shiftEnd/60); h++) {
+            const timeStr = `${String(h).padStart(2, '0')}:00`;
+            if (isToday && h * 60 < currentMinutes) continue; // Bỏ qua mốc đã trôi qua
+            
+            availableSlots.push({ 
+              time: timeStr, 
+              status: 'available', 
+              reason: `Ca ${shift.display_name || 'Khám'}: Còn ${maxCapacity - offlineBookedCount} chỗ`,
+              shift_name: shift.shift_name
+            });
+         }
+      }
     }
   }
+
   return availableSlots;
 };
 
@@ -185,14 +222,18 @@ const getAvailableSlotsLogic = async (doctorId, serviceId, date, transaction = n
  * @route   POST /api/appointments
  * @access  Public/Patient
  */
+// =================================================================
+// 1. TẠO LỊCH HẸN (PATIENT TỰ ĐẶT WEB/APP)
+// =================================================================
 exports.createAppointment = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
     const {
       service_id, doctor_id, appointment_date, appointment_start_time,
-      appointment_type, reason, payment_method,
-      guest_email, guest_name, guest_phone, guest_gender, guest_dob
+      appointment_type = 'offline', reason, payment_method,
+      guest_email, guest_name, guest_phone, guest_gender, guest_dob,
+      booking_for, relative_name, relationship
     } = req.body;
 
     if (!service_id || !doctor_id || !appointment_date || !appointment_start_time) {
@@ -201,237 +242,86 @@ exports.createAppointment = async (req, res) => {
     }
 
     const user = req.user; 
-    const isGuest = !user;
     let patientId = null;
-    let finalEmail = guest_email;
-    let finalFullName = guest_name;
-    let finalPhone = guest_phone; 
+    let finalEmail = guest_email, finalFullName = guest_name, finalPhone = guest_phone; 
 
     if (user && user.role === 'patient') {
       const patient = await models.Patient.findOne({ where: { user_id: user.id }, transaction });
-      if (!patient) {
-        await transaction.rollback();
-        return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin bệnh nhân.' });
-      }
+      if (!patient) { await transaction.rollback(); return res.status(404).json({ success: false, message: 'Không tìm thấy BN' }); }
       patientId = patient.id;
-      finalEmail = guest_email;
-      finalFullName = guest_name;
-      finalPhone = guest_phone;
     }
     
-    if (!finalFullName || !finalEmail || !finalPhone || !guest_dob) {
-        await transaction.rollback();
-        return res.status(400).json({ success: false, message: 'Khách vui lòng nhập đủ Họ tên, Email, SĐT và Ngày sinh.' });
-    }
-
     const service = await models.Service.findByPk(service_id, { transaction }); 
-    if (!service) {
-      await transaction.rollback();
-      return res.status(404).json({ success: false, message: 'Không tìm thấy dịch vụ.' });
-    }
+    const doctor = await models.Doctor.findByPk(doctor_id, { include: [{ model: models.User, as: 'user' }], transaction });
 
-    const doctor = await models.Doctor.findByPk(doctor_id, { 
-      include: [{ model: models.User, as: 'user' }],
-      transaction
-    });
-    if (!doctor) {
-      await transaction.rollback();
-      return res.status(404).json({ success: false, message: 'Không tìm thấy bác sĩ.' });
-    }
-
-    const [startHour, startMin] = appointment_start_time.split(':').map(Number);
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = startMinutes + service.duration; 
-    const appointment_end_time = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}:00`;
-
-    // ================== BẮT ĐẦU ĐOẠN CODE SỬA LỖI 500 ==================
-    
-    // 1. CHẶN BỆNH NHÂN: Kiểm tra xem bệnh nhân có đang bận lịch nào khác không
-    if (patientId) {
-       const patientConflict = await models.Appointment.findOne({
-         where: {
-           patient_id: patientId,
-           appointment_date: appointment_date,
-           // [FIX]: Chỉ dùng 'cancelled' và 'passed'. Đã xóa 'rejected' vì không có trong DB
-           status: { [Op.notIn]: ['cancelled', 'passed'] }, 
-           [Op.and]: [
-             // Logic trùng giờ: (Start mới < End cũ) VÀ (End mới > Start cũ)
-             { appointment_start_time: { [Op.lt]: appointment_end_time } },
-             { appointment_end_time: { [Op.gt]: appointment_start_time } }
-           ]
-         },
-         transaction
-       });
-
-       if (patientConflict) {
-         await transaction.rollback();
-         return res.status(400).json({
-           success: false,
-           message: 'Bạn đã có lịch hẹn khác trùng với khung giờ này (hoặc chưa kết thúc).'
-         });
-       }
-    }
-
-    // 2. CHẶN BÁC SĨ: Kiểm tra xem bác sĩ có bị trùng lịch không
-    const doctorConflict = await models.Appointment.findOne({
-      where: {
-        doctor_id: doctor_id,
-        appointment_date: appointment_date,
-        // [FIX]: Chỉ dùng 'cancelled' và 'passed'. Đã xóa 'rejected'
-        status: { [Op.notIn]: ['cancelled', 'passed'] },
-        [Op.and]: [
-           { appointment_start_time: { [Op.lt]: appointment_end_time } },
-           { appointment_end_time: { [Op.gt]: appointment_start_time } }
-        ]
-      },
-      transaction
-    });
-
-    if (doctorConflict) {
-       await transaction.rollback();
-       return res.status(400).json({
-         success: false,
-         message: 'Bác sĩ đã có lịch hẹn khác vào khung giờ này.'
-       });
-    }
-    // ================== KẾT THÚC ĐOẠN CODE SỬA ==================
-    const slotCheck = await getAvailableSlotsLogic(doctor.id, service.id, appointment_date, transaction);
+    // CẬP NHẬT TRUYỀN PARAM `appointment_type`
+    const slotCheck = await getAvailableSlotsLogic(doctor.id, service.id, appointment_date, appointment_type, transaction);
     const chosenSlot = slotCheck.find(slot => slot.time === appointment_start_time);
 
     if (!chosenSlot || chosenSlot.status !== 'available') {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
-        message: 'Khung giờ này không khả dụng hoặc đã có người đặt. Vui lòng tải lại trang và chọn giờ khác.'
+        message: 'Khung giờ này đã hết chỗ hoặc bác sĩ bận. Vui lòng chọn ca khác.'
       });
     }
-    
-    const appointmentDateTime = new Date(`${appointment_date} ${appointment_start_time}`);
-    const guest_token = isGuest ? crypto.randomUUID() : null;
-    const staff_id = doctor.assigned_staff_id || null; 
 
-    let payment_status = 'unpaid';
-    let status = 'pending';
-    let payment_hold_until = new Date(appointmentDateTime.getTime() - 30 * 60 * 1000); 
+    const [startHour, startMin] = appointment_start_time.split(':').map(Number);
+    const endMinutes = (startHour * 60 + startMin) + service.duration; 
+    const appointment_end_time = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}:00`;
 
-    if (payment_method === 'cash' || service.price === 0) {
-      // [ĐÃ SỬA]: Nếu là tiền mặt thì để là 'unpaid' (Chờ thu), trừ khi giá = 0 mới miễn phí
-      payment_status = service.price === 0 ? 'not_required' : 'unpaid';
-      
-      status = 'pending'; 
-      payment_hold_until = null; 
+    // CẤP QUYỀN ƯU TIÊN VÌ ĐÃ ĐẶT TRƯỚC HỆ THỐNG
+    const queue_type = 'priority';
+
+    // TÍNH PAYMENT DEADLINE: 30 phút trước giờ khám (chỉ cho online payment)
+    const isOnlinePayment = ['vnpay', 'momo', 'bank_transfer'].includes(payment_method?.toLowerCase());
+    let payment_hold_until = null;
+    if (isOnlinePayment && service.price > 0) {
+      const appointmentDateTime = new Date(`${appointment_date} ${appointment_start_time}`);
+      payment_hold_until = new Date(appointmentDateTime.getTime() - 30 * 60 * 1000); // 30 phút trước
     }
+
+    const isPatientUser = user && user.role === 'patient';
+    const bookingContext = {
+      source: user && ['admin', 'staff'].includes(user.role) ? 'front_desk' : 'patient_portal',
+      booking_for: isPatientUser ? (booking_for === 'other' ? 'other' : 'self') : null,
+      relative_name: isPatientUser && booking_for === 'other' ? (relative_name || null) : null,
+      relationship: isPatientUser && booking_for === 'other' ? (relationship || null) : null,
+      booked_by_user_id: user?.id || null
+    };
 
     const appointment = await models.Appointment.create({
       patient_id: patientId,
       doctor_id,
       service_id,
       specialty_id: service.specialty_id,
-      staff_id,
+      staff_id: doctor.assigned_staff_id,
       guest_email: finalEmail,
       guest_name: finalFullName,
       guest_phone: finalPhone,
       guest_gender: guest_gender || null,
       guest_dob: guest_dob,
-      guest_token,
-      appointment_type: appointment_type || 'offline',
+      guest_token: !user ? crypto.randomUUID() : null,
+      booking_context: bookingContext,
+      appointment_type,
       appointment_date,
       appointment_start_time,
-      appointment_end_time,
-      status: status,
-      payment_status: payment_status,
-      payment_hold_until: payment_hold_until,
+      appointment_end_time: appointment_type === 'online' ? appointment_end_time : null, // Offline không cần end_time
+      status: 'pending',
+      payment_status: service.price === 0 ? 'not_required' : 'unpaid',
+      payment_method,
+      payment_hold_until, // Deadline thanh toán online (30 phút trước)
       reason,
-      reschedule_count: 0 
+      queue_type // Lưu quyền ưu tiên vào DB
     }, { transaction }); 
 
-    // (Gửi cho Patient)
-    if (patientId && user) {
-      const message = (status === 'confirmed')
-        ? `Lịch hẹn ${appointment.code} của bạn đã được XÁC NHẬN.`
-        : `Lịch hẹn ${appointment.code} đã được tạo. Vui lòng thanh toán trước hạn.`;
-        
-      await createInternalNotification({ 
-        user_id: user.id,
-        type: 'appointment', 
-        message: message,
-        link: `/lich-hen/${appointment.code}`, // SỬA LINK
-        transaction
-      });
-    }
-    
-    // (Gửi cho Bác sĩ)
-     await createInternalNotification({ 
-        user_id: doctor.user_id,
-        type: 'appointment', 
-        message: `Bạn có lịch hẹn mới mã ${appointment.code} (${status}) lúc ${appointment_start_time} ngày ${appointment_date}.`,
-        link: `/lich-hen/${appointment.code}`, // Link tới trang quản lý của BS
-        transaction
-      });
-      
-    // (Gửi cho Admin)
-    const admins = await models.User.findAll({ where: { role: 'admin' }, transaction });
-    for (const admin of admins) {
-         await createInternalNotification({ 
-            user_id: admin.id,
-            type: 'appointment', 
-            message: `Lịch hẹn mới ${appointment.code} (BS ${doctor.user.full_name}) vừa được tạo (Trạng thái: ${status}).`,
-            link: `/lich-hen/${appointment.code}`, // Link tới trang quản lý Admin
-            transaction
-      });
-    }
-
     await transaction.commit();
-
-    // SỬA: Gửi email xác nhận
-    try {
-      const emailTemplateData = {
-        patientName: finalFullName,
-        appointmentCode: appointment.code,
-        serviceName: service.name,
-        appointmentTime: `${appointment.appointment_start_time.slice(0, 5)} ngày ${new Date(appointment.appointment_date).toLocaleDateString('vi-VN')}`,
-        price: service.price,
-        doctorName: doctor.user.full_name,
-        
-        // SỬA LINK CHO USER
-        appointmentLink: `${process.env.CLIENT_URL || 'http://localhost:3000'}/lich-hen/${appointment.code}`,
-        
-        // SỬA LINK CHO GUEST (Trỏ chung về 1 link)
-        guestViewLink: isGuest ? `${process.env.CLIENT_URL || 'http://localhost:3000'}/guest/appointment/${guest_token}` : null,
-        guestRescheduleLink: isGuest ? `${process.env.CLIENT_URL || 'http://localhost:3000'}/guest/appointment/${guest_token}` : null,
-        guestCancelLink: isGuest ? `${process.env.CLIENT_URL || 'http://localhost:3000'}/guest/appointment/${guest_token}` : null,
-      };
-      
-      await emailSender.sendEmail({ 
-        to: finalEmail,
-        subject: `Xác nhận lịch hẹn ${appointment.code} tại Clinic System`,
-        template: 'appointment_confirmation', 
-        data: emailTemplateData
-      });
-      
-    } catch (emailError) {
-      console.error('Email sending error:', emailError);
-    }
-
-    res.status(201).json({
-      success: true,
-      message: 'Đặt lịch hẹn thành công!',
-      data: {
-        appointment, // Gửi appointment về
-        guest_token: isGuest ? guest_token : undefined,
-        paymentRequired: (payment_method === 'online' && service.price > 0),
-        paymentUrl: (payment_method === 'online' && service.price > 0) ? `/thanh-toan/${appointment.code}` : null, // Sửa: Dùng code
-        status: status 
-      }
-    });
+    res.status(201).json({ success: true, message: 'Đặt lịch hẹn thành công!', data: { appointment } });
 
   } catch (error) {
     if (transaction && !transaction.finished) await transaction.rollback();
     console.error('ERROR in createAppointment:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Lỗi máy chủ khi tạo lịch hẹn.'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -540,92 +430,6 @@ exports.completePayment = async (req, res) => {
 
 
 /**
- * Admin/Staff: Cập nhật thông tin thanh toán (Thu tiền tại quầy)
- * Fix lỗi: Tìm theo Code và Đồng bộ sang bảng Payment
- * Route: PUT /api/appointments/:id/payment
- */
-exports.updatePaymentInfo = async (req, res) => {
-  const t = await sequelize.transaction();
-  try {
-    const { id } = req.params; // Đây là CODE (VD: AP-2111...) gửi từ Frontend
-    const { payment_status, payment_method, paid_at, amount } = req.body;
-
-    // 1. TÌM LỊCH HẸN BẰNG CODE (Ưu tiên) HOẶC ID
-    let appointment = await models.Appointment.findOne({ 
-        where: { code: id }, 
-        include: [{ model: models.Service, as: 'Service' }],
-        transaction: t 
-    });
-    
-    // Fallback: Nếu không tìm thấy bằng code thì tìm bằng ID
-    if (!appointment && !isNaN(id)) {
-        appointment = await models.Appointment.findByPk(id, {
-            include: [{ model: models.Service, as: 'Service' }],
-            transaction: t
-        });
-    }
-
-    if (!appointment) {
-      await t.rollback();
-      return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn với mã: ' + id });
-    }
-
-    // 2. CẬP NHẬT TRẠNG THÁI LỊCH HẸN
-    const updates = {};
-    if (payment_status) updates.payment_status = payment_status;
-    if (payment_method) updates.payment_method = payment_method;
-    if (paid_at) updates.paid_at = new Date(paid_at);
-    
-    // Nếu đã thanh toán -> Tự động xác nhận lịch hẹn luôn
-    if (payment_status === 'paid_at_clinic' || payment_status === 'paid_online') {
-        updates.status = 'confirmed'; 
-        if (!updates.paid_at) updates.paid_at = new Date();
-    }
-
-    await appointment.update(updates, { transaction: t });
-
-    // 3. QUAN TRỌNG: ĐỒNG BỘ SANG BẢNG PAYMENT (Để xem chi tiết không bị lỗi)
-    // Tìm xem đã có bản ghi thanh toán chưa
-    let payment = await models.Payment.findOne({ 
-        where: { appointment_id: appointment.id }, 
-        transaction: t 
-    });
-
-    const paymentData = {
-      user_id: appointment.patient_id || req.user.id, // Nếu không có bệnh nhân thì lấy ID người thao tác
-      appointment_id: appointment.id,
-      amount: amount || appointment.Service?.price || 0, // Lấy số tiền từ request hoặc từ dịch vụ
-      method: payment_method || 'cash',
-      status: (payment_status === 'paid_at_clinic' || payment_status === 'paid_online') ? 'paid' : 'pending',
-      transaction_id: `MANUAL_${Date.now()}`, // Mã giao dịch thủ công
-      payment_info: JSON.stringify({ 
-          updated_by: req.user.id, 
-          note: 'Thu ngân xác nhận tại quầy',
-          date: new Date()
-      })
-    };
-
-    if (payment) {
-      // Nếu có rồi thì update
-      await payment.update(paymentData, { transaction: t });
-    } else {
-      // Chưa có thì tạo mới
-      // Tạo mã thanh toán ngẫu nhiên nếu Payment model yêu cầu code
-      paymentData.code = `PY${Date.now()}`; 
-      await models.Payment.create(paymentData, { transaction: t });
-    }
-
-    await t.commit();
-    res.json({ success: true, message: 'Thu tiền thành công & Đã cập nhật trạng thái!', data: appointment });
-
-  } catch (error) {
-    await t.rollback();
-    console.error('ERROR updatePaymentInfo:', error);
-    res.status(500).json({ success: false, message: 'Lỗi khi cập nhật thanh toán: ' + error.message });
-  }
-};
-
-/**
  * @desc    Lấy lịch trống của bác sĩ (API Endpoint)
  * @route   GET /api/appointments/available-slots
  * @access  Public
@@ -702,11 +506,10 @@ exports.getMyAppointments = async (req, res) => {
         { model: models.Service, as: 'Service' },
         { model: models.MedicalRecord, as: 'MedicalRecord' },
         
-        // ✅ BỔ SUNG QUAN TRỌNG: Lấy thông tin thanh toán
         { 
             model: models.Payment, 
             as: 'Payment',
-            required: false // Left join để lấy cả lịch chưa thanh toán
+            required: false 
         } 
       ],
       order: [['appointment_date', 'DESC'], ['appointment_start_time', 'DESC']]
@@ -719,6 +522,7 @@ exports.getMyAppointments = async (req, res) => {
     res.status(500).json({ success: false, message: 'Lỗi máy chủ khi lấy danh sách lịch hẹn', error: error.message });
   }
 };
+
 /**
  * @desc    Lấy chi tiết lịch hẹn
  * @route   GET /api/appointments/:id (id là code)
@@ -1594,112 +1398,41 @@ exports.getStaffManagedAppointments = async (req, res) => {
  * Sắp xếp theo queue_number (STT khám), rồi theo giờ hẹn
  * @route GET /api/appointments/staff/clinical-queue
  */
+// =================================================================
+// 4. LẤY HÀNG ĐỢI LÂM SÀNG (BÁC SĨ / LỄ TÂN GỌI SỐ)
+// =================================================================
 exports.getClinicalQueue = async (req, res) => {
   try {
     const { date, doctor_id, status, search } = req.query;
+    const where = { appointment_type: 'offline' }; // Chỉ xuất hàng đợi Offline
 
-    const where = {
-      appointment_type: 'offline' // Chỉ lịch khám dịch vụ
-    };
+    where.appointment_date = date && date !== 'all' ? date : new Date().toISOString().split('T')[0];
 
-    if (date && date !== 'all') {
-       where.appointment_date = date;
-    } else if (!date) {
-       where.appointment_date = new Date().toISOString().split('T')[0];
-    }
+    if (doctor_id) where.doctor_id = parseInt(doctor_id);
 
-    // === BẮT ĐẦU: LOGIC CHỈ LẤY LỊCH CỦA BÁC SĨ DO STAFF QUẢN LÝ ===
-    if (req.user && req.user.role === 'staff') {
-      const staffProfile = await models.Staff.findOne({ where: { user_id: req.user.id } });
-      let managedData = staffProfile?.managed_doctors;
-      if (typeof managedData === 'string') {
-        try { managedData = JSON.parse(managedData); } catch (e) { managedData = {}; }
-      }
-      const managedDoctorIds = (managedData?.doctor_ids || []).map(id => Number(id));
-
-      if (managedDoctorIds.length > 0) {
-        // Nếu có truyền sẵn doctor_id từ frontend thì check xem có thuộc quyền quản lý ko
-        if (doctor_id && managedDoctorIds.includes(Number(doctor_id))) {
-          where.doctor_id = Number(doctor_id);
-        } else {
-          // Lấy tất cả lịch của các bác sĩ nằm trong danh sách quản lý
-          where.doctor_id = { [Op.in]: managedDoctorIds };
-        }
-      } else {
-        // Staff chưa được phân công bác sĩ nào -> Trả về mảng rỗng ngay
-        return res.status(200).json({ success: true, data: [], total: 0, date: date });
-      }
-    } else if (doctor_id) {
-      where.doctor_id = parseInt(doctor_id); // Dành cho Admin hoặc Role khác
-    }
-    // === KẾT THÚC LOGIC ===
-
-    // Chỉ lấy các trạng thái liên quan đến luồng khám
     const relevantStatuses = ['confirmed', 'upcoming', 'waiting_pay', 'waiting_exam', 'in_progress', 'completed'];
-    if (status && status !== 'all') {
-      where.status = status;
-    } else {
-      where.status = { [Op.in]: relevantStatuses };
-    }
+    where.status = status && status !== 'all' ? status : { [Op.in]: relevantStatuses };
 
+    const { literal } = require('sequelize');
     const appointments = await models.Appointment.findAll({
       where,
       include: [
-        {
-          model: models.Patient,
-          as: 'Patient',
-          required: false,
-          include: [{
-            model: models.User,
-            attributes: ['full_name', 'email', 'phone', 'avatar_url'], // Đã sửa thành avatar_url
-            required: false
-          }]
-        },
-        {
-          model: models.Doctor,
-          as: 'Doctor',
-          include: [
-            { model: models.User, as: 'user', attributes: ['full_name'] },
-            { model: models.Specialty, as: 'specialty', attributes: ['name'] }
-          ]
-        },
-        { model: models.Service, as: 'Service', attributes: ['name', 'price'] },
-        {
-          model: models.MedicalRecord,
-          as: 'MedicalRecord',
-          attributes: ['id', 'vitals_json', 'clinical_note', 'record_stage', 'diagnosis'],
-          required: false
-        }
+        { model: models.Patient, as: 'Patient', include: [{ model: models.User }] },
+        { model: models.Service, as: 'Service' }
       ],
+      // [QUAN TRỌNG]: THUẬT TOÁN XẾP HÀNG XEN KẼ
+      // 1. Ai đang khám (in_progress) thì đứng số 1.
+      // 2. Mã U (Priority) xếp trên mã N (Normal).
+      // 3. Xếp theo số thứ tự hiển thị tăng dần.
       order: [
-        [sequelize.literal(`CASE WHEN queue_number IS NULL THEN 1 ELSE 0 END`), 'ASC'],
-        ['queue_number', 'ASC'],
-        ['appointment_start_time', 'ASC']
+        [literal(`CASE WHEN status = 'in_progress' THEN 0 ELSE 1 END`), 'ASC'], 
+        [literal(`CASE WHEN display_queue LIKE 'U%' THEN 1 WHEN display_queue LIKE 'N%' THEN 2 ELSE 3 END`), 'ASC'], 
+        [literal('CAST(SUBSTRING(display_queue, 2) AS UNSIGNED)'), 'ASC'], 
+        ['appointment_start_time', 'ASC'] // Rớt xuống đây nếu chưa cấp số (Khách hẹn chưa tới viện)
       ]
     });
 
-    // Filter search phía server
-    let result = appointments;
-    if (search) {
-      const q = search.toLowerCase();
-      result = appointments.filter(a => {
-        const name = a.Patient?.User?.full_name || a.guest_name || '';
-        const code = a.code || '';
-        const phone = a.Patient?.User?.phone || a.guest_phone || '';
-        return (
-          name.toLowerCase().includes(q) ||
-          code.toLowerCase().includes(q) ||
-          phone.includes(q)
-        );
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: result,
-      total: result.length,
-      date: date || new Date().toISOString().split('T')[0]
-    });
+    res.status(200).json({ success: true, data: appointments });
 
   } catch (error) {
     console.error('ERROR in getClinicalQueue:', error);
@@ -2141,16 +1874,17 @@ exports.updatePaymentInfo = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
     }
 
+    const normalizedMethod = payment_method === 'transfer' ? 'bank_transfer' : payment_method;
+    const resolvedPaymentStatus = payment_status || 'paid_at_clinic';
+
     // 2. CẬP NHẬT TRẠNG THÁI LỊCH HẸN (APPOINTMENT)
     const updates = {};
     
     // [FIX LOGIC] Tôn trọng dữ liệu Frontend gửi lên
     // Nếu Frontend gửi 'paid_at_clinic' -> Lưu y nguyên 'paid_at_clinic'
-    if (payment_status) {
-        updates.payment_status = payment_status; 
-    }
+    updates.payment_status = resolvedPaymentStatus;
     
-    if (payment_method) updates.payment_method = payment_method;
+    if (normalizedMethod) updates.payment_method = normalizedMethod;
     if (paid_at) updates.paid_at = new Date(paid_at);
     
     // Logic phụ: Nếu đã thanh toán (dù online hay tại quầy) -> Xác nhận lịch luôn
@@ -2173,7 +1907,7 @@ exports.updatePaymentInfo = async (req, res) => {
       user_id: appointment.patient_id || (req.user ? req.user.id : 1),
       appointment_id: appointment.id,
       amount: amount || appointment.Service?.price || 0, // Ưu tiên lấy số tiền thực thu gửi từ Frontend
-      method: payment_method || 'cash',
+      method: normalizedMethod || payment?.method || 'cash',
       status: 'paid', // Bảng Payment chỉ cần biết là 'paid' (đã thu tiền)
       transaction_id: `MANUAL_${Date.now()}`,
       payment_info: JSON.stringify({ 
@@ -2189,6 +1923,63 @@ exports.updatePaymentInfo = async (req, res) => {
       await models.Payment.create(paymentData, { transaction: t });
     }
 
+    // 4. GỬI THÔNG BÁO CHO BÁC SĨ NẾU APPOINTMENT ĐƯỢC XÁC NHẬN
+    if (updates.status === 'confirmed') {
+      const notificationHelper = require('../utils/notificationHelper');
+      const doctorNotifications = [];
+      
+      // Load lại doctor & staff info
+      const fullAppt = await models.Appointment.findByPk(appointment.id, {
+        include: [
+          { model: models.Service, as: 'Service' },
+          { model: models.Doctor, as: 'Doctor', include: [{ model: models.User, as: 'user' }] },
+          { model: models.Patient, as: 'Patient', include: [{ model: models.User }] }
+        ],
+        transaction: t
+      });
+
+      if (fullAppt) {
+        const patientName = fullAppt.Patient?.User?.full_name || fullAppt.guest_name || 'Quý khách';
+        const serviceName = fullAppt.Service?.name || 'Dịch vụ y tế';
+        const timeStr = `${fullAppt.appointment_start_time.slice(0,5)} - ${new Date(fullAppt.appointment_date).toLocaleDateString('vi-VN')}`;
+
+        // Gửi notification cho Bác sĩ
+        if (fullAppt.Doctor?.user_id) {
+          doctorNotifications.push({
+            user_id: fullAppt.Doctor.user_id,
+            type: 'appointment_confirmed',
+            title: `[Xác nhận] Lịch hẹn ${fullAppt.code}`,
+            message: `Lịch hẹn ${fullAppt.code} được xác nhận: ${patientName} - ${serviceName} lúc ${timeStr}`,
+            link: `/lich-hen/${fullAppt.code}`,
+            data: { appointment_id: fullAppt.id, appointment_code: fullAppt.code }
+          });
+        }
+
+        // Gửi notification cho Staff
+        if (fullAppt.staff_id) {
+          const staffUser = await models.User.findOne({ 
+            where: { role: 'staff', id: fullAppt.staff_id },
+            transaction: t
+          });
+          if (staffUser) {
+            doctorNotifications.push({
+              user_id: staffUser.id,
+              type: 'appointment_confirmed',
+              title: `[Xác nhận] Lịch hẹn ${fullAppt.code}`,
+              message: `Lịch hẹn ${fullAppt.code} được xác nhận: ${patientName} - ${serviceName} lúc ${timeStr}`,
+              link: `/lich-hen/${fullAppt.code}`,
+              data: { appointment_id: fullAppt.id, appointment_code: fullAppt.code }
+            });
+          }
+        }
+
+        if (doctorNotifications.length > 0) {
+          await notificationHelper.createNotifications(doctorNotifications);
+          console.log(`[Appointment ${code}] Gửi thông báo xác nhận cho ${doctorNotifications.length} người`);
+        }
+      }
+    }
+
     await t.commit();
     res.json({ success: true, message: 'Thu tiền thành công!', data: appointment });
 
@@ -2202,78 +1993,79 @@ exports.updatePaymentInfo = async (req, res) => {
 /**
  * @desc    Check-in tại quầy (Cấp số chuẩn MAX + 1)
  */
+// =================================================================
+// 3. CHECK-IN (LỄ TÂN CẤP SỐ THỨ TỰ TẠI QUẦY)
+// =================================================================
 exports.checkIn = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { code } = req.params;
     const { type } = req.body; 
 
-    // Tìm lịch hẹn
     const appointment = await models.Appointment.findOne({ where: { code }, transaction: t });
     if (!appointment) {
       await t.rollback();
       return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
     }
 
-    // Lấy ngày hiện tại theo giờ Việt Nam
     const today = moment().format('YYYY-MM-DD'); 
     let updateData = { checked_in_at: new Date() };
 
-    // --- LOGIC 1: CẤP SỐ THANH TOÁN ---
+    // --- LOGIC CẤP SỐ THANH TOÁN ---
     if (type === 'payment') {
-      // Tìm số lớn nhất trong ngày (thay vì đếm)
       const maxRecord = await models.Appointment.findOne({
-        where: {
-          appointment_date: today,
-          payment_queue_number: { [Op.ne]: null }
-        },
-        order: [['payment_queue_number', 'DESC']], // Lấy số to nhất
+        where: { appointment_date: today, payment_queue_number: { [Op.ne]: null } },
+        order: [['payment_queue_number', 'DESC']],
         attributes: ['payment_queue_number'],
         transaction: t
       });
-      
-      // Số mới = Số lớn nhất + 1 (Nếu chưa có ai thì là 1)
-      const nextNumber = (maxRecord?.payment_queue_number || 0) + 1;
-      
-      updateData.payment_queue_number = nextNumber;
-      updateData.status = 'waiting_pay'; // Chuyển trạng thái sang chờ thanh toán
+      updateData.payment_queue_number = (maxRecord?.payment_queue_number || 0) + 1;
+      updateData.status = 'waiting_pay'; 
     } 
     
-    // --- LOGIC 2: CẤP SỐ KHÁM ---
+    // --- LOGIC CẤP SỐ LÂM SÀNG (BÁC SĨ KHÁM) ---
     else if (type === 'clinical') {
-      const maxRecord = await models.Appointment.findOne({
-        where: {
-          appointment_date: today,
-          doctor_id: appointment.doctor_id,
-          queue_number: { [Op.ne]: null }
-        },
+      const queueType = appointment.queue_type || 'normal'; 
+      const prefix = queueType === 'priority' ? 'U' : 'N'; // U: Đặt lịch trước | N: Vãng lai
+
+      // Cấp số thứ tự nguyên (để lưu DB)
+      const maxQueueNumRecord = await models.Appointment.findOne({
+        where: { appointment_date: today, doctor_id: appointment.doctor_id, queue_number: { [Op.ne]: null } },
         order: [['queue_number', 'DESC']],
         attributes: ['queue_number'],
         transaction: t
       });
+      const nextQueueNumber = (maxQueueNumRecord?.queue_number || 0) + 1;
+
+      // Cấp chuỗi hiển thị theo từng Prefix U hoặc N riêng biệt
+      const { literal } = require('sequelize');
+      const maxDisplayRecord = await models.Appointment.findOne({
+        where: { 
+          appointment_date: today, doctor_id: appointment.doctor_id, 
+          display_queue: { [Op.like]: `${prefix}%` } 
+        },
+        order: [[literal('CAST(SUBSTRING(display_queue, 2) AS UNSIGNED)'), 'DESC']],
+        attributes: ['display_queue'],
+        transaction: t
+      });
       
-      const nextNumber = (maxRecord?.queue_number || 0) + 1;
-      updateData.queue_number = nextNumber;
+      let nextDisplayNum = 1;
+      if (maxDisplayRecord && maxDisplayRecord.display_queue) {
+         nextDisplayNum = parseInt(maxDisplayRecord.display_queue.substring(1)) + 1;
+      }
+
+      updateData.queue_number = nextQueueNumber;
+      updateData.display_queue = `${prefix}${String(nextDisplayNum).padStart(2, '0')}`;
       updateData.status = 'waiting_exam';
     }
 
     await appointment.update(updateData, { transaction: t });
     await t.commit();
 
-    // Trả về dữ liệu đầy đủ để in phiếu
-    const fullAppointment = await models.Appointment.findOne({
-      where: { id: appointment.id },
-      include: [
-        { model: models.Patient, as: 'Patient', include: [{ model: models.User }] },
-        { model: models.Doctor, as: 'Doctor', include: [{ model: models.User, as: 'user' }] },
-        { model: models.Service, as: 'Service' },
-      ]
-    });
-
     res.json({ 
       success: true, 
-      message: `Đã cấp số thành công: ${type === 'payment' ? updateData.payment_queue_number : updateData.queue_number}`,
-      data: fullAppointment
+      message: `Cấp số thành công: ${updateData.display_queue || updateData.payment_queue_number}`,
+      data: appointment
     });
 
   } catch (error) {
@@ -2283,6 +2075,9 @@ exports.checkIn = async (req, res) => {
   }
 };
 
+// =================================================================
+// 2. TẠO LỊCH WALK-IN (LỄ TÂN TẠO CHO KHÁCH TẠI QUẦY)
+// =================================================================
 exports.createWalkInAppointment = async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -2292,63 +2087,153 @@ exports.createWalkInAppointment = async (req, res) => {
       payment_method = 'cash', reason
     } = req.body;
 
-    if (!guest_name || !guest_phone || !service_id || !doctor_id || !appointment_date || !appointment_start_time) {
+    if (!guest_name || !guest_phone || !service_id || !doctor_id || !appointment_date) {
       await t.rollback();
       return res.status(400).json({ success: false, message: 'Thiếu thông tin bắt buộc' });
     }
 
     const service = await models.Service.findByPk(service_id, { transaction: t });
-    if (!service) { await t.rollback(); return res.status(404).json({ success: false, message: 'Dịch vụ không tồn tại' }); }
+    
+    // Khách vãng lai lấy số tại quầy luôn là Offline và Normal Priority
+    const queue_type = 'normal'; 
+    const appointment_time = appointment_start_time || moment().format('HH:mm:ss');
 
-    const [startHour, startMin] = appointment_start_time.split(':').map(Number);
-    const endMinutes = startHour * 60 + startMin + service.duration;
-    const appointment_end_time = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}:00`;
-
-    // Cấp số thứ tự thanh toán ngay lúc tạo
-    const maxRecord = await models.Appointment.findOne({
+    const maxPayRecord = await models.Appointment.findOne({
       where: { appointment_date, payment_queue_number: { [Op.ne]: null } },
       order: [['payment_queue_number', 'DESC']],
       attributes: ['payment_queue_number'],
       transaction: t
     });
-    const payment_queue_number = (maxRecord?.payment_queue_number || 0) + 1;
+    const payment_queue_number = (maxPayRecord?.payment_queue_number || 0) + 1;
 
     const appointment = await models.Appointment.create({
-      guest_name,
-      guest_phone,
-      guest_email: guest_email || null,
-      guest_dob: guest_dob || null,
-      guest_gender: guest_gender || null,
-      doctor_id,
-      service_id,
-      specialty_id: service.specialty_id,
+      guest_name, guest_phone, guest_email, guest_dob, guest_gender,
+      doctor_id, service_id, specialty_id: service.specialty_id,
       appointment_date,
-      appointment_start_time,
-      appointment_end_time,
+      appointment_start_time: appointment_time, // Giờ bệnh nhân xuất hiện
+      appointment_end_time: null, 
       appointment_type: 'offline',
-      status: 'waiting_pay',
+      status: 'waiting_pay', // Tự động đẩy qua hàng chờ thu ngân
       payment_status: 'unpaid',
       payment_method,
       payment_queue_number,
-      checked_in_at: new Date(),
-      reason: reason || null
+      checked_in_at: new Date(), 
+      queue_type: queue_type, // 'normal'
+      reason,
+      booking_context: {
+        source: 'front_desk_walkin',
+        booked_by_user_id: req.user?.id || null
+      }
     }, { transaction: t });
 
     await t.commit();
-
-    const full = await models.Appointment.findOne({
-      where: { id: appointment.id },
-      include: [
-        { model: models.Doctor, as: 'Doctor', include: [{ model: models.User, as: 'user', attributes: ['full_name'] }] },
-        { model: models.Service, as: 'Service' }
-      ]
-    });
-
-    res.status(201).json({ success: true, message: 'Tạo lịch walk-in thành công', data: full });
+    res.status(201).json({ success: true, message: 'Tạo lịch walk-in thành công', data: appointment });
   } catch (error) {
     if (t && !t.finished) await t.rollback();
     console.error('ERROR createWalkInAppointment:', error);
-    res.status(500).json({ success: false, message: 'Lỗi server: ' + error.message });
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+/**
+ * @desc    Đổi phương thức thanh toán
+ * @route   PUT /api/appointments/:code/change-payment-method
+ * @access  Private (Patient chính chủ hoặc Guest với token)
+ */
+exports.changePaymentMethod = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const { code } = req.params;
+    const { payment_method } = req.body;
+    const user = req.user;
+
+    if (!code || !payment_method) {
+      await transaction.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Thiếu appointment code hoặc payment_method' 
+      });
+    }
+
+    const appointment = await models.Appointment.findOne({
+      where: { code },
+      include: [
+        { model: models.Patient, as: 'Patient', include: [{ model: models.User, as: 'user' }] },
+        { model: models.Service, as: 'Service' }
+      ],
+      transaction
+    });
+
+    if (!appointment) {
+      await transaction.rollback();
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Không tìm thấy lịch hẹn' 
+      });
+    }
+
+    // Kiểm tra quyền: Bệnh nhân chính chủ hoặc Guest
+    const isOwner = user && appointment.Patient?.user_id === user.id;
+    const isGuest = !user && req.query?.token === appointment.guest_token;
+
+    if (!isOwner && !isGuest) {
+      await transaction.rollback();
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Bạn không có quyền đổi phương thức thanh toán' 
+      });
+    }
+
+    // Kiểm tra điều kiện: Chỉ cho phép đổi nếu status = pending và payment_status = unpaid
+    if (appointment.status !== 'pending' || appointment.payment_status !== 'unpaid') {
+      await transaction.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Chỉ có thể đổi phương thức thanh toán khi lịch hẹn chưa xác nhận và chưa thanh toán' 
+      });
+    }
+
+    // Normalize payment_method
+    const normalizedMethod = payment_method === 'transfer' ? 'bank_transfer' : payment_method;
+
+    // Tính toán payment_hold_until nếu đổi thành online
+    const isOnlinePayment = ['vnpay', 'momo', 'bank_transfer'].includes(normalizedMethod?.toLowerCase());
+    let payment_hold_until = null;
+    
+    if (isOnlinePayment && appointment.Service?.price > 0) {
+      const appointmentDateTime = new Date(`${appointment.appointment_date} ${appointment.appointment_start_time}`);
+      payment_hold_until = new Date(appointmentDateTime.getTime() - 30 * 60 * 1000); // 30 phút trước
+    }
+
+    // Update appointment
+    await appointment.update({
+      payment_method: normalizedMethod,
+      payment_hold_until
+    }, { transaction });
+
+    // Log thay đổi
+    console.log(`[Appointment ${code}] Đổi phương thức thanh toán từ ${appointment.payment_method} sang ${normalizedMethod}`);
+
+    await transaction.commit();
+
+    res.status(200).json({
+      success: true,
+      message: 'Đổi phương thức thanh toán thành công',
+      data: {
+        appointment: {
+          code: appointment.code,
+          payment_method: normalizedMethod,
+          payment_hold_until,
+          payment_status: appointment.payment_status
+        }
+      }
+    });
+
+  } catch (error) {
+    if (transaction && !transaction.finished) await transaction.rollback();
+    console.error('ERROR changePaymentMethod:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

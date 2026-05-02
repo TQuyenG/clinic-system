@@ -75,40 +75,71 @@ module.exports = async function seedProfiles(models, transaction, context = {}) 
   // Doctors
   const doctorCount = await models.Doctor.count({ transaction });
   const specialties = context.specialties || [];
-  const doctorsData = doctorUsers.map((u, idx) => ({
-    user_id: u.id,
-    username: u.username,
-    code: `DR${String(doctorCount + idx + 1).padStart(5, '0')}`,
-    specialty_id: specialties.length ? specialties[idx % specialties.length].id : null,
-    experience_years: 5 + (idx % 20),
-    title: ['BS.', 'ThS.', 'TS.', 'PGS. TS.'][idx % 4],
-    position: ['Bác sĩ chính', 'Trưởng khoa', 'Bác sĩ điều trị', 'Chuyên gia tư vấn'][idx % 4],
-    workplace: [`Bệnh viện Trung ương ${idx+1}`, `Phòng khám Đa khoa ${idx+1}`][idx % 2],
-    specializations: [
-      specialties.length ? specialties[idx % specialties.length].name : 'Nội tổng quát',
-      'Siêu âm',
-      'Điện tim'
-    ],
-    bio: `Bác sĩ ${u.full_name} có kinh nghiệm ${5 + (idx % 20)} năm trong lĩnh vực ${specialties.length ? specialties[idx % specialties.length].name : 'y khoa'}.`,
-    education: [
-      { year: 2005 + (idx % 10), degree: 'Bác sĩ Y khoa', institution: `Đại học Y Hà Nội`, description: null },
-      { year: 2010 + (idx % 5), degree: 'Chuyên khoa cấp I/II', institution: `Bệnh viện ${idx+1}`, description: null }
-    ],
-    certifications: [
-      { name: 'Chứng chỉ chuyên môn', link: null }
-    ],
-    work_experience: [
-      { period: `${2011 + idx}-${2015 + idx}`, position: 'Bác sĩ', hospital: `Bệnh viện ${idx+1}`, department: specialties.length ? specialties[idx % specialties.length].name : null, description: null }
-    ],
-    research: [
-      { title: `Nghiên cứu ${idx+1} về ${specialties.length ? specialties[idx % specialties.length].name : 'y khoa'}`, journal: 'Tạp chí Y học', year: 2018 + (idx % 5), authors: u.full_name }
-    ],
-    achievements: [
-      { title: `Thành tích ${idx+1}`, link: null }
-    ],
-    created_at: new Date(),
-    updated_at: new Date()
-  }));
+  const buildSpecialtyDistribution = (specialtyList, totalDoctors) => {
+    if (!specialtyList.length || totalDoctors <= 0) return [];
+    const minPerSpecialty = 2;
+    const maxPerSpecialty = 5;
+    const counts = specialtyList.map(() => minPerSpecialty);
+    let remaining = totalDoctors - (minPerSpecialty * specialtyList.length);
+    if (remaining < 0) {
+      // Nếu thiếu doctors, trải đều 1 bác sĩ/chuyên khoa trước rồi cắt bớt ở cuối
+      return specialtyList.map((spec, idx) => ({ specialty: spec, count: idx < totalDoctors ? 1 : 0 }));
+    }
+    while (remaining > 0) {
+      const index = Math.floor(Math.random() * specialtyList.length);
+      if (counts[index] < maxPerSpecialty) {
+        counts[index] += 1;
+        remaining -= 1;
+      }
+    }
+    return specialtyList.map((spec, idx) => ({ specialty: spec, count: counts[idx] }));
+  };
+
+  const specialtyDistribution = buildSpecialtyDistribution(specialties, doctorUsers.length);
+  const doctorAssignments = [];
+  specialtyDistribution.forEach(({ specialty, count }) => {
+    for (let i = 0; i < count; i++) {
+      doctorAssignments.push(specialty);
+    }
+  });
+
+  const doctorsData = doctorUsers.map((u, idx) => {
+    const specialty = doctorAssignments[idx] || specialties[idx % specialties.length] || null;
+    const years = 5 + (idx % 18);
+    const title = ['BS.', 'ThS.', 'TS.', 'PGS. TS.'][idx % 4];
+    const position = ['Bác sĩ điều trị', 'Bác sĩ chính', 'Trưởng khoa', 'Chuyên gia tư vấn'][idx % 4];
+    return {
+      user_id: u.id,
+      username: u.username,
+      code: `DR${String(doctorCount + idx + 1).padStart(5, '0')}`,
+      specialty_id: specialty ? specialty.id : null,
+      experience_years: years,
+      title,
+      position,
+      workplace: specialty ? `${specialty.name} - Phòng khám số ${idx + 1}` : `Bệnh viện Trung ương ${idx + 1}`,
+      specializations: specialty ? [specialty.name, 'Tư vấn chuyên khoa', 'Khám tổng quát'] : ['Nội tổng quát', 'Siêu âm', 'Điện tim'],
+      bio: specialty ? `Bác sĩ ${u.full_name} phụ trách chuyên khoa ${specialty.name}, có ${years} năm kinh nghiệm lâm sàng.` : `Bác sĩ ${u.full_name} có ${years} năm kinh nghiệm lâm sàng.`,
+      education: [
+        { year: 2005 + (idx % 10), degree: 'Bác sĩ Y khoa', institution: 'Đại học Y Hà Nội', description: null },
+        { year: 2010 + (idx % 6), degree: 'Chuyên khoa cấp I/II', institution: specialty ? `${specialty.name} - Bệnh viện tuyến cuối` : `Bệnh viện ${idx + 1}`, description: null }
+      ],
+      certifications: [
+        { name: specialty ? `Chứng chỉ ${specialty.name}` : 'Chứng chỉ chuyên môn', link: null },
+        { name: 'Chứng chỉ Giao tiếp lâm sàng', link: null }
+      ],
+      work_experience: [
+        { period: `${2012 + idx}-${2016 + idx}`, position, hospital: specialty ? `Khoa ${specialty.name} - Bệnh viện đa khoa` : `Bệnh viện ${idx + 1}`, department: specialty ? specialty.name : null, description: null }
+      ],
+      research: [
+        { title: `Nghiên cứu về ${specialty ? specialty.name : 'y khoa tổng quát'}`, journal: 'Tạp chí Y học', year: 2018 + (idx % 5), authors: u.full_name }
+      ],
+      achievements: [
+        { title: specialty ? `Thành tích chuyên khoa ${specialty.name}` : `Thành tích lâm sàng ${idx + 1}`, link: null }
+      ],
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+  });
   const doctors = doctorsData.length ? await models.Doctor.bulkCreate(doctorsData, { transaction, validate: true }) : [];
 
   // Admins

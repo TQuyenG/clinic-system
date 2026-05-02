@@ -484,6 +484,38 @@ input[type=number] { -moz-appearance: textfield; }
   gap: 8px;
 }
 
+.frd-toggle-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.frd-toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--frd-gray-300);
+  border-radius: var(--frd-radius-sm);
+  background: var(--frd-white);
+  color: var(--frd-gray-700);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--frd-transition);
+}
+
+.frd-toggle-item input {
+  margin: 0;
+}
+
+.frd-toggle-item.active {
+  border-color: var(--frd-green-500);
+  background: var(--frd-green-50);
+  color: var(--frd-green-700);
+  box-shadow: 0 0 0 2px rgba(67,160,71,0.08);
+}
+
 /* ══════════════════════════════════
    SEARCH BOX
 ══════════════════════════════════ */

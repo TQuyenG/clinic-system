@@ -528,6 +528,41 @@ const getDefaultSystemSettings = () => {
         contact_email: 'legal@clinicsystem.vn',
         contact_phone: '(028) 3822 1234'
       }
+    },
+
+    // ===== [MỚI] APPOINTMENT OPTIMIZATION CONFIG =====
+    {
+      setting_key: 'appointment_capacity_config',
+      value_json: {
+        enabled: true,
+        comment: 'Config quản lý quỹ thời gian động cho appointment system',
+        
+        // Thời lượng 1 khung (slot) - dùng để chia nhỏ Ca làm việc
+        slot_duration_minutes: 30,
+        
+        // Thời gian khám trung bình trên 1 bệnh nhân (tính toán sức chứa)
+        avg_consultation_time: 10,
+        
+        // Tỷ lệ xen kẽ U:N (Priority:Normal)
+        // Ví dụ: '2:1' = gọi 2 U rồi gọi 1 N để công bằng
+        queue_interleave_ratio: '2:1',
+        
+        // Thời gian chờ tối đa trước khi ưu tiên
+        max_wait_time_minutes: 30,
+        
+        // Thời gian chênh lệch để coi là late arrival  
+        late_arrival_threshold_minutes: 5,
+        
+        // Online appointment: bắt buộc thanh toán trước
+        online_require_prepayment: true,
+        online_slot_duration_minutes: 30,
+        
+        // Cấp cứu: bypass capacity, ưu tiên tuyệt đối
+        enable_urgent_priority: true,
+        
+        // Log & debug
+        enable_debug_logging: true
+      }
     }
   ];
 };

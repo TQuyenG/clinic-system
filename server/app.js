@@ -40,6 +40,7 @@ const chatRoutes = require('./routes/chatRoutes');
 const marketingRoutes = require('./routes/marketingRoutes');
 const pharmacyRoutes = require('./routes/pharmacyRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const corporateBookingRoutes = require('./routes/corporateBookingRoutes');
 
 // Khởi tạo ứng dụng Express
 const app = express();
@@ -111,6 +112,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/marketing', marketingRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/corporate', corporateBookingRoutes);
 
 // ========== HEALTH CHECK ENDPOINT ==========
 app.get('/api/health', (req, res) => {
@@ -369,6 +371,14 @@ global.wsSendToUser = sendToUser;
 // Import và khởi động Status Updater Cron Job
 const { startStatusUpdaterCron } = require('./jobs/statusUpdater');
 startStatusUpdaterCron();
+
+// Import và khởi động Appointment Reminder Job (1 tiếng trước)
+const { startAppointmentReminderJob } = require('./jobs/appointmentReminderJob');
+startAppointmentReminderJob();
+
+// Import và khởi động Payment Deadline Job (auto-cancel nếu deadline qua)
+const { startPaymentDeadlineJob } = require('./jobs/paymentDeadlineJob');
+startPaymentDeadlineJob();
 
 /**
  * CRON JOB 1: Gửi thông báo nhắc lịch hẹn (8h sáng mỗi ngày)

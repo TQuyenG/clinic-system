@@ -359,7 +359,7 @@ function App() {
         
         <ToastContainer
           position="bottom-right"
-          autoClose={5000}
+          autoClose={6000}
           hideProgressBar={false}
           newestOnTop={true}
           closeOnClick
@@ -368,7 +368,7 @@ function App() {
           draggable
           pauseOnHover
           theme="light"
-          style={{ zIndex: 20000 }}
+          style={{ zIndex: 40000, bottom: '96px' }}
         />
         </AuthProvider>
       </DepartmentColorProvider>

@@ -60,6 +60,15 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Ghi chú từ người xử lý'
     },
+
+    // ===== [MỚI] Xử lý Ngoại Lệ (Edge Cases) =====
+    edge_case_type: {
+      type: DataTypes.ENUM('late_arrival', 'no_show', 'urgent_leave', 'nested_indication', 'none'),
+      defaultValue: 'none',
+      allowNull: true,
+      comment: 'Loại ngoại lệ: late arrival, no-show, bác sĩ xin nghỉ gấp, thêm chỉ định...'
+    },
+
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW

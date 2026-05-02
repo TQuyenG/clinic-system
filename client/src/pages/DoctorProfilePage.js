@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Breadcrumb from '../components/Breadcrumb';
 import { 
@@ -13,6 +13,7 @@ import './DoctorProfilePage.css';
 const DoctorProfilePage = () => {
   const { code } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [doctor, setDoctor] = useState(null);
   const [loading, setLoading] = useState(true);
   
@@ -50,6 +51,18 @@ const DoctorProfilePage = () => {
     { label: doctor.full_name, url: null }
   ] : [];
 
+  const handleBack = () => {
+    const returnTo = location.state?.returnTo;
+    const returnState = location.state?.returnState;
+
+    if (returnTo) {
+      navigate(returnTo, { state: returnState });
+      return;
+    }
+
+    navigate(-1);
+  };
+
   if (loading) return (
     <div className="doctor-profile-page-loading">
       <div className="doctor-profile-page-spinner"></div>
@@ -64,7 +77,7 @@ const DoctorProfilePage = () => {
       <div className="doctor-profile-page-container">
         <div className="doctor-profile-page-top-nav">
           <Breadcrumb items={breadcrumbItems} />
-          <button onClick={() => navigate('/bac-si')} className="doctor-profile-page-btn-back">
+          <button onClick={handleBack} className="doctor-profile-page-btn-back">
             <FaArrowLeft /> Quay lại
           </button>
         </div>
@@ -143,7 +156,12 @@ const DoctorProfilePage = () => {
                 <button
                   className="doctor-profile-page-btn-book chat-btn"
                   onClick={() => navigate('/dat-lich-tu-van', { 
-                    state: { doctorId: doctor.id, consultationType: 'chat' } 
+                    state: {
+                      doctorId: doctor.id,
+                      consultationType: 'chat',
+                      returnTo: location.pathname,
+                      returnState: location.state?.returnState || null
+                    } 
                   })}
                 >
                   <FaComments /> Đặt lịch Tư vấn Chat
@@ -152,7 +170,12 @@ const DoctorProfilePage = () => {
                 <button
                   className="doctor-profile-page-btn-book video-btn"
                   onClick={() => navigate('/dat-lich-tu-van', { 
-                    state: { doctorId: doctor.id, consultationType: 'video' } 
+                    state: {
+                      doctorId: doctor.id,
+                      consultationType: 'video',
+                      returnTo: location.pathname,
+                      returnState: location.state?.returnState || null
+                    } 
                   })}
                 >
                   <FaVideo /> Đặt lịch Video Call

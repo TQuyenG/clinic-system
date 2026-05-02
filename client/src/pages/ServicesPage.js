@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import serviceCategoryService from '../services/serviceCategoryService';
 import userService from '../services/userService';
+import consultationService from '../services/consultationService';
 import { toast } from 'react-toastify';
 import { 
   FaSearch, FaStar, FaClock, FaArrowRight,
@@ -103,8 +104,27 @@ const ServicesPage = () => {
           setFeaturedServices(allRes.data.data.slice(0, 6));
         }
       } else {
-        const docRes = await userService.getAllDoctorsPublic({ limit: 12 });
-        setAvailableDoctors(docRes.data.doctors || []);
+        // Load public consultation packages (admin-created)
+        try {
+          const pkgRes = await consultationService.getAllPublicPackages({ limit: 100 });
+          const packages = pkgRes?.data?.data || pkgRes?.data || [];
+          // Map packages into methodsSettings-like structure for UI
+          const pkgMethods = (Array.isArray(packages) ? packages : []).map(p => ({
+            id: p.id,
+            name: p.name || p.title || (`Gói ${p.id}`),
+            subtitle: p.short_description || p.subtitle || '',
+            description: p.description || '',
+            icon: p.icon || 'comments',
+            color: p.color || '#20bf6b',
+            price: p.price || p.fee || 0,
+            duration: p.duration_minutes || p.duration || 30,
+            features: p.features || []
+          }));
+          setMethodsSettings(pkgMethods.length ? pkgMethods : methodsSettings);
+        } catch (err) {
+          console.error('Error loading consultation packages', err);
+          // fallback to existing default methodsSettings
+        }
       }
     } catch (err) {
       console.error(err);
@@ -284,9 +304,21 @@ const ServicesPage = () => {
                     <div className="service-page-method-icon" style={{color: method.color, background: `${method.color}20`}}>{getIcon(method.icon)}</div>
                     <h3>{method.name}</h3>
                     <p className="service-page-method-sub">{method.subtitle}</p>
-                    <div className="service-page-method-price">{method.price.toLocaleString()}đ <small>/{method.duration || 0}p</small></div>
-                    <ul className="service-page-features">{method.features.map((f, i) => <li key={i}><FaCheckCircle/> {f}</li>)}</ul>
-                    <button className="service-page-btn-block" style={{background: method.color}} onClick={() => handleBooking(method.id)}>Chọn gói này</button>
+                    <div className="service-page-method-price">
+                      {method.price === 0 || method.price === undefined ? 'Miễn phí' : `${Math.floor(method.price).toLocaleString('vi-VN')}₫`}
+                      {method.price > 0 && <small>/{method.duration || 0}p</small>}
+                    </div>
+                    <ul className="service-page-features">{(method.features || []).map((f, i) => <li key={i}><FaCheckCircle/> {f}</li>)}</ul>
+                    <button className="service-page-btn-block" style={{background: method.color}} onClick={() => {
+                      // If this is a package (has numeric id), navigate with packageId
+                      if (typeof method.id === 'number' || String(method.id).match(/^\d+$/)) {
+                        navigate('/dat-lich-tu-van', { state: { packageId: method.id } });
+                      } else {
+                        handleBooking(method.id);
+                      }
+                    }}>
+                      Chọn gói này
+                    </button>
                   </div>
                 ))}
               </div>

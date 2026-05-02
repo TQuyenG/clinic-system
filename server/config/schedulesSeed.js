@@ -1,10 +1,7 @@
 // server/config/schedulesSeed.js
 module.exports = async function seedSchedules(models, transaction) {
-  const doctors = await models.User.findAll({ 
-    where: { role: 'doctor' },
-    limit: 10, 
-    transaction 
-  });
+  // Use Doctor model so we can link both user_id and doctor_id on schedules
+  const doctors = await models.Doctor.findAll({ include: [{ association: 'user' }], transaction });
   if (!doctors || doctors.length === 0) return [];
 
   const today = new Date();
@@ -23,8 +20,8 @@ module.exports = async function seedSchedules(models, transaction) {
       
       // Ca sáng: 7:00 - 12:00
       schedules.push({
-        user_id: doc.id,
-        doctor_id: null,
+        user_id: doc.user_id || (doc.user && doc.user.id) || null,
+        doctor_id: doc.id,
         schedule_type: 'fixed',
         date,
         start_time: '07:00:00',
@@ -36,8 +33,8 @@ module.exports = async function seedSchedules(models, transaction) {
       
       // Ca chiều: 13:00 - 20:00
       schedules.push({
-        user_id: doc.id,
-        doctor_id: null,
+        user_id: doc.user_id || (doc.user && doc.user.id) || null,
+        doctor_id: doc.id,
         schedule_type: 'fixed',
         date,
         start_time: '13:00:00',

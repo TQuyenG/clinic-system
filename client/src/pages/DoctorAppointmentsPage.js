@@ -43,6 +43,7 @@ const DoctorAppointmentsPage = () => {
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState('');
   const [actionReason, setActionReason] = useState('');
+  const [serviceIndicationText, setServiceIndicationText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // State mở rộng hồ sơ và reset code
@@ -158,6 +159,8 @@ const DoctorAppointmentsPage = () => {
   const openActionModal = (appointment, type) => {
     setSelectedAppointment(appointment);
     setActionType(type);
+    setActionReason('');
+    setServiceIndicationText('');
     setShowActionModal(true);
   };
 
@@ -166,6 +169,7 @@ const DoctorAppointmentsPage = () => {
     setSelectedAppointment(null);
     setActionType('');
     setActionReason('');
+    setServiceIndicationText('');
   };
 
   const handleConfirmAction = async () => {
@@ -175,6 +179,37 @@ const DoctorAppointmentsPage = () => {
       if (actionType === 'confirm') {
         await appointmentService.confirmAppointment(selectedAppointment.code);
         toast.success('Đã xác nhận lịch hẹn');
+      } else if (actionType === 'checkin') {
+        await appointmentService.checkInAppointment(selectedAppointment.id, { override_queue: true });
+        toast.success('Đã check-in bệnh nhân và cấp số ưu tiên');
+      } else if (actionType === 'prioritize') {
+        await appointmentService.prioritizeNow(selectedAppointment.id);
+        toast.success('Đã ưu tiên bệnh nhân vào hàng khám');
+      } else if (actionType === 'indications') {
+        const indicationLines = serviceIndicationText
+          .split(/\n|,/)
+          .map(item => item.trim())
+          .filter(Boolean);
+        if (!indicationLines.length) {
+          toast.warn('Vui lòng nhập ít nhất một chỉ định dịch vụ');
+          setIsSubmitting(false);
+          return;
+        }
+        const indications = indicationLines.map((serviceName, index) => ({
+          service_name: serviceName,
+          order_sequence: index + 1,
+          dependencies: []
+        }));
+        await appointmentService.addServiceIndications(selectedAppointment.id, indications);
+        toast.success('Đã lưu chỉ định dịch vụ');
+      } else if (actionType === 'noshow') {
+        if (!actionReason.trim()) {
+          toast.warn('Vui lòng nhập lý do vắng mặt');
+          setIsSubmitting(false);
+          return;
+        }
+        await appointmentService.markNoShow(selectedAppointment.id, actionReason);
+        toast.success('Đã đánh dấu vắng mặt');
       } else if (actionType === 'cancel') {
         if (!actionReason.trim()) {
            toast.warn('Vui lòng nhập lý do hủy');
@@ -375,6 +410,27 @@ const DoctorAppointmentsPage = () => {
                                 <FaCheckCircle />
                               </button>
                             )}
+
+                            {/* Nút Check-in */}
+                            {(apt.status === 'confirmed' || apt.status === 'upcoming') && (
+                              <button className="admin-appt-page-btn-action appointment-management-action-confirm" onClick={() => openActionModal(apt, 'checkin')} title="Check-in">
+                                <FaHospital />
+                              </button>
+                            )}
+
+                            {/* Nút Chỉ định dịch vụ phụ */}
+                            {(apt.status === 'confirmed' || apt.status === 'upcoming' || apt.status === 'in_progress') && (
+                              <button className="admin-appt-page-btn-action appointment-management-action-complete" onClick={() => openActionModal(apt, 'indications')} title="Chỉ định dịch vụ">
+                                <FaPlay />
+                              </button>
+                            )}
+
+                            {/* Nút Ưu tiên khẩn */}
+                            {(apt.status === 'confirmed' || apt.status === 'upcoming') && (
+                              <button className="admin-appt-page-btn-action appointment-management-action-confirm" onClick={() => openActionModal(apt, 'prioritize')} title="Ưu tiên ngay">
+                                <FaSyncAlt />
+                              </button>
+                            )}
                             
                             {/* Nút Khám (Nhập kết quả) */}
                             {(apt.status === 'confirmed' || apt.status === 'upcoming' || apt.status === 'in_progress') && (
@@ -387,6 +443,13 @@ const DoctorAppointmentsPage = () => {
                             {(apt.status !== 'completed' && apt.status !== 'cancelled') && (
                               <button className="admin-appt-page-btn-action appointment-management-action-cancel" onClick={() => openActionModal(apt, 'cancel')} title="Hủy">
                                 <FaBan />
+                              </button>
+                            )}
+
+                            {/* Nút Vắng mặt */}
+                            {(apt.status === 'confirmed' || apt.status === 'upcoming') && (
+                              <button className="admin-appt-page-btn-action appointment-management-action-cancel" onClick={() => openActionModal(apt, 'noshow')} title="Vắng mặt">
+                                <FaTimesCircle />
                               </button>
                             )}
                           </div>
@@ -419,21 +482,45 @@ const DoctorAppointmentsPage = () => {
         <div className="admin-appt-page-modal-overlay">
           <div className="admin-appt-page-modal-content">
             <div className="admin-appt-page-modal-header">
-              <h5>{actionType === 'confirm' ? 'Xác nhận lịch hẹn' : 'Hủy lịch hẹn'}</h5>
+              <h5>
+                {actionType === 'confirm' ? 'Xác nhận lịch hẹn'
+                  : actionType === 'checkin' ? 'Check-in bệnh nhân'
+                  : actionType === 'indications' ? 'Chỉ định dịch vụ'
+                  : actionType === 'prioritize' ? 'Ưu tiên khám ngay'
+                  : actionType === 'noshow' ? 'Đánh dấu vắng mặt'
+                  : 'Hủy lịch hẹn'}
+              </h5>
               <button className="close-btn" onClick={closeActionModal}><FaTimes /></button>
             </div>
             <div className="admin-appt-page-modal-body">
               <p>Bạn đang thao tác với lịch hẹn: <strong>{selectedAppointment.code}</strong></p>
-              {actionType === 'cancel' && (
+              {(actionType === 'cancel' || actionType === 'noshow') && (
                 <div className="admin-appt-page-form-group">
-                  <label>Lý do hủy:</label>
+                  <label>{actionType === 'cancel' ? 'Lý do hủy:' : 'Lý do vắng mặt:'}</label>
                   <textarea rows="3" value={actionReason} onChange={(e) => setActionReason(e.target.value)} placeholder="Nhập lý do..." />
+                </div>
+              )}
+              {actionType === 'indications' && (
+                <div className="admin-appt-page-form-group">
+                  <label>Chỉ định dịch vụ phụ:</label>
+                  <textarea
+                    rows="4"
+                    value={serviceIndicationText}
+                    onChange={(e) => setServiceIndicationText(e.target.value)}
+                    placeholder="Nhập mỗi dịch vụ trên một dòng hoặc ngăn cách bằng dấu phẩy. Ví dụ: Siêu âm bụng\nXét nghiệm máu"
+                  />
+                </div>
+              )}
+              {(actionType === 'checkin' || actionType === 'prioritize') && (
+                <div className="admin-appt-page-form-group">
+                  <label>Ghi chú nội bộ (không bắt buộc):</label>
+                  <textarea rows="3" value={actionReason} onChange={(e) => setActionReason(e.target.value)} placeholder="Nhập ghi chú nếu cần..." />
                 </div>
               )}
             </div>
             <div className="admin-appt-page-modal-footer">
               <button className="admin-appt-page-btn btn-secondary" onClick={closeActionModal}>Đóng</button>
-              <button className={`admin-appt-page-btn ${actionType==='confirm' ? 'btn-primary' : 'btn-danger'}`} onClick={handleConfirmAction} disabled={isSubmitting}>
+              <button className={`admin-appt-page-btn ${actionType==='confirm' || actionType==='checkin' || actionType==='prioritize' || actionType==='indications' ? 'btn-primary' : 'btn-danger'}`} onClick={handleConfirmAction} disabled={isSubmitting}>
                 {isSubmitting ? <FaSpinner className="fa-spin"/> : 'Xác nhận'}
               </button>
             </div>

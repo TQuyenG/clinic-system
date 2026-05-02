@@ -6,49 +6,61 @@ module.exports = async function seedServices(models, transaction, opts = {}) {
 
   const categories = await ServiceCategory.findAll({ transaction });
   const specialties = await Specialty.findAll({ transaction });
-  const doctors = await Doctor.findAll({ limit: 30, transaction });
-  const doctorCodes = doctors.map(d => d.code).filter(Boolean);
+  const doctors = await Doctor.findAll({ include: [{ association: 'user' }, { association: 'specialty' }], transaction });
 
-  // helper to pick random elements
-  const pick = (arr, n) => {
-    const copy = Array.from(arr);
-    const res = [];
-    while (copy.length && res.length < n) {
-      const idx = Math.floor(Math.random() * copy.length);
-      res.push(copy.splice(idx,1)[0]);
-    }
-    return res;
+  const getDoctorsBySpecialtyId = (specialtyId) => {
+    return doctors.filter(d => Number(d.specialty_id) === Number(specialtyId)).map(d => d.code).filter(Boolean);
   };
+
+  const pickRandom = (arr, n) => {
+    const copy = [...arr];
+    const result = [];
+    while (copy.length && result.length < n) {
+      const idx = Math.floor(Math.random() * copy.length);
+      result.push(copy.splice(idx, 1)[0]);
+    }
+    return result;
+  };
+
+  const serviceTemplates = [
+    { key: 'kham-tong-quat', label: 'Khám tổng quát', duration: 20, priceMin: 120000, priceMax: 220000 },
+    { key: 'tu-van-chuyen-khoa', label: 'Tư vấn chuyên khoa', duration: 15, priceMin: 150000, priceMax: 300000 },
+    { key: 'danh-gia-chuyen-sau', label: 'Đánh giá chuyên sâu', duration: 30, priceMin: 250000, priceMax: 450000 },
+  ];
 
   const servicesToCreate = [];
 
-  // For each category, create 3-7 services
-  for (const cat of categories) {
-    const count = 3 + Math.floor(Math.random() * 5); // 3..7
-    for (let i = 0; i < count; i++) {
-      const specialty = specialties[Math.floor(Math.random() * specialties.length)] || null;
-      const assignedDoctors = pick(doctorCodes, Math.min(3, doctorCodes.length));
-      const baseName = cat.name.replace(/Gói Khám /, '').trim();
+  specialties.forEach((specialty, index) => {
+    const relatedDoctors = getDoctorsBySpecialtyId(specialty.id);
+    const serviceCount = 2 + (index % 2); // 2 hoặc 3 dịch vụ cho mỗi chuyên khoa
+    for (let i = 0; i < serviceCount; i++) {
+      const template = serviceTemplates[(index + i) % serviceTemplates.length];
+      const category = categories[(index + i) % categories.length] || categories[0] || null;
+      const maxDoctors = Math.min(3, relatedDoctors.length);
+      const assignedDoctors = pickRandom(relatedDoctors, maxDoctors);
       servicesToCreate.push({
-        name: `${baseName} - Dịch vụ ${i+1}`,
-        category_id: cat.id,
-        specialty_id: specialty ? specialty.id : null,
-        price: 200000 + Math.floor(Math.random() * 800000),
-        duration: 20 + Math.floor(Math.random() * 60),
-        short_description: `Dịch vụ ${i+1} trong ${cat.name}`,
-        detailed_content: `Mô tả chi tiết cho dịch vụ ${i+1} của ${cat.name}. Bao gồm khám lâm sàng, xét nghiệm cơ bản, tư vấn và kê đơn nếu cần.`,
+        code: `SVC-${specialty.id}-${i + 1}`.padEnd(8, '0'),
+        name: `${template.label} ${specialty.name}`,
+        category_id: category ? category.id : null,
+        specialty_id: specialty.id,
+        price: template.priceMin + Math.floor(Math.random() * (template.priceMax - template.priceMin + 1)),
+        duration: template.duration + (Math.floor(Math.random() * 3) * 5),
+        short_description: `${template.label} dành cho chuyên khoa ${specialty.name}`,
+        detailed_content: `Dịch vụ ${template.label.toLowerCase()} cho chuyên khoa ${specialty.name}. Gồm khám lâm sàng, tư vấn, chỉ định cận lâm sàng nếu cần, và hướng dẫn theo dõi sau khám.`,
         image_url: null,
         doctor_codes: assignedDoctors,
-        allow_doctor_choice: true,
+        allow_doctor_choice: assignedDoctors.length > 1,
         status: 'active'
       });
     }
-  }
+  });
 
   try {
     await models.Service.bulkCreate(servicesToCreate.map(s => ({
       name: s.name,
-      category_id: s.category_id,
+       code: s.code,
+       name: s.name,
+       category_id: s.category_id,
       specialty_id: s.specialty_id,
       price: s.price,
       duration: s.duration,
