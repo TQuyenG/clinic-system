@@ -29,6 +29,7 @@ const userService = {
   getUserStats: () => api.get('/users/stats'),
   searchUsers: (params) => api.get('/users/search', { params }),
   getUserById: (userId) => api.get(`/users/${userId}`),
+  updateDoctorPublicProfile: (userId, data) => api.put(`/users/doctors/${userId}/public-profile`, data),
   updateUser: (userId, data) => api.put(`/users/${userId}`, data),
   deleteUser: (userId) => api.delete(`/users/${userId}`),
   toggleUserStatus: (userId, data) => api.put(`/users/${userId}/toggle-status`, data),

@@ -36,6 +36,10 @@ const consultationService = {
     return await api.get('/consultations/patient/stats');
   },
 
+  getPatientStatisticsAdmin: async (params = {}) => {
+    return await api.get('/consultations/admin/statistics/by-patient', { params });
+  },
+
   // === THÊM CÁC HÀM STAFF MỚI VÀO ĐÂY ===
   getStaffProfile: async () => {
     return await api.get('/staff/my-profile');

@@ -59,6 +59,7 @@ const Sidebar = ({ onToggle }) => {
   const [isPaymentMenuOpen, setPaymentMenuOpen] = useState(false);
   const [isArticleMenuOpen, setArticleMenuOpen] = useState(false);
   const [isStaffMenuOpen, setStaffMenuOpen] = useState(false);
+  const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   
   const location = useLocation();
 
@@ -131,6 +132,9 @@ const Sidebar = ({ onToggle }) => {
     }
     if (location.pathname.startsWith('/quan-ly-nhan-vien')) {
       setStaffMenuOpen(true);
+    }
+    if (location.pathname.startsWith('/quan-ly-nguoi-dung') || location.pathname.startsWith('/quan-ly-bac-si') || location.pathname.startsWith('/quan-ly-benh-nhan')) {
+      setUserMenuOpen(true);
     }
     if (location.pathname.startsWith('/quan-ly-thanh-toan')) {
       setPaymentMenuOpen(true);
@@ -293,9 +297,7 @@ const Sidebar = ({ onToggle }) => {
       addIf(canAccessModule('appointments') || hasPermission('payments', 'pos'), { id: 'manage_reception', type: 'item', to: '/quay-tiep-don', icon: FaHeadset, label: 'Tiếp đón / Check-in' });
       // Allow doctors to access medical records menu even if module flag is off
       addIf(canAccessModule('medical_records') || isDoctorUser, { id: 'manage_medical_records', type: 'item', to: '/ho-so-benh-an', icon: FaFileMedicalAlt, label: 'Hồ sơ bệnh án' });
-      addIf(canAccessModule('doctors') && (isAdminUser || (isStaffUser && dept !== 'clinical')), { id: 'manage_doctors', type: 'item', to: '/quan-ly-bac-si', icon: FaUserMd, label: 'Quản lý bác sĩ' });
-      addIf(canAccessModule('patients'), { id: 'manage_patients', type: 'item', to: '/quan-ly-benh-nhan', icon: FaUsers, label: 'Quản lý bệnh nhân' });
-      addIf(canAccessModule('staff_management') || (isStaffUser && staffRank === 'manager'), { id: 'manage_staff', type: 'dropdown', icon: FaUserTie, label: 'Quản lý nhân viên' });
+      addIf(canAccessModule('doctors') || canAccessModule('patients') || canAccessModule('staff_management') || isAdminUser, { id: 'manage_users', type: 'dropdown', icon: FaUsers, label: 'Quản lý người dùng' });
       // Show work schedule for doctors and staff even if work_shift module flag is off
       addIf(canAccessModule('work_shift') || isDoctorUser || isStaffUser, { id: 'work_schedule', type: 'item', to: '/quan-ly-lich-lam-viec', icon: FaCalendarCheck, label: 'Quản lý lịch làm việc' });
       addIf(canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call'), { id: 'manage_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
@@ -317,7 +319,6 @@ const Sidebar = ({ onToggle }) => {
 
     if (isAdminUser) {
       addIf(true, { id: 'admin_stats', type: 'item', to: '/thong-ke', icon: FaChartPie, label: 'Thống kê' });
-      addIf(true, { id: 'admin_users', type: 'item', to: '/quan-ly-nguoi-dung', icon: FaUsers, label: 'Quản lý người dùng' });
       addIf(true, { id: 'admin_specialties', type: 'item', to: '/quan-ly-chuyen-khoa', icon: FaStethoscope, label: 'Quản lý chuyên khoa' });
       addIf(true, { id: 'admin_categories', type: 'item', to: '/quan-ly-danh-muc', icon: FaThList, label: 'Quản lý danh mục' });
       addIf(true, { id: 'pharmacy_stock_admin', type: 'item', to: '/quan-ly-kho-thuoc', icon: FaWarehouse, label: 'Quản lý Kho Thuốc' });
@@ -546,6 +547,36 @@ const Sidebar = ({ onToggle }) => {
                     >
                       {canAccessModule('service_categories') && <Link to="/quan-ly-danh-muc-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-danh-muc-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Danh mục Dịch vụ</Link>}
                       {canAccessModule('services') && <Link to="/quan-ly-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Dịch vụ</Link>}
+                    </MenuDropdown>
+                  )}
+
+                  {item.id === 'manage_users' && (canAccessModule('doctors') || canAccessModule('patients') || canAccessModule('staff_management') || isAdmin) && (
+                    <MenuDropdown
+                      icon={FaUsers}
+                      label={item.label}
+                      isOpen={isUserMenuOpen}
+                      onToggle={() => setUserMenuOpen(!isUserMenuOpen)}
+                    >
+                      {(canAccessModule('staff_management') || isAdmin) && (
+                        <Link to="/quan-ly-nguoi-dung" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-nguoi-dung' ? 'sidebar-active' : ''}`}>
+                          <span className="sidebar-submenu-dot">•</span> Danh sách người dùng
+                        </Link>
+                      )}
+                      {(canAccessModule('staff_management') || (isStaffUser && staffRank === 'manager') || isAdmin) && (
+                        <Link to="/quan-ly-nhan-vien" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-nhan-vien' ? 'sidebar-active' : ''}`}>
+                          <span className="sidebar-submenu-dot">•</span> Danh sách nhân viên
+                        </Link>
+                      )}
+                      {canAccessModule('doctors') && (
+                        <Link to="/quan-ly-bac-si" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-bac-si' ? 'sidebar-active' : ''}`}>
+                          <span className="sidebar-submenu-dot">•</span> Danh sách bác sĩ
+                        </Link>
+                      )}
+                      {canAccessModule('patients') && (
+                        <Link to="/quan-ly-benh-nhan" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-benh-nhan' ? 'sidebar-active' : ''}`}>
+                          <span className="sidebar-submenu-dot">•</span> Danh sách bệnh nhân
+                        </Link>
+                      )}
                     </MenuDropdown>
                   )}
 

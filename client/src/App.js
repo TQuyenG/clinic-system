@@ -96,6 +96,8 @@ import MySchedulePage from './pages/MySchedulePage';
 
 // Admin
 import UsersPage from './pages/UsersPage';
+import DoctorManagementPage from './pages/DoctorManagementPage';
+import PatientManagementPage from './pages/PatientManagementPage';
 import SpecialtyManagementPage from './pages/SpecialtyManagementPage';
 import CategoryManagementPage from './pages/CategoryManagementPage';
 import ScheduleManagementPage from './pages/ScheduleManagementPage';
@@ -314,12 +316,12 @@ function App() {
             
             {/* ========== 10. STAFF & DOCTOR ========== */}
             <Route path="/lich-cua-toi" element={<ProtectedRoute requiredRole={['doctor', 'staff']}><MySchedulePage /></ProtectedRoute>} />
-            <Route path="/quan-ly-benh-nhan" element={<ProtectedRoute requiredRole={['admin', 'staff']}><UsersPage defaultRole="patient" /></ProtectedRoute>} />
-            <Route path="/quan-ly-bac-si" element={<ProtectedRoute requiredRole={['admin', 'staff']}><UsersPage defaultRole="doctor" /></ProtectedRoute>} />
             <Route path="/ho-so-benh-an" element={<ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}><DoctorMedicalRecordsPage /></ProtectedRoute>} />
 
             {/* ========== 11. ADMIN & MANAGEMENT ========== */}
             <Route path="/quan-ly-nguoi-dung" element={<ProtectedRoute requiredRole="admin"><UsersPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-bac-si" element={<PermissionRoute requiredRole={['admin', 'staff']} module="doctors"><DoctorManagementPage /></PermissionRoute>} />
+            <Route path="/quan-ly-benh-nhan" element={<PermissionRoute requiredRole={['admin', 'staff']} module="patients"><PatientManagementPage /></PermissionRoute>} />
             <Route path="/admin/phan-cong-nhan-su" element={<ProtectedRoute requiredRole="admin"><StaffManagementPage openAssignment={true} /></ProtectedRoute>} />
             <Route path="/quan-ly-nhan-vien" element={<ProtectedRoute requiredRole={['admin', 'staff']}><StaffManagementPage /></ProtectedRoute>} />
             <Route path="/quan-ly-lien-he" element={<ProtectedRoute><ContactManagementPage /></ProtectedRoute>} />

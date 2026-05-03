@@ -1284,6 +1284,95 @@ exports.updateUser = async (req, res) => {
   }
 };
 
+exports.updateDoctorPublicProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const {
+      full_name,
+      phone,
+      gender,
+      dob,
+      avatar_url,
+      specialty_id,
+      experience_years,
+      bio,
+      title,
+      position,
+      workplace,
+      specializations,
+      education,
+      certifications,
+      work_experience,
+      research,
+      achievements,
+      work_status,
+      schedule_preference_type
+    } = req.body;
+
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
+    }
+
+    if (user.role !== 'doctor') {
+      return res.status(400).json({ success: false, message: 'Chỉ có thể cập nhật hồ sơ bác sĩ' });
+    }
+
+    if (full_name !== undefined) user.full_name = full_name;
+    if (phone !== undefined) user.phone = phone;
+    if (gender !== undefined) user.gender = gender;
+    if (dob !== undefined) user.dob = dob;
+    if (avatar_url !== undefined) user.avatar_url = avatar_url;
+
+    let doctor = await models.Doctor.findOne({ where: { user_id: userId } });
+    if (!doctor) {
+      doctor = await models.Doctor.create({ user_id: userId, specialty_id: specialty_id || null });
+    }
+
+    if (specialty_id !== undefined) doctor.specialty_id = specialty_id || null;
+    if (experience_years !== undefined) doctor.experience_years = experience_years === '' ? null : parseInt(experience_years, 10);
+    if (bio !== undefined) doctor.bio = bio;
+    if (title !== undefined) doctor.title = title;
+    if (position !== undefined) doctor.position = position;
+    if (workplace !== undefined) doctor.workplace = workplace;
+    if (specializations !== undefined) doctor.specializations = specializations;
+    if (education !== undefined) doctor.education = education;
+    if (certifications !== undefined) doctor.certifications = certifications;
+    if (work_experience !== undefined) doctor.work_experience = work_experience;
+    if (research !== undefined) doctor.research = research;
+    if (achievements !== undefined) doctor.achievements = achievements;
+    if (work_status !== undefined) doctor.work_status = work_status;
+    if (schedule_preference_type !== undefined) doctor.schedule_preference_type = schedule_preference_type;
+
+    await user.save();
+    await doctor.save();
+
+    const refreshedDoctor = await models.Doctor.findOne({
+      where: { user_id: userId },
+      include: [{ model: models.Specialty, as: 'specialty', required: false }]
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Cập nhật hồ sơ bác sĩ thành công',
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        phone: user.phone,
+        gender: user.gender,
+        dob: user.dob,
+        avatar_url: user.avatar_url,
+        role: user.role,
+        roleData: refreshedDoctor
+      }
+    });
+  } catch (error) {
+    console.error('ERROR trong updateDoctorPublicProfile:', error);
+    res.status(500).json({ success: false, message: 'Lỗi khi cập nhật hồ sơ bác sĩ', error: error.message });
+  }
+};
+
 // Xóa người dùng (Admin only)
 exports.deleteUser = async (req, res) => {
   try {
@@ -1311,7 +1400,7 @@ exports.deleteUser = async (req, res) => {
 // Tìm kiếm người dùng
 exports.searchUsers = async (req, res) => {
   try {
-    const { keyword, role, is_active, is_verified, page = 1, limit = 10, sortBy = 'created_at', sortOrder = 'desc' } = req.query;
+    const { keyword, role, is_active, is_verified, created_from, created_to, page = 1, limit = 10, sortBy = 'created_at', sortOrder = 'desc' } = req.query;
     
     const where = {};
     
@@ -1326,6 +1415,19 @@ exports.searchUsers = async (req, res) => {
     if (role) where.role = role;
     if (is_active !== undefined) where.is_active = is_active === 'true';
     if (is_verified !== undefined) where.is_verified = is_verified === 'true';
+    if (created_from || created_to) {
+      where.created_at = {};
+      if (created_from) {
+        const fromDate = new Date(created_from);
+        fromDate.setHours(0, 0, 0, 0);
+        where.created_at[Op.gte] = fromDate;
+      }
+      if (created_to) {
+        const toDate = new Date(created_to);
+        toDate.setHours(23, 59, 59, 999);
+        where.created_at[Op.lte] = toDate;
+      }
+    }
 
     const offset = (page - 1) * limit;
 
@@ -1600,7 +1702,8 @@ exports.getDoctors = async (req, res) => {
         bio: doctor.bio,
         title: doctor.title,
         position: doctor.position,
-        workplace: doctor.workplace
+        workplace: doctor.workplace,
+        work_status: doctor.work_status
       };
     }).filter(d => d !== null);
 
@@ -1665,7 +1768,8 @@ exports.getAllDoctorsPublic = async (req, res) => {
         bio: doctor?.bio,
         title: doctor?.title, 
         position: doctor?.position, 
-        workplace: doctor?.workplace
+        workplace: doctor?.workplace,
+        work_status: doctor?.work_status
       };
     });
 

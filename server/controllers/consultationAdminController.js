@@ -1378,7 +1378,7 @@ exports.getPatientStatistics = async (req, res) => {
       attributes: [
         'patient_id',
         [sequelize.fn('COUNT', sequelize.col('Consultation.id')), 'total_consultations'],
-        [sequelize.fn('SUM', sequelize.col('fee')), 'total_spent']
+        [sequelize.fn('SUM', sequelize.col('total_fee')), 'total_spent']
       ],
       include: [
         {

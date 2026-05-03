@@ -1,5 +1,5 @@
 // client/src/pages/UsersPage.js - HOÀN CHỈNH
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
@@ -26,7 +26,9 @@ import {
   FaChevronDown,
   FaChevronUp,
   FaUserCheck,
-  FaEye
+  FaEye,
+  FaUsers,
+  FaSync
 } from 'react-icons/fa';
 import './UsersPage.css';
 
@@ -47,7 +49,9 @@ const UsersPage = () => {
     keyword: '',
     role: '',
     is_active: '',
-    is_verified: ''
+    is_verified: '',
+    created_from: '',
+    created_to: ''
   });
 
   // Local sort selector state will update sortConfig
@@ -96,12 +100,69 @@ const UsersPage = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailUser, setDetailUser] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [noticeDialog, setNoticeDialog] = useState({ open: false, title: 'Thông báo', message: '' });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, title: 'Xác nhận', message: '' });
+  const [passwordDialog, setPasswordDialog] = useState({ open: false, userId: null, password: '', loading: false });
+  const confirmActionRef = useRef(null);
   
   // Hooks
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const token = localStorage.getItem('token');
   const axiosConfig = { headers: { Authorization: `Bearer ${token}` } };
+
+  const openNoticeDialog = (message, title = 'Thông báo') => {
+    setNoticeDialog({ open: true, title, message });
+  };
+
+  const closeNoticeDialog = () => {
+    setNoticeDialog({ open: false, title: 'Thông báo', message: '' });
+  };
+
+  const openConfirmDialog = (message, onConfirm, title = 'Xác nhận') => {
+    confirmActionRef.current = onConfirm;
+    setConfirmDialog({ open: true, title, message });
+  };
+
+  const closeConfirmDialog = () => {
+    confirmActionRef.current = null;
+    setConfirmDialog({ open: false, title: 'Xác nhận', message: '' });
+  };
+
+  const handleConfirmAccept = async () => {
+    const action = confirmActionRef.current;
+    closeConfirmDialog();
+    if (typeof action === 'function') {
+      await action();
+    }
+  };
+
+  const openPasswordDialog = (userId) => {
+    setPasswordDialog({ open: true, userId, password: '', loading: false });
+  };
+
+  const closePasswordDialog = () => {
+    setPasswordDialog({ open: false, userId: null, password: '', loading: false });
+  };
+
+  const updateFilter = (field, value) => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+    setFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const resetFilters = () => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+    setSortSelector('newest');
+    setSortConfig({ key: 'created_at', direction: 'desc' });
+    setFilters({
+      keyword: '',
+      role: '',
+      is_active: '',
+      is_verified: '',
+      created_from: '',
+      created_to: ''
+    });
+  };
 
   // ============================================
   // EFFECTS
@@ -167,7 +228,7 @@ const UsersPage = () => {
       }
     } catch (error) {
       console.error('Lỗi khi tải danh sách người dùng:', error);
-      alert('Không thể tải danh sách người dùng');
+      openNoticeDialog('Không thể tải danh sách người dùng', 'Lỗi');
     } finally {
       setLoading(false);
     }
@@ -203,7 +264,7 @@ const UsersPage = () => {
       }
     } catch (error) {
       console.error('Lỗi khi tải chi tiết user:', error);
-      alert('Không thể tải thông tin chi tiết người dùng');
+      openNoticeDialog('Không thể tải thông tin chi tiết người dùng', 'Lỗi');
       setShowDetailModal(false);
     } finally {
       setLoadingDetail(false);
@@ -226,13 +287,13 @@ const UsersPage = () => {
       );
 
       if (res.data.success) {
-        alert(res.data.message);
+        openNoticeDialog(res.data.message, 'Thành công');
         setDetailUser({ ...detailUser, is_verified: !detailUser.is_verified });
         fetchUsers();
       }
     } catch (error) {
       console.error('Lỗi khi thay đổi xác thực:', error);
-      alert('Không thể thay đổi trạng thái xác thực');
+      openNoticeDialog('Không thể thay đổi trạng thái xác thực', 'Lỗi');
     }
   };
 
@@ -247,40 +308,45 @@ const UsersPage = () => {
       );
 
       if (res.data.success) {
-        alert(res.data.message);
+        openNoticeDialog(res.data.message, 'Thành công');
         setDetailUser({ ...detailUser, is_active: !detailUser.is_active });
         fetchUsers();
       }
     } catch (error) {
       console.error('Lỗi khi thay đổi trạng thái:', error);
-      alert('Không thể thay đổi trạng thái tài khoản');
+      openNoticeDialog('Không thể thay đổi trạng thái tài khoản', 'Lỗi');
     }
   };
 
   const handleResetPasswordFromDetail = async () => {
     if (!detailUser) return;
+    openPasswordDialog(detailUser.id);
+  };
 
-    const newPassword = prompt('Nhập mật khẩu mới (ít nhất 6 ký tự):');
-    if (!newPassword) return;
-
-    if (newPassword.length < 6) {
-      alert('Mật khẩu phải có ít nhất 6 ký tự');
+  const handleSubmitPasswordDialog = async () => {
+    const newPassword = passwordDialog.password;
+    if (!newPassword || newPassword.length < 6) {
+      openNoticeDialog('Mật khẩu phải có ít nhất 6 ký tự', 'Dữ liệu chưa hợp lệ');
       return;
     }
 
     try {
+      setPasswordDialog(prev => ({ ...prev, loading: true }));
       const res = await axios.put(
-        `http://localhost:3001/api/users/${detailUser.id}/reset-password-admin`,
+        `http://localhost:3001/api/users/${passwordDialog.userId}/reset-password-admin`,
         { new_password: newPassword },
         axiosConfig
       );
 
       if (res.data.success) {
-        alert(res.data.message);
+        closePasswordDialog();
+        openNoticeDialog(res.data.message, 'Thành công');
       }
     } catch (error) {
       console.error('Lỗi khi đặt lại mật khẩu:', error);
-      alert('Không thể đặt lại mật khẩu');
+      openNoticeDialog('Không thể đặt lại mật khẩu', 'Lỗi');
+    } finally {
+      setPasswordDialog(prev => ({ ...prev, loading: false }));
     }
   };
 
@@ -318,11 +384,11 @@ const UsersPage = () => {
           setModalType('edit');
           setShowModal(true);
         } else {
-          alert('Không thể tải thông tin người dùng để chỉnh sửa');
+          openNoticeDialog('Không thể tải thông tin người dùng để chỉnh sửa', 'Lỗi');
         }
       } catch (err) {
         console.error('Lỗi khi tải user để edit:', err);
-        alert('Không thể tải thông tin người dùng để chỉnh sửa');
+        openNoticeDialog('Không thể tải thông tin người dùng để chỉnh sửa', 'Lỗi');
       }
     })();
   };
@@ -338,14 +404,14 @@ const UsersPage = () => {
       );
 
       if (res.data.success) {
-        alert('Thêm người dùng thành công!');
+        openNoticeDialog('Thêm người dùng thành công!', 'Thành công');
         setShowModal(false);
         fetchUsers();
         resetNewUserData();
       }
     } catch (error) {
       console.error('Lỗi khi tạo user:', error);
-      alert(error.response?.data?.message || 'Không thể tạo người dùng');
+      openNoticeDialog(error.response?.data?.message || 'Không thể tạo người dùng', 'Lỗi');
     }
   };
 
@@ -360,64 +426,68 @@ const UsersPage = () => {
       );
 
       if (res.data.success) {
-        alert('Cập nhật người dùng thành công!');
+        openNoticeDialog('Cập nhật người dùng thành công!', 'Thành công');
         setShowModal(false);
         setEditingUser(null);
         fetchUsers();
       }
     } catch (error) {
       console.error('Lỗi khi cập nhật user:', error);
-      alert(error.response?.data?.message || 'Không thể cập nhật người dùng');
+      openNoticeDialog(error.response?.data?.message || 'Không thể cập nhật người dùng', 'Lỗi');
     }
   };
 
   const handleToggleVerification = async (userId, currentStatus) => {
-    if (!window.confirm(`Bạn có chắc muốn ${currentStatus ? 'hủy xác thực' : 'xác thực'} tài khoản này?`)) {
-      return;
-    }
+    openConfirmDialog(
+      `Bạn có chắc muốn ${currentStatus ? 'hủy xác thực' : 'xác thực'} tài khoản này?`,
+      async () => {
+        try {
+          const res = await axios.put(
+            `http://localhost:3001/api/users/${userId}/toggle-verification`,
+            { is_verified: !currentStatus },
+            axiosConfig
+          );
 
-    try {
-      const res = await axios.put(
-        `http://localhost:3001/api/users/${userId}/toggle-verification`,
-        { is_verified: !currentStatus },
-        axiosConfig
-      );
-
-      if (res.data.success) {
-        alert(res.data.message);
-        fetchUsers();
-      }
-    } catch (error) {
-      console.error('Lỗi khi thay đổi xác thực:', error);
-      alert('Không thể thay đổi trạng thái xác thực');
-    }
+          if (res.data.success) {
+            openNoticeDialog(res.data.message, 'Thành công');
+            fetchUsers();
+          }
+        } catch (error) {
+          console.error('Lỗi khi thay đổi xác thực:', error);
+          openNoticeDialog('Không thể thay đổi trạng thái xác thực', 'Lỗi');
+        }
+      },
+      'Xác nhận thay đổi'
+    );
   };
 
   const handleToggleStatus = async (userId, currentStatus) => {
-    if (!window.confirm(`Bạn có chắc muốn ${currentStatus ? 'khóa' : 'mở khóa'} tài khoản này?`)) {
-      return;
-    }
+    openConfirmDialog(
+      `Bạn có chắc muốn ${currentStatus ? 'khóa' : 'mở khóa'} tài khoản này?`,
+      async () => {
+        try {
+          const res = await axios.put(
+            `http://localhost:3001/api/users/${userId}/toggle-status`,
+            { is_active: !currentStatus },
+            axiosConfig
+          );
 
-    try {
-      const res = await axios.put(
-        `http://localhost:3001/api/users/${userId}/toggle-status`,
-        { is_active: !currentStatus },
-        axiosConfig
-      );
-
-      if (res.data.success) {
-        alert(res.data.message);
-        fetchUsers();
-      }
-    } catch (error) {
-      console.error('Lỗi khi thay đổi trạng thái:', error);
-      alert('Không thể thay đổi trạng thái tài khoản');
-    }
+          if (res.data.success) {
+            openNoticeDialog(res.data.message, 'Thành công');
+            fetchUsers();
+          }
+        } catch (error) {
+          console.error('Lỗi khi thay đổi trạng thái:', error);
+          openNoticeDialog('Không thể thay đổi trạng thái tài khoản', 'Lỗi');
+        }
+      },
+      'Xác nhận thay đổi'
+    );
   };
 
   const handleBulkPasswordReset = async () => {
     if (!bulkPassword || bulkPassword.length < 6) {
-      alert('Mật khẩu phải có ít nhất 6 ký tự');
+      openNoticeDialog('Mật khẩu phải có ít nhất 6 ký tự', 'Dữ liệu chưa hợp lệ');
       return;
     }
 
@@ -431,13 +501,13 @@ const UsersPage = () => {
       );
 
       await Promise.all(promises);
-      alert(`Đã đặt lại mật khẩu cho ${selectedUsers.length} tài khoản`);
+      openNoticeDialog(`Đã đặt lại mật khẩu cho ${selectedUsers.length} tài khoản`, 'Thành công');
       setShowModal(false);
       setBulkPassword('');
       setSelectedUsers([]);
     } catch (error) {
       console.error('Lỗi khi đặt lại mật khẩu hàng loạt:', error);
-      alert('Không thể đặt lại mật khẩu cho một số tài khoản');
+      openNoticeDialog('Không thể đặt lại mật khẩu cho một số tài khoản', 'Lỗi');
     }
   };
 
@@ -553,7 +623,7 @@ const UsersPage = () => {
     <div className="userspage-container">
       {/* Header */}
       <div className="userspage-header">
-        <h1 className="userspage-title">Quản lý người dùng</h1>
+        <h1 className="userspage-title"><FaUsers /> Quản lý người dùng</h1>
         <div className="userspage-header-actions">
           <button className="userspage-button userspage-button-export" onClick={exportToExcel}>
             <FaFileExcel /> Excel
@@ -562,7 +632,7 @@ const UsersPage = () => {
             <FaFileCsv /> CSV
           </button>
           <button className="userspage-button userspage-button-secondary" onClick={() => { setPagination(prev => ({ ...prev, page: 1 })); fetchUsers(); }} title="Làm mới">
-            ⟳ Làm mới
+            <FaSync /> Làm mới
           </button>
           <button 
             className="userspage-button userspage-button-primary" 
@@ -585,7 +655,7 @@ const UsersPage = () => {
             type="text"
             placeholder="Tìm theo email, tên, SĐT..."
             value={filters.keyword}
-            onChange={(e) => setFilters({ ...filters, keyword: e.target.value })}
+            onChange={(e) => updateFilter('keyword', e.target.value)}
             className="userspage-search-input"
           />
         </div>
@@ -593,7 +663,7 @@ const UsersPage = () => {
         <div className="userspage-advanced-filters">
             <select
               value={filters.role}
-              onChange={(e) => setFilters({ ...filters, role: e.target.value })}
+              onChange={(e) => updateFilter('role', e.target.value)}
               className="userspage-filter-select"
             >
               <option value="">Tất cả vai trò</option>
@@ -605,7 +675,7 @@ const UsersPage = () => {
 
             <select
               value={filters.is_active}
-              onChange={(e) => setFilters({ ...filters, is_active: e.target.value })}
+              onChange={(e) => updateFilter('is_active', e.target.value)}
               className="userspage-filter-select"
             >
               <option value="">Tất cả trạng thái</option>
@@ -615,13 +685,29 @@ const UsersPage = () => {
 
             <select
               value={filters.is_verified}
-              onChange={(e) => setFilters({ ...filters, is_verified: e.target.value })}
+              onChange={(e) => updateFilter('is_verified', e.target.value)}
               className="userspage-filter-select"
             >
               <option value="">Tất cả xác thực</option>
               <option value="true">Đã xác thực</option>
               <option value="false">Chưa xác thực</option>
             </select>
+
+            <input
+              type="date"
+              value={filters.created_from}
+              onChange={(e) => updateFilter('created_from', e.target.value)}
+              className="userspage-filter-select"
+              title="Ngày tạo từ"
+            />
+
+            <input
+              type="date"
+              value={filters.created_to}
+              onChange={(e) => updateFilter('created_to', e.target.value)}
+              className="userspage-filter-select"
+              title="Ngày tạo đến"
+            />
 
             <select
               value={sortSelector}
@@ -636,6 +722,15 @@ const UsersPage = () => {
               <option value="newest">Sắp xếp: Mới nhất</option>
               <option value="oldest">Sắp xếp: Cũ nhất</option>
             </select>
+
+            <button
+              type="button"
+              className="userspage-button userspage-button-secondary"
+              onClick={resetFilters}
+              title="Xóa toàn bộ bộ lọc"
+            >
+              <FaTimes /> Xóa lọc
+            </button>
           </div>
       </div>
 
@@ -1167,6 +1262,88 @@ const UsersPage = () => {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {noticeDialog.open && (
+        <div className="userspage-modal-overlay" onClick={closeNoticeDialog}>
+          <div className="userspage-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="userspage-modal-header">
+              <h2>{noticeDialog.title}</h2>
+              <button className="userspage-modal-close" onClick={closeNoticeDialog}>
+                <FaTimes />
+              </button>
+            </div>
+            <div className="userspage-modal-body">
+              <p>{noticeDialog.message}</p>
+            </div>
+            <div className="userspage-modal-footer">
+              <button className="userspage-button userspage-button-primary" onClick={closeNoticeDialog}>
+                Đã hiểu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDialog.open && (
+        <div className="userspage-modal-overlay" onClick={closeConfirmDialog}>
+          <div className="userspage-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="userspage-modal-header">
+              <h2>{confirmDialog.title}</h2>
+              <button className="userspage-modal-close" onClick={closeConfirmDialog}>
+                <FaTimes />
+              </button>
+            </div>
+            <div className="userspage-modal-body">
+              <p>{confirmDialog.message}</p>
+            </div>
+            <div className="userspage-modal-footer">
+              <button className="userspage-button userspage-button-secondary" onClick={closeConfirmDialog}>
+                Hủy
+              </button>
+              <button className="userspage-button userspage-button-primary" onClick={handleConfirmAccept}>
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {passwordDialog.open && (
+        <div className="userspage-modal-overlay" onClick={closePasswordDialog}>
+          <div className="userspage-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="userspage-modal-header">
+              <h2>Đặt lại mật khẩu</h2>
+              <button className="userspage-modal-close" onClick={closePasswordDialog}>
+                <FaTimes />
+              </button>
+            </div>
+            <div className="userspage-modal-body">
+              <div className="userspage-form-group">
+                <label>Mật khẩu mới <span className="userspage-required">*</span></label>
+                <input
+                  type="password"
+                  className="userspage-input"
+                  placeholder="Ít nhất 6 ký tự"
+                  value={passwordDialog.password}
+                  onChange={(e) => setPasswordDialog(prev => ({ ...prev, password: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="userspage-modal-footer">
+              <button className="userspage-button userspage-button-secondary" onClick={closePasswordDialog}>
+                Hủy
+              </button>
+              <button
+                className="userspage-button userspage-button-primary"
+                onClick={handleSubmitPasswordDialog}
+                disabled={passwordDialog.loading}
+              >
+                {passwordDialog.loading ? 'Đang xử lý...' : 'Xác nhận'}
+              </button>
             </div>
           </div>
         </div>

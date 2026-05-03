@@ -61,6 +61,7 @@ router.post('/reset-password-with-token', userController.resetPasswordWithToken)
 router.get('/doctors/public', userController.getAllDoctorsPublic);
 router.get('/doctors/:code', userController.getDoctorByCode);
 router.get('/doctors', userController.getDoctors);
+router.put('/doctors/:userId/public-profile', authenticateToken, authorize('doctors:edit', 'admin', 'staff'), userController.updateDoctorPublicProfile);
 
 // ============================================
 // ROUTES CẦN ĐĂNG NHẬP - Authenticated users
