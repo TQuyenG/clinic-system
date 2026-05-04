@@ -903,7 +903,7 @@ exports.handleAIChatbot = async (req, res) => {
     }).filter(Boolean).join('\n');
 
     // 4. Cấu hình Prompt siêu thông minh cho AI
-    const systemPrompt = `Bạn là trợ lý y tế AI cao cấp của hệ thống Clinic System.
+    const systemPrompt = `Bạn là trợ lý y tế AI cao cấp của hệ thống Easy Medify.
 Nhiệm vụ: Tư vấn triệu chứng, báo giá dịch vụ online, và kiểm tra lịch bác sĩ để điều hướng bệnh nhân.
 
 === DỮ LIỆU PHÒNG KHÁM HÔM NAY (${today}) ===

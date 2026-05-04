@@ -20,6 +20,7 @@ const allowAdminOnly = (req, res, next) => {
 // PUBLIC & CÀI ĐẶT
 // ════════════════════════════════════════════════════════════════════
 router.get('/groups', authenticateTokenOptional, communityController.getGroups); 
+router.get('/groups/managed', authenticateToken, communityController.getManagedGroups);
 router.get('/groups/:slug', authenticateTokenOptional, communityController.getGroupBySlug);
 router.get('/groups/:id/posts', authenticateTokenOptional, communityController.getGroupPosts);
 router.get('/settings/group-creation', communityController.getGroupSettings);
@@ -80,10 +81,5 @@ router.put('/admin/groups/:id/force-suspend', authenticateToken, allowAdminOnly,
 router.put('/admin/groups/:id/force-active', authenticateToken, allowAdminOnly, communityController.adminForceActiveGroup);
 router.post('/admin/groups/:id/warn', authenticateToken, allowAdminOnly, communityController.adminWarnGroup);
 router.delete('/admin/groups/:id/force-delete', authenticateToken, allowAdminOnly, communityController.adminForceDeleteGroup);
-
-// ════════════════════════════════════════════════════════════════════
-// MANAGED GROUPS (OWNER/MODERATOR)
-// ════════════════════════════════════════════════════════════════════
-router.get('/groups/managed', authenticateToken, communityController.getManagedGroups);
 
 module.exports = router;

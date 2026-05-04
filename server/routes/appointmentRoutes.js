@@ -290,4 +290,14 @@ router.put('/:code/change-payment-method',
   appointmentController.changePaymentMethod
 );
 
+/**
+ * GET /api/appointments/service/:serviceId/slots-stats-today
+ * Lấy thống kê slot hôm nay theo từng ca cho 1 dịch vụ
+ */
+router.get('/service/:serviceId/slots-stats-today',
+  authenticateToken,
+  authorize('admin', 'manager', 'staff'),
+  appointmentController.getSlotsStatsToday
+);
+
 module.exports = router;

@@ -77,6 +77,17 @@ const AppointmentBookingPage = () => {
     return `${year}-${month}-${day}`;
   };
 
+  const formatCheckinSlotLabel = (timeStr) => {
+    if (!timeStr) return '';
+    const [hourStr, minuteStr] = String(timeStr).slice(0, 5).split(':');
+    const hour = Number(hourStr);
+    const minute = Number(minuteStr);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return String(timeStr).slice(0, 5);
+    const startLabel = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    const endLabel = `${String((hour + 1) % 24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    return `${startLabel} - ${endLabel}`;
+  };
+
   const getNextThreeDays = () => {
     const days = [];
     const today = new Date();
@@ -314,7 +325,7 @@ const AppointmentBookingPage = () => {
     if (!formData.serviceId) newErrors.serviceId = 'Vui lòng chọn dịch vụ.';
     if (!formData.doctorId) newErrors.doctorId = 'Vui lòng chọn bác sĩ.';
     if (!formData.date) newErrors.date = 'Vui lòng chọn ngày khám.';
-    if (!formData.time) newErrors.time = 'Vui lòng chọn khung giờ khám.';
+    if (!formData.time) newErrors.time = 'Vui lòng chọn thời gian checkin.';
     if (!formData.name.trim()) newErrors.name = 'Vui lòng nhập họ tên.';
     if (!formData.email.trim()) newErrors.email = 'Vui lòng nhập email.';
     if (!formData.phone.trim()) newErrors.phone = 'Vui lòng nhập số điện thoại.';
@@ -566,7 +577,7 @@ const AppointmentBookingPage = () => {
               {/* CHỌN NGÀY */}
               <div className="abp-form-group">
                 <label className="abp-label">
-                  Thời gian khám <span className="abp-required">*</span>
+                  Thời gian checkin <span className="abp-required">*</span>
                 </label>
                 <div className="abp-date-tabs">
                   {nextThreeDays.map(date => (
@@ -602,7 +613,7 @@ const AppointmentBookingPage = () => {
                 <div className="abp-slots-area">
                   {/* [MỚI] Dòng giải thích Ưu tiên */}
                   <div className="abp-info-text" style={{marginBottom: '14px', background: '#e3f2fd', borderColor: '#90caf9', color: '#0c4a6e'}}>
-                     <FaInfoCircle size={16}/> Việc chọn Ca nhằm mục đích giảm tải đám đông. Khi đến viện, bạn sẽ được tự động gọi theo Nhóm Số Ưu Tiên (U).
+                    <FaInfoCircle size={16}/> Chọn khung thời gian checkin để hệ thống giữ chỗ và hiển thị đúng giờ lên trang chi tiết lịch hẹn.
                   </div>
 
                   {loading.slots ? (
@@ -626,7 +637,7 @@ const AppointmentBookingPage = () => {
                                   className={`abp-slot-btn ${formData.time === shift.time ? 'active' : ''}`}
                                   onClick={() => handleShiftSelect(shift)}
                                 >
-                                  <strong>{shift.time}</strong>
+                                  <strong>{shift.label || formatCheckinSlotLabel(shift.time)}</strong>
                                 </button>
                               ))}
                             </div>
@@ -777,6 +788,7 @@ const AppointmentBookingPage = () => {
                 <div className="abp-confirm-row"><span>Dịch vụ</span><strong>{selectedService?.name}</strong></div>
                 <div className="abp-confirm-row"><span>Bác sĩ</span><strong>{selectedDoctor ? `BS. ${selectedDoctor.full_name}` : 'Sẽ được phân công'}</strong></div>
                 <div className="abp-confirm-row"><span>Ngày khám</span><strong>{formData.date}</strong></div>
+                <div className="abp-confirm-row"><span>Thời gian checkin</span><strong>{formatCheckinSlotLabel(formData.time)}</strong></div>
                 <div className="abp-confirm-row"><span>Khách hàng</span><strong>{formData.name}</strong></div>
                 <div className="abp-confirm-total">
                   <span>Tổng thanh toán</span>

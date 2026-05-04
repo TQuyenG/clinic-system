@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import auditService from '../services/auditService';
+import { normalizeUserList } from '../utils/normalizeUser';
 import { 
   FaUserMd, FaSearch, FaFilter, FaUserTie, FaCheckCircle, 
   FaExclamationCircle, FaBuilding, FaEdit, FaTimes, FaCheck, 
@@ -416,6 +417,8 @@ const StaffManagementPage = () => {
   const [departmentStats, setDepartmentStats] = useState([]);
   const [staffByDepartment, setStaffByDepartment] = useState({});
   const [allDoctors, setAllDoctors] = useState([]);
+  const [specialties, setSpecialties] = useState([]);
+  const [selectedDoctorSpecialty, setSelectedDoctorSpecialty] = useState('all');
   const [allStaff, setAllStaff] = useState([]);
   const [adminUsers, setAdminUsers] = useState([]);
   
@@ -467,6 +470,7 @@ const StaffManagementPage = () => {
     }
     
     loadAllDoctors();
+    loadSpecialties();
   }, []);
 
   // Auto-select department for staff manager / staff có quyền staff_management
@@ -587,11 +591,23 @@ const StaffManagementPage = () => {
     try {
       const response = await api.get('/users/by-role?role=doctor&limit=1000');
       if (response.data.success) {
-        setAllDoctors(response.data.users || []);
-        console.log('DEBUG allDoctors:', response.data.users);
+        const normalizedDoctors = normalizeUserList(response.data.users || [], 'doctor');
+        setAllDoctors(normalizedDoctors);
+        console.log('DEBUG allDoctors:', normalizedDoctors);
       }
     } catch (error) {
       console.error('Load all doctors error:', error);
+    }
+  };
+
+  const loadSpecialties = async () => {
+    try {
+      const response = await api.get('/specialties');
+      if (response.data.success) {
+        setSpecialties(response.data.data || response.data.specialties || []);
+      }
+    } catch (error) {
+      console.error('Load specialties error:', error);
     }
   };
 
@@ -1329,10 +1345,36 @@ const StaffManagementPage = () => {
                                         </button>
                                       </div>
                                     </div>
+
+                                    <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px'}}>
+                                      <label style={{fontSize: '12px', fontWeight: 600, color: '#666'}}>Lọc theo chuyên khoa</label>
+                                      <select
+                                        value={selectedDoctorSpecialty}
+                                        onChange={(e) => setSelectedDoctorSpecialty(e.target.value)}
+                                        style={{
+                                          minWidth: '240px',
+                                          padding: '8px 10px',
+                                          borderRadius: '6px',
+                                          border: '1px solid #d9d9d9',
+                                          background: '#fff'
+                                        }}
+                                      >
+                                        <option value="all">Tất cả chuyên khoa</option>
+                                        {specialties.map(sp => (
+                                          <option key={sp.id} value={String(sp.id)}>{sp.name}</option>
+                                        ))}
+                                      </select>
+                                    </div>
                                     
                                     <div style={{display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto'}}>
                                       {Object.entries(
-                                        allDoctors.reduce((groups, doctor) => {
+                                        allDoctors
+                                          .filter(doctor => {
+                                            if (selectedDoctorSpecialty === 'all') return true;
+                                            const doctorSpecialtyId = doctor.specialty?.id || doctor.specialty_id || doctor.raw?.specialty_id || doctor.raw?.Doctor?.specialty_id;
+                                            return String(doctorSpecialtyId) === String(selectedDoctorSpecialty);
+                                          })
+                                          .reduce((groups, doctor) => {
                                           const specialty = doctor.specialty?.name || doctor.Specialty?.name || 'Chưa phân loại';
                                           console.log('DEBUG doctor specialty:', doctor.id, doctor.specialty, specialty);
                                           if (!groups[specialty]) groups[specialty] = [];

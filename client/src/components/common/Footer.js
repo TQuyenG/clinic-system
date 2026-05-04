@@ -31,7 +31,7 @@ const Footer = () => {
     about_description: 'Hệ thống y tế hàng đầu, mang đến dịch vụ chăm sóc sức khỏe chất lượng cao.',
     address: '123 Đường Sức Khỏe, Q.1, TP.HCM',
     hotline: '1900 1234',
-    email: 'contact@clinicsystem.vn',
+    email: 'contact@easymedify.vn',
     working_hours: 'T2 - T7: 7:00 - 20:00\nChủ nhật: 8:00 - 17:00',
     social_facebook: '',
     social_twitter: '',

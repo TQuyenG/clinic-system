@@ -166,7 +166,6 @@ const Navbar = () => {
           if (!navbar.logo_image.startsWith('/')) {
             navbar.logo_image = '/' + navbar.logo_image;
           }
-          navbar.logo_image = API_BASE_URL + navbar.logo_image;
         }
         
         setNavbarData(navbar);
@@ -871,9 +870,16 @@ const Navbar = () => {
                   <Link to="/ho-so-nguoi-dung" onClick={closeAllDropdowns}>
                     <FaUser /> Thông tin cá nhân
                   </Link>
-                  <Link to="/dat-lich-hen" onClick={closeAllDropdowns}>
-                    <FaCalendarAlt /> 
-                    {['admin', 'staff'].includes(currentUser?.role) ? 'Quản lý lịch hẹn' : 'Lịch của tôi'}
+                  <Link
+                    to={['admin', 'staff'].includes(currentUser?.role)
+                      ? '/quan-ly-lich-hen'
+                      : (currentUser?.role === 'doctor' ? '/lich-hen-cua-toi' : '/dat-lich-hen')}
+                    onClick={closeAllDropdowns}
+                  >
+                    <FaCalendarAlt />
+                    {['admin', 'staff'].includes(currentUser?.role)
+                      ? 'Quản lý lịch hẹn'
+                      : (currentUser?.role === 'doctor' ? 'Lịch hẹn của tôi' : 'Đặt lịch hẹn')}
                   </Link>
                   <Link to="/bai-viet-da-luu" onClick={closeAllDropdowns}>
                     <FaBookmark /> Bài viết đã lưu

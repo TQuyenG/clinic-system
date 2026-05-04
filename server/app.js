@@ -64,7 +64,7 @@ app.use(express.urlencoded({
 
 //  THÊM: Session middleware (BẮT BUỘC cho Passport OAuth)
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'clinic-session-secret-key-2024',
+  secret: process.env.SESSION_SECRET || 'easymedify-session-secret-key-2024',
   resave: false,
   saveUninitialized: false,
   cookie: {

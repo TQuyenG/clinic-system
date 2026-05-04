@@ -96,7 +96,7 @@ const getDefaultSystemSettings = () => {
         aboutSection: {
           image: 'https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=800',
           alt: 'Về chúng tôi',
-          title: 'Về Clinic System',
+          title: 'Về Easy Medify',
           yearsExperience: '10+',
           highlights: [
             {
@@ -179,7 +179,7 @@ const getDefaultSystemSettings = () => {
             { icon: 'FaPhoneVolume', text: 'Hỗ trợ tư vấn 24/7' }
           ],
           hotline: '1900 1234',
-          email: 'contact@clinicsystem.vn',
+          email: 'contact@easymedify.vn',
           address: '123 Đường Nguyễn Văn Linh, Quận 7, TP.HCM'
         }
       }
@@ -192,7 +192,7 @@ const getDefaultSystemSettings = () => {
         banner: {
           image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200',
           alt: 'Về chúng tôi',
-          title: 'Về Clinic System',
+          title: 'Về Easy Medify',
           subtitle: 'Hệ thống y tế hàng đầu Việt Nam',
           description: 'Chúng tôi cam kết mang đến dịch vụ chăm sóc sức khỏe chất lượng cao với đội ngũ y bác sĩ giàu kinh nghiệm'
         },
@@ -342,27 +342,27 @@ const getDefaultSystemSettings = () => {
       value_json: {
         header: {
           phone: '1900 1234',
-          email: 'contact@clinicsystem.vn',
+          email: 'contact@easymedify.vn',
           working_hours: 'T2-T7: 7:00-20:00 | CN: 8:00-17:00',
-          welcome_text: 'Chào mừng bạn đến với Clinic System'
+          welcome_text: 'Chào mừng bạn đến với Easy Medify'
         },
         navbar: {
-          logo_image: 'logo.png',
-          logo_text: 'Clinic System',
+          logo_image: 'EasymedifyLogo.png',
+          logo_text: 'Easy Medify',
           search_placeholder: 'Tìm kiếm dịch vụ, bác sĩ...'
         },
         footer: {
-          about_title: 'Clinic System',
+          about_title: 'Easy Medify',
           about_description: 'Hệ thống y tế hàng đầu Việt Nam, mang đến dịch vụ chăm sóc sức khỏe chất lượng cao với đội ngũ bác sĩ giàu kinh nghiệm và trang thiết bị hiện đại.',
           address: '123 Đường Nguyễn Văn Linh, Quận 7, TP.HCM',
           hotline: '1900 1234',
-          email: 'contact@clinicsystem.vn',
+          email: 'contact@easymedify.vn',
           working_hours: 'T2 - T7: 7:00 - 20:00\nChủ nhật: 8:00 - 17:00',
-          social_facebook: 'https://facebook.com/clinicsystem',
-          social_twitter: 'https://twitter.com/clinicsystem',
-          social_instagram: 'https://instagram.com/clinicsystem',
-          social_youtube: 'https://youtube.com/clinicsystem',
-          copyright_text: '© 2024 Clinic System. Tất cả quyền được bảo lưu.',
+          social_facebook: 'https://facebook.com/easymedify',
+          social_twitter: 'https://twitter.com/easymedify',
+          social_instagram: 'https://instagram.com/easymedify',
+          social_youtube: 'https://youtube.com/easymedify',
+          copyright_text: '© 2024 Easy Medify. Tất cả quyền được bảo lưu.',
           privacy_link: '/chinh-sach-bao-mat',
           terms_link: '/dieu-khoan-dich-vu'
         }
@@ -379,7 +379,7 @@ const getDefaultSystemSettings = () => {
         },
         info_cards: [
           { icon: 'FaPhone', title: 'Điện thoại', details: ['Hotline: (028) 3822 1234', 'Cấp cứu: (028) 3822 9999'], color: '#4CAF50' },
-          { icon: 'FaEnvelope', title: 'Email', details: ['info@clinicsystem.vn', 'support@clinicsystem.vn'], color: '#2196F3' },
+          { icon: 'FaEnvelope', title: 'Email', details: ['info@easymedify.vn', 'support@easymedify.vn'], color: '#2196F3' },
           { icon: 'FaMapMarkerAlt', title: 'Địa chỉ', details: ['123 Đường Nguyễn Văn Linh', 'Quận 7, TP.HCM'], color: '#FF5722' },
           { icon: 'FaClock', title: 'Giờ làm việc', details: ['Thứ 2 - Thứ 7: 7:00 - 20:00', 'Chủ nhật: 8:00 - 17:00'], color: '#9C27B0' }
         ],
@@ -392,7 +392,7 @@ const getDefaultSystemSettings = () => {
           { name: 'Khoa Thần kinh', phone: '(028) 3822 1240' }
         ],
         faqs: [
-          { question: 'Làm thế nào để đặt lịch khám?', answer: 'Bạn có thể đặt lịch qua hotline (028) 3822 1234, website clinicsystem.vn, hoặc trực tiếp tại quầy tiếp đón.' },
+          { question: 'Làm thế nào để đặt lịch khám?', answer: 'Bạn có thể đặt lịch qua hotline (028) 3822 1234, website easymedify.vn, hoặc trực tiếp tại quầy tiếp đón.' },
           { question: 'Có cần mang theo giấy tờ gì khi đến khám?', answer: 'Vui lòng mang theo CMND/CCCD, thẻ bảo hiểm y tế (nếu có), và các kết quả xét nghiệm cũ (nếu có).' },
           { question: 'Phòng khám có nhận bảo hiểm y tế không?', answer: 'Có, chúng tôi chấp nhận tất cả các loại thẻ bảo hiểm y tế theo quy định của Bộ Y tế.' },
           { question: 'Thời gian chờ khám trung bình là bao lâu?', answer: 'Với hệ thống đặt lịch trực tuyến, thời gian chờ trung bình chỉ khoảng 15-20 phút.' },
@@ -463,7 +463,7 @@ const getDefaultSystemSettings = () => {
             ]
           }
         ],
-        contact_email: 'privacy@clinicsystem.vn',
+        contact_email: 'privacy@easymedify.vn',
         contact_phone: '(028) 3822 1234',
         contact_address: '123 Đường Nguyễn Văn Linh, Quận 7, TP.HCM'
       }
@@ -479,8 +479,8 @@ const getDefaultSystemSettings = () => {
           effective_date: '01/01/2025'
         },
         intro: {
-          title: 'Chào mừng đến với Clinic System',
-          content: 'Các điều khoản dịch vụ này điều chỉnh việc bạn sử dụng website và các dịch vụ y tế do Clinic System cung cấp. Bằng việc sử dụng dịch vụ, bạn đồng ý tuân thủ các điều khoản dưới đây.'
+          title: 'Chào mừng đến với Easy Medify',
+          content: 'Các điều khoản dịch vụ này điều chỉnh việc bạn sử dụng website và các dịch vụ y tế do Easy Medify cung cấp. Bằng việc sử dụng dịch vụ, bạn đồng ý tuân thủ các điều khoản dưới đây.'
         },
         sections: [
           {
@@ -525,7 +525,7 @@ const getDefaultSystemSettings = () => {
             ]
           }
         ],
-        contact_email: 'legal@clinicsystem.vn',
+        contact_email: 'legal@easymedify.vn',
         contact_phone: '(028) 3822 1234'
       }
     },

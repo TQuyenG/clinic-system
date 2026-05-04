@@ -9,7 +9,7 @@ module.exports = async function seedSystemSettings(models, transaction, context 
   // Basic settings
   await models.SystemSetting.bulkCreate([
     { setting_key: 'site_name', value_json: 'Easy Medify', updated_by: admins[0].user_id, created_at: new Date(), updated_at: new Date() },
-    { setting_key: 'contact_email', value_json: 'support@clinic.com', updated_by: admins[1].user_id, created_at: new Date(), updated_at: new Date() }
+    { setting_key: 'contact_email', value_json: 'support@easymedify.vn', updated_by: admins[1].user_id, created_at: new Date(), updated_at: new Date() }
   ], { transaction });
 
   // Default page settings from defaultSystemSettings.js

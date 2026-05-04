@@ -71,6 +71,38 @@ const getLeaveRequestApprovers = async (requesterUserId) => {
   return [...new Set(approvers)];
 };
 
+const DEFAULT_SHIFT_RANGES = {
+  morning: { start: '07:00:00', end: '12:00:00' },
+  afternoon: { start: '13:00:00', end: '17:00:00' },
+  evening: { start: '17:00:00', end: '21:00:00' }
+};
+
+const timeToMinutes = (timeValue) => {
+  if (!timeValue) return null;
+  const [hours, minutes] = String(timeValue).split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  return hours * 60 + minutes;
+};
+
+const getLeaveWindowMinutes = (leaveType, shiftName, timeFrom, timeTo) => {
+  if (leaveType === 'time_range') {
+    return { start: timeToMinutes(timeFrom), end: timeToMinutes(timeTo) };
+  }
+
+  if (leaveType === 'single_shift') {
+    const shift = DEFAULT_SHIFT_RANGES[shiftName];
+    if (!shift) return { start: null, end: null };
+    return { start: timeToMinutes(shift.start), end: timeToMinutes(shift.end) };
+  }
+
+  return { start: null, end: null };
+};
+
+const overlaps = (startA, endA, startB, endB) => {
+  if ([startA, endA, startB, endB].some(v => v == null)) return false;
+  return startA < endB && endA > startB;
+};
+
 /**
  * @desc    Tạo đơn xin nghỉ (Doctor/Staff)
  * @route   POST /api/leave-requests
@@ -81,7 +113,8 @@ exports.createLeaveRequest = async (req, res) => {
   const transaction = await sequelize.transaction();
   
   try {
-    const userId = req.user.id;
+    const requesterUserId = req.user.id;
+    const { target_user_id } = req.body;
     const { leave_type, date_from, date_to, shift_name, time_from, time_to, reason } = req.body;
 
     // Validate
@@ -98,6 +131,33 @@ exports.createLeaveRequest = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Phải gửi đơn xin nghỉ trước ít nhất 1 ngày.' });
     }
 
+    // Xác định người nhận đơn (mặc định là chính người gửi)
+    let userId = requesterUserId;
+    if (target_user_id) {
+      const targetUser = await models.User.findByPk(target_user_id, { transaction });
+      if (!targetUser) {
+        await transaction.rollback();
+        return res.status(404).json({ success: false, message: 'Không tìm thấy người được chọn để gửi đơn.' });
+      }
+
+      // Staff clinical được phép gửi hộ cho bác sĩ mình phụ trách
+      if (req.user.role === 'staff') {
+        const requesterStaff = await models.Staff.findOne({ where: { user_id: requesterUserId }, transaction });
+        if (!requesterStaff || requesterStaff.department !== 'clinical') {
+          await transaction.rollback();
+          return res.status(403).json({ success: false, message: 'Bạn không có quyền gửi đơn thay cho người khác.' });
+        }
+
+        const targetDoctor = await models.Doctor.findOne({ where: { user_id: target_user_id }, transaction });
+        if (!targetDoctor || !requesterStaff.canManageDoctor(targetDoctor.id)) {
+          await transaction.rollback();
+          return res.status(403).json({ success: false, message: 'Bạn chỉ được gửi đơn thay cho bác sĩ mình được phân công.' });
+        }
+      }
+
+      userId = target_user_id;
+    }
+
     // Kiểm tra user_type
     let userType = null;
     let doctorId = null;
@@ -112,6 +172,34 @@ exports.createLeaveRequest = async (req, res) => {
     if (!userType) {
       await transaction.rollback();
       return res.status(403).json({ success: false, message: 'Chỉ bác sĩ hoặc nhân viên mới có thể xin nghỉ.' });
+    }
+
+    // Chặn leave nếu trùng lịch hẹn của bác sĩ trong cùng khung giờ
+    if (userType === 'doctor') {
+      const appointmentConflicts = await models.Appointment.findAll({
+        where: {
+          doctor_id: doctorId,
+          appointment_date: { [Op.between]: [date_from, date_to || date_from] },
+          status: { [Op.notIn]: ['cancelled', 'passed'] }
+        },
+        attributes: ['appointment_date', 'appointment_start_time', 'appointment_end_time'],
+        transaction
+      });
+
+      const isAllDayLeave = leave_type === 'full_day' || leave_type === 'multiple_days';
+      const leaveWindow = getLeaveWindowMinutes(leave_type, shift_name, time_from, time_to);
+
+      const hasConflict = appointmentConflicts.some(app => {
+        if (isAllDayLeave) return true;
+        const appStart = timeToMinutes(app.appointment_start_time);
+        const appEnd = timeToMinutes(app.appointment_end_time);
+        return overlaps(leaveWindow.start, leaveWindow.end, appStart, appEnd);
+      });
+
+      if (hasConflict) {
+        await transaction.rollback();
+        return res.status(400).json({ success: false, message: 'Khoảng thời gian này đang có lịch hẹn, không thể đăng ký nghỉ.' });
+      }
     }
     
     // Kiểm tra trùng lặp đơn nghỉ
@@ -165,7 +253,7 @@ exports.createLeaveRequest = async (req, res) => {
     }, { transaction });
 
     // SỬA: Gửi thông báo cho những người có quyền phê duyệt đơn này
-    const approvers = await getLeaveRequestApprovers(req.user.id);
+    const approvers = await getLeaveRequestApprovers(userId);
     
     for (const approverId of approvers) {
       if (models.Notification) {

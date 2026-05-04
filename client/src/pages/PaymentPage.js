@@ -127,8 +127,7 @@ const PaymentPage = () => {
                     if (
                         appt.payment_status === 'paid_online' || 
                         appt.payment_status === 'paid_at_clinic' ||
-                        (appt.Payment && appt.Payment.status === 'paid') ||
-                        appt.status === 'confirmed' 
+                    (appt.Payment && appt.Payment.status === 'paid')
                     ) {
                         isPaid = true;
                     }
@@ -145,6 +144,21 @@ const PaymentPage = () => {
     }
     return () => { if (intervalId) clearInterval(intervalId); };
   }, [selectedMethod, paymentStatus, consultation_id, appointmentId, type]);
+
+  // Tự động quay về trang chi tiết sau khi hệ thống xác nhận đã thanh toán
+  useEffect(() => {
+    if (paymentStatus !== 'completed' || !appointment) return;
+
+    const timerId = setTimeout(() => {
+      if (appointment.type === 'consultation') {
+        navigate(`/tu-van/${consultation_id || appointment.id}`);
+      } else {
+        navigate(`/lich-hen/${appointment.code}`);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timerId);
+  }, [paymentStatus, appointment, consultation_id, navigate]);
 
   // ========== API CALLS ==========
 

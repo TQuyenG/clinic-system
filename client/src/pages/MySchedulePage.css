@@ -107,6 +107,62 @@
   color: white;
 }
 
+.my-schedule-page__button--secondary {
+  background-color: var(--color-secondary);
+  color: var(--color-text-primary);
+}
+.my-schedule-page__button--secondary:hover {
+  background-color: var(--color-secondary-dark);
+  color: white;
+}
+
+/* ✅ MỚI: Buttons Group & Dropdown */
+.my-schedule-page__buttons-group {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.my-schedule-page__dropdown-wrapper {
+  position: relative;
+}
+
+.my-schedule-page__dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  min-width: 180px;
+  z-index: 100;
+  margin-top: 0.5rem;
+  overflow: hidden;
+}
+
+.my-schedule-page__dropdown-item {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  background-color: transparent;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.my-schedule-page__dropdown-item:hover {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
 /* ========== TABS ========== */
 .my-schedule-page__tabs {
   display: flex;
@@ -635,6 +691,60 @@
   100% {
     transform: rotate(360deg);
   }
+}
+
+/* ✅ MỚI: MODAL CHỌN BÁC SĨ */
+.my-schedule-page__modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.my-schedule-page__modal-content {
+  background: var(--color-background);
+  border-radius: var(--border-radius);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 450px;
+  padding: 1.75rem;
+  animation: slideUp 0.3s ease-in-out;
+}
+
+.my-schedule-page__modal-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.my-schedule-page__modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.75rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.my-schedule-page__modal-close-btn:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-background-light);
+  border-radius: 50%;
 }
 
 /* ========== RESPONSIVE ========== */

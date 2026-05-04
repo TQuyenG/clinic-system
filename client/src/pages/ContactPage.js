@@ -36,7 +36,7 @@ const ContactPage = () => {
     },
     info_cards: [
       { icon: 'FaPhone', title: 'Điện thoại', details: ['Hotline: 1900 1234'], color: '#10b981' },
-      { icon: 'FaEnvelope', title: 'Email', details: ['contact@clinicsystem.vn'], color: '#3b82f6' },
+      { icon: 'FaEnvelope', title: 'Email', details: ['contact@easymedify.vn'], color: '#3b82f6' },
       { icon: 'FaMapMarkerAlt', title: 'Địa chỉ', details: ['123 Nguyễn Huệ, Q.1, TP.HCM'], color: '#f59e0b' },
       { icon: 'FaClock', title: 'Giờ làm việc', details: ['T2-T7: 7:00-20:00'], color: '#8b5cf6' }
     ],

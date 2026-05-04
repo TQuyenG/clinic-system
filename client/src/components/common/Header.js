@@ -9,7 +9,7 @@ const API_BASE_URL = 'http://localhost:3001/api';
 const Header = () => {
   const [headerData, setHeaderData] = useState({
     phone: '1900 1234',
-    email: 'contact@clinicsystem.vn',
+    email: 'contact@easymedify.vn',
     working_hours: 'T2-T7: 7:00-20:00 | CN: 8:00-17:00',
     welcome_text: 'Chào mừng bạn đến với Easy Medify'
   });

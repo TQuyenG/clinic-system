@@ -24,7 +24,7 @@ const ChatRoomPage = ({ isAIChatbot = false }) => {
       // Tin nhắn chào mừng của AI bot
       setMessages([{
         id: 1,
-        text: 'Xin chào! Tôi là trợ lý ảo của Clinic System. Tôi có thể giúp gì cho bạn?',
+        text: 'Xin chào! Tôi là trợ lý ảo của Easy Medify. Tôi có thể giúp gì cho bạn?',
         sender: 'bot',
         created_at: new Date().toISOString()
       }]);

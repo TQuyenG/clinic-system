@@ -43,14 +43,14 @@
 }
 
 .navbar-logo img {
-  height: 45px;
+  height: 72px;
   width: auto;
-  margin-right: 12px;
+  margin-right: 16px;
   object-fit: contain;
 }
 
 .navbar-logo span {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #2E7D32;
   white-space: nowrap;
@@ -812,7 +812,7 @@
 
   .navbar-logo img,
   .navbar-logo-img {
-    height: 32px;
+    height: 48px;
     margin-right: 0;
   }
 

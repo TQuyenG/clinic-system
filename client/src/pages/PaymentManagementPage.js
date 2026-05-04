@@ -467,9 +467,9 @@ const PaymentManagementPage = () => {
         {printData && (
             <div className="invoice-container p-4">
                 <div className="text-center border-bottom pb-3 mb-3">
-                    <h3 className="pmp-fw-bold m-0">PHÒNG KHÁM ĐA KHOA CLINIC SYSTEM</h3>
+                    <h3 className="pmp-fw-bold m-0">PHÒNG KHÁM ĐA KHOA EASY MEDIFY</h3>
                     <p className="m-0 pmp-small">Địa chỉ: 123 Đường Nguyễn Văn Cừ, Quận 5, TP.HCM</p>
-                    <p className="m-0 pmp-small">Hotline: 1900 1234 - Website: clinic-system.vn</p>
+                    <p className="m-0 pmp-small">Hotline: 1900 1234 - Website: easymedify.vn</p>
                     <h4 className="pmp-fw-bold mt-3">HÓA ĐƠN THANH TOÁN</h4>
                     <small>Mã HĐ: {printData.code}</small>
                 </div>

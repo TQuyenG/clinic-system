@@ -504,6 +504,15 @@ const getPermissionChanges = (oldPerms, newPerms) => {
         moderate_questions: 'Kiểm duyệt'
       } 
     },
+    contact: {
+      name: 'Quản lý liên hệ',
+      permissions: {
+        view: 'Xem tin nhắn',
+        reply: 'Trả lời',
+        mark_read: 'Đánh dấu đã đọc',
+        delete: 'Xóa'
+      }
+    },
     medical_records: { name: 'Hồ sơ y tế', permissions: { view: 'Xem', edit: 'Cập nhật hồ sơ y tế', edit_vitals: 'Sửa chỉ số sinh tồn', create: 'Tạo mới' } },
     articles: { 
       name: 'Bài viết', 

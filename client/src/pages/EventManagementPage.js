@@ -425,7 +425,7 @@ const EventManagementPage = () => {
                         type="text"
                         value={formData.location}
                         onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                        placeholder="VD: Clinic System - Chi nhánh 1"
+                        placeholder="VD: Easy Medify - Chi nhánh 1"
                       />
                     </div>
                   </div>

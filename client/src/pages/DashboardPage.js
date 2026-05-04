@@ -14,12 +14,12 @@ import {
   FaClinicMedical, FaSignOutAlt, FaCalendarAlt, FaChevronLeft, 
   FaChevronRight, FaNewspaper, FaExclamationTriangle, FaCheckCircle, 
   FaClock, FaEyeSlash, FaHourglassHalf, FaCoins, FaEdit, FaSave, FaUndoAlt,
-  FaUsers, FaComments, FaBusinessTime, FaUserCheck
+  FaUsers, FaComments, FaBusinessTime, FaUserCheck, FaEnvelope, FaChartLine
 } from 'react-icons/fa';
 import './DashboardPage.css';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
-const DASHBOARD_LAYOUT_STORAGE_KEY = 'clinic-dashboard-layout-v4';
+const DASHBOARD_LAYOUT_STORAGE_KEY = 'easymedify-dashboard-layout-v4';
 
 // Layout mặc định đã được thiết kế lại to, rõ, đẹp mắt cho lần đầu truy cập
 const DEFAULT_LAYOUTS = {
@@ -29,7 +29,10 @@ const DEFAULT_LAYOUTS = {
     { i: 'payments', x: 8, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
     { i: 'schedules', x: 0, y: 4, w: 4, h: 4, minW: 3, minH: 3 },
     { i: 'forum', x: 4, y: 4, w: 4, h: 4, minW: 3, minH: 3 },
-    { i: 'community', x: 8, y: 4, w: 4, h: 4, minW: 3, minH: 3 }
+    { i: 'community', x: 8, y: 4, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'staff', x: 0, y: 8, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'contact', x: 4, y: 8, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'statistics', x: 8, y: 8, w: 4, h: 4, minW: 3, minH: 3 }
   ],
   md: [
     { i: 'articles', x: 0, y: 0, w: 4, h: 4 },
@@ -37,7 +40,10 @@ const DEFAULT_LAYOUTS = {
     { i: 'payments', x: 8, y: 0, w: 4, h: 4 },
     { i: 'schedules', x: 0, y: 4, w: 4, h: 4 },
     { i: 'forum', x: 4, y: 4, w: 4, h: 4 },
-    { i: 'community', x: 8, y: 4, w: 4, h: 4 }
+    { i: 'community', x: 8, y: 4, w: 4, h: 4 },
+    { i: 'staff', x: 0, y: 8, w: 4, h: 4 },
+    { i: 'contact', x: 4, y: 8, w: 4, h: 4 },
+    { i: 'statistics', x: 8, y: 8, w: 4, h: 4 }
   ],
   sm: [
     { i: 'articles', x: 0, y: 0, w: 12, h: 4 },
@@ -45,7 +51,10 @@ const DEFAULT_LAYOUTS = {
     { i: 'payments', x: 0, y: 8, w: 12, h: 4 },
     { i: 'schedules', x: 0, y: 12, w: 12, h: 4 },
     { i: 'forum', x: 0, y: 16, w: 12, h: 4 },
-    { i: 'community', x: 0, y: 20, w: 12, h: 4 }
+    { i: 'community', x: 0, y: 20, w: 12, h: 4 },
+    { i: 'staff', x: 0, y: 24, w: 12, h: 4 },
+    { i: 'contact', x: 0, y: 28, w: 12, h: 4 },
+    { i: 'statistics', x: 0, y: 32, w: 12, h: 4 }
   ],
   xs: [
     { i: 'articles', x: 0, y: 0, w: 1, h: 4 },
@@ -53,7 +62,10 @@ const DEFAULT_LAYOUTS = {
     { i: 'payments', x: 0, y: 8, w: 1, h: 4 },
     { i: 'schedules', x: 0, y: 12, w: 1, h: 4 },
     { i: 'forum', x: 0, y: 16, w: 1, h: 4 },
-    { i: 'community', x: 0, y: 20, w: 1, h: 4 }
+    { i: 'community', x: 0, y: 20, w: 1, h: 4 },
+    { i: 'staff', x: 0, y: 24, w: 1, h: 4 },
+    { i: 'contact', x: 0, y: 28, w: 1, h: 4 },
+    { i: 'statistics', x: 0, y: 32, w: 1, h: 4 }
   ],
   xxs: [
     { i: 'articles', x: 0, y: 0, w: 1, h: 4 },
@@ -61,7 +73,10 @@ const DEFAULT_LAYOUTS = {
     { i: 'payments', x: 0, y: 8, w: 1, h: 4 },
     { i: 'schedules', x: 0, y: 12, w: 1, h: 4 },
     { i: 'forum', x: 0, y: 16, w: 1, h: 4 },
-    { i: 'community', x: 0, y: 20, w: 1, h: 4 }
+    { i: 'community', x: 0, y: 20, w: 1, h: 4 },
+    { i: 'staff', x: 0, y: 24, w: 1, h: 4 },
+    { i: 'contact', x: 0, y: 28, w: 1, h: 4 },
+    { i: 'statistics', x: 0, y: 32, w: 1, h: 4 }
   ]
 };
 
@@ -97,6 +112,12 @@ const DashboardPage = () => {
   const [loadingForumStats, setLoadingForumStats] = useState(false);
   const [communityStats, setCommunityStats] = useState(null);
   const [loadingCommunityStats, setLoadingCommunityStats] = useState(false);
+  const [contactStats, setContactStats] = useState(null);
+  const [loadingContactStats, setLoadingContactStats] = useState(false);
+  const [revenueStats, setRevenueStats] = useState(null);
+  const [loadingRevenueStats, setLoadingRevenueStats] = useState(false);
+  const [staffStats, setStaffStats] = useState(null);
+  const [loadingStaffStats, setLoadingStaffStats] = useState(false);
   const [leaveStats, setLeaveStats] = useState(null);
   const [loadingLeaveStats, setLoadingLeaveStats] = useState(false);
   const [overtimeStats, setOvertimeStats] = useState(null);
@@ -114,8 +135,11 @@ const DashboardPage = () => {
   const canViewPaymentWorkload = isAdmin || canAccessModule('payments');
   
   // Kiểm tra quyền xem các widget mới
-  const canViewScheduleWorkload = !!user?.role && user.role !== 'patient';
-  const canViewForumWorkload = isAdmin || user?.role === 'staff' || user?.role === 'doctor' || hasAnyPermission('forum', ['create_topic', 'edit_topic', 'delete_topic', 'toggle_topic', 'assign_moderators']);
+  const canViewScheduleWorkload = isAdmin || canAccessModule('work_shift') || user?.role === 'doctor';
+  const canViewForumWorkload = isAdmin || canAccessModule('forum') || canAccessModule('community') || user?.role === 'doctor';
+  const canViewContactWorkload = isAdmin || canAccessModule('contact');
+  const canViewStatisticsWorkload = isAdmin || canAccessModule('statistics') || canAccessModule('payments');
+  const canViewStaffWorkload = isAdmin || canAccessModule('staff_management');
   // Luôn hiển thị widget nhóm cộng đồng nếu user là trưởng nhóm của ít nhất 1 nhóm
   const isGroupLeader = (communityStats?.groups?.length || 0) > 0;
   const canViewCommunityWorkload = isAdmin || ['staff', 'doctor'].includes(user?.role) || isGroupLeader;
@@ -275,6 +299,79 @@ const DashboardPage = () => {
     };
     fetchForumStats();
   }, [canViewForumWorkload]);
+
+  useEffect(() => {
+    const fetchContactStats = async () => {
+      if (!canViewContactWorkload) return;
+      try {
+        setLoadingContactStats(true);
+        const token = localStorage.getItem('token');
+        const response = await axios.get('http://localhost:3001/api/contact/messages', {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { page: 1, limit: 1, status: 'all' }
+        });
+        if (response.data?.success) {
+          setContactStats(response.data.stats || {});
+        }
+      } catch (error) {
+        console.error('Error fetching contact stats:', error);
+        setContactStats({});
+      } finally {
+        setLoadingContactStats(false);
+      }
+    };
+    fetchContactStats();
+  }, [canViewContactWorkload]);
+
+  useEffect(() => {
+    const fetchRevenueStats = async () => {
+      if (!canViewStatisticsWorkload) return;
+      try {
+        setLoadingRevenueStats(true);
+        const response = await paymentService.getRevenueStatistics({ year: new Date().getFullYear() });
+        if (response.data?.success) {
+          setRevenueStats(response.data.data || {});
+        }
+      } catch (error) {
+        console.error('Error fetching revenue stats:', error);
+        setRevenueStats({});
+      } finally {
+        setLoadingRevenueStats(false);
+      }
+    };
+    fetchRevenueStats();
+  }, [canViewStatisticsWorkload]);
+
+  useEffect(() => {
+    const fetchStaffStats = async () => {
+      if (!canViewStaffWorkload) return;
+      try {
+        setLoadingStaffStats(true);
+        const token = localStorage.getItem('token');
+        const response = await axios.get('http://localhost:3001/api/staff/statistics/by-department', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.data?.success) {
+          const departments = Array.isArray(response.data.data) ? response.data.data : [];
+          const summary = departments.reduce((accumulator, dept) => {
+            accumulator.totalStaff += Number(dept.total_staff || 0);
+            accumulator.managers += Number(dept.managers || 0);
+            accumulator.activeStaff += Number(dept.active_staff || 0);
+            accumulator.departments += 1;
+            return accumulator;
+          }, { totalStaff: 0, managers: 0, activeStaff: 0, departments: 0 });
+          summary.inactiveStaff = Math.max(0, summary.totalStaff - summary.activeStaff);
+          setStaffStats(summary);
+        }
+      } catch (error) {
+        console.error('Error fetching staff stats:', error);
+        setStaffStats({});
+      } finally {
+        setLoadingStaffStats(false);
+      }
+    };
+    fetchStaffStats();
+  }, [canViewStaffWorkload]);
 
   // Fetch Nhóm Cộng Đồng
   // Cải tiến: Lấy danh sách nhóm user quản lý (leader), kèm thống kê từng nhóm
@@ -549,6 +646,7 @@ const DashboardPage = () => {
   const openAppointmentManagement = (query = '') => navigate(`/quan-ly-lich-hen${query}`);
   const getAppointmentCount = (status) => Number(appointmentStats?.statusCounts?.[status] || 0);
   const getPaymentCount = (status) => Number(paymentStats?.statusCounts?.[status] || 0);
+  const openStatisticsPage = () => navigate(canAccessModule('statistics') ? '/thong-ke' : '/quan-ly-thanh-toan/thong-ke');
 
   const boardWidgets = [
     {
@@ -641,6 +739,48 @@ const DashboardPage = () => {
       totalValue: communityStats?.totalGroups || 0,
       totalIcon: FaUsers,
       stats: [] // Không dùng stats cũ, custom render widget bên dưới
+    },
+    {
+      id: 'staff',
+      visible: canViewStaffWorkload,
+      title: 'Quản lý nhân sự',
+      loading: loadingStaffStats,
+      totalValue: staffStats?.totalStaff || 0,
+      totalIcon: FaUsers,
+      stats: [
+        { key: 'managers', label: 'Quản lý', value: staffStats?.managers || 0, icon: FaUserCheck, className: 'is-green', action: () => navigate('/quan-ly-nhan-vien') },
+        { key: 'active', label: 'Đang hoạt động', value: staffStats?.activeStaff || 0, icon: FaCheckCircle, className: 'is-success', action: () => navigate('/quan-ly-nhan-vien') },
+        { key: 'inactive', label: 'Tạm nghỉ', value: staffStats?.inactiveStaff || 0, icon: FaEyeSlash, className: 'is-danger', action: () => navigate('/quan-ly-nhan-vien') },
+        { key: 'departments', label: 'Phòng ban', value: staffStats?.departments || 0, icon: FaBusinessTime, className: 'is-cyan', action: () => navigate('/quan-ly-nhan-vien') }
+      ]
+    },
+    {
+      id: 'contact',
+      visible: canViewContactWorkload,
+      title: 'Liên hệ & hỗ trợ',
+      loading: loadingContactStats,
+      totalValue: contactStats?.total || 0,
+      totalIcon: FaEnvelope,
+      stats: [
+        { key: 'new', label: 'Mới', value: contactStats?.new || 0, icon: FaClock, className: 'is-warning', action: () => navigate('/quan-ly-lien-he?status=new') },
+        { key: 'processing', label: 'Đang xử lý', value: contactStats?.processing || 0, icon: FaHourglassHalf, className: 'is-amber', action: () => navigate('/quan-ly-lien-he?status=processing') },
+        { key: 'replied', label: 'Đang trao đổi', value: contactStats?.replied || 0, icon: FaCheckCircle, className: 'is-info', action: () => navigate('/quan-ly-lien-he?status=replied') },
+        { key: 'closed', label: 'Hoàn tất', value: contactStats?.closed || 0, icon: FaEyeSlash, className: 'is-danger', action: () => navigate('/quan-ly-lien-he?status=closed') }
+      ]
+    },
+    {
+      id: 'statistics',
+      visible: canViewStatisticsWorkload,
+      title: 'Thống kê doanh thu',
+      loading: loadingRevenueStats,
+      totalValue: revenueStats?.summary?.total || 0,
+      totalIcon: FaChartLine,
+      stats: [
+        { key: 'today', label: 'Hôm nay', value: revenueStats?.summary?.today || 0, icon: FaClock, className: 'is-blue', action: openStatisticsPage },
+        { key: 'transactions', label: 'Giao dịch', value: revenueStats?.summary?.total_transactions || 0, icon: FaCoins, className: 'is-warning', action: openStatisticsPage },
+        { key: 'paid', label: 'Đã thanh toán', value: revenueStats?.summary?.paid_transactions || 0, icon: FaCheckCircle, className: 'is-success', action: () => navigate('/quan-ly-thanh-toan/giao-dich?status=paid') },
+        { key: 'methods', label: 'Phương thức', value: Array.isArray(revenueStats?.methodBreakdown) ? revenueStats.methodBreakdown.length : 0, icon: FaChartLine, className: 'is-cyan', action: openStatisticsPage }
+      ]
     }
   ];
 
@@ -718,9 +858,6 @@ const DashboardPage = () => {
             margin={[16, 16]}
             useCSSTransforms={true}
           >
-            {/* State cho widget nhóm cộng đồng */}
-            const [expandedGroup, setExpandedGroup] = React.useState(null);
-            const [showAllGroups, setShowAllGroups] = React.useState(false);
             {visibleWidgets.map((widget) => {
               if (widget.id !== 'community') {
                 const WidgetIcon = widget.totalIcon;

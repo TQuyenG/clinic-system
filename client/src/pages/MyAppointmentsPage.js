@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import appointmentService from '../services/appointmentService';
+import paymentService from '../services/paymentService';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -33,6 +34,9 @@ const MyAppointmentsPage = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionReason, setActionReason] = useState('');
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundBankInfo, setRefundBankInfo] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -98,6 +102,8 @@ const MyAppointmentsPage = () => {
   // Actions
   const openCancelModal = (apt) => { setSelectedAppointment(apt); setShowActionModal(true); };
   const closeActionModal = () => { setShowActionModal(false); setSelectedAppointment(null); setActionReason(''); };
+  const openRefundModal = (apt) => { setSelectedAppointment(apt); setShowRefundModal(true); };
+  const closeRefundModal = () => { setShowRefundModal(false); setSelectedAppointment(null); setRefundReason(''); setRefundBankInfo(''); };
   const handleConfirmCancel = async () => {
     if (!actionReason.trim()) return toast.warn('Nhập lý do hủy');
     try {
@@ -107,6 +113,25 @@ const MyAppointmentsPage = () => {
       fetchMyAppointments();
       closeActionModal();
     } catch (e) { toast.error('Lỗi khi hủy'); } finally { setIsSubmitting(false); }
+  };
+  const handleRefundSubmit = async () => {
+    if (!refundReason.trim()) return toast.warn('Nhập lý do hoàn tiền');
+    if (!refundBankInfo.trim()) return toast.warn('Nhập thông tin tài khoản nhận tiền');
+    try {
+      setIsSubmitting(true);
+      await paymentService.requestRefund({
+        appointment_id: selectedAppointment.id,
+        reason: refundReason,
+        bank_info: refundBankInfo
+      });
+      toast.success('Đã gửi yêu cầu hoàn tiền');
+      closeRefundModal();
+      fetchMyAppointments();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Lỗi khi gửi yêu cầu hoàn tiền');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Stats
@@ -251,6 +276,11 @@ const MyAppointmentsPage = () => {
                             <FaBan />
                           </button>
                         )}
+                        {apt.status === 'cancelled' && (apt.payment_status === 'paid_online' || apt.payment_status === 'paid_at_clinic') && (
+                          <button className="admin-appt-page-btn-action" onClick={() => openRefundModal(apt)} title="Yêu cầu hoàn tiền" style={{ background: '#f59e0b', color: '#fff' }}>
+                            <FaCheckCircle />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -276,6 +306,29 @@ const MyAppointmentsPage = () => {
                <button className="appointment-management-btn appointment-management-btn-reset" onClick={closeActionModal}>Đóng</button>
                <button className="appointment-management-btn" style={{background: '#e57373', color: 'white'}} onClick={handleConfirmCancel} disabled={isSubmitting}>
                  {isSubmitting ? <FaSpinner className="fa-spin"/> : 'Xác nhận hủy'}
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRefundModal && selectedAppointment && (
+        <div className="admin-appt-page-modal-overlay">
+          <div className="admin-appt-page-modal-content">
+            <h3 style={{marginBottom: '15px'}}>Yêu Cầu Hoàn Tiền</h3>
+            <p>Lịch hẹn <strong>{selectedAppointment.code}</strong> đã hủy và đủ điều kiện hoàn tiền sẽ được staff/admin xét duyệt.</p>
+            <div className="admin-appt-page-form-group" style={{marginTop: '15px'}}>
+               <label>Lý do hoàn tiền</label>
+               <textarea rows="3" placeholder="Mô tả lý do và yêu cầu hoàn tiền..." value={refundReason} onChange={(e) => setRefundReason(e.target.value)} />
+            </div>
+            <div className="admin-appt-page-form-group" style={{marginTop: '15px'}}>
+               <label>Thông tin tài khoản nhận tiền</label>
+               <textarea rows="3" placeholder="Ngân hàng, số tài khoản, chủ tài khoản..." value={refundBankInfo} onChange={(e) => setRefundBankInfo(e.target.value)} />
+            </div>
+            <div className="admin-appt-page-modal-footer">
+               <button className="appointment-management-btn appointment-management-btn-reset" onClick={closeRefundModal}>Đóng</button>
+               <button className="appointment-management-btn" style={{background: '#f59e0b', color: 'white'}} onClick={handleRefundSubmit} disabled={isSubmitting}>
+                 {isSubmitting ? <FaSpinner className="fa-spin"/> : 'Gửi yêu cầu hoàn tiền'}
                </button>
             </div>
           </div>

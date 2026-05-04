@@ -36,12 +36,12 @@ function getDefaultSettings(page) {
     'header-nav-footer': {
       header: {
         phone: '1900 1234',
-        email: 'contact@clinicsystem.vn',
+        email: 'contact@easymedify.vn',
         working_hours: 'T2-T7: 7:00-20:00 | CN: 8:00-17:00',
-        welcome_text: 'Chào mừng bạn đến với Clinic System'
+        welcome_text: 'Chào mừng bạn đến với Easy Medify'
       },
       navbar: {
-        logo_text: 'Clinic System',
+        logo_text: 'Easy Medify',
         logo_image: ''
       },
       footer: {
@@ -68,7 +68,7 @@ function getDefaultSettings(page) {
         {
           icon: 'FaEnvelope',
           title: 'Email',
-          details: ['contact@clinicsystem.vn', 'support@clinicsystem.vn'],
+          details: ['contact@easymedify.vn', 'support@easymedify.vn'],
           color: '#3b82f6'
         },
         {
@@ -124,9 +124,9 @@ function getDefaultSettings(page) {
         '🛺 Grab/Be đến địa chỉ: 123 Nguyễn Huệ, Q.1'
       ],
       social_links: {
-        facebook: 'https://facebook.com/clinicsystem',
-        instagram: 'https://instagram.com/clinicsystem',
-        youtube: 'https://youtube.com/clinicsystem',
+        facebook: 'https://facebook.com/easymedify',
+        instagram: 'https://instagram.com/easymedify',
+        youtube: 'https://youtube.com/easymedify',
         zalo: ''
       },
       ratings: {
@@ -219,7 +219,7 @@ function getDefaultSettings(page) {
           }
         ],
         hotline: '1900 1234',
-        email: 'contact@clinicsystem.vn',
+        email: 'contact@easymedify.vn',
         address: 'Hồ Chí Minh'
       }
     }

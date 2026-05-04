@@ -4,6 +4,7 @@
 // 2. Thêm state và hàm riêng để tải số lượng 'pending'
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import Select from 'react-select'; 
@@ -52,11 +53,27 @@ import { MdOutlineErrorOutline } from "react-icons/md";
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
+// DEBUG: Log imported components to detect undefined imports causing runtime errors
+if (process.env.NODE_ENV !== 'production') {
+  // eslint-disable-next-line no-console
+  console.log('DEBUG Imports:', {
+    CalendarView: typeof CalendarView,
+    ScheduleTableView: typeof ScheduleTableView,
+    PendingLeaveTable: typeof PendingLeaveTable,
+    LeaveDetailModal: typeof LeaveDetailModal,
+    ConfirmationModal: typeof ConfirmationModal,
+    ScheduleApprovalTable: typeof ScheduleApprovalTable,
+    OvertimeApprovalTable: typeof OvertimeApprovalTable,
+    OvertimeEditor: typeof OvertimeEditor
+  });
+}
+
 // (Helpers getWeekRange, getMonthRange, formatDateISO giữ nguyên)
 const getWeekRange = (date) => {
-  const start = new Date(date);
-  const day = start.getDay();
-  const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
+  const dayOfWeek = start.getDay(); // 0=Sun, 1=Mon, 2=Tue, ..., 6=Sat
+  // Align with CalendarView.getWeekDays(): Monday of the current week.
+  const diff = start.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
   start.setDate(diff);
   start.setHours(0,0,0,0);
   const end = new Date(start);
@@ -70,14 +87,27 @@ const getMonthRange = (date) => {
    end.setHours(23,59,59,999);
    return { start, end };
 };
-const formatDateISO = (date) => date.toISOString().split('T')[0];
+const formatDateISO = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
+const formatDateLabel = (date) => {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
 
 const ScheduleManagementPage = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [userStaffInfo, setUserStaffInfo] = useState(null); // Thông tin staff nếu là staff
   const [activeTab, setActiveTab] = useState('doctor-schedule');
   const [workShiftConfig, setWorkShiftConfig] = useState([]); 
+  const [visibleWeekStart, setVisibleWeekStart] = useState(null);
   
   // State cho danh sách
   const [doctors, setDoctors] = useState([]);
@@ -213,27 +243,8 @@ const ScheduleManagementPage = () => {
           console.error('Error parsing stored user for permissions', err);
         }
 
-        if (userData.role === 'admin' || (userData.role === 'staff' && (userStaffInfo?.rank === 'manager' || hasViewDoctorPerm))) {
-          const token = localStorage.getItem('token');
-          const response = await axios.get(
-            `${API_URL}/users/by-role?role=doctor`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          if (response.data.success) {
-              const users = response.data.users || [];
-              const normalized = users.map(d => ({
-                id: d.id || d.user_id || d.User?.id,
-                full_name: d.full_name || d.User?.full_name || d.name || d.User?.fullName,
-                avatar_url: d.avatar_url || d.User?.avatar_url || d.avatar || d.User?.avatar,
-                role: 'doctor',
-                raw: d
-              }));
-              setDoctors(normalized);
-            }
-        } else {
-          setDoctors([]);
-        }
-        
+        // Doctors được load trong loadDropdownData() bên dưới (tránh duplicate + race condition)
+
         // (Xử lý link highlight từ thông báo)
         const params = new URLSearchParams(window.location.search);
         const tab = params.get('tab');
@@ -280,7 +291,7 @@ const ScheduleManagementPage = () => {
         try {
           const res = await axios.get(`${API_URL}/users/by-role?role=doctor`, { headers: { Authorization: `Bearer ${token}` } });
           if (res.data.success) {
-            setDoctors(res.data.users.map(d => ({ ...d, id: d.id || d.user_id, full_name: d.full_name || d.User?.full_name })));
+            setDoctors(res.data.users.map(d => ({ ...d, id: d.user_id || d.id, full_name: d.full_name || d.User?.full_name })));
           }
         } catch (e) { console.error(e); }
       } else if (user.role === 'staff' && hasViewDoctorPerm && userStaffInfo?.id) {
@@ -321,6 +332,8 @@ const ScheduleManagementPage = () => {
 
     loadDropdownData();
   }, [user, userStaffInfo, hasViewDoctorPerm]);
+
+  // [REMOVED] Auto-select logic bị lock view để 1 người - backend sẽ load tất cả nếu chưa chọn
   
   // Cập nhật assigned doctors khi doctors list thay đổi - không cần nữa
   // useEffect(() => {
@@ -486,6 +499,7 @@ const ScheduleManagementPage = () => {
       const range = (viewMode === 'week' || calendarDisplayMode === 'table')
         ? getWeekRange(currentDate) 
         : getMonthRange(currentDate);
+      const effectiveSelectedUsers = activeTab === 'doctor-schedule' ? selectedUsers.slice(0, 1) : selectedUsers;
 
       const params = new URLSearchParams({
         date_from: formatDateISO(range.start),
@@ -493,22 +507,38 @@ const ScheduleManagementPage = () => {
       });
       
       if (user.role === 'admin') {
-         if(selectedUsers.length > 0) {
-            params.append('user_ids', selectedUsers.map(u => u.value).join(','));
-         }
-      } else if (activeTab === 'staff-schedule' && user.role === 'staff' && staffList.length > 0) {
-         // Trưởng phòng xem lịch nhân viên: load tất cả staff trong phòng
-         params.append('user_ids', staffList.map(s => s.id).join(','));
-      } else if (activeTab === 'doctor-schedule' && user.role === 'staff' && (userStaffInfo?.rank === 'manager' || hasViewDoctorPerm)) {
-         // Trưởng phòng xem lịch tất cả bác sĩ
-         if (selectedUsers.length > 0) {
-            params.append('user_ids', selectedUsers.map(u => u.value).join(','));
-         } // Nếu không chọn, backend sẽ load tất cả doctors
+        // [FIX] Admin luôn dùng selectedUsers cho cả 2 tab, gửi rỗng nếu chưa chọn
+        params.append('user_ids', effectiveSelectedUsers.length > 0
+          ? effectiveSelectedUsers.map(u => u.value).join(',')
+          : '');
+        if (effectiveSelectedUsers.length > 0) {
+          params.append('user_ids_kind', 'user');
+        }
+      } else if (user.role === 'staff' && (userStaffInfo?.rank === 'manager' || hasViewDoctorPerm)) {
+        // Trưởng phòng / staff có quyền: dùng selectedUsers nếu đã chọn
+        if (effectiveSelectedUsers.length > 0) {
+          params.append('user_ids', effectiveSelectedUsers.map(u => u.value).join(','));
+          params.append('user_ids_kind', 'user');
+        } else if (activeTab === 'staff-schedule' && staffList.length > 0) {
+          // Trưởng phòng xem lịch nhân viên mà chưa chọn: load tất cả staff trong phòng (tối đa 5)
+          params.append('user_ids', staffList.slice(0, 5).map(s => s.id).join(','));
+          params.append('user_ids_kind', 'user');
+        }
+        // doctor-schedule không chọn → không gửi user_ids → backend load tất cả doctors
       } else {
-         params.append('user_ids', user.id);
+        // Staff thường: chỉ xem lịch của chính mình
+        params.append('user_ids', user.id);
+        params.append('user_ids_kind', 'user');
       }
       
       params.append('types', 'schedules,overtime,leaves,appointments');
+
+      // DEBUG: log request params
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Calendar] API request params:', Object.fromEntries(params));
+        console.log('[Calendar] selectedUsers:', selectedUsers);
+        console.log('[Calendar] effectiveSelectedUsers values:', effectiveSelectedUsers.map(u => u.value));
+      }
       
       const response = await axios.get(
         `${API_URL}/calendar/view?${params.toString()}`,
@@ -516,7 +546,13 @@ const ScheduleManagementPage = () => {
       );
 
       if (response.data.success) {
-        setAllCalendarData(response.data.data); 
+        setAllCalendarData(response.data.data);
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.log('[Calendar] Response - appointments count:', (response.data.data || {}).appointments?.length, 'appointments:', (response.data.data || {}).appointments?.slice(0,3));
+          // eslint-disable-next-line no-console
+          console.log('[Calendar] Response - schedules count:', (response.data.data || {}).schedules?.length);
+        }
       } else {
         setAllCalendarData({ schedules: [], overtime_schedules: [], leaves: [], appointments: [] });
       }
@@ -535,8 +571,8 @@ const ScheduleManagementPage = () => {
     if (user && activeTab === 'staff-schedule') {
       // Luôn load lịch nhân viên
       loadUserCalendarData();
-    } else if (user && activeTab === 'doctor-schedule' && (user.role === 'admin' || (user.role === 'staff' && (userStaffInfo?.rank === 'manager' || hasViewDoctorPerm)))) {
-      // Chỉ load lịch bác sĩ khi có quyền (admin hoặc trưởng phòng hoặc staff có permission 'view_doctor_schedule')
+    } else if (user && activeTab === 'doctor-schedule' && (user.role === 'admin' || user.role === 'doctor' || (user.role === 'staff' && (userStaffInfo?.rank === 'manager' || hasViewDoctorPerm)))) {
+      // Load lịch bác sĩ cho admin, bác sĩ, hoặc staff có quyền xem lịch bác sĩ
       loadUserCalendarData();
     }
   }, [selectedUsers, currentDate, viewMode, calendarDisplayMode, activeTab, user, userStaffInfo, staffList, doctors]);
@@ -686,14 +722,16 @@ const ScheduleManagementPage = () => {
   // Lọc dữ liệu ở Frontend
   const filteredData = useMemo(() => {
     const { schedules, overtime_schedules, leaves, appointments } = allCalendarData;
+    const showWorkSchedules = true; 
     
     return {
-      schedules: eventTypeFilters.schedules ? schedules : [],
+      schedules: showWorkSchedules && eventTypeFilters.schedules ? schedules : [],
       overtime_schedules: eventTypeFilters.overtime ? overtime_schedules : [],
       leaves: eventTypeFilters.leaves ? leaves : [],
-      appointments: eventTypeFilters.appointments ? appointments : []
+      appointments: eventTypeFilters.appointments ? appointments : [],
+      showWorkSchedules
     };
-  }, [allCalendarData, eventTypeFilters]);
+  }, [allCalendarData, eventTypeFilters, activeTab]);
 
   // Lọc danh sách phê duyệt
   const filteredLeaves = useMemo(() => {
@@ -788,14 +826,32 @@ const ScheduleManagementPage = () => {
 
   // (Handler chọn User: handleUserChange - Giữ nguyên)
   const handleUserChange = (selectedOptions) => {
-    if (user.role === 'admin' && selectedOptions.length > 5) {
+    const normalizeOption = (option) => {
+      if (!option) return option;
+      const normalizedId = option.userId || option.user_id || option.value || option.id || null;
+      return {
+        ...option,
+        value: normalizedId,
+        userId: normalizedId
+      };
+    };
+
+    if (activeTab === 'doctor-schedule') {
+      const singleSelection = Array.isArray(selectedOptions)
+        ? selectedOptions.slice(0, 1).map(normalizeOption)
+        : (selectedOptions ? [normalizeOption(selectedOptions)] : []);
+      setSelectedUsers(singleSelection);
+      return;
+    }
+
+    if (user.role === 'admin' && Array.isArray(selectedOptions) && selectedOptions.length > 5) {
       toast.warn('Chỉ được phép xem tối đa 5 người dùng cùng lúc');
       return;
     }
     if (user.role === 'admin') {
-      setSelectedUsers(selectedOptions);
+      setSelectedUsers(Array.isArray(selectedOptions) ? selectedOptions.map(normalizeOption) : []);
     } else {
-      setSelectedUsers(selectedOptions ? [selectedOptions] : []);
+      setSelectedUsers(selectedOptions ? [normalizeOption(selectedOptions)] : []);
     }
   };
   
@@ -961,14 +1017,23 @@ const ScheduleManagementPage = () => {
       return u?.raw?.Specialty?.id || u?.raw?.specialty?.id || u?.raw?.specialty_id || u?.raw?.roleData?.specialty?.id || u?.specialty?.id || u?.specialty_id || null;
     };
 
+    const getOptionUserId = (u) => {
+      return u?.user_id || u?.User?.id || u?.raw?.user_id || u?.raw?.User?.id || u?.id || null;
+    };
+
     const filteredBySpecialty = selectedSpecialty && selectedSpecialty !== 'all'
       ? userList.filter(u => String(getSpecialtyId(u)) === String(selectedSpecialty))
       : userList;
-    const userOptions = filteredBySpecialty.map(u => ({
-      value: u.id,
-      label: u.full_name,
-      avatar: u.avatar_url
-    }));
+    const userOptions = filteredBySpecialty.map(u => {
+      const value = u?.user_id || u?.User?.id || u?.raw?.user_id || u?.raw?.User?.id || u?.id || null;
+      return {
+        value,
+        userId: value,
+        label: u.full_name,
+        avatar: u.avatar_url,
+        raw: u
+      };
+    });
     const formatOptionLabel = ({ label, avatar }) => (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <img 
@@ -984,6 +1049,7 @@ const ScheduleManagementPage = () => {
     // --- ĐIỀU KIỆN HIỂN THỊ MỚI ---
     // MỞ KHÓA DROPDOWN CHO TẤT CẢ (Danh sách người bên trong đã được bảo vệ chặt chẽ ở Bước 2)
     const canSelectUsers = true; 
+    const isDoctorMode = activeTab === 'doctor-schedule';
     
     // Điều kiện vẽ Lịch: Nếu là Admin thì bắt buộc phải chọn, nếu là Staff thường thì auto xem lịch
     const shouldShowCalendar = user.role !== 'admin' || selectedUsers.length > 0;
@@ -1011,9 +1077,9 @@ const ScheduleManagementPage = () => {
         {canSelectUsers && (
           <div className="schedule-management-page__form-group" style={{ flexBasis: '400px', zIndex: 10 }}>
             <Select
-              isMulti={user.role === 'admin'} 
+              isMulti={!isDoctorMode && user.role === 'admin'} 
               options={userOptions}
-              value={selectedUsers}
+              value={isDoctorMode ? (selectedUsers[0] || null) : selectedUsers}
               onChange={handleUserChange}
               formatOptionLabel={formatOptionLabel}
               placeholder={`-- Chọn ${activeTab === 'doctor-schedule' ? 'bác sĩ' : 'nhân viên'} --`}
@@ -1045,7 +1111,9 @@ const ScheduleManagementPage = () => {
       {shouldShowCalendar && (
         <div className="schedule-management-page__event-type-filters">
           <span>Hiển thị:</span>
-          <button className={`schedule-management-page__filter-btn ${eventTypeFilters.schedules ? 'active' : ''} filter-schedules`} onClick={() => handleEventTypeToggle('schedules')}><FaBusinessTime /> Lịch làm việc</button>
+          {filteredData.showWorkSchedules && (
+            <button className={`schedule-management-page__filter-btn ${eventTypeFilters.schedules ? 'active' : ''} filter-schedules`} onClick={() => handleEventTypeToggle('schedules')}><FaBusinessTime /> Lịch làm việc</button>
+          )}
            <button className={`schedule-management-page__filter-btn ${eventTypeFilters.overtime ? 'active' : ''} filter-overtime`} onClick={() => handleEventTypeToggle('overtime')}><FaClock /> Tăng ca</button>
           <button className={`schedule-management-page__filter-btn ${eventTypeFilters.appointments ? 'active' : ''} filter-appointments`} onClick={() => handleEventTypeToggle('appointments')}><FaUserClock /> Lịch hẹn</button>
            <button className={`schedule-management-page__filter-btn ${eventTypeFilters.leaves ? 'active' : ''} filter-leaves`} onClick={() => handleEventTypeToggle('leaves')}><FaExclamationTriangle /> Lịch nghỉ</button>
@@ -1061,7 +1129,10 @@ const ScheduleManagementPage = () => {
             </button>
             <h3>
               {(viewMode === 'week' || calendarDisplayMode === 'table')
-                ? `Tuần từ ${formatDateISO(getWeekRange(currentDate).start)}`
+                ? (() => {
+                    const wk = getWeekRange(visibleWeekStart || currentDate);
+                    return `Tuần từ ${formatDateLabel(wk.start)} đến ${formatDateLabel(wk.end)}`;
+                  })()
                 : currentDate.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })
               }
             </h3>
@@ -1083,13 +1154,64 @@ const ScheduleManagementPage = () => {
                 viewMode={viewMode}
                 currentDate={currentDate}
                 selectedUsers={selectedUsers} 
-                onEventClick={(event) => toast.info(`Sự kiện: ${event.id || event.reason}`)}
+                showWorkSchedules={filteredData.showWorkSchedules}
+                onEventClick={(event) => {
+                  // DEBUG: log the clicked event and current selectedUsers
+                  if (process.env.NODE_ENV !== 'production') {
+                    // eslint-disable-next-line no-console
+                    console.log('DEBUG onEventClick payload:', event);
+                    // eslint-disable-next-line no-console
+                    console.log('DEBUG current selectedUsers:', selectedUsers);
+                  }
+                  // Nếu là sự kiện lịch hẹn, điều hướng tới AppointmentManagementPage với bộ lọc
+                  if (event.type === 'appointment' && event.id) {
+                    const doctorIdFromEvent = event.doctor_id || event.raw?.doctor_id || event.Doctor?.id || event.raw?.Doctor?.id;
+                    const doctorUserIdFromEvent = event.user_id || event.user?.id || event.raw?.user_id || event.raw?.user?.id;
+                    if (user?.role === 'doctor') {
+                      navigate('/lich-hen-cua-toi', {
+                        state: {
+                          filters: {
+                            date: event.appointment_date || event.date,
+                            appointment_start_time: event.appointment_start_time || event.start_time || event.startTime
+                          }
+                        }
+                      });
+                      return;
+                    }
+                    navigate('/quan-ly-lich-hen', {
+                      state: {
+                        filters: {
+                          doctor_id: doctorIdFromEvent,
+                          doctor_user_id: doctorUserIdFromEvent,
+                          appointment_date: event.appointment_date || event.date,
+                          appointment_start_time: event.appointment_start_time || event.start_time || event.startTime
+                        }
+                      }
+                    });
+                  } else {
+                    // Các sự kiện khác chỉ hiển thị toast
+                    toast.info(`Sự kiện: ${event.id || event.reason}`);
+                  }
+                }}
                 month={currentDate.getMonth() + 1}
                 year={currentDate.getFullYear()}
                 onDateClick={(date, leaves) => leaves.length > 0 && toast.info(`Nghỉ phép: ${leaves[0].reason}`)}
+                onVisibleWeekStartChange={setVisibleWeekStart}
               />
             ) : (
-              <ScheduleTableView schedules={filteredData.schedules} overtimeSchedules={filteredData.overtime_schedules} leaveRequests={filteredData.leaves} appointments={filteredData.appointments} loading={loading.schedules} />
+              <ScheduleTableView
+                schedules={filteredData.schedules}
+                overtimeSchedules={filteredData.overtime_schedules}
+                leaveRequests={filteredData.leaves}
+                appointments={filteredData.appointments}
+                showWorkSchedules={filteredData.showWorkSchedules}
+                workShiftConfig={workShiftConfig.filter(s => s?.is_active)}
+                loading={loading.schedules}
+                currentDate={currentDate}
+                viewMode={viewMode}
+                month={currentDate.getMonth() + 1}
+                year={currentDate.getFullYear()}
+              />
             )
           )}
         </>

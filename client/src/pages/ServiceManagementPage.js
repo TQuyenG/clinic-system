@@ -50,6 +50,7 @@ const ServiceManagementPage = () => {
 
   const [filters, setFilters] = useState({ search: '', categoryId: '', status: '', page: 1, limit: 10 });
   const [pagination, setPagination] = useState({ total: 0, totalPages: 0, currentPage: 1 });
+  const [slotStatsMap, setSlotStatsMap] = useState({}); // Map service.id → slot stats
   
   const [selectedDoctors, setSelectedDoctors] = useState([]); 
   
@@ -150,6 +151,11 @@ const ServiceManagementPage = () => {
       if (response.data?.success && Array.isArray(response.data.data)) {
         setServices(response.data.data);
         setPagination(response.data.pagination || { total: 0, totalPages: 0, currentPage: 1 });
+        
+        // Fetch slot stats cho tất cả dịch vụ
+        response.data.data.forEach(service => {
+          if (service.id) fetchSlotStats(service.id);
+        });
       } else {
         setServices([]);
       }
@@ -157,6 +163,23 @@ const ServiceManagementPage = () => {
       setServices([]);
     } finally { 
       setLoading(false); 
+    }
+  };
+
+  const fetchSlotStats = async (serviceId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:3001/api/appointments/service/${serviceId}/slots-stats-today`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSlotStatsMap(prev => ({ ...prev, [serviceId]: data.data }));
+        }
+      }
+    } catch (error) {
+      console.error('Lỗi fetch slot stats:', error);
     }
   };
 
@@ -406,6 +429,23 @@ const ServiceManagementPage = () => {
     return `http://localhost:3001${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
+  const formatSlotStats = (serviceId) => {
+    const stats = slotStatsMap[serviceId];
+    if (!stats) return 'Đang tải...';
+    
+    const parts = [];
+    Object.entries(stats).forEach(([key, value]) => {
+      const remaining = value.remaining || 0;
+      const capacity = value.capacity || 0;
+      const displayName = value.display_name || key;
+      if (capacity > 0) {
+        parts.push(`${displayName}: ${remaining}/${capacity}`);
+      }
+    });
+    
+    return parts.length > 0 ? parts.join(' | ') : 'Không có ca';
+  };
+
   if (loading) return <div className="smp-page-container"><div className="smp-loading">Đang tải dữ liệu...</div></div>;
 
   const activeCount = Array.isArray(services) ? services.filter(s => s.status === 'active').length : 0;
@@ -454,6 +494,7 @@ const ServiceManagementPage = () => {
                 <th>ID</th><th>Tên dịch vụ & Mô tả</th><th>Hình ảnh</th><th>Danh mục</th>
                 <th>Bác sĩ thực hiện</th>
                 <th>Lịch hẹn</th>
+                <th>Slot còn lại/ca</th>
                 <th>Giá & Thời gian</th><th>Trạng thái</th><th>Thao tác</th>
               </tr>
             </thead>
@@ -489,6 +530,11 @@ const ServiceManagementPage = () => {
                       </div>
                     </td>
                     <td>
+                      <div style={{ fontSize: '12px', color: '#475569', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {formatSlotStats(service.id)}
+                      </div>
+                    </td>
+                    <td>
                       <div style={{fontWeight: '600', color: 'var(--smp-primary)'}}>{service.price?.toLocaleString('vi-VN')} đ</div>
                       <div style={{fontSize: '12px', color: 'var(--smp-text-gray)'}}>{service.duration} phút</div>
                     </td>
@@ -506,7 +552,7 @@ const ServiceManagementPage = () => {
                     </td>
                   </tr>
                 ))
-              ) : <tr><td colSpan="9" className="smp-empty-state">Không có dữ liệu.</td></tr>}
+              ) : <tr><td colSpan="10" className="smp-empty-state">Không có dữ liệu.</td></tr>}
             </tbody>
           </table>
         </div>

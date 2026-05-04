@@ -5,6 +5,7 @@ import MainLayout from './components/layout/MainLayout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DepartmentColorProvider } from './contexts/DepartmentColorContext'; 
 import PermissionRoute from './components/common/PermissionRoute';
+import usePermissions from './hooks/usePermissions';
 
 // --- Import Pages ---
 
@@ -166,6 +167,75 @@ const AppointmentPageDispatcher = () => {
   return <MyAppointmentsPage />;
 };
 
+const ReceptionRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const { canAccessModule, hasPermission } = usePermissions();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Đang tải dữ liệu người dùng...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!(canAccessModule('appointments') || hasPermission('payments', 'pos'))) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+const ForumRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const { canAccessModule } = usePermissions();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Đang tải dữ liệu người dùng...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!(canAccessModule('forum') || canAccessModule('community'))) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+const ConsultationRealtimeRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const { canAccessModule } = usePermissions();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Đang tải dữ liệu người dùng...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!(canAccessModule('consultations') || canAccessModule('consultation_realtime') || canAccessModule('video_call'))) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
 // --- App Component ---
 function App() {
   // Override native alert to use toast
@@ -258,8 +328,8 @@ function App() {
             <Route path="/dien-dan-cua-toi" element={<ProtectedRoute><MyForumPage /></ProtectedRoute>} />
 
             {/* Quản lý (Admin/Staff/Doctor) */}
-            <Route path="/quan-ly-nhom-cong-dong" element={<ProtectedRoute requiredRole={['admin','staff','doctor']}><CommunityGroupManagePage mode="manage" /></ProtectedRoute>} />
-            <Route path="/quan-ly-dien-dan" element={<ProtectedRoute requiredRole={['admin', 'staff']}><ForumManagementPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-nhom-cong-dong" element={<ForumRoute><CommunityGroupManagePage mode="manage" /></ForumRoute>} />
+            <Route path="/quan-ly-dien-dan" element={<ForumRoute><ForumManagementPage /></ForumRoute>} />
             <Route path="/quan-ly-bao-cao" element={<ProtectedRoute requiredRole="admin"><ReportManagementPage /></ProtectedRoute>} />
 
             {/* ========== 5. PUBLIC MEDICINE & DISEASE ========== */}
@@ -287,7 +357,7 @@ function App() {
             <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
             <Route path="/thong-bao" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
             <Route path="/bai-viet-da-luu" element={<ProtectedRoute><SavedArticlesPage /></ProtectedRoute>} />
-            <Route path="/quay-tiep-don" element={<ProtectedRoute requiredRole={['admin', 'staff']}><FrontDeskPage /></ProtectedRoute>} />
+            <Route path="/quay-tiep-don" element={<ReceptionRoute><FrontDeskPage /></ReceptionRoute>} />
 
             {/* ========== 8. APPOINTMENTS & MEDICAL RECORDS ========== */}
             <Route path="/dat-lich-hen" element={<ProtectedRoute requiredRole="patient"><AppointmentBookingPage /></ProtectedRoute>} />
@@ -316,42 +386,42 @@ function App() {
             
             {/* ========== 10. STAFF & DOCTOR ========== */}
             <Route path="/lich-cua-toi" element={<ProtectedRoute requiredRole={['doctor', 'staff']}><MySchedulePage /></ProtectedRoute>} />
-            <Route path="/ho-so-benh-an" element={<ProtectedRoute requiredRole={['admin', 'staff', 'doctor']}><DoctorMedicalRecordsPage /></ProtectedRoute>} />
+            <Route path="/ho-so-benh-an" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="medical_records"><DoctorMedicalRecordsPage /></PermissionRoute>} />
 
             {/* ========== 11. ADMIN & MANAGEMENT ========== */}
             <Route path="/quan-ly-nguoi-dung" element={<ProtectedRoute requiredRole="admin"><UsersPage /></ProtectedRoute>} />
             <Route path="/quan-ly-bac-si" element={<PermissionRoute requiredRole={['admin', 'staff']} module="doctors"><DoctorManagementPage /></PermissionRoute>} />
             <Route path="/quan-ly-benh-nhan" element={<PermissionRoute requiredRole={['admin', 'staff']} module="patients"><PatientManagementPage /></PermissionRoute>} />
             <Route path="/admin/phan-cong-nhan-su" element={<ProtectedRoute requiredRole="admin"><StaffManagementPage openAssignment={true} /></ProtectedRoute>} />
-            <Route path="/quan-ly-nhan-vien" element={<ProtectedRoute requiredRole={['admin', 'staff']}><StaffManagementPage /></ProtectedRoute>} />
-            <Route path="/quan-ly-lien-he" element={<ProtectedRoute><ContactManagementPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-nhan-vien" element={<PermissionRoute requiredRole={['admin', 'staff']} module="staff_management"><StaffManagementPage /></PermissionRoute>} />
+            <Route path="/quan-ly-lien-he" element={<PermissionRoute requiredRole={['admin', 'staff']} module="contact"><ContactManagementPage /></PermissionRoute>} />
             <Route path="/quan-ly-chuyen-khoa" element={<ProtectedRoute requiredRole="admin"><SpecialtyManagementPage /></ProtectedRoute>} />
             <Route path="/quan-ly-danh-muc" element={<ProtectedRoute requiredRole="admin"><CategoryManagementPage /></ProtectedRoute>} />
             
-            <Route path="/quan-ly-bai-viet" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']}><ArticleManagementPage /></PermissionRoute>} />
-            <Route path="/phe-duyet-bai-viet/:id" element={<PermissionRoute requiredRole={['admin', 'staff']}><ArticleReviewPage /></PermissionRoute>} />
-            <Route path="/quan-ly-he-thong" element={<PermissionRoute requiredRole={['admin', 'staff']}><SystemSettingsPage /></PermissionRoute>} />
-            <Route path="/quan-ly-danh-muc-dich-vu" element={<PermissionRoute requiredRole={['admin', 'staff']}><ServiceCategoryManagementPage /></PermissionRoute>} />
-            <Route path="/quan-ly-dich-vu" element={<PermissionRoute requiredRole={['admin', 'staff']}><ServiceManagementPage /></PermissionRoute>} />
+            <Route path="/quan-ly-bai-viet" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="articles"><ArticleManagementPage /></PermissionRoute>} />
+            <Route path="/phe-duyet-bai-viet/:id" element={<PermissionRoute requiredRole={['admin', 'staff']} module="articles"><ArticleReviewPage /></PermissionRoute>} />
+            <Route path="/quan-ly-he-thong" element={<PermissionRoute requiredRole={['admin', 'staff']} module="system_settings"><SystemSettingsPage /></PermissionRoute>} />
+            <Route path="/quan-ly-danh-muc-dich-vu" element={<PermissionRoute requiredRole={['admin', 'staff']} module="service_categories"><ServiceCategoryManagementPage /></PermissionRoute>} />
+            <Route path="/quan-ly-dich-vu" element={<PermissionRoute requiredRole={['admin', 'staff']} module="services"><ServiceManagementPage /></PermissionRoute>} />
             
-            <Route path="/quan-ly-thuoc" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']}><EntityManagementPage entityType="medicine" /></PermissionRoute>} />
-            <Route path="/quan-ly-benh-ly" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']}><EntityManagementPage entityType="disease" /></PermissionRoute>} />
-            <Route path="/quan-ly-kho-thuoc" element={<ProtectedRoute requiredRole={['admin', 'staff']}><PharmacyStockPage /></ProtectedRoute>} />
-            <Route path="/quan-ly-lich-lam-viec" element={<ProtectedRoute requiredRole={['admin', 'staff']}><ScheduleManagementPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-thuoc" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="medicines"><EntityManagementPage entityType="medicine" /></PermissionRoute>} />
+            <Route path="/quan-ly-benh-ly" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="diseases"><EntityManagementPage entityType="disease" /></PermissionRoute>} />
+            <Route path="/quan-ly-kho-thuoc" element={<ProtectedRoute requiredRole="admin"><PharmacyStockPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-lich-lam-viec" element={<PermissionRoute requiredRole={['admin', 'staff']} module="work_shift"><ScheduleManagementPage /></PermissionRoute>} />
             <Route path="/quan-ly-lich-hen" element={<PermissionRoute requiredRole={['admin', 'staff']} module="appointments"><AppointmentManagementPage /></PermissionRoute>} />
             
-            <Route path="/thong-ke" element={<ProtectedRoute requiredRole={['admin', 'staff']}><StatisticsPage /></ProtectedRoute>} />
-            <Route path="/quan-ly-tu-van/realtime" element={<PermissionRoute requiredRole={['admin', 'staff','doctor']}><ConsultationRealtimeManagementPage /></PermissionRoute>} />
-            <Route path="/quan-ly-tu-van/goi-dich-vu" element={<PermissionRoute requiredRole={['admin', 'staff']}><ConsultationPackageManagementPage /></PermissionRoute>} />
+            <Route path="/thong-ke" element={<PermissionRoute requiredRole={['admin', 'staff']} module="statistics"><StatisticsPage /></PermissionRoute>} />
+            <Route path="/quan-ly-tu-van/realtime" element={<ConsultationRealtimeRoute><ConsultationRealtimeManagementPage /></ConsultationRealtimeRoute>} />
+            <Route path="/quan-ly-tu-van/goi-dich-vu" element={<PermissionRoute requiredRole={['admin', 'staff']} module="consultation_pricing"><ConsultationPackageManagementPage /></PermissionRoute>} />
             <Route path="/admin/tu-van/realtime" element={<Navigate to="/quan-ly-tu-van/realtime" replace />} />
             <Route path="/admin/tu-van/packages" element={<Navigate to="/quan-ly-tu-van/goi-dich-vu" replace />} />
 
             {/* ========== 12. QUẢN LÝ TÀI CHÍNH ========== */}
-            <Route path="/quan-ly-thanh-toan/giao-dich" element={<ProtectedRoute requiredRole={['admin', 'staff']}><PaymentManagementPage /></ProtectedRoute>} />
-            <Route path="/quan-ly-thanh-toan/hoan-tien" element={<ProtectedRoute requiredRole={['admin', 'staff']}><RefundRequestPage /></ProtectedRoute>} />
-            <Route path="/quan-ly-thanh-toan/chinh-sach" element={<ProtectedRoute requiredRole={['admin', 'staff']}><RefundPolicyConfigPage /></ProtectedRoute>} />
-            <Route path="/quan-ly-thanh-toan/thong-ke" element={<ProtectedRoute requiredRole={['admin', 'staff']}><StatisticsPage /></ProtectedRoute>} />
-            <Route path="/quan-ly-thanh-toan/cau-hinh" element={<ProtectedRoute requiredRole={['admin', 'staff']}><PaymentSettingsPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-thanh-toan/giao-dich" element={<PermissionRoute requiredRole={['admin', 'staff']} module="payments"><PaymentManagementPage /></PermissionRoute>} />
+            <Route path="/quan-ly-thanh-toan/hoan-tien" element={<PermissionRoute requiredRole={['admin', 'staff']} module="payments"><RefundRequestPage /></PermissionRoute>} />
+            <Route path="/quan-ly-thanh-toan/chinh-sach" element={<PermissionRoute requiredRole={['admin', 'staff']} module="payments"><RefundPolicyConfigPage /></PermissionRoute>} />
+            <Route path="/quan-ly-thanh-toan/thong-ke" element={<PermissionRoute requiredRole={['admin', 'staff']} module="payments"><StatisticsPage /></PermissionRoute>} />
+            <Route path="/quan-ly-thanh-toan/cau-hinh" element={<PermissionRoute requiredRole={['admin', 'staff']} module="payments"><PaymentSettingsPage /></PermissionRoute>} />
 
             {/* ========== 404 - NOT FOUND ========== */}
             <Route path="/404" element={<div style={{ textAlign: 'center', padding: '50px' }}><h1>404 - Không tìm thấy trang</h1><p>Trang bạn đang tìm kiếm không tồn tại</p><a href="/">Về trang chủ</a></div>} />

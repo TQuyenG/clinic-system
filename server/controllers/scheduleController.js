@@ -1054,7 +1054,7 @@ exports.getMyScheduleRegistration = async (req, res) => {
 exports.registerOvertime = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { slots, reason, user_id_for_admin } = req.body; // slots: {"2025-11-18": ["17:00-19:00"], ...}
+    const { slots, reason, user_id_for_admin, target_user_id } = req.body; // slots: {"2025-11-18": ["17:00-19:00"], ...}
     const requestUser = req.user; // Người gửi request
 
     if (!slots || Object.keys(slots).length === 0) {
@@ -1064,13 +1064,27 @@ exports.registerOvertime = async (req, res) => {
     
     let targetUser, targetUserId, targetDoctorId = null, targetUserRole;
     
-    if (requestUser.role === 'admin' && user_id_for_admin) {
-      // Admin đăng ký cho người khác
-      targetUserId = user_id_for_admin;
+    if (user_id_for_admin || target_user_id) {
+      // Admin hoặc staff clinical đăng ký thay cho người khác
+      targetUserId = user_id_for_admin || target_user_id;
       targetUser = await models.User.findByPk(targetUserId, { transaction: t });
       if (!targetUser) {
         await t.rollback();
         return res.status(404).json({ success: false, message: "Không tìm thấy user được chọn." });
+      }
+
+      if (requestUser.role === 'staff' && target_user_id) {
+        const requesterStaff = await models.Staff.findOne({ where: { user_id: requestUser.id }, transaction: t });
+        if (!requesterStaff || requesterStaff.department !== 'clinical') {
+          await t.rollback();
+          return res.status(403).json({ success: false, message: 'Bạn không có quyền đăng ký hộ người khác.' });
+        }
+
+        const targetDoctor = await models.Doctor.findOne({ where: { user_id: targetUserId }, transaction: t });
+        if (!targetDoctor || !requesterStaff.canManageDoctor(targetDoctor.id)) {
+          await t.rollback();
+          return res.status(403).json({ success: false, message: 'Bạn chỉ được đăng ký hộ bác sĩ mình được phân công.' });
+        }
       }
     } else {
       // User tự đăng ký
@@ -1123,10 +1137,10 @@ exports.registerOvertime = async (req, res) => {
     } else {
       // User tự đăng ký -> Báo trưởng phòng và Admin
       await notifyDepartmentManagersAndAdmins({
-        message: `${requestUser.full_name} vừa gửi ${newOvertimeRecords.length} yêu cầu tăng ca.`,
+        message: `${requestUser.full_name} vừa gửi ${newOvertimeRecords.length} yêu cầu tăng ca${targetUserRole === 'doctor' ? ' thay cho bác sĩ được phân công' : ''}.`,
         link: `/quan-ly-lich-lam-viec?tab=manage-registrations&sub_tab=overtime`,
-        user_type: requestUser.role === 'doctor' ? 'doctor' : 'staff',
-        user_id: requestUser.id,
+        user_type: targetUserRole === 'doctor' ? 'doctor' : 'staff',
+        user_id: targetUserId,
         transaction: t
       });
     }

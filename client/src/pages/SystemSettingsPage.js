@@ -216,7 +216,7 @@ const SystemSettingsPage = () => {
     testimonials: [],
     bookingSection: {
       title: 'Đặt lịch khám bệnh', description: '', features: [],
-      hotline: '1900 xxxx', email: 'contact@clinic.com', address: '123 Đường ABC, TP.HCM'
+      hotline: '1900 xxxx', email: 'contact@easymedify.vn', address: '123 Đường ABC, TP.HCM'
     }
   };
 
@@ -240,27 +240,27 @@ const SystemSettingsPage = () => {
   const defaultHeaderNavFooterData = {
     header: {
       phone: '1900 1234',
-      email: 'contact@clinicsystem.vn',
+      email: 'contact@easymedify.vn',
       working_hours: 'T2-T7: 7:00-20:00 | CN: 8:00-17:00',
-      welcome_text: 'Chào mừng bạn đến với Clinic System'
+      welcome_text: 'Chào mừng bạn đến với Easy Medify'
     },
     navbar: {
       logo_image: '',
-      logo_text: 'Clinic System',
+      logo_text: 'Easy Medify',
       search_placeholder: 'Tìm kiếm...'
     },
     footer: {
-      about_title: 'Clinic System',
+      about_title: 'Easy Medify',
       about_description: 'Hệ thống y tế hàng đầu, mang đến dịch vụ chăm sóc sức khỏe chất lượng cao với đội ngũ bác sĩ giàu kinh nghiệm và trang thiết bị hiện đại.',
       address: '123 Đường Sức Khỏe, Q.1, TP.HCM',
       hotline: '1900 1234',
-      email: 'contact@clinicsystem.vn',
+      email: 'contact@easymedify.vn',
       working_hours: 'T2 - T7: 7:00 - 20:00\nChủ nhật: 8:00 - 17:00',
       social_facebook: 'https://facebook.com',
       social_twitter: 'https://twitter.com',
       social_instagram: 'https://instagram.com',
       social_youtube: 'https://youtube.com',
-      copyright_text: 'Clinic System. Tất cả quyền được bảo lưu.',
+      copyright_text: 'Easy Medify. Tất cả quyền được bảo lưu.',
       privacy_link: '/privacy',
       terms_link: '/terms'
     }
@@ -277,7 +277,7 @@ const SystemSettingsPage = () => {
     },
     info_cards: [
       { icon: 'FaPhone', title: 'Điện thoại', details: ['Hotline: (028) 3822 1234', 'Cấp cứu: (028) 3822 9999'], color: '#4CAF50' },
-      { icon: 'FaEnvelope', title: 'Email', details: ['info@clinic.vn', 'support@clinic.vn'], color: '#2196F3' },
+      { icon: 'FaEnvelope', title: 'Email', details: ['info@easymedify.vn', 'support@easymedify.vn'], color: '#2196F3' },
       { icon: 'FaMapMarkerAlt', title: 'Địa chỉ', details: ['123 Nguyễn Huệ', 'Quận 1, TP.HCM'], color: '#FF5722' },
       { icon: 'FaClock', title: 'Giờ làm việc', details: ['Thứ 2 - Thứ 7: 7:00 - 20:00', 'Chủ nhật: 8:00 - 17:00'], color: '#9C27B0' }
     ],
@@ -307,7 +307,7 @@ const SystemSettingsPage = () => {
         ]
       }
     ],
-    contact_email: 'privacy@clinic.vn',
+    contact_email: 'privacy@easymedify.vn',
     contact_phone: '(028) 3822 1234',
     contact_address: '123 Nguyễn Huệ, Quận 1, TP.HCM'
   };
@@ -323,7 +323,7 @@ const SystemSettingsPage = () => {
       content: 'Các điều khoản dịch vụ này điều chỉnh việc bạn sử dụng website và dịch vụ y tế của chúng tôi.'
     },
     sections: [],
-    contact_email: 'legal@clinic.vn',
+    contact_email: 'legal@easymedify.vn',
     contact_phone: '(028) 3822 1234'
   };
 
@@ -878,7 +878,7 @@ const SystemSettingsPage = () => {
                       className="sys-settings-input" />
                     
                     <label className="sys-settings-label">Email liên hệ</label>
-                    <input type="email" value={headerNavFooterData.header?.email || ''} placeholder="contact@clinicsystem.vn"
+                    <input type="email" value={headerNavFooterData.header?.email || ''} placeholder="contact@easymedify.vn"
                       onChange={(e) => setHeaderNavFooterData(prev => ({ 
                         ...prev, 
                         header: { ...prev.header, email: e.target.value }
@@ -894,7 +894,7 @@ const SystemSettingsPage = () => {
                       className="sys-settings-input" />
                     
                     <label className="sys-settings-label">Text chào mừng (chạy)</label>
-                    <input type="text" value={headerNavFooterData.header?.welcome_text || ''} placeholder="Chào mừng bạn đến với Clinic System"
+                    <input type="text" value={headerNavFooterData.header?.welcome_text || ''} placeholder="Chào mừng bạn đến với Easy Medify"
                       onChange={(e) => setHeaderNavFooterData(prev => ({ 
                         ...prev, 
                         header: { ...prev.header, welcome_text: e.target.value }
@@ -962,7 +962,7 @@ const SystemSettingsPage = () => {
                     )}
                     
                     <label className="sys-settings-label">Text Logo (hiển thị bên cạnh logo)</label>
-                    <input type="text" value={headerNavFooterData.navbar?.logo_text || ''} placeholder="Clinic System"
+                    <input type="text" value={headerNavFooterData.navbar?.logo_text || ''} placeholder="Easy Medify"
                       onChange={(e) => setHeaderNavFooterData(prev => ({ 
                         ...prev, 
                         navbar: { ...prev.navbar, logo_text: e.target.value }
@@ -1010,7 +1010,7 @@ const SystemSettingsPage = () => {
                     </h4>
 
                     <label className="sys-settings-label">Tiêu đề</label>
-                    <input type="text" value={headerNavFooterData.footer?.about_title || ''} placeholder="Clinic System"
+                    <input type="text" value={headerNavFooterData.footer?.about_title || ''} placeholder="Easy Medify"
                       onChange={(e) => setHeaderNavFooterData(prev => ({ 
                         ...prev, 
                         footer: { ...prev.footer, about_title: e.target.value }
@@ -1053,7 +1053,7 @@ const SystemSettingsPage = () => {
                       className="sys-settings-input" />
                     
                     <label className="sys-settings-label">Email</label>
-                    <input type="email" value={headerNavFooterData.footer?.email || ''} placeholder="contact@clinicsystem.vn"
+                    <input type="email" value={headerNavFooterData.footer?.email || ''} placeholder="contact@easymedify.vn"
                       onChange={(e) => setHeaderNavFooterData(prev => ({ 
                         ...prev, 
                         footer: { ...prev.footer, email: e.target.value }
@@ -1125,7 +1125,7 @@ const SystemSettingsPage = () => {
                     </h4>
 
                     <label className="sys-settings-label">Text Copyright</label>
-                    <input type="text" value={headerNavFooterData.footer?.copyright_text || ''} placeholder="Clinic System. Tất cả quyền được bảo lưu."
+                    <input type="text" value={headerNavFooterData.footer?.copyright_text || ''} placeholder="Easy Medify. Tất cả quyền được bảo lưu."
                       onChange={(e) => setHeaderNavFooterData(prev => ({ 
                         ...prev, 
                         footer: { ...prev.footer, copyright_text: e.target.value }
@@ -1632,7 +1632,7 @@ const SystemSettingsPage = () => {
                       className="sys-settings-input" />
                     
                     <label className="sys-settings-label">Email</label>
-                    <input type="email" value={homeData.bookingSection?.email || ''} placeholder="contact@clinic.com"
+                    <input type="email" value={homeData.bookingSection?.email || ''} placeholder="contact@easymedify.vn"
                       onChange={(e) => setHomeData(prev => ({ ...prev, bookingSection: { ...prev.bookingSection, email: e.target.value }}))}
                       className="sys-settings-input" />
                     
@@ -1710,7 +1710,7 @@ const SystemSettingsPage = () => {
                       className="sys-settings-input" />
                     
                     <label className="sys-settings-label">Tiêu đề</label>
-                    <input type="text" value={aboutData.banner?.title || ''} placeholder="Clinic System"
+                    <input type="text" value={aboutData.banner?.title || ''} placeholder="Easy Medify"
                       onChange={(e) => setAboutData(prev => ({ ...prev, banner: { ...prev.banner, title: e.target.value }}))}
                       className="sys-settings-input" />
                     
@@ -4029,7 +4029,7 @@ const SystemSettingsPage = () => {
                     </h4>
 
                     <label className="sys-settings-label">Email liên hệ</label>
-                    <input type="email" value={privacyData.contact_email || ''} placeholder="privacy@clinic.vn"
+                    <input type="email" value={privacyData.contact_email || ''} placeholder="privacy@easymedify.vn"
                       onChange={(e) => setPrivacyData(prev => ({ ...prev, contact_email: e.target.value }))}
                       className="sys-settings-input" />
                     
@@ -4265,7 +4265,7 @@ const SystemSettingsPage = () => {
                     </h4>
 
                     <label className="sys-settings-label">Email liên hệ</label>
-                    <input type="email" value={termsData.contact_email || ''} placeholder="legal@clinic.vn"
+                    <input type="email" value={termsData.contact_email || ''} placeholder="legal@easymedify.vn"
                       onChange={(e) => setTermsData(prev => ({ ...prev, contact_email: e.target.value }))}
                       className="sys-settings-input" />
                     

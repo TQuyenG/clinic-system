@@ -55,8 +55,8 @@ const splitShifts = (shiftsConfig) => {
   return slots;
 };
 
-// Props: isOpen, onClose, onSubmitted, (nếu là admin: userList, selectedUserId, onUserChange)
-const OvertimeEditor = ({ isOpen, onClose, onSubmitted, userRole, adminProps = {} }) => {
+// Props: isOpen, onClose, onSubmitted, userRole, targetUserId, adminProps
+const OvertimeEditor = ({ isOpen, onClose, onSubmitted, userRole, targetUserId = null, adminProps = {} }) => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   
@@ -71,6 +71,7 @@ const OvertimeEditor = ({ isOpen, onClose, onSubmitted, userRole, adminProps = {
   const [reason, setReason] = useState('');
 
   const isAdmin = userRole === 'admin';
+  const canSubmitForDoctor = userRole === 'staff' && !!targetUserId;
   const { userList = [], selectedUserId = null, onUserChange = () => {} } = adminProps;
 
   // Lấy danh sách 7 ngày trong tuần
@@ -204,6 +205,8 @@ const OvertimeEditor = ({ isOpen, onClose, onSubmitted, userRole, adminProps = {
       // Nếu admin đăng ký, thêm user_id
       if (isAdmin && selectedUserId) {
         payload.user_id_for_admin = selectedUserId;
+      } else if (canSubmitForDoctor && targetUserId) {
+        payload.target_user_id = targetUserId;
       }
       
       await axios.post(`${API_URL}/schedules/register-overtime`, payload, {

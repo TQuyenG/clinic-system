@@ -1,41 +1,47 @@
 // client/src/pages/ContactManagementPage.js
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import {
-  FaEnvelope, FaSearch, FaFilter, FaTrash, FaEye, FaCheck,
-  FaReply, FaTimes, FaChevronLeft, FaChevronRight, FaInbox,
-  FaCheckCircle, FaExclamationCircle, FaSpinner, FaSort,
-  FaSortUp, FaSortDown, FaCalendarAlt
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
+import { 
+  FaEnvelope, FaSearch, FaArrowLeft, FaCheck, FaPaperPlane,
+  FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaLock, 
+  FaHandHoldingHeart, FaReply, FaUserTie, FaClock, FaTimes
 } from 'react-icons/fa';
 import './ContactManagementPage.css';
 
-const STATUS_CONFIG = {
-  new:     { label: 'Mới', color: '#3b82f6', bg: '#dbeafe' },
-  read:    { label: 'Đã đọc', color: '#f59e0b', bg: '#fef3c7' },
-  replied: { label: 'Đã trả lời', color: '#10b981', bg: '#d1fae5' },
-  closed:  { label: 'Đã đóng', color: '#6b7280', bg: '#f3f4f6' }
+const STATUS_MAP = {
+  new:        { label: 'Mới', bg: '#fee2e2', text: '#b91c1c' },
+  processing: { label: 'Đang xử lý', bg: '#fef3c7', text: '#b45309' },
+  replied:    { label: 'Đang trao đổi', bg: '#dbeafe', text: '#1d4ed8' },
+  closed:     { label: 'Đã hoàn thành', bg: '#f1f5f9', text: '#475569' }
 };
 
 export default function ContactManagementPage() {
   const [messages, setMessages] = useState([]);
-  const [stats, setStats]       = useState({ new: 0, read: 0, replied: 0, closed: 0, total: 0 });
-  const [loading, setLoading]   = useState(true);
-  const [selected, setSelected] = useState(null);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [toast, setToast]       = useState(null);
+  const [stats, setStats] = useState({ new: 0, processing: 0, total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [selectedMsg, setSelectedMsg] = useState(null);
+  
+  const [filters, setFilters] = useState({ status: 'all', search: '', page: 1, limit: 30 });
+  
+  // Email Composer States
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailCC, setEmailCC] = useState('');
+  const [emailBCC, setEmailBCC] = useState('');
+  const [emailContent, setEmailContent] = useState('');
+  const [isReplying, setIsReplying] = useState(false);
+  
+  const [toast, setToast] = useState(null);
+  const [confirmPopup, setConfirmPopup] = useState({ visible: false, action: null, title: '', msg: '' });
 
-  // Filters
-  const [filters, setFilters] = useState({
-    page: 1, limit: 15, status: 'all', search: '',
-    startDate: '', endDate: '', sortBy: 'created_at', sortOrder: 'DESC'
-  });
-  const [totalPages, setTotalPages] = useState(1);
-  const [adminNote, setAdminNote]   = useState('');
-  const [detailLoading, setDetailLoading] = useState(false);
+  // Get current user ID (Giả sử bạn có auth hook, ở đây tạm parse từ token hoặc truyền props)
+  const currentUserId = JSON.parse(localStorage.getItem('user'))?.id;
+  const currentUserRole = JSON.parse(localStorage.getItem('user'))?.role;
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
+    setTimeout(() => setToast(null), 3000);
   };
 
   const fetchMessages = useCallback(async () => {
@@ -43,15 +49,11 @@ export default function ContactManagementPage() {
     try {
       const params = { ...filters };
       if (!params.search) delete params.search;
-      if (!params.startDate) delete params.startDate;
-      if (!params.endDate) delete params.endDate;
-
       const res = await api.get('/contact/messages', { params });
       setMessages(res.data.data || []);
       setStats(res.data.stats || {});
-      setTotalPages(res.data.totalPages || 1);
     } catch {
-      showToast('Không thể tải tin nhắn', 'error');
+      showToast('Lỗi tải dữ liệu', 'error');
     } finally {
       setLoading(false);
     }
@@ -59,293 +61,268 @@ export default function ContactManagementPage() {
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
-  const openDetail = async (msg) => {
-    setDetailLoading(true);
-    setSelected(msg);
-    setAdminNote(msg.admin_note || '');
+  const handleSelect = async (msg) => {
+    // Gọi API để lấy chi tiết mới nhất
     try {
       const res = await api.get(`/contact/messages/${msg.id}`);
-      setSelected(res.data.data);
-      setAdminNote(res.data.data.admin_note || '');
-      fetchMessages();
-    } catch {}
-    setDetailLoading(false);
+      const detailMsg = res.data.data;
+      setSelectedMsg(detailMsg);
+      setEmailSubject(`Re: [Ticket #${detailMsg.id}] ${detailMsg.subject}`);
+      setEmailCC(''); setEmailBCC(''); setEmailContent('');
+    } catch { showToast('Không thể tải chi tiết', 'error'); }
   };
 
-  const updateStatus = async (id, status) => {
+  const handleClaimTicket = () => {
+    setConfirmPopup({
+      visible: true,
+      title: 'Nhận xử lý Ticket',
+      msg: 'Bạn có chắc chắn muốn nhận xử lý Ticket này? Hệ thống sẽ gửi email tự động báo cho khách hàng.',
+      action: async () => {
+        try {
+          await api.post(`/contact/messages/${selectedMsg.id}/claim`);
+          showToast('Đã nhận Ticket thành công');
+          fetchMessages();
+          handleSelect(selectedMsg); // Reload detail
+        } catch (e) { showToast(e.response?.data?.message || 'Lỗi', 'error'); }
+        setConfirmPopup({ visible: false });
+      }
+    });
+  };
+
+  const handleReply = async () => {
+    if (!emailContent.trim()) return showToast('Vui lòng soạn nội dung email', 'error');
+    setIsReplying(true);
     try {
-      await api.put(`/contact/messages/${id}/status`, { status, admin_note: adminNote });
-      showToast('Cập nhật thành công');
-      setSelected(null);
+      await api.post(`/contact/messages/${selectedMsg.id}/reply`, { 
+        reply_content_html: emailContent,
+        email_subject: emailSubject,
+        email_cc: emailCC,
+        email_bcc: emailBCC
+      });
+      showToast('Đã gửi email thành công');
       fetchMessages();
-    } catch {
-      showToast('Lỗi cập nhật', 'error');
-    }
+      handleSelect(selectedMsg); // Reload to show new history
+    } catch (e) { showToast(e.response?.data?.message || 'Lỗi gửi mail', 'error'); }
+    finally { setIsReplying(false); }
   };
 
-  const deleteOne = async (id) => {
-    if (!window.confirm('Xóa tin nhắn này?')) return;
+  const handleCloseTicket = () => {
+    setConfirmPopup({
+      visible: true,
+      title: 'Đóng Ticket',
+      msg: 'Khách hàng sẽ nhận được email báo kết thúc. Bạn không thể trả lời thêm sau khi đóng.',
+      action: async () => {
+        try {
+          await api.put(`/contact/messages/${selectedMsg.id}/close`);
+          showToast('Đã đóng Ticket');
+          fetchMessages();
+          handleSelect(selectedMsg);
+        } catch (e) { showToast('Lỗi đóng ticket', 'error'); }
+        setConfirmPopup({ visible: false });
+      }
+    });
+  };
+
+  // Helper render History
+  const renderHistory = () => {
+    if (!selectedMsg?.admin_note) return null;
     try {
-      await api.delete(`/contact/messages/${id}`);
-      showToast('Đã xóa tin nhắn');
-      setSelected(null);
-      fetchMessages();
-    } catch {
-      showToast('Lỗi xóa', 'error');
-    }
+      const historyArr = JSON.parse(selectedMsg.admin_note);
+      if (!Array.isArray(historyArr)) return null;
+      return historyArr.map((item, idx) => (
+        <div key={idx} className="c-mgr-thread-item">
+          <div className="c-mgr-thread-head">
+            <FaReply style={{ color: '#16a34a' }}/> 
+            <strong>{item.sender === 'staff' ? 'Nhân viên hệ thống' : 'Khách hàng'}</strong> đã trả lời
+            <span className="c-mgr-thread-time"><FaClock/> {new Date(item.timestamp).toLocaleString('vi-VN')}</span>
+          </div>
+          <div className="c-mgr-thread-body" dangerouslySetInnerHTML={{ __html: item.content }} />
+        </div>
+      ));
+    } catch { return null; }
   };
 
-  const bulkDelete = async () => {
-    if (!selectedIds.length) return;
-    if (!window.confirm(`Xóa ${selectedIds.length} tin nhắn đã chọn?`)) return;
-    try {
-      await api.delete('/contact/messages/bulk', { data: { ids: selectedIds } });
-      showToast(`Đã xóa ${selectedIds.length} tin nhắn`);
-      setSelectedIds([]);
-      fetchMessages();
-    } catch {
-      showToast('Lỗi xóa hàng loạt', 'error');
-    }
-  };
-
-  const toggleSort = (field) => {
-    setFilters(prev => ({
-      ...prev, sortBy: field,
-      sortOrder: prev.sortBy === field && prev.sortOrder === 'DESC' ? 'ASC' : 'DESC',
-      page: 1
-    }));
-  };
-
-  const SortIcon = ({ field }) => {
-    if (filters.sortBy !== field) return <FaSort className="cm-sort-icon" />;
-    return filters.sortOrder === 'ASC' ? <FaSortUp className="cm-sort-icon active" /> : <FaSortDown className="cm-sort-icon active" />;
-  };
-
-  const StatusBadge = ({ status }) => {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.new;
-    return (
-      <span className="cm-status-badge" style={{ color: cfg.color, background: cfg.bg }}>
-        {cfg.label}
-      </span>
-    );
-  };
+  const canReply = selectedMsg && selectedMsg.status !== 'closed' && (selectedMsg.replied_by === currentUserId || currentUserRole === 'admin');
+  const needsClaim = selectedMsg && selectedMsg.status === 'new' && !selectedMsg.replied_by;
 
   return (
-    <div className="cm-page">
-      {/* Toast */}
+    <div className="c-mgr-layout">
       {toast && (
-        <div className={`cm-toast cm-toast-${toast.type}`}>
-          {toast.type === 'success' ? <FaCheckCircle /> : <FaExclamationCircle />}
-          {toast.msg}
+        <div className={`c-mgr-toast c-mgr-toast-${toast.type}`}>
+          {toast.type === 'success' ? <FaCheckCircle /> : <FaExclamationTriangle />} {toast.msg}
         </div>
       )}
 
-      {/* Header */}
-      <div className="cm-header">
-        <div className="cm-header-left">
-          <FaEnvelope className="cm-header-icon" />
-          <div>
-            <h1>Quản lý liên hệ</h1>
-            <p>Tin nhắn từ khách hàng gửi qua trang liên hệ</p>
+      {/* CONFIRM POPUP */}
+      {confirmPopup.visible && (
+        <div className="c-mgr-overlay">
+          <div className="c-mgr-popup">
+            <h3>{confirmPopup.title}</h3>
+            <p>{confirmPopup.msg}</p>
+            <div className="c-mgr-popup-actions">
+              <button className="c-mgr-btn-cancel" onClick={() => setConfirmPopup({visible: false})}>Hủy</button>
+              <button className="c-mgr-btn-primary" onClick={confirmPopup.action}>Xác nhận</button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Stats */}
-      <div className="cm-stats-grid">
-        {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-          <div
-            key={key}
-            className={`cm-stat-card ${filters.status === key ? 'active' : ''}`}
-            style={{ '--stat-color': cfg.color }}
-            onClick={() => setFilters(prev => ({ ...prev, status: key, page: 1 }))}
-          >
-            <span className="cm-stat-num" style={{ color: cfg.color }}>{stats[key] || 0}</span>
-            <span className="cm-stat-label">{cfg.label}</span>
+      {/* MASTER (CỘT TRÁI) */}
+      <div className={`c-mgr-master ${selectedMsg ? 'c-mgr-hide-mob' : ''}`}>
+        <div className="c-mgr-header">
+          <div className="c-mgr-header-title">
+            <FaEnvelope /> Quản lý Liên Hệ
           </div>
-        ))}
-        <div
-          className={`cm-stat-card ${filters.status === 'all' ? 'active' : ''}`}
-          style={{ '--stat-color': '#4caf50' }}
-          onClick={() => setFilters(prev => ({ ...prev, status: 'all', page: 1 }))}
-        >
-          <span className="cm-stat-num" style={{ color: '#4caf50' }}>{stats.total || 0}</span>
-          <span className="cm-stat-label">Tất cả</span>
+          <div className="c-mgr-filters">
+            <div className="c-mgr-search">
+              <FaSearch />
+              <input 
+                placeholder="Tìm tên, email, #ID..." 
+                value={filters.search}
+                onChange={e => setFilters({ ...filters, search: e.target.value })}
+                onKeyPress={e => e.key === 'Enter' && fetchMessages()}
+              />
+            </div>
+            <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value, page: 1 })}>
+              <option value="all">Tất cả trạng thái</option>
+              <option value="new">Mới (Chưa nhận)</option>
+              <option value="processing">Đang xử lý</option>
+              <option value="replied">Đang trao đổi</option>
+              <option value="closed">Đã hoàn thành</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="c-mgr-list">
+          {loading ? <div className="c-mgr-empty">Đang tải...</div> 
+          : messages.length === 0 ? <div className="c-mgr-empty">Không có Ticket nào</div>
+          : messages.map(msg => {
+              const st = STATUS_MAP[msg.status] || STATUS_MAP.new;
+              return (
+                <div key={msg.id} className={`c-mgr-item ${selectedMsg?.id === msg.id ? 'active' : ''}`} onClick={() => handleSelect(msg)}>
+                  <div className="c-mgr-item-row">
+                    <span className="c-mgr-item-name">#{msg.id} - {msg.name}</span>
+                    <span className="c-mgr-item-date">{new Date(msg.created_at).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  <div className="c-mgr-item-subject">{msg.subject}</div>
+                  <div className="c-mgr-item-row" style={{ marginTop: '6px' }}>
+                    <span className="c-mgr-badge" style={{ background: st.bg, color: st.text }}>{st.label}</span>
+                    {msg.replier && <span className="c-mgr-assignee"><FaUserTie/> {msg.replier.full_name}</span>}
+                  </div>
+                </div>
+              )
+          })}
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="cm-filters">
-        <div className="cm-search-wrap">
-          <FaSearch />
-          <input
-            placeholder="Tìm theo tên, email, chủ đề..."
-            value={filters.search}
-            onChange={e => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
-          />
-        </div>
-        <div className="cm-filter-wrap">
-          <FaCalendarAlt />
-          <input
-            type="date"
-            value={filters.startDate}
-            onChange={e => setFilters(prev => ({ ...prev, startDate: e.target.value, page: 1 }))}
-          />
-          <span>—</span>
-          <input
-            type="date"
-            value={filters.endDate}
-            onChange={e => setFilters(prev => ({ ...prev, endDate: e.target.value, page: 1 }))}
-          />
-        </div>
-        {selectedIds.length > 0 && (
-          <button className="cm-btn cm-btn-danger" onClick={bulkDelete}>
-            <FaTrash /> Xóa {selectedIds.length} mục
-          </button>
-        )}
-      </div>
-
-      {/* Table */}
-      <div className="cm-table-wrap">
-        {loading ? (
-          <div className="cm-loading"><FaSpinner className="spin" /> Đang tải...</div>
-        ) : messages.length === 0 ? (
-          <div className="cm-empty"><FaInbox /> Không có tin nhắn nào</div>
+      {/* DETAIL (CỘT PHẢI) */}
+      <div className={`c-mgr-detail ${!selectedMsg ? 'c-mgr-hide-mob' : ''}`}>
+        {!selectedMsg ? (
+          <div className="c-mgr-placeholder"><FaEnvelope /> Chọn một Ticket để xem và trả lời</div>
         ) : (
-          <table className="cm-table">
-            <thead>
-              <tr>
-                <th><input type="checkbox" onChange={e => setSelectedIds(e.target.checked ? messages.map(m => m.id) : [])} /></th>
-                <th onClick={() => toggleSort('name')} className="cm-th-sort">Người gửi <SortIcon field="name" /></th>
-                <th onClick={() => toggleSort('email')} className="cm-th-sort">Email <SortIcon field="email" /></th>
-                <th>Chủ đề</th>
-                <th onClick={() => toggleSort('status')} className="cm-th-sort">Trạng thái <SortIcon field="status" /></th>
-                <th onClick={() => toggleSort('created_at')} className="cm-th-sort">Ngày gửi <SortIcon field="created_at" /></th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {messages.map(msg => (
-                <tr key={msg.id} className={msg.status === 'new' ? 'cm-row-new' : ''}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(msg.id)}
-                      onChange={e => setSelectedIds(prev => e.target.checked ? [...prev, msg.id] : prev.filter(id => id !== msg.id))}
-                    />
-                  </td>
-                  <td className="cm-name-cell">
-                    {msg.status === 'new' && <span className="cm-new-dot" />}
-                    <span className="cm-name">{msg.name}</span>
-                    {msg.phone && <span className="cm-phone">{msg.phone}</span>}
-                  </td>
-                  <td><span className="cm-email">{msg.email}</span></td>
-                  <td><span className="cm-subject">{msg.subject}</span></td>
-                  <td><StatusBadge status={msg.status} /></td>
-                  <td className="cm-date">
-                    {new Date(msg.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}
-                  </td>
-                  <td className="cm-actions">
-                    <button className="cm-action-btn cm-view" onClick={() => openDetail(msg)} title="Xem chi tiết"><FaEye /></button>
-                    <button className="cm-action-btn cm-delete" onClick={() => deleteOne(msg.id)} title="Xóa"><FaTrash /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="cm-pagination">
-          <button disabled={filters.page <= 1} onClick={() => setFilters(p => ({ ...p, page: p.page - 1 }))}><FaChevronLeft /></button>
-          <span>Trang {filters.page} / {totalPages}</span>
-          <button disabled={filters.page >= totalPages} onClick={() => setFilters(p => ({ ...p, page: p.page + 1 }))}><FaChevronRight /></button>
-        </div>
-      )}
-
-      {/* Detail Modal */}
-      {selected && (
-        <div className="cm-modal-overlay" onClick={() => setSelected(null)}>
-          <div className="cm-modal" onClick={e => e.stopPropagation()}>
-            <div className="cm-modal-header">
-              <h3><FaEnvelope /> Chi tiết tin nhắn</h3>
-              <button className="cm-modal-close" onClick={() => setSelected(null)}><FaTimes /></button>
+          <div className="c-mgr-detail-inner">
+            <div className="c-mgr-detail-top">
+              <button className="c-mgr-back-btn" onClick={() => setSelectedMsg(null)}><FaArrowLeft /> Trở lại</button>
+              <div className="c-mgr-actions">
+                <span className="c-mgr-badge" style={{ background: STATUS_MAP[selectedMsg.status].bg, color: STATUS_MAP[selectedMsg.status].text, marginRight: 10 }}>
+                  {STATUS_MAP[selectedMsg.status].label}
+                </span>
+                {canReply && (
+                  <button className="c-mgr-btn-close" onClick={handleCloseTicket}><FaCheck /> Đóng Ticket</button>
+                )}
+              </div>
             </div>
 
-            {detailLoading ? (
-              <div className="cm-loading"><FaSpinner className="spin" /> Đang tải...</div>
-            ) : (
-              <div className="cm-modal-body">
-                <div className="cm-detail-grid">
-                  <div className="cm-detail-item">
-                    <label>Người gửi</label>
-                    <span>{selected.name}</span>
-                  </div>
-                  <div className="cm-detail-item">
-                    <label>Email</label>
-                    <a href={`mailto:${selected.email}`}>{selected.email}</a>
-                  </div>
-                  {selected.phone && (
-                    <div className="cm-detail-item">
-                      <label>Điện thoại</label>
-                      <a href={`tel:${selected.phone}`}>{selected.phone}</a>
-                    </div>
-                  )}
-                  <div className="cm-detail-item">
-                    <label>Trạng thái</label>
-                    <StatusBadge status={selected.status} />
-                  </div>
-                  <div className="cm-detail-item cm-detail-full">
-                    <label>Chủ đề</label>
-                    <span className="cm-subject-big">{selected.subject}</span>
-                  </div>
-                  <div className="cm-detail-item cm-detail-full">
-                    <label>Nội dung</label>
-                    <div className="cm-message-box">{selected.message}</div>
-                  </div>
-                  <div className="cm-detail-item cm-detail-full">
-                    <label>Ghi chú nội bộ</label>
-                    <textarea
-                      className="cm-note-input"
-                      value={adminNote}
-                      onChange={e => setAdminNote(e.target.value)}
-                      placeholder="Ghi chú cho nhân viên nội bộ..."
-                      rows={3}
-                    />
-                  </div>
-                  <div className="cm-detail-item">
-                    <label>Ngày gửi</label>
-                    <span>{new Date(selected.created_at).toLocaleString('vi-VN')}</span>
-                  </div>
-                  {selected.replier && (
-                    <div className="cm-detail-item">
-                      <label>Người xử lý</label>
-                      <span>{selected.replier.full_name}</span>
-                    </div>
-                  )}
+            <div className="c-mgr-scroll-area">
+              <h2 className="c-mgr-subject-large">#{selectedMsg.id} - {selectedMsg.subject}</h2>
+              
+              <div className="c-mgr-mail-header">
+                <div className="c-mgr-avatar">{selectedMsg.name.charAt(0).toUpperCase()}</div>
+                <div className="c-mgr-mail-info">
+                  <div className="c-mgr-mail-from"><strong>{selectedMsg.name}</strong> &lt;{selectedMsg.email}&gt;</div>
+                  <div className="c-mgr-mail-date">{new Date(selectedMsg.created_at).toLocaleString('vi-VN')}</div>
                 </div>
               </div>
-            )}
 
-            <div className="cm-modal-footer">
-              <button className="cm-btn cm-btn-success" onClick={() => updateStatus(selected.id, 'replied')}>
-                <FaReply /> Đánh dấu đã trả lời
-              </button>
-              <button className="cm-btn cm-btn-secondary" onClick={() => updateStatus(selected.id, 'closed')}>
-                <FaCheck /> Đóng yêu cầu
-              </button>
-              <button className="cm-btn cm-btn-danger" onClick={() => deleteOne(selected.id)}>
-                <FaTrash /> Xóa
-              </button>
-              <a href={`mailto:${selected?.email}?subject=Re: ${selected?.subject}`} className="cm-btn cm-btn-primary">
-                <FaEnvelope /> Gửi email
-              </a>
+              {/* NỘI DUNG GỐC KHÁCH GỬI */}
+              <div className="c-mgr-mail-body">
+                {selectedMsg.message.startsWith('🔒') ? (
+                  <div className="c-mgr-lock-box"><FaLock /> {selectedMsg.message}</div>
+                ) : (
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{selectedMsg.message}</div>
+                )}
+              </div>
+
+              {/* LỊCH SỬ THREAD */}
+              {renderHistory()}
+
+              {/* PHẦN SOẠN EMAIL (Chỉ hiện khi đã nhận ticket và chưa đóng) */}
+              {needsClaim ? (
+                <div className="c-mgr-claim-box">
+                  <FaHandHoldingHeart className="c-mgr-claim-icon"/>
+                  <p>Ticket này chưa có người xử lý. Bạn cần nhận Ticket để có thể xem toàn bộ nội dung và trả lời khách hàng.</p>
+                  <button className="c-mgr-btn-primary" onClick={handleClaimTicket}>Nhận Ticket Này</button>
+                </div>
+              ) : selectedMsg.status === 'closed' ? (
+                <div className="c-mgr-closed-box">
+                  <FaCheckCircle /> Ticket này đã được đóng và không thể trả lời thêm.
+                </div>
+              ) : canReply ? (
+                <div className="c-mgr-composer">
+                  <h4><FaReply/> Trả lời Email</h4>
+                  <div className="c-mgr-input-group">
+                    <label>Tới:</label>
+                    <input type="text" value={`${selectedMsg.name} <${selectedMsg.email}>`} disabled />
+                  </div>
+                  <div className="c-mgr-input-group">
+                    <label>Tiêu đề:</label>
+                    <input type="text" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} />
+                  </div>
+                  <div className="c-mgr-input-group">
+                    <label>CC:</label>
+                    <input type="text" placeholder="Email cách nhau bởi dấu phẩy..." value={emailCC} onChange={e => setEmailCC(e.target.value)} />
+                  </div>
+                  <div className="c-mgr-input-group">
+                    <label>BCC:</label>
+                    <input type="text" placeholder="BCC ẩn danh..." value={emailBCC} onChange={e => setEmailBCC(e.target.value)} />
+                  </div>
+                  
+                  {/* CKEDITOR */}
+                  <div className="c-mgr-ckeditor-box">
+                    <div id="c-mgr-toolbar"></div>
+                    <div className="c-mgr-editor-wrapper">
+                      {DecoupledEditor && (
+                        <CKEditor
+                          editor={DecoupledEditor}
+                          data={emailContent}
+                          onReady={editor => {
+                            const toolbarContainer = document.querySelector('#c-mgr-toolbar');
+                            if (toolbarContainer) toolbarContainer.appendChild(editor.ui.view.toolbar.element);
+                          }}
+                          onChange={(e, editor) => setEmailContent(editor.getData())}
+                          config={{
+                            toolbar: [ 'heading', '|', 'bold', 'italic', 'underline', 'link', 'bulletedList', 'numberedList', '|', 'undo', 'redo' ]
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="c-mgr-composer-footer">
+                    <button className="c-mgr-btn-primary" onClick={handleReply} disabled={isReplying}>
+                      {isReplying ? 'Đang gửi...' : <><FaPaperPlane/> Gửi Email</>}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="c-mgr-lock-box">
+                  <FaLock /> Ticket này đang được xử lý bởi nhân viên khác ({selectedMsg.replier?.full_name}). Bạn không có quyền can thiệp.
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

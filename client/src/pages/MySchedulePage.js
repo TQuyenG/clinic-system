@@ -21,7 +21,7 @@ import {
   FaTimes, FaSpinner, FaCheckCircle, FaTimesCircle, FaExclamationCircle,
   FaArchive, FaUserClock, FaClock, 
   FaCalendarDay, FaCalendarWeek, FaCalendarCheck, FaList, // MỚI
-  FaBusinessTime // MỚI
+  FaBusinessTime, FaUserMd // MỚI
 } from 'react-icons/fa';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -96,6 +96,15 @@ const MySchedulePage = () => {
   const [showFlexibleEditor, setShowFlexibleEditor] = useState(false);
   const [showOvertimeEditor, setShowOvertimeEditor] = useState(false);
 
+  // ✅ MỚI: State cho form type dropdowns
+  const [showFormTypeDropdown, setShowFormTypeDropdown] = useState(false);
+  const [showOnBehalfDropdown, setShowOnBehalfDropdown] = useState(false);
+  const [selectedFormType, setSelectedFormType] = useState(null); // 'leave' | 'overtime' | 'flexible'
+  const [showDoctorSelectModal, setShowDoctorSelectModal] = useState(false);
+  const [filteredDoctorsForOnBehalf, setFilteredDoctorsForOnBehalf] = useState([]);
+  const [selectedSpecialtyFilter, setSelectedSpecialtyFilter] = useState('all');
+  const [specialtiesForFilter, setSpecialtiesForFilter] = useState([]);
+
   // Loading
   const [loading, setLoading] = useState({
     config: false,
@@ -126,6 +135,7 @@ const MySchedulePage = () => {
       loadMyLeaves();
       loadMyCalendarData(userData);
       loadAssignedDoctors(); 
+      loadSpecialties(); 
       
       // Xử lý link highlight từ thông báo
       const params = new URLSearchParams(window.location.search);
@@ -168,6 +178,11 @@ const MySchedulePage = () => {
     
   }, [user, activeTab, currentDate, viewMode]);
 
+  // ✅ MỚI: Update doctor filters khi đổi specialty
+  useEffect(() => {
+    updateDoctorFilters(assignedDoctors);
+  }, [selectedSpecialtyFilter]);
+
   // ========== LOAD DATA ==========
   
   const loadMyCalendarData = async (currentUser, doctorUserId = null) => {
@@ -191,6 +206,7 @@ const MySchedulePage = () => {
 
       const params = new URLSearchParams({
       user_ids: targetUserId, // MỚI: Dùng targetUserId
+      user_ids_kind: 'user',
       date_from: formatDateISO(range.start),
         date_to: formatDateISO(range.end),
         types: 'schedules,overtime,leaves,appointments'
@@ -258,10 +274,45 @@ const MySchedulePage = () => {
         
         if (doctorsRes.data.success) {
           setAssignedDoctors(doctorsRes.data.data || []);
+          // Filter doctors by specialty
+          updateDoctorFilters(doctorsRes.data.data || []);
         }
       }
     } catch (error) {
       console.error('Load assigned doctors error:', error);
+    }
+  };
+
+  // ✅ MỚI: Load specialties để filter bác sĩ
+  const loadSpecialties = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/specialties`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setSpecialtiesForFilter(response.data.data || response.data.specialties || []);
+      }
+    } catch (error) {
+      console.error('Load specialties error:', error);
+    }
+  };
+
+  // ✅ MỚI: Filter doctors theo specialty
+  const updateDoctorFilters = (doctors) => {
+    if (!doctors || doctors.length === 0) {
+      setFilteredDoctorsForOnBehalf([]);
+      return;
+    }
+    
+    if (selectedSpecialtyFilter === 'all') {
+      setFilteredDoctorsForOnBehalf(doctors);
+    } else {
+      const filtered = doctors.filter(doc => {
+        const docSpecId = doc.specialty?.id || doc.specialty_id;
+        return String(docSpecId) === String(selectedSpecialtyFilter);
+      });
+      setFilteredDoctorsForOnBehalf(filtered);
     }
   };
 
@@ -337,6 +388,41 @@ const MySchedulePage = () => {
     }
   };
 
+  // ✅ MỚI: Handlers cho form type dropdowns
+  const handleSelectFormType = (formType) => {
+    setSelectedFormType(formType);
+    setShowFormTypeDropdown(false);
+
+    // Open form modal based on type
+    if (formType === 'leave') {
+      setShowLeaveModal(true);
+    } else if (formType === 'overtime') {
+      setShowOvertimeEditor(true);
+    } else if (formType === 'flexible') {
+      setShowFlexibleEditor(true);
+    }
+  };
+
+  const handleSelectOnBehalfFormType = (formType) => {
+    setSelectedFormType(formType);
+    setShowOnBehalfDropdown(false);
+    setShowDoctorSelectModal(true);
+  };
+
+  const handleSelectDoctorForOnBehalf = (doctorId) => {
+    setShowDoctorSelectModal(false);
+    setSelectedDoctorId(doctorId);
+
+    // Open form modal based on type with target_user_id
+    if (selectedFormType === 'leave') {
+      setShowLeaveModal(true);
+    } else if (selectedFormType === 'overtime') {
+      setShowOvertimeEditor(true);
+    } else if (selectedFormType === 'flexible') {
+      setShowFlexibleEditor(true);
+    }
+  };
+
   // Old handlers (for backward compatibility)
   const handleMonthChange = (direction) => {
     if (direction === 'prev') {
@@ -409,9 +495,13 @@ const MySchedulePage = () => {
     try {
       setLoading(prev => ({ ...prev, submit: true }));
       const token = localStorage.getItem('token');
+      const canSendForDoctor = user?.role === 'staff' && hasPermission('work_shift', 'view_doctors') && selectedDoctorId;
+      const payload = canSendForDoctor
+        ? { ...formData, target_user_id: selectedDoctorId }
+        : formData;
       await axios.post(
         `${API_URL}/leave-requests`,
-        formData,
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success('Đã gửi đơn xin nghỉ. Vui lòng chờ duyệt.');
@@ -502,14 +592,75 @@ const MySchedulePage = () => {
         {/* HEADER */}
         <div className="my-schedule-page__header">
           <h1 className="my-schedule-page__page-title">Lịch Làm Việc Của Tôi</h1>
-          {/* Luôn hiển thị nút tạo đơn nghỉ cho staff/doctor */}
+          
+          {/* ✅ SỬA: Nút Đăng ký Form với dropdown */}
           {(user?.role === 'staff' || user?.role === 'doctor') && (
-            <button
-              className="my-schedule-page__button my-schedule-page__button--primary"
-              onClick={() => setShowLeaveModal(true)}
-            >
-              <FaPlus /> Tạo Đơn Nghỉ
-            </button>
+            <div className="my-schedule-page__buttons-group">
+              <div className="my-schedule-page__dropdown-wrapper">
+                <button
+                  className="my-schedule-page__button my-schedule-page__button--primary"
+                  onClick={() => setShowFormTypeDropdown(!showFormTypeDropdown)}
+                >
+                  <FaPlus style={{ fontSize: '0.9rem' }} /> Đăng ký Form
+                </button>
+                {showFormTypeDropdown && (
+                  <div className="my-schedule-page__dropdown-menu">
+                    <button 
+                      className="my-schedule-page__dropdown-item"
+                      onClick={() => handleSelectFormType('leave')}
+                    >
+                      <FaEnvelopeOpenText style={{ fontSize: '0.85rem' }} /> Nghỉ phép
+                    </button>
+                    <button 
+                      className="my-schedule-page__dropdown-item"
+                      onClick={() => handleSelectFormType('overtime')}
+                    >
+                      <FaClock style={{ fontSize: '0.85rem' }} /> Tăng ca
+                    </button>
+                    <button 
+                      className="my-schedule-page__dropdown-item"
+                      onClick={() => handleSelectFormType('flexible')}
+                    >
+                      <FaCalendarAlt style={{ fontSize: '0.85rem' }} /> Lịch linh động
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* ✅ MỚI: Nút Đăng ký Hộ (chỉ cho Staff clinic có bác sĩ được phân công) */}
+              {user?.role === 'staff' && assignedDoctors.length > 0 && (
+                <div className="my-schedule-page__dropdown-wrapper">
+                  <button
+                    className="my-schedule-page__button my-schedule-page__button--secondary"
+                    onClick={() => setShowOnBehalfDropdown(!showOnBehalfDropdown)}
+                  >
+                    <FaUserMd style={{ fontSize: '0.9rem' }} /> Đăng ký Hộ
+                  </button>
+                  {showOnBehalfDropdown && (
+                    <div className="my-schedule-page__dropdown-menu">
+                      <button 
+                        className="my-schedule-page__dropdown-item"
+                        onClick={() => handleSelectOnBehalfFormType('leave')}
+                      >
+                        <FaEnvelopeOpenText style={{ fontSize: '0.85rem' }} /> Nghỉ phép
+                      </button>
+                      <button 
+                        className="my-schedule-page__dropdown-item"
+                        onClick={() => handleSelectOnBehalfFormType('overtime')}
+                      >
+                        <FaClock style={{ fontSize: '0.85rem' }} /> Tăng ca
+                      </button>
+                      <button 
+                        className="my-schedule-page__dropdown-item"
+                        onClick={() => handleSelectOnBehalfFormType('flexible')}
+                      >
+                        <FaCalendarAlt style={{ fontSize: '0.85rem' }} /> Lịch linh động
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -519,41 +670,41 @@ const MySchedulePage = () => {
             className={`my-schedule-page__tab ${activeTab === 'schedule' ? 'my-schedule-page__tab--active' : ''}`}
             onClick={() => setActiveTab('schedule')}
           >
-            <FaCalendarAlt /> Lịch Tổng Quan
+            <FaCalendarAlt style={{ fontSize: '0.9rem' }} /> Lịch Tổng Quan
           </button>
           <button
             className={`my-schedule-page__tab ${activeTab === 'register_schedule' ? 'my-schedule-page__tab--active' : ''}`}
             onClick={() => setActiveTab('register_schedule')}
           >
-            <FaUserClock /> Đăng ký Lịch
+            <FaUserClock style={{ fontSize: '0.9rem' }} /> Đăng ký Lịch
           </button>
           <button
             className={`my-schedule-page__tab ${activeTab === 'overtime' ? 'my-schedule-page__tab--active' : ''}`}
             onClick={() => setActiveTab('overtime')}
           >
-            <FaClock /> Đăng ký Tăng ca
+            <FaClock style={{ fontSize: '0.9rem' }} /> Đăng ký Tăng ca
           </button>
           <button
             className={`my-schedule-page__tab ${activeTab === 'leaves' ? 'my-schedule-page__tab--active' : ''}`}
             onClick={() => setActiveTab('leaves')}
           >
-            <FaEnvelopeOpenText /> Đơn Xin Nghỉ
+            <FaEnvelopeOpenText style={{ fontSize: '0.9rem' }} /> Đơn Xin Nghỉ
           </button>
         </div>
 
         {/* MỚI: DROPDOWN CHỌN BÁC SĨ (Chỉ hiện cho Staff thuộc Lâm sàng có quyền xem lịch bác sĩ) */}
         {user?.role === 'staff' && hasPermission('work_shift', 'view_doctors') && assignedDoctors.length > 0 && (
           <div className="my-schedule-page__doctor-selector">
-            <label>Xem lịch của:</label>
+            <label><FaUserMd style={{ fontSize: '0.85rem' }} /> Xem lịch của:</label>
             <select
               value={selectedDoctorId || ''} 
               onChange={(e) => handleDoctorSelect(e.target.value ? parseInt(e.target.value) : null)}
             >
-              <option value="">📅 Lịch của tôi</option>
+              <option value="">Lịch của tôi</option>
               <optgroup label="Bác sĩ được phân công">
                 {assignedDoctors.map(doc => (
                   <option key={doc.id} value={doc.user?.id || doc.user_id}>
-                    👨‍⚕️ {doc.user?.full_name || doc.full_name}
+                    {doc.user?.full_name || doc.full_name}
                   </option>
                 ))}
               </optgroup>
@@ -686,6 +837,8 @@ const MySchedulePage = () => {
                   <ScheduleTableView
                     schedules={filteredCalendarData.schedules}
                     overtimeSchedules={filteredCalendarData.overtime_schedules}
+                    leaveRequests={filteredCalendarData.leaves}
+                    appointments={filteredCalendarData.appointments}
                     viewMode={viewMode}
                     month={currentDate.getMonth() + 1}
                     year={currentDate.getFullYear()}
@@ -835,6 +988,91 @@ const MySchedulePage = () => {
         
       </div>
 
+      {/* ✅ MỚI: MODAL CHỌN BÁC SĨ ĐỂ ĐĂNG KÝ HỘ */}
+      {showDoctorSelectModal && (
+        <div className="my-schedule-page__modal-overlay" onClick={() => setShowDoctorSelectModal(false)}>
+          <div className="my-schedule-page__modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="my-schedule-page__modal-header-row">
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>
+                Chọn Bác Sĩ Để Đăng Ký {selectedFormType === 'leave' ? 'Nghỉ Phép' : selectedFormType === 'overtime' ? 'Tăng Ca' : 'Lịch Linh Động'}
+              </h2>
+              <button
+                className="my-schedule-page__modal-close-btn"
+                onClick={() => setShowDoctorSelectModal(false)}
+                style={{fontSize: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563'}}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Specialty Filter */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.95rem' }}>
+                Lọc theo chuyên khoa:
+              </label>
+              <select
+                value={selectedSpecialtyFilter}
+                onChange={(e) => setSelectedSpecialtyFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--color-border)',
+                  fontSize: '0.95rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'var(--transition)'
+                }}
+              >
+                <option value="all">Tất cả chuyên khoa</option>
+                {specialtiesForFilter.map(specialty => (
+                  <option key={specialty.id} value={specialty.id}>
+                    {specialty.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Doctor List */}
+            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              {filteredDoctorsForOnBehalf.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: '2rem' }}>
+                  Không có bác sĩ nào được phân công
+                </p>
+              ) : (
+                filteredDoctorsForOnBehalf.map(doctor => (
+                  <button
+                    key={doctor.id}
+                    onClick={() => handleSelectDoctorForOnBehalf(doctor.user?.id || doctor.user_id)}
+                    style={{
+                      width: '100%',
+                      padding: '1rem',
+                      marginBottom: '0.5rem',
+                      textAlign: 'left',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '6px',
+                      background: 'var(--color-background-light)',
+                      cursor: 'pointer',
+                      transition: 'var(--transition)',
+                      fontSize: '0.95rem'
+                    }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--color-primary-light)'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--color-background-light)'}
+                  >
+                    <strong>{doctor.user?.full_name || doctor.full_name}</strong>
+                    {doctor.specialty && (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                        {doctor.specialty.name}
+                      </div>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODALS */}
       <LeaveRequestModal
         isOpen={showLeaveModal}
@@ -866,6 +1104,7 @@ const MySchedulePage = () => {
           }
         }}
         userRole={user?.role}
+        targetUserId={user?.role === 'staff' && hasPermission('work_shift', 'view_doctors') && selectedDoctorId ? selectedDoctorId : null}
       />
       
     </div>

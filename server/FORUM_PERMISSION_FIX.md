@@ -131,7 +131,7 @@ WHERE s.department IN ('content', 'support');
     "forum": ["create_topic", "edit_topic", "toggle_topic", "delete_topic", "assign_moderators"]
   },
   "full_name": "Nguyễn Văn A",
-  "email": "content.manager@clinic.vn"
+  "email": "content.manager@easymedify.vn"
 }
 ```
 

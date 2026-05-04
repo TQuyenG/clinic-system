@@ -17,7 +17,7 @@ const mapUserToEvent = (event, userMap) => {
 
 exports.getCalendarData = async (req, res) => {
   try {
-    const { user_ids, date_from, date_to, types } = req.query;
+    const { user_ids, date_from, date_to, types, user_ids_kind } = req.query;
     const requestUser = req.user;
 
     if (!date_from || !date_to) {
@@ -29,26 +29,73 @@ exports.getCalendarData = async (req, res) => {
     let typesToFetch = types ? types.split(',') : ['schedules', 'leaves', 'appointments', 'overtime'];
 
     // ========== 1. Xác định danh sách User ==========
-    if (user_ids) {
-      targetUserIds = user_ids.split(',').map(id => parseInt(id, 10));
-      // (Giữ logic check quyền và giới hạn 5 user)
-      if (targetUserIds.length > 5) {
-        return res.status(400).json({ success: false, message: 'Chỉ được phép lọc tối đa 5 người dùng' });
-      }
-      // SỬA: Cho phép admin, staff và doctor xem lịch
-      if (!['admin', 'staff', 'doctor'].includes(requestUser.role) && (targetUserIds.length > 1 || targetUserIds[0] !== requestUser.id)) {
-        return res.status(403).json({ success: false, message: 'Bạn không có quyền xem lịch của người dùng khác' });
-      }
-    } else {
-      if (requestUser.role === 'admin') {
-        const allUsers = await models.User.findAll({
-          where: { role: { [Op.in]: ['doctor', 'staff'] } },
-          attributes: ['id']
-        });
-        targetUserIds = allUsers.map(u => u.id);
+    // ✅ FIX QUAN TRỌNG: KHÔNG dùng hasOwnProperty vì req.query trong Express là Object không có prototype.
+    // Dùng req.query.user_ids !== undefined để tránh bị crash và nhảy vào catch.
+    try {
+      if (req.query.user_ids !== undefined) {
+        // user_ids được gửi (dù rỗng hay không)
+        if (user_ids && user_ids.trim && user_ids.trim()) {
+          targetUserIds = user_ids.split(',')
+            .map(id => parseInt(id, 10))
+            .filter(id => !isNaN(id)); // Lọc bỏ NaN
+        }
+        
+        if (targetUserIds.length > 5) {
+          return res.status(400).json({ success: false, message: 'Chỉ được phép lọc tối đa 5 người dùng' });
+        }
+        
+        // Check quyền
+        if (!['admin', 'staff', 'doctor'].includes(requestUser.role) && (targetUserIds.length > 1 || (targetUserIds.length === 1 && targetUserIds[0] !== requestUser.id))) {
+          return res.status(403).json({ success: false, message: 'Bạn không có quyền xem lịch của người dùng khác' });
+        }
+        
+        // Nếu admin gửi user_ids rỗng, return dữ liệu rỗng (không lấy appointments)
+        if (targetUserIds.length === 0) {
+  if (requestUser.role === 'admin') {
+    const allUsers = await models.User.findAll({
+      where: { role: { [Op.in]: ['doctor', 'staff'] } },
+      attributes: ['id']
+    });
+    targetUserIds = allUsers.map(u => u.id);
+  } else {
+    targetUserIds = [requestUser.id];
+  }
+}
       } else {
-        targetUserIds = [requestUser.id];
+        // user_ids không được gửi -> dùng default logic
+        if (requestUser.role === 'admin') {
+          const allUsers = await models.User.findAll({
+            where: { role: { [Op.in]: ['doctor', 'staff'] } },
+            attributes: ['id']
+          });
+          targetUserIds = allUsers.map(u => u.id);
+        } else {
+          targetUserIds = [requestUser.id];
+        }
       }
+    } catch (err) {
+      console.error('Error parsing user_ids:', err);
+      targetUserIds = [requestUser.id];
+    }
+
+    // HỖ TRỢ: Frontend đôi khi gửi ID của bảng Doctor (thay vì ID User) — map chúng về user_id
+    // Nếu client đã nói rõ là user IDs thì không map ngược sang Doctor để tránh mở rộng nhầm lịch.
+    try {
+      if (targetUserIds.length > 0 && user_ids_kind !== 'user') {
+        // Tách các ID có thể là doctor.id
+        const doctorRecords = await models.Doctor.findAll({ where: { id: { [Op.in]: targetUserIds } }, attributes: ['id', 'user_id'] });
+        const doctorUserIds = doctorRecords.map(d => d.user_id).filter(Boolean);
+
+        // Tách các ID thực sự là user.id
+        const userRecords = await models.User.findAll({ where: { id: { [Op.in]: targetUserIds } }, attributes: ['id'] });
+        const userIds = userRecords.map(u => u.id);
+
+        // Kết hợp và loại bỏ trùng
+        const combined = Array.from(new Set([...(userIds || []), ...(doctorUserIds || [])]));
+        if (combined.length > 0) targetUserIds = combined;
+      }
+    } catch (err) {
+      console.error('Error mapping doctor IDs to user IDs:', err);
     }
 
     if (targetUserIds.length === 0) {
@@ -57,6 +104,13 @@ exports.getCalendarData = async (req, res) => {
         data: { schedules: [], leaves: [], appointments: [], overtime_schedules: [] } 
       });
     }
+
+    // DEBUG: Log targetUserIds
+    console.log('[DEBUG] REQUEST PARAMS - user_ids:', req.query.user_ids);
+    console.log('[DEBUG] REQUEST PARAMS - date_from:', req.query.date_from);
+    console.log('[DEBUG] REQUEST PARAMS - date_to:', req.query.date_to);
+    console.log('[DEBUG] Parsed targetUserIds:', targetUserIds);
+    console.log('[DEBUG] typesToFetch:', typesToFetch);
 
     // ========== 2. Lấy thông tin User (UserMap) ==========
     const users = await models.User.findAll({
@@ -186,100 +240,221 @@ exports.getCalendarData = async (req, res) => {
     
     // --- B. LẤY LỊCH TĂNG CA (Overtime) ---
     if (typesToFetch.includes('overtime')) {
-       const overtimeData = await models.Schedule.findAll({
-         where: {
-           user_id: { [Op.in]: targetUserIds },
-           schedule_type: 'overtime',
-           status: 'approved', // Chỉ lấy ca đã duyệt
-           date: dateRange
-         },
-         // Không cần include user vì đã có user_id
-       });
-       // Gán thông tin user (Avatar, Name)
-       overtime_schedules = overtimeData.map(event => mapUserToEvent(event, userMap));
+      // Parse raw input ids (frontend may send doctor.id or user.id)
+      const rawInputIds = req.query.user_ids && req.query.user_ids.trim ? (user_ids && user_ids.trim() ? user_ids.split(',').map(i => parseInt(i, 10)).filter(i => !isNaN(i)) : []) : [];
+
+      // Find doctor records that match either input doctor IDs or by user_id
+      const doctorsById = rawInputIds.length ? await models.Doctor.findAll({ where: { id: { [Op.in]: rawInputIds } }, attributes: ['id', 'user_id'] }) : [];
+      const userIdsFromDoctorInput = doctorsById.map(d => d.user_id).filter(Boolean);
+
+      const usersById = rawInputIds.length ? await models.User.findAll({ where: { id: { [Op.in]: rawInputIds } }, attributes: ['id'] }) : [];
+      const userIdsDirect = usersById.map(u => u.id);
+
+      // Also find doctors that correspond to user IDs in both raw input and resolved targetUserIds
+      const userIdsForDoctorLookup = Array.from(new Set([...(userIdsDirect || []), ...(targetUserIds || [])]));
+      const doctorsByUserIds = userIdsForDoctorLookup.length
+        ? await models.Doctor.findAll({ where: { user_id: { [Op.in]: userIdsForDoctorLookup } }, attributes: ['id', 'user_id'] })
+        : [];
+      const doctorIdsFromUserIds = doctorsByUserIds.map(d => d.id);
+
+      const doctorIdsToSearch = Array.from(new Set([...(doctorsById.map(d => d.id)), ...doctorIdsFromUserIds]));
+      const userIdsToSearch = Array.from(new Set([...(userIdsDirect), ...userIdsFromDoctorInput, ...targetUserIds]));
+      const overtimeUserIdsToSearch = Array.from(new Set([...(userIdsToSearch), ...(doctorIdsToSearch)]));
+
+      const overtimeData = await models.Schedule.findAll({
+        where: {
+          schedule_type: 'overtime',
+          status: 'approved',
+          date: dateRange,
+          [Op.or]: [
+            { user_id: { [Op.in]: overtimeUserIdsToSearch } },
+            { doctor_id: { [Op.in]: doctorIdsToSearch } }
+          ]
+        }
+      });
+      console.log('[DEBUG-OT] Overtime records found:', overtimeData.length);
+      if (overtimeData.length === 0) {
+        console.log('[DEBUG-OT] Sample overtime records in DB with status="approved":');
+        const sampleOT = await models.Schedule.findAll({ where: { schedule_type: 'overtime', status: 'approved' }, limit: 5 });
+        console.log('[DEBUG-OT]', sampleOT.map(s => ({ id: s.id, user_id: s.user_id, doctor_id: s.doctor_id, status: s.status, date: s.date })));
+      }
+
+      overtime_schedules = overtimeData.map(event => {
+        const ev = event.toJSON ? event.toJSON() : event;
+        const docByDoctorId = doctorsById.find(d => d.id === ev.doctor_id) || doctorsByUserIds.find(d => d.id === ev.doctor_id);
+        const docByLegacyUserId = ev.user_type === 'doctor'
+          ? (doctorsById.find(d => d.id === ev.user_id) || doctorsByUserIds.find(d => d.id === ev.user_id))
+          : null;
+
+        if (docByLegacyUserId) {
+          ev.user_id = docByLegacyUserId.user_id;
+          ev.doctor_id = docByLegacyUserId.id;
+        } else if (!ev.user_id && docByDoctorId) {
+          ev.user_id = docByDoctorId.user_id;
+          ev.doctor_id = docByDoctorId.id;
+        } else if (docByDoctorId && (!ev.user_id || !userMap.has(ev.user_id))) {
+          ev.user_id = docByDoctorId.user_id;
+          ev.doctor_id = docByDoctorId.id;
+        }
+        return mapUserToEvent(ev, userMap);
+      });
     }
 
 
     // --- C. Lấy Lịch Nghỉ (Leaves) ---
     if (typesToFetch.includes('leaves')) {
+      // Parse raw input ids as above
+      const rawInputIds = req.query.user_ids && req.query.user_ids.trim ? (user_ids && user_ids.trim() ? user_ids.split(',').map(i => parseInt(i, 10)).filter(i => !isNaN(i)) : []) : [];
+
+      const doctorsById = rawInputIds.length ? await models.Doctor.findAll({ where: { id: { [Op.in]: rawInputIds } }, attributes: ['id', 'user_id'] }) : [];
+      const userIdsFromDoctorInput = doctorsById.map(d => d.user_id).filter(Boolean);
+      const usersById = rawInputIds.length ? await models.User.findAll({ where: { id: { [Op.in]: rawInputIds } }, attributes: ['id'] }) : [];
+      const userIdsDirect = usersById.map(u => u.id);
+      const userIdsForDoctorLookup = Array.from(new Set([...(userIdsDirect || []), ...(targetUserIds || [])]));
+      const doctorsByUserIds = userIdsForDoctorLookup.length
+        ? await models.Doctor.findAll({ where: { user_id: { [Op.in]: userIdsForDoctorLookup } }, attributes: ['id', 'user_id'] })
+        : [];
+      const doctorIdsFromUserIds = doctorsByUserIds.map(d => d.id);
+      const doctorIdsToSearch = Array.from(new Set([...(doctorsById.map(d => d.id)), ...doctorIdsFromUserIds]));
+      const userIdsToSearch = Array.from(new Set([...(userIdsDirect), ...userIdsFromDoctorInput, ...targetUserIds]));
+
+      // 1) LeaveRequest table (explicit leaves)
+      const leaveUserIdsToSearch = Array.from(new Set([...(userIdsToSearch), ...(doctorIdsToSearch)]));
+
       const leaveData = await models.LeaveRequest.findAll({
         where: {
-          user_id: { [Op.in]: targetUserIds },
+          user_id: { [Op.in]: leaveUserIdsToSearch },
           status: 'approved',
           [Op.or]: [
-            {
-              date_to: { [Op.not]: null },
-              date_from: { [Op.lte]: date_to },
-              date_to: { [Op.gte]: date_from }
-            },
-            {
-              date_to: null,
-              date_from: dateRange
-            }
+            { date_to: { [Op.not]: null }, date_from: { [Op.lte]: date_to }, date_to: { [Op.gte]: date_from } },
+            { date_to: null, date_from: dateRange }
           ]
         }
       });
-      leaves = leaveData.map(event => mapUserToEvent(event, userMap));
+      console.log('[DEBUG-LEAVE] LeaveRequest records found:', leaveData.length);
+
+      // 2) Schedule table where schedule_type='leave'
+      const leaveSchedules = await models.Schedule.findAll({
+        where: {
+          schedule_type: 'leave',
+          date: dateRange,
+          [Op.or]: [ { user_id: { [Op.in]: userIdsToSearch } }, { doctor_id: { [Op.in]: doctorIdsToSearch } } ]
+        }
+      });
+      console.log('[DEBUG-LEAVE] Schedule(leave) records found:', leaveSchedules.length);
+
+      const mappedFromRequests = leaveData.map(event => {
+        const ev = event.toJSON ? event.toJSON() : event;
+        const docByDoctorId = doctorsById.find(d => d.id === ev.doctor_id) || doctorsByUserIds.find(d => d.id === ev.doctor_id);
+        const docByLegacyUserId = ev.user_type === 'doctor'
+          ? (doctorsById.find(d => d.id === ev.user_id) || doctorsByUserIds.find(d => d.id === ev.user_id))
+          : null;
+
+        if (docByLegacyUserId) {
+          ev.user_id = docByLegacyUserId.user_id;
+          ev.doctor_id = docByLegacyUserId.id;
+        } else if (docByDoctorId && (!ev.user_id || !userMap.has(ev.user_id))) {
+          ev.user_id = docByDoctorId.user_id;
+          ev.doctor_id = docByDoctorId.id;
+        }
+        return mapUserToEvent(ev, userMap);
+      });
+      const mappedFromSchedules = leaveSchedules.map(sch => {
+        const sj = sch.toJSON ? sch.toJSON() : sch;
+        const docByDoctorId = doctorsById.find(d => d.id === sj.doctor_id) || doctorsByUserIds.find(d => d.id === sj.doctor_id);
+        const docByLegacyUserId = sj.user_type === 'doctor'
+          ? (doctorsById.find(d => d.id === sj.user_id) || doctorsByUserIds.find(d => d.id === sj.user_id))
+          : null;
+
+        if (docByLegacyUserId) {
+          sj.user_id = docByLegacyUserId.user_id;
+          sj.doctor_id = docByLegacyUserId.id;
+        } else if (!sj.user_id && docByDoctorId) {
+          sj.user_id = docByDoctorId.user_id;
+          sj.doctor_id = docByDoctorId.id;
+        }
+        return mapUserToEvent(sj, userMap);
+      });
+
+      leaves = [...mappedFromRequests, ...mappedFromSchedules];
     }
 
     // --- D. Lấy Lịch Hẹn (Appointments) ---
     if (typesToFetch.includes('appointments')) {
-      const doctors = await models.Doctor.findAll({
-        where: { user_id: { [Op.in]: targetUserIds } },
-        attributes: ['id', 'user_id']
+      console.log('[DEBUG-APPT] Looking for appointments with doctors having user_id IN:', targetUserIds);
+      
+      const appointmentData = await models.Appointment.findAll({
+        where: {
+          appointment_date: dateRange,
+          status: { [Op.notIn]: ['cancelled', 'passed'] }
+        },
+        include: [
+          {
+            model: models.Doctor,
+            as: 'Doctor',
+            required: true,
+            attributes: ['id', 'user_id'],
+            where: {
+              user_id: { [Op.in]: targetUserIds }
+            }
+          },
+          { 
+            model: models.Patient, 
+            as: 'Patient',
+            attributes: ['id', 'user_id'], 
+            required: false,
+            include: [{
+              model: models.User,
+              attributes: ['full_name', 'email', 'phone'],
+              required: false
+            }]
+          },
+        ],
+        attributes: [
+          'id', 'patient_id', 'doctor_id', 'guest_name', 'guest_phone', 'code', 'status',
+          'appointment_date', 'appointment_start_time', 'appointment_end_time'
+        ]
       });
       
-      const doctorIdToUserIdMap = new Map(doctors.map(d => [d.id, d.user_id]));
-      const targetDoctorIds = doctors.map(d => d.id);
-
-      if (targetDoctorIds.length > 0) {
-        const appointmentData = await models.Appointment.findAll({
-          where: {
-            doctor_id: { [Op.in]: targetDoctorIds },
-            appointment_date: dateRange,
-            status: { [Op.in]: ['confirmed', 'in_progress', 'completed'] }
-          },
-          attributes: [
-            'id', 'patient_id', 'doctor_id', 'guest_name', 'guest_phone', 'code', 'status',
-            'appointment_date', 'appointment_start_time', 'appointment_end_time'
-          ],
-          include: [
-            { 
-              model: models.Patient, 
-              as: 'Patient',
-              attributes: ['id', 'user_id'], 
-              required: false,
-              include: [{
-                model: models.User,
-                attributes: ['full_name', 'email', 'phone'],
-                required: false
-              }]
-            },
-          ]
-        });
-        
-        appointments = appointmentData.map(app => {
-          const appJSON = app.toJSON();
-          const userId = doctorIdToUserIdMap.get(app.doctor_id);
-          
-          if (appJSON.Patient && appJSON.Patient.User) {
-             appJSON.Patient.full_name = appJSON.Patient.User.full_name;
-          }
-
-          return {
-        ...appJSON,
-        // === SỬA: Ánh xạ tên trường để Frontend hiển thị được lên lịch ===
-        date: appJSON.appointment_date, 
-        start_time: appJSON.appointment_start_time,
-        end_time: appJSON.appointment_end_time,
-        // ==============================================================
-
-        user_id: userId,
-        user: userMap.get(userId) || null
-      };
+      console.log('[DEBUG-APPT] Appointment records found:', appointmentData.length);
+      if (appointmentData.length > 0) {
+        console.log('[DEBUG-APPT] First appointment details:', {
+          id: appointmentData[0].id,
+          doctor_id: appointmentData[0].doctor_id,
+          doctor_user_id: appointmentData[0].Doctor?.user_id,
+          status: appointmentData[0].status,
+          appointment_date: appointmentData[0].appointment_date
         });
       }
+      
+      appointments = appointmentData.map(app => {
+        const appJSON = app.toJSON();
+        const userId = app.Doctor?.user_id;
+        
+        if (appJSON.Patient && appJSON.Patient.User) {
+           appJSON.Patient.full_name = appJSON.Patient.User.full_name;
+        }
+
+        return {
+          ...appJSON,
+          date: appJSON.appointment_date, 
+          start_time: appJSON.appointment_start_time,
+          end_time: appJSON.appointment_end_time,
+          user_id: userId,
+          user: userMap.get(userId) || null
+        };
+      });
     }
+
+    // DEBUG: Log final response
+    console.log('[DEBUG-FINAL] Final Response Counts:', {
+      schedules: schedules.length,
+      overtime_schedules: overtime_schedules.length,
+      leaves: leaves.length,
+      appointments: appointments.length,
+      targetUserIds: targetUserIds,
+      requestedUserIds: req.query.user_ids
+    });
 
     // Trả về 4 mảng dữ liệu
     res.status(200).json({

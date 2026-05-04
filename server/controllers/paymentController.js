@@ -309,6 +309,7 @@ exports.handleBankWebhook = async (req, res) => {
                  const timeStr = new Date(consultation.appointment_time).toLocaleString('vi-VN');
                  
                  // Gửi Email
+                 console.log(`[Payment][CS ${consultation.consultation_code}] Gửi email thanh toán thành công tới ${consultation.patient.email}`);
                  await emailSender.sendEmail({
                      to: consultation.patient.email,
                      subject: `✅ Thanh toán thành công - Tư vấn ${consultation.consultation_code} đã được xác nhận`,
@@ -324,6 +325,7 @@ exports.handleBankWebhook = async (req, res) => {
                          link: `${process.env.CLIENT_URL || 'http://localhost:3000'}/tu-van/${consultation.id}`
                      }
                  });
+                 console.log(`[Payment][CS ${consultation.consultation_code}] Đã gửi email thanh toán thành công`);
              }
 
              // Gửi Notification
@@ -405,6 +407,7 @@ exports.handleBankWebhook = async (req, res) => {
 
                  // A. GỬI EMAIL HÓA ĐƠN
                  if (patientEmail) {
+                     console.log(`[Payment][AP ${fullAppt.code}] Gửi email thanh toán thành công tới ${patientEmail}`);
                      await emailSender.sendEmail({
                          to: patientEmail,
                          subject: `✅ Thanh toán thành công - Lịch hẹn ${fullAppt.code} đã được xác nhận`,
@@ -421,6 +424,8 @@ exports.handleBankWebhook = async (req, res) => {
                          }
                      });
                      console.log('📧 Đã gửi email hóa đơn');
+                 } else {
+                     console.log(`[Payment][AP ${fullAppt.code}] Không có email bệnh nhân để gửi hóa đơn`);
                  }
 
                  // B. GỬI THÔNG BÁO CHO BỆNH NHÂN
@@ -715,9 +720,362 @@ exports.rejectPayment = async (req, res) => {
 
 exports.getRevenueStatistics = async (req, res) => {
     try {
-        const total = await models.Payment.sum('amount', { where: { status: 'paid' } });
-        res.json({ success: true, data: { chart: [], summary: { total: total || 0 } } });
-    } catch (e) { res.json({ success: true, data: { chart: [], summary: { total: 0 } } }); }
+        const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+        const startOfYear = new Date(year, 0, 1);
+        const startOfNextYear = new Date(year + 1, 0, 1);
+        const startOfToday = moment().startOf('day').toDate();
+        const startOfTomorrow = moment().add(1, 'day').startOf('day').toDate();
+        const startOfRecentWindow = moment().subtract(29, 'days').startOf('day').toDate();
+
+        const paidWhere = {
+            status: 'paid',
+            created_at: {
+                [Op.gte]: startOfYear,
+                [Op.lt]: startOfNextYear
+            }
+        };
+
+        const yearDateWhere = {
+            created_at: {
+                [Op.gte]: startOfYear,
+                [Op.lt]: startOfNextYear
+            }
+        };
+
+        const appointmentYearWhere = {
+            appointment_date: {
+                [Op.gte]: startOfYear,
+                [Op.lt]: startOfNextYear
+            }
+        };
+
+        const [
+            monthlyRows,
+            methodRows,
+            statusRows,
+            appointmentStatusRows,
+            appointmentMonthlyRows,
+            refundStatusRows,
+            refundMonthlyRows,
+            dailyRevenueRows,
+            topServiceRows,
+            topDoctorRows,
+            totalRevenue,
+            todayRevenue,
+            totalTransactions,
+            paidTransactions,
+            totalAppointments,
+            completedAppointments,
+            cancelledAppointments,
+            totalRefundAmount,
+            totalRefundRequests,
+            completedRefundRequests,
+            pendingRefundRequests
+        ] = await Promise.all([
+            models.Payment.findAll({
+                attributes: [
+                    [sequelize.fn('MONTH', sequelize.col('created_at')), 'month'],
+                    [sequelize.fn('SUM', sequelize.col('amount')), 'total'],
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+                ],
+                where: paidWhere,
+                group: [sequelize.fn('MONTH', sequelize.col('created_at'))],
+                raw: true
+            }),
+            models.Payment.findAll({
+                attributes: [
+                    'method',
+                    [sequelize.fn('SUM', sequelize.col('amount')), 'total'],
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+                ],
+                where: paidWhere,
+                group: ['method'],
+                raw: true
+            }),
+            models.Payment.findAll({
+                attributes: [
+                    'status',
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+                ],
+                where: yearDateWhere,
+                group: ['status'],
+                raw: true
+            }),
+            models.Appointment.findAll({
+                attributes: [
+                    'status',
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+                ],
+                where: appointmentYearWhere,
+                group: ['status'],
+                raw: true
+            }),
+            models.Appointment.findAll({
+                attributes: [
+                    [sequelize.fn('MONTH', sequelize.col('appointment_date')), 'month'],
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+                ],
+                where: appointmentYearWhere,
+                group: [sequelize.fn('MONTH', sequelize.col('appointment_date'))],
+                raw: true
+            }),
+            models.RefundRequest.findAll({
+                attributes: [
+                    'status',
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+                    [sequelize.fn('SUM', sequelize.col('refund_amount')), 'total']
+                ],
+                where: yearDateWhere,
+                group: ['status'],
+                raw: true
+            }),
+            models.RefundRequest.findAll({
+                attributes: [
+                    [sequelize.fn('MONTH', sequelize.col('created_at')), 'month'],
+                    'status',
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+                    [sequelize.fn('SUM', sequelize.col('refund_amount')), 'total']
+                ],
+                where: yearDateWhere,
+                group: [sequelize.fn('MONTH', sequelize.col('created_at')), 'status'],
+                raw: true
+            }),
+            models.Payment.findAll({
+                attributes: [
+                    [sequelize.fn('DATE', sequelize.col('created_at')), 'day'],
+                    [sequelize.fn('SUM', sequelize.col('amount')), 'total'],
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+                ],
+                where: {
+                    status: 'paid',
+                    created_at: {
+                        [Op.gte]: startOfRecentWindow,
+                        [Op.lt]: startOfTomorrow
+                    }
+                },
+                group: [sequelize.fn('DATE', sequelize.col('created_at'))],
+                raw: true
+            }),
+            models.Service.findAll({
+                attributes: [
+                    'id',
+                    'name',
+                    [sequelize.fn('COUNT', sequelize.col('appointments.service_id')), 'count']
+                ],
+                include: [{
+                    model: models.Appointment,
+                    as: 'appointments',
+                    attributes: [],
+                    where: appointmentYearWhere,
+                    required: true
+                }],
+                group: ['Service.id'],
+                raw: false,
+                order: [[sequelize.literal('count'), 'DESC']],
+                limit: 8
+            }),
+            models.Doctor.findAll({
+                attributes: [
+                    'id',
+                    'user_id',
+                    [sequelize.fn('COUNT', sequelize.col('appointments.doctor_id')), 'count']
+                ],
+                include: [
+                    {
+                        model: models.Appointment,
+                        as: 'appointments',
+                        attributes: [],
+                        where: appointmentYearWhere,
+                        required: true
+                    },
+                    {
+                        model: models.User,
+                        as: 'user',
+                        attributes: ['id', 'full_name']
+                    }
+                ],
+                group: ['Doctor.id', 'user.id'],
+                raw: false,
+                order: [[sequelize.literal('count'), 'DESC']],
+                limit: 8
+            }),
+            models.Payment.sum('amount', { where: paidWhere }),
+            models.Payment.sum('amount', {
+                where: {
+                    status: 'paid',
+                    created_at: {
+                        [Op.gte]: startOfToday,
+                        [Op.lt]: startOfTomorrow
+                    }
+                }
+            }),
+            models.Payment.count({ where: { created_at: { [Op.gte]: startOfYear, [Op.lt]: startOfNextYear } } }),
+            models.Payment.count({ where: paidWhere }),
+            models.Appointment.count({ where: appointmentYearWhere }),
+            models.Appointment.count({ where: { ...appointmentYearWhere, status: 'completed' } }),
+            models.Appointment.count({ where: { ...appointmentYearWhere, status: 'cancelled' } }),
+            models.RefundRequest.sum('refund_amount', { where: { ...yearDateWhere, status: 'completed' } }),
+            models.RefundRequest.count({ where: yearDateWhere }),
+            models.RefundRequest.count({ where: { ...yearDateWhere, status: 'completed' } }),
+            models.RefundRequest.count({ where: { ...yearDateWhere, status: 'pending' } })
+        ]);
+
+        const chart = Array.from({ length: 12 }, (_, index) => {
+            const monthNumber = index + 1;
+            const match = monthlyRows.find(row => Number(row.month) === monthNumber);
+            return {
+                month: monthNumber,
+                total: Number(match?.total || 0),
+                count: Number(match?.count || 0)
+            };
+        });
+
+        const appointmentChart = Array.from({ length: 12 }, (_, index) => {
+            const monthNumber = index + 1;
+            const match = appointmentMonthlyRows.find(row => Number(row.month) === monthNumber);
+            return {
+                month: monthNumber,
+                name: `T${monthNumber}`,
+                fullName: `Tháng ${monthNumber}`,
+                count: Number(match?.count || 0)
+            };
+        });
+
+        const dailyChart = dailyRevenueRows
+            .map(row => ({
+                day: row.day,
+                revenue: Number(row.total || 0),
+                count: Number(row.count || 0)
+            }))
+            .sort((left, right) => String(left.day).localeCompare(String(right.day)));
+
+        const methodBreakdown = methodRows.map(row => ({
+            method: row.method,
+            total: Number(row.total || 0),
+            count: Number(row.count || 0)
+        }));
+
+        const statusCounts = statusRows.reduce((accumulator, row) => {
+            accumulator[row.status] = Number(row.count || 0);
+            return accumulator;
+        }, {});
+
+        const appointmentStatusCounts = appointmentStatusRows.reduce((accumulator, row) => {
+            accumulator[row.status] = Number(row.count || 0);
+            return accumulator;
+        }, {});
+
+        const refundStatusCounts = refundStatusRows.reduce((accumulator, row) => {
+            accumulator[row.status] = Number(row.count || 0);
+            return accumulator;
+        }, {});
+
+        const refundMonthly = Array.from({ length: 12 }, (_, index) => {
+            const monthNumber = index + 1;
+            const monthRows = refundMonthlyRows.filter(row => Number(row.month) === monthNumber);
+            return {
+                month: monthNumber,
+                name: `T${monthNumber}`,
+                fullName: `Tháng ${monthNumber}`,
+                pending: Number(monthRows.find(row => row.status === 'pending')?.count || 0),
+                processing: Number(monthRows.find(row => row.status === 'processing')?.count || 0),
+                completed: Number(monthRows.find(row => row.status === 'completed')?.count || 0),
+                rejected: Number(monthRows.find(row => row.status === 'rejected')?.count || 0),
+                amount: monthRows.reduce((sum, row) => sum + Number(row.total || 0), 0)
+            };
+        });
+
+        const topServices = topServiceRows
+            .map(row => ({
+                id: row.id,
+                name: row.name,
+                count: Number(row.get('count') || 0)
+            }))
+            .sort((left, right) => right.count - left.count);
+
+        const topDoctors = topDoctorRows
+            .map(row => ({
+                id: row.id,
+                name: row.user?.full_name || `Bác sĩ #${row.id}`,
+                count: Number(row.get('count') || 0)
+            }))
+            .sort((left, right) => right.count - left.count);
+
+        const paidAppointmentRate = totalAppointments > 0 ? (paidTransactions / totalAppointments) * 100 : 0;
+        const completionRate = totalAppointments > 0 ? (completedAppointments / totalAppointments) * 100 : 0;
+        const cancellationRate = totalAppointments > 0 ? (cancelledAppointments / totalAppointments) * 100 : 0;
+        const refundRateByPayment = paidTransactions > 0 ? (completedRefundRequests / paidTransactions) * 100 : 0;
+        const avgDailyRevenue = dailyChart.length > 0 ? dailyChart.reduce((sum, item) => sum + item.revenue, 0) / dailyChart.length : 0;
+
+        res.json({
+            success: true,
+            data: {
+                chart,
+                appointmentChart,
+                dailyChart,
+                methodBreakdown,
+                statusCounts,
+                appointmentStatusCounts,
+                refundStatusCounts,
+                refundMonthly,
+                topServices,
+                topDoctors,
+                summary: {
+                    total: Number(totalRevenue || 0),
+                    today: Number(todayRevenue || 0),
+                    total_transactions: Number(totalTransactions || 0),
+                    paid_transactions: Number(paidTransactions || 0),
+                    total_appointments: Number(totalAppointments || 0),
+                    completed_appointments: Number(completedAppointments || 0),
+                    cancelled_appointments: Number(cancelledAppointments || 0),
+                    total_refund_amount: Number(totalRefundAmount || 0),
+                    total_refund_requests: Number(totalRefundRequests || 0),
+                    completed_refund_requests: Number(completedRefundRequests || 0),
+                    pending_refund_requests: Number(pendingRefundRequests || 0),
+                    avg_daily_revenue: Number(avgDailyRevenue || 0),
+                    payment_conversion_rate: Number(paidAppointmentRate || 0),
+                    appointment_completion_rate: Number(completionRate || 0),
+                    appointment_cancellation_rate: Number(cancellationRate || 0),
+                    refund_rate: Number(refundRateByPayment || 0)
+                }
+            }
+        });
+    } catch (error) {
+        console.error('ERROR getRevenueStatistics:', error);
+        res.json({
+            success: true,
+            data: {
+                chart: [],
+                appointmentChart: [],
+                dailyChart: [],
+                methodBreakdown: [],
+                statusCounts: {},
+                appointmentStatusCounts: {},
+                refundStatusCounts: {},
+                refundMonthly: [],
+                topServices: [],
+                topDoctors: [],
+                summary: {
+                    total: 0,
+                    today: 0,
+                    total_transactions: 0,
+                    paid_transactions: 0,
+                    total_appointments: 0,
+                    completed_appointments: 0,
+                    cancelled_appointments: 0,
+                    total_refund_amount: 0,
+                    total_refund_requests: 0,
+                    completed_refund_requests: 0,
+                    pending_refund_requests: 0,
+                    avg_daily_revenue: 0,
+                    payment_conversion_rate: 0,
+                    appointment_completion_rate: 0,
+                    appointment_cancellation_rate: 0,
+                    refund_rate: 0
+                }
+            }
+        });
+    }
 };
 
 exports.getPaymentByAppointment = async (req, res) => {
@@ -794,6 +1152,46 @@ exports.processRefund = async (req, res) => {
             status: 'pending',
             policy_snapshot: { applied_percent: refundPercent, hours_diff: hoursDiff }
         }, { transaction: t });
+
+        const requester = await models.User.findByPk(userId, {
+            attributes: ['id', 'full_name', 'email'],
+            transaction: t
+        });
+
+        const appointmentCode = appointment.code;
+        const appointmentLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/lich-hen/${appointmentCode}`;
+
+        if (requester?.email) {
+            console.log(`[Refund][REQUEST] Gửi email xác nhận cho ${requester.email} - ${appointmentCode}`);
+            await emailSender.sendEmail({
+                to: requester.email,
+                subject: `📝 Đã ghi nhận yêu cầu hoàn tiền - ${appointmentCode}`,
+                template: 'refund_request_received',
+                data: {
+                    patientName: requester.full_name,
+                    appointmentCode,
+                    refundAmount,
+                    statusLabel: 'Đang chờ staff/admin xét duyệt',
+                    appointmentLink,
+                    refundLink: appointmentLink
+                }
+            });
+        }
+
+        await notificationHelper.createNotification({
+            user_id: userId,
+            type: 'refund_request',
+            title: 'Đã gửi yêu cầu hoàn tiền',
+            message: `Yêu cầu hoàn tiền cho lịch hẹn ${appointmentCode} đã được tạo và đang chờ xét duyệt.`,
+            link: `/lich-hen/${appointmentCode}`,
+            data: { appointment_id: appointment.id, payment_id: payment.id, refund_amount: refundAmount }
+        });
+
+        await notificationHelper.notifyAllAdmins(
+            'refund_request',
+            `Có yêu cầu hoàn tiền mới cho lịch hẹn ${appointmentCode} với số tiền dự kiến ${new Intl.NumberFormat('vi-VN').format(refundAmount)} VNĐ`,
+            '/quan-ly-hoan-tien'
+        );
 
         await t.commit();
         res.status(200).json({ success: true, message: 'Đã gửi yêu cầu hoàn tiền thành công' });
@@ -908,30 +1306,21 @@ exports.processRefundRequest = async (req, res) => {
 
             // Gửi Email thông báo thành công cho khách
             if (request.User?.email) {
+                const appointmentCode = request.Payment?.Appointment?.code || request.payment_id;
                 await emailSender.sendEmail({
                     to: request.User.email,
-                    subject: '✅ Yêu cầu hoàn tiền đã được xử lý thành công - Clinic System',
-                    html: `
-                        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
-                            <h2 style="color: #059669;">Hoàn Tiền Thành Công</h2>
-                            <p>Xin chào <strong>${request.User.full_name}</strong>,</p>
-                            <p>Yêu cầu hoàn tiền cho mã đơn <strong>#${request.Payment?.Appointment?.code || request.payment_id}</strong> đã được chúng tôi xử lý.</p>
-                            
-                            <div style="background: #f0fdf4; padding: 15px; border-radius: 6px; margin: 15px 0;">
-                                <p style="margin: 5px 0;"><strong>Số tiền hoàn:</strong> <span style="color: #ef4444; font-weight: bold;">${new Intl.NumberFormat('vi-VN').format(request.refund_amount)} VNĐ</span></p>
-                                <p style="margin: 5px 0;"><strong>Mã giao dịch:</strong> ${refund_ref}</p>
-                                <p style="margin: 5px 0;"><strong>Ngân hàng thụ hưởng:</strong> ${request.bank_info_snapshot?.bank_name || 'Đã cung cấp'}</p>
-                            </div>
-                            
-                            <p>Tiền sẽ về tài khoản của bạn trong vòng 24h (tùy ngân hàng thụ hưởng).</p>
-                            <p>Kèm theo email này là biên lai chuyển tiền từ phía bệnh viện.</p>
-                            
-                            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                            <p style="font-size: 12px; color: #666;">Cảm ơn bạn đã tin tưởng Clinic System.</p>
-                        </div>
-                    `
+                    subject: '✅ Yêu cầu hoàn tiền đã được xử lý thành công - Easy Medify',
+                    template: 'refund_request_completed',
+                    data: {
+                        patientName: request.User.full_name,
+                        appointmentCode,
+                        refundAmount: request.refund_amount,
+                        refundRef: refund_ref,
+                        appointmentLink: `${process.env.CLIENT_URL || 'http://localhost:3000'}/lich-hen/${appointmentCode}`
+                    }
                     // attachments: proofImages ? [{ path: JSON.parse(proofImages)[0] }] : [] // Nếu muốn đính kèm file thật
                 });
+                console.log(`[Refund][COMPLETE] Đã gửi mail hoàn tiền thành công cho ${request.User.email}`);
             }
             
             // Notification
@@ -939,31 +1328,34 @@ exports.processRefundRequest = async (req, res) => {
                 user_id: request.user_id,
                 type: 'refund_completed',
                 title: 'Hoàn tiền thành công',
-                content: `Yêu cầu hoàn tiền #${request.id} đã được xử lý. Vui lòng kiểm tra tài khoản.`,
-                link: '/quan-ly-thanh-toan' // Link user xem lịch sử
+                message: `Yêu cầu hoàn tiền #${request.id} đã được xử lý. Vui lòng kiểm tra tài khoản.`,
+                link: `/lich-hen/${request.Payment?.Appointment?.code || ''}`
             });
 
         } else if (status === 'rejected') {
             // Gửi mail từ chối
             if (request.User?.email) {
+                const appointmentCode = request.Payment?.Appointment?.code || request.payment_id;
                 await emailSender.sendEmail({
                     to: request.User.email,
-                    subject: '❌ Từ chối yêu cầu hoàn tiền - Clinic System',
-                    html: `
-                        <p>Xin chào ${request.User.full_name},</p>
-                        <p>Yêu cầu hoàn tiền #${request.id} của bạn đã bị từ chối.</p>
-                        <p><strong>Lý do:</strong> ${admin_note}</p>
-                        <p>Vui lòng liên hệ hotline nếu có thắc mắc.</p>
-                    `
+                    subject: '❌ Từ chối yêu cầu hoàn tiền - Easy Medify',
+                    template: 'refund_request_rejected',
+                    data: {
+                        patientName: request.User.full_name,
+                        appointmentCode,
+                        adminNote: admin_note,
+                        contactLink: `${process.env.CLIENT_URL || 'http://localhost:3000'}/lien-he`
+                    }
                 });
+                console.log(`[Refund][REJECT] Đã gửi mail từ chối hoàn tiền cho ${request.User.email}`);
             }
              // Notification Reject
              await notificationHelper.createNotification({
                 user_id: request.user_id,
                 type: 'refund_rejected',
                 title: 'Yêu cầu hoàn tiền bị từ chối',
-                content: `Yêu cầu #${request.id} bị từ chối. Lý do: ${admin_note}`,
-                link: '/quan-ly-thanh-toan'
+                message: `Yêu cầu #${request.id} bị từ chối. Lý do: ${admin_note}`,
+                link: `/lich-hen/${request.Payment?.Appointment?.code || ''}`
             });
         }
 

@@ -15,7 +15,7 @@ import {
   FaPhone, FaEnvelope, FaSpinner, FaTimes,
   FaChevronDown, FaChevronUp, FaChevronRight, FaLock, FaSyncAlt, FaCheck,
   FaHospital, FaPlay, FaNotesMedical, FaMoneyBillWave, FaClipboardCheck,
-  FaStethoscope, FaFileAlt
+  FaStethoscope, FaFileAlt, FaList
 } from 'react-icons/fa';
 import './AppointmentManagementPage.css'; 
 
@@ -109,6 +109,7 @@ const AppointmentManagementPage = () => {
   const [actionType, setActionType] = useState('');
   const [actionReason, setActionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState('appointments'); // 'appointments' hoặc 'checkin'
   
   // State cho hàng mở rộng
   const [expandedRow, setExpandedRow] = useState(null); 
@@ -141,13 +142,24 @@ const AppointmentManagementPage = () => {
       nextFilters.date = date;
     }
 
+    // Xử lý filters từ navigation state (từ CalendarView click)
+    if (location.state?.filters) {
+      const stateFilters = location.state.filters;
+      if (stateFilters.doctor_id) {
+        setSelectedDoctorId(stateFilters.doctor_id);
+      }
+      if (stateFilters.appointment_date && /^\d{4}-\d{2}-\d{2}$/.test(stateFilters.appointment_date)) {
+        nextFilters.date = stateFilters.appointment_date;
+      }
+    }
+
     if (Object.keys(nextFilters).length > 0) {
       setFilters((previousFilters) => ({
         ...previousFilters,
         ...nextFilters
       }));
     }
-  }, [location.search]);
+  }, [location.search, location.state]);
 
   useEffect(() => {
     fetchAllAppointments();
@@ -635,8 +647,47 @@ const AppointmentManagementPage = () => {
             </div>
           </div>
 
-          {/* Filter Panel - Always Visible */}
-          <div className="appointment-management-filter-panel"> 
+          {/* Tabs Navigation */}
+          <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', marginBottom: '20px', gap: '5px' }}>
+            <button
+              onClick={() => setActiveTab('appointments')}
+              style={{
+                padding: '12px 20px',
+                border: 'none',
+                background: activeTab === 'appointments' ? '#0066cc' : 'transparent',
+                color: activeTab === 'appointments' ? '#fff' : '#6b7280',
+                fontWeight: activeTab === 'appointments' ? '600' : '500',
+                cursor: 'pointer',
+                fontSize: '14px',
+                borderBottom: activeTab === 'appointments' ? '3px solid #0066cc' : 'none',
+                transition: 'all 0.2s'
+              }}
+            >
+              <FaList style={{ marginRight: '8px' }} /> Danh sách lịch hẹn
+            </button>
+            <button
+              onClick={() => setActiveTab('checkin')}
+              style={{
+                padding: '12px 20px',
+                border: 'none',
+                background: activeTab === 'checkin' ? '#0066cc' : 'transparent',
+                color: activeTab === 'checkin' ? '#fff' : '#6b7280',
+                fontWeight: activeTab === 'checkin' ? '600' : '500',
+                cursor: 'pointer',
+                fontSize: '14px',
+                borderBottom: activeTab === 'checkin' ? '3px solid #0066cc' : 'none',
+                transition: 'all 0.2s'
+              }}
+            >
+              <FaClipboardCheck style={{ marginRight: '8px' }} /> Checkin quầy tiếp nhận
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'appointments' ? (
+            <>
+              {/* APPOINTMENTS TAB */}
+              <div className="appointment-management-filter-panel"> 
             <div className="appointment-management-filter-grid">
               <div className="appointment-management-filter-group">
                 <label><FaFilter /> Trạng thái lịch</label>
@@ -925,7 +976,131 @@ const AppointmentManagementPage = () => {
                 )}
               </tbody>
             </table>
-          </div>
+              </div>
+            </>
+          ) : (
+            <>
+            {/* CHECKIN TAB */}
+            <div className="appointment-management-filter-panel" style={{ marginBottom: '20px' }}>
+              <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: '600' }}>Danh sách lịch hẹn cần checkin</h3>
+              <div className="appointment-management-filter-grid">
+                <div className="appointment-management-filter-group">
+                  <label><FaCalendarAlt /> Ngày khám</label>
+                  <input type="date" value={filters.date} onChange={(e) => handleFilterChange('date', e.target.value)} />
+                </div>
+                <div className="appointment-management-filter-group">
+                  <label><FaUserMd /> Bác sĩ</label>
+                  <input type="text" placeholder="Tên bác sĩ..." value={filters.doctor} onChange={(e) => handleFilterChange('doctor', e.target.value)} />
+                </div>
+                <div className="appointment-management-filter-group">
+                  <label><FaSearch /> Tìm kiếm</label>
+                  <input 
+                    type="text" 
+                    placeholder="Mã/Tên/Email/SĐT..." 
+                    value={filters.search} 
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="admin-appt-page-table-container">
+              <table className="admin-appt-page-table">
+                <thead>
+                  <tr>
+                    <th>Mã Lịch Hẹn</th>
+                    <th>Bệnh nhân</th>
+                    <th>Dịch vụ</th>
+                    <th>Bác sĩ</th>
+                    <th>Ngày & Giờ</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác Checkin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAppointments.filter(apt => 
+                    apt.appointment_type === 'offline' && 
+                    (apt.status === 'confirmed' || apt.status === 'upcoming')
+                  ).length > 0 ? (
+                    filteredAppointments
+                      .filter(apt => 
+                        apt.appointment_type === 'offline' && 
+                        (apt.status === 'confirmed' || apt.status === 'upcoming')
+                      )
+                      .map(apt => (
+                        <tr key={apt.id}>
+                          <td data-label="Mã Lịch Hẹn" className="amp-fw-bold">{apt.code}</td>
+                          
+                          <td data-label="Bệnh nhân">
+                            <div className="admin-appt-page-patient-info">
+                              <span className="amp-fw-bold text-wrap">{getAppointmentPatientName(apt)}</span>
+                              <div className="amp-text-muted amp-small">
+                                {getPatientUser(apt.Patient) ? (
+                                  <>
+                                    <div className="amp-d-flex amp-align-items-center">
+                                      <FaPhone className="amp-me-1" size={10}/> {getAppointmentPatientPhone(apt)}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="amp-d-flex amp-align-items-center">
+                                      <FaPhone className="amp-me-1" size={10}/> {apt.guest_phone || 'N/A'}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          
+                          <td data-label="Dịch vụ" className="text-wrap">{apt.Service?.name || 'N/A'}</td>
+                          
+                          <td data-label="Bác sĩ">
+                            <div className="admin-appt-page-doctor-info">
+                              <FaUserMd className="amp-me-1"/>
+                              <span>{apt.Doctor?.user?.full_name || 'Đang cập nhật'}</span>
+                            </div>
+                          </td>
+                          
+                          <td data-label="Ngày & Giờ">
+                            <div className="admin-appt-page-datetime-info">
+                              <FaCalendarAlt /> <span className="amp-fw-bold">{new Date(apt.appointment_date).toLocaleDateString('vi-VN')}</span>
+                            </div>
+                            <div className="admin-appt-page-datetime-info">
+                              <FaClock /> <span className="amp-text-primary">{formatTime(apt.appointment_start_time)}</span>
+                            </div>
+                          </td>
+                          
+                          <td data-label="Trạng thái">
+                            {getStatusBadge(apt.status)}
+                          </td>
+
+                          <td data-label="Thao tác Checkin">
+                            <div className="admin-appt-page-action-buttons">
+                              <button 
+                                className="admin-appt-page-btn-action amp-btn-primary"
+                                onClick={() => {
+                                  // TODO: Implement checkin logic
+                                  toast.info('Tính năng checkin sẽ được cập nhật');
+                                }}
+                                title="Thực hiện Checkin"
+                              >
+                                <FaClipboardCheck />
+                                <span className="amp-btn-label">Checkin</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="text-center py-4 amp-text-muted">Không có lịch hẹn nào cần checkin.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            </>
+          )}
         </div>
         
         {/* Modal Action */}

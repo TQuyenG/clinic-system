@@ -517,7 +517,7 @@ const FrontDeskPage = () => {
                 ...selectedBill,
                 payment_status: 'paid_at_clinic',
                 printType: 'invoice',
-                clinicInfo: { name: "PHÒNG KHÁM ĐA KHOA CLINIC SYSTEM", address: "123 Đường Sức Khỏe, Quận 1, TP.HCM", phone: "1900 1234" },
+                clinicInfo: { name: "PHÒNG KHÁM ĐA KHOA EASY MEDIFY", address: "123 Đường Sức Khỏe, Quận 1, TP.HCM", phone: "1900 1234" },
                 PaymentDetails: {
                     method: paymentMethod, transaction_id: `POS-${Date.now()}`, date: new Date(),
                     info: { amount_received: received, change_amount: received - totalAmount, cashier_name: user?.full_name || 'Thu Ngân', method_detail: 'Tiền mặt' }
@@ -2229,7 +2229,7 @@ const FrontDeskPage = () => {
                       </div>
                       <div className="frd-col-full frdeskpage-adp-info-group">
                         <span className="frdeskpage-adp-label"><FaMapMarkerAlt /> Địa chỉ</span>
-                        <span className="frdeskpage-adp-value">{selectedDetail.appointment_address || 'Tầng 1, Tòa nhà Clinic, 123 Đường Sức Khỏe, Quận 1, TP. HCM'}</span>
+                        <span className="frdeskpage-adp-value">{selectedDetail.appointment_address || 'Tầng 1, Tòa nhà Easy Medify, 123 Đường Sức Khỏe, Quận 1, TP. HCM'}</span>
                       </div>
                     </div>
                   </div>
@@ -2355,7 +2355,7 @@ const FrontDeskPage = () => {
             <>
               {printData.printType === 'ticket' ? (
                 <div className="frd-ticket-wrap">
-                  <h6 className="frd-ticket-clinic-name">PK ĐA KHOA CLINIC SYSTEM</h6>
+                  <h6 className="frd-ticket-clinic-name">PK ĐA KHOA EASY MEDIFY</h6>
                   <div className="frd-ticket-clinic-addr">123 Đường Sức Khỏe, Quận 1, TP.HCM</div>
                   <div className="frdeskpage-ticket-divider"/>
                   <h5 className="frd-ticket-title">PHIẾU SỐ THỨ TỰ</h5>

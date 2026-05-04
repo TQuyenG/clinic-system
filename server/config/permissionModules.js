@@ -47,12 +47,6 @@ const PERMISSION_MODULES = {
         allowedRanks: ['staff', 'manager', 'doctor']
       },
       { 
-        key: 'register_leave', 
-        label: 'Đăng ký nghỉ phép', 
-        description: 'Tạo đơn xin nghỉ phép',
-        allowedRanks: ['staff', 'manager', 'doctor']
-      },
-      { 
         key: 'register_overtime', 
         label: 'Đăng ký tăng ca', 
         description: 'Tạo đơn xin tăng ca',
@@ -136,12 +130,6 @@ const PERMISSION_MODULES = {
         allowedRanks: ['staff']
       },
       { 
-        key: 'check_in', 
-        label: 'Check-in', 
-        description: 'Xác nhận bệnh nhân đến khám',
-        allowedRanks: ['staff', 'doctor']
-      },
-      { 
         key: 'update_status', 
         label: 'Cập nhật trạng thái', 
         description: 'Đổi trạng thái lịch hẹn',
@@ -163,6 +151,53 @@ const PERMISSION_MODULES = {
         key: 'assign_doctor', 
         label: 'Phân công bác sĩ', 
         description: 'Chỉ định bác sĩ khám',
+        allowedRanks: ['manager']
+      }
+    ]
+  },
+
+  // ========================================
+  // ✅ MỚI: LỄ TÂN / TIẾP ĐÓN
+  // ========================================
+  reception: {
+    name: 'Lễ tân / Tiếp đón',
+    icon: 'FaHeadset',
+    description: 'Quản lý tiếp đón bệnh nhân, check-in, quầy tiếp tân',
+    permissions: [
+      { 
+        key: 'view_all_appointments', 
+        label: 'Xem lịch hẹn tất cả bác sĩ', 
+        description: 'Xem danh sách lịch hẹn của tất cả bác sĩ',
+        allowedRanks: ['staff']
+      },
+      { 
+        key: 'view_all_schedules', 
+        label: 'Xem lịch làm việc tất cả bác sĩ', 
+        description: 'Xem lịch làm việc của tất cả bác sĩ',
+        allowedRanks: ['staff']
+      },
+      { 
+        key: 'checkin', 
+        label: 'Check-in bệnh nhân', 
+        description: 'Xác nhận bệnh nhân đến khám tại quầy tiếp đón',
+        allowedRanks: ['staff']
+      },
+      { 
+        key: 'issue_number', 
+        label: 'Cấp số khám', 
+        description: 'Cấp số thứ tự khám bệnh cho bệnh nhân',
+        allowedRanks: ['staff']
+      },
+      { 
+        key: 'create_appointment', 
+        label: 'Tạo lịch hẹn', 
+        description: 'Tạo lịch hẹn hỗ trợ bệnh nhân tại quầy',
+        allowedRanks: ['staff']
+      },
+      { 
+        key: 'manage', 
+        label: 'Quản lý tiếp đón', 
+        description: 'Quản lý các hoạt động tiếp đón bệnh nhân',
         allowedRanks: ['manager']
       }
     ]

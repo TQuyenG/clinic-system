@@ -67,12 +67,12 @@ const DEPARTMENT_PERMISSIONS = {
     staff_permissions: {
       forum: ['create_topic', 'edit_topic', 'hide_topic', 'delete_topic', 'approve_question', 'hide_question', 'delete_question'],
       community: ['assign_staff'],
-      contact: ['reply_message']
+      contact: ['view', 'reply', 'mark_read']
     },
     manager_permissions: {
       forum: ['create_topic', 'edit_topic', 'hide_topic', 'delete_topic', 'approve_question', 'hide_question', 'delete_question'],
       community: ['assign_staff'],
-      contact: ['reply_message']
+      contact: ['view', 'reply', 'mark_read', 'delete']
     }
   },
 

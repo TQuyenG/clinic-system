@@ -4,7 +4,7 @@
 // - Tích hợp Modal Xác thực Mật khẩu (PasswordConfirmModal)
 // - Thay thế axios bằng service và localStorage bằng useAuth
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -35,6 +35,8 @@ const AppointmentDetailPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const guestToken = searchParams.get('token');
+  const openRefundParam = searchParams.get('openRefund') === '1';
+  const autoOpenedRefundModal = useRef(false);
 
   // Dùng useAuth để lấy user
   const { user } = useAuth(); 
@@ -56,7 +58,7 @@ const AppointmentDetailPage = () => {
   
   // State cho modal đổi phương thức thanh toán
   const [showChangePaymentModal, setShowChangePaymentModal] = useState(false);
-  const [newPaymentMethod, setNewPaymentMethod] = useState(appointment?.payment_method || 'cash');
+  const [newPaymentMethod, setNewPaymentMethod] = useState('cash');
   const [changingPayment, setChangingPayment] = useState(false);
   
   // State cho modal mật khẩu
@@ -93,6 +95,19 @@ const AppointmentDetailPage = () => {
         .catch(err => console.error(err));
     }
   }, [showRefundModal]);
+
+  useEffect(() => {
+    if (!appointment || autoOpenedRefundModal.current || !openRefundParam) return;
+
+    const canOpenRefund =
+      appointment.status === 'cancelled' &&
+      (appointment.payment_status === 'paid_online' || appointment.payment_status === 'paid_at_clinic');
+
+    if (canOpenRefund) {
+      autoOpenedRefundModal.current = true;
+      setShowRefundModal(true);
+    }
+  }, [appointment, openRefundParam]);
   const [refundData, setRefundData] = useState({ 
     bankName: '', 
     accountNumber: '', 
@@ -194,11 +209,53 @@ const AppointmentDetailPage = () => {
     }
   };
 
+  const parseAppointmentDateTime = (dateStr, timeStr = '00:00:00') => {
+    if (!dateStr) return null;
+
+    const safeDate = String(dateStr).split('T')[0];
+    const safeTime = String(timeStr || '00:00:00').slice(0, 8);
+    const [year, month, day] = safeDate.split('-').map(Number);
+    const [hours, minutes, seconds] = safeTime.split(':').map(Number);
+
+    if (!year || !month || !day) return null;
+
+    return new Date(
+      year,
+      month - 1,
+      day,
+      Number.isFinite(hours) ? hours : 0,
+      Number.isFinite(minutes) ? minutes : 0,
+      Number.isFinite(seconds) ? seconds : 0
+    );
+  };
+
+  const isOnlinePaymentMethod = (method) => {
+    return ['vnpay', 'momo', 'bank_transfer', 'online'].includes((method || '').toLowerCase());
+  };
+
+  const isCashPaymentMethod = (method) => {
+    return (method || '').toLowerCase() === 'cash';
+  };
+
+  const getPaymentMethodSelection = (method) => {
+    return isCashPaymentMethod(method) ? 'cash' : 'online';
+  };
+
+  const mapSelectionToBackendMethod = (selection, currentMethod) => {
+    if (selection === 'cash') return 'cash';
+    if (isOnlinePaymentMethod(currentMethod)) return currentMethod;
+    return 'bank_transfer';
+  };
+
   // ========== COUNTDOWN LOGIC ==========
   const updateCountdowns = () => {
     if (!appointment) return;
     const now = new Date();
-    const appointmentDateTime = new Date(`${appointment.appointment_date} ${appointment.appointment_start_time}`);
+    const appointmentDateTime = parseAppointmentDateTime(
+      appointment.appointment_date,
+      appointment.appointment_start_time
+    );
+    if (!appointmentDateTime) return;
     const paymentDeadline = appointment.payment_hold_until ? new Date(appointment.payment_hold_until) : null;
 
     // Time until appointment
@@ -232,7 +289,11 @@ const AppointmentDetailPage = () => {
     if (!appointment) return false;
     if (['cancelled', 'completed', 'passed', 'in_progress'].includes(appointment.status)) return false;
     const now = new Date();
-    const appointmentDateTime = new Date(`${appointment.appointment_date} ${appointment.appointment_start_time}`);
+    const appointmentDateTime = parseAppointmentDateTime(
+      appointment.appointment_date,
+      appointment.appointment_start_time
+    );
+    if (!appointmentDateTime) return false;
     const hoursDiff = (appointmentDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     return hoursDiff > 6;
   };
@@ -242,7 +303,11 @@ const AppointmentDetailPage = () => {
     if (['cancelled', 'completed', 'passed', 'in_progress'].includes(appointment.status)) return false;
     if ((appointment.reschedule_count || 0) >= 3) return false;
     const now = new Date();
-    const appointmentDateTime = new Date(`${appointment.appointment_date} ${appointment.appointment_start_time}`);
+    const appointmentDateTime = parseAppointmentDateTime(
+      appointment.appointment_date,
+      appointment.appointment_start_time
+    );
+    if (!appointmentDateTime) return false;
     const hoursDiff = (appointmentDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     return hoursDiff > 24;
   };
@@ -420,8 +485,16 @@ const AppointmentDetailPage = () => {
     if (!appointment) return;
     try {
       const PAYMENT_REMINDER_MINUTES = 30; // mặc định nhắc 30 phút trước
-      if (appointment.payment_status === 'unpaid' && appointment.status === 'confirmed') {
-        const apptDate = new Date(`${appointment.appointment_date} ${appointment.appointment_start_time}`);
+      if (
+        appointment.payment_status === 'unpaid' &&
+        appointment.status === 'confirmed' &&
+        isOnlinePaymentMethod(appointment.payment_method)
+      ) {
+        const apptDate = parseAppointmentDateTime(
+          appointment.appointment_date,
+          appointment.appointment_start_time
+        );
+        if (!apptDate) return;
         const now = new Date();
         const diffMin = (apptDate.getTime() - now.getTime()) / 60000;
         const shownKey = `paymentReminderShown_${appointment.code}`;
@@ -436,13 +509,15 @@ const AppointmentDetailPage = () => {
   }, [appointment]);
 
   // Handler đổi phương thức thanh toán
-  const handleChangePaymentMethod = async () => {
+  const handleChangePaymentMethod = async (shouldRedirectToPayment = false) => {
     if (!newPaymentMethod) {
       toast.warning('Vui lòng chọn phương thức thanh toán');
       return;
     }
 
-    if (newPaymentMethod === appointment.payment_method) {
+    const nextPaymentMethod = mapSelectionToBackendMethod(newPaymentMethod, appointment.payment_method);
+
+    if (nextPaymentMethod === appointment.payment_method) {
       toast.info('Phương thức thanh toán không thay đổi');
       return;
     }
@@ -450,13 +525,17 @@ const AppointmentDetailPage = () => {
     try {
       setChangingPayment(true);
       const response = await appointmentService.changePaymentMethod(code, {
-        payment_method: newPaymentMethod
+        payment_method: nextPaymentMethod
       }, guestToken);
 
       if (response.data.success) {
         toast.success('Đổi phương thức thanh toán thành công!');
         setShowChangePaymentModal(false);
-        loadAppointment();
+        await loadAppointment();
+
+        if (shouldRedirectToPayment && nextPaymentMethod !== 'cash') {
+          navigate(`/thanh-toan/${code}${guestToken ? `?token=${guestToken}` : ''}`);
+        }
       }
     } catch (error) {
       console.error('Change payment error:', error);
@@ -514,7 +593,8 @@ const AppointmentDetailPage = () => {
   };
 
   const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
+    const date = parseAppointmentDateTime(dateStr);
+    if (!date) return 'N/A';
     return date.toLocaleDateString('vi-VN', { 
       weekday: 'long', 
       year: 'numeric', 
@@ -523,6 +603,23 @@ const AppointmentDetailPage = () => {
     });
   };
   const formatTime = (timeStr) => timeStr ? timeStr.slice(0, 5) : 'N/A';
+  const formatCheckinRange = (startTime, endTime, appointmentType) => {
+    if (!startTime) return 'N/A';
+
+    const startLabel = formatTime(startTime);
+    if (endTime) return `${startLabel} - ${formatTime(endTime)}`;
+
+    if (appointmentType === 'offline') {
+      const [hours, minutes] = String(startTime).slice(0, 5).split(':').map(Number);
+      if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+        const endHour = String((hours + 1) % 24).padStart(2, '0');
+        const endMinute = String(minutes).padStart(2, '0');
+        return `${startLabel} - ${endHour}:${endMinute}`;
+      }
+    }
+
+    return startLabel;
+  };
   const formatDateTime = (dateStr) => {
      if (!dateStr) return 'N/A';
      return new Date(dateStr).toLocaleString('vi-VN');
@@ -627,7 +724,7 @@ const AppointmentDetailPage = () => {
             )}
 
             {/* Payment Warning */}
-            {needPayment() && paymentTimeRemaining && (
+            {needPayment() && paymentTimeRemaining && isOnlinePaymentMethod(appointment.payment_method) && (
               <div className="appointment-detail-page-alert alert-warning">
                 <FaExclamationTriangle />
                 <div>
@@ -741,9 +838,9 @@ const AppointmentDetailPage = () => {
                   <div className="appointment-detail-page-info-value">{formatDate(appointment.appointment_date)}</div>
                 </div>
                 <div className="appointment-detail-page-info-item">
-                  <div className="appointment-detail-page-info-label"><FaClock /> Giờ khám</div>
+                  <div className="appointment-detail-page-info-label"><FaClock /> Thời gian checkin</div>
                   <div className="appointment-detail-page-info-value">
-                    {formatTime(appointment.appointment_start_time)} - {formatTime(appointment.appointment_end_time)}
+                    {formatCheckinRange(appointment.appointment_start_time, appointment.appointment_end_time, appointment.appointment_type)}
                   </div>
                 </div>
                 
@@ -751,7 +848,7 @@ const AppointmentDetailPage = () => {
                 <div className="appointment-detail-page-info-item full-width">
                   <div className="appointment-detail-page-info-label"><FaMapMarkerAlt /> Địa chỉ khám</div>
                   <div className="appointment-detail-page-info-value">
-                    {appointment.appointment_address || 'Tầng 1, Tòa nhà Clinic, 123 Đường Sức Khỏe, Quận 1, TP. HCM'}
+                    {appointment.appointment_address || 'Tầng 1, Tòa nhà Easy Medify, 123 Đường Sức Khỏe, Quận 1, TP. HCM'}
                   </div>
                 </div>
 
@@ -864,11 +961,17 @@ const AppointmentDetailPage = () => {
                 <div className="appointment-detail-page-info-item">
                   <div className="appointment-detail-page-info-label">Phương thức</div>
                   <div className="appointment-detail-page-info-value">
-                    {appointment.payment_method === 'cash' ? '💰 Tiền mặt' : 
-                     appointment.payment_method === 'vnpay' ? '🏦 VNPay' :
-                     appointment.payment_method === 'momo' ? '📱 MoMo' :
-                     appointment.payment_method === 'bank_transfer' ? '🏦 Chuyển khoản' :
-                     appointment.payment_method || 'Chưa chọn'}
+                    {isCashPaymentMethod(appointment.payment_method) ? (
+                      <>
+                        <FaHospital style={{ marginRight: 6 }} />
+                        Thanh toán tại quầy
+                      </>
+                    ) : (
+                      <>
+                        <FaCreditCard style={{ marginRight: 6 }} />
+                        Thanh toán online
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="appointment-detail-page-info-item">
@@ -892,7 +995,7 @@ const AppointmentDetailPage = () => {
                   </div>
                 )}
               </div>
-              {needPayment() && (
+              {needPayment() && isOnlinePaymentMethod(appointment.payment_method) && (
                 <button
                   className="appointment-detail-page-btn-action btn-payment"
                   onClick={handlePaymentClick}
@@ -901,11 +1004,28 @@ const AppointmentDetailPage = () => {
                   Thanh toán ngay
                 </button>
               )}
+              {needPayment() && (
+                <div className="appointment-detail-page-info-box" style={{
+                  backgroundColor: '#fff8e1',
+                  border: '1px solid #ffe082',
+                  borderRadius: '6px',
+                  padding: '12px',
+                  marginTop: '12px'
+                }}>
+                  <p style={{ fontSize: '0.92rem', margin: 0, color: '#7c4700' }}>
+                    <FaInfoCircle style={{ marginRight: '8px' }} />
+                    <strong>Lưu ý:</strong>
+                    {isCashPaymentMethod(appointment.payment_method)
+                      ? ' Vui lòng có mặt trước lịch hẹn 30 phút để đóng tiền và check-in.'
+                      : ' Lịch hẹn đang chờ thanh toán online. Nếu chưa thanh toán ngay, vui lòng hoàn tất trước thời gian checkin để tránh ảnh hưởng lịch hẹn.'}
+                  </p>
+                </div>
+              )}
               {needPayment() && appointment.status === 'pending' && (
                 <button
                   className="appointment-detail-page-btn-action btn-secondary"
                   onClick={() => {
-                    setNewPaymentMethod(appointment.payment_method || 'cash');
+                    setNewPaymentMethod(getPaymentMethodSelection(appointment.payment_method));
                     setShowChangePaymentModal(true);
                   }}
                   style={{ marginTop: '10px' }}
@@ -1119,7 +1239,7 @@ const AppointmentDetailPage = () => {
             </div>
             <div className="appointment-detail-page-modal-body">
               <div className="appointment-detail-page-current-appointment">
-                <strong>Lịch hiện tại:</strong> {formatDate(appointment.appointment_date)} lúc {formatTime(appointment.appointment_start_time)}
+                <strong>Lịch hiện tại:</strong> {formatDate(appointment.appointment_date)} | Thời gian checkin: {formatCheckinRange(appointment.appointment_start_time, appointment.appointment_end_time, appointment.appointment_type)}
               </div>
               <div className="appointment-detail-page-form-grid">
                 <div className="appointment-detail-page-form-group">
@@ -1191,6 +1311,115 @@ const AppointmentDetailPage = () => {
         onConfirm={handlePasswordConfirm}
       />
 
+      {/* MODAL HOÀN TIỀN */}
+      {showRefundModal && appointment && (
+        <div className="appointment-detail-page-modal-overlay" onClick={() => setShowRefundModal(false)}>
+          <div className="appointment-detail-page-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="appointment-detail-page-modal-header">
+              <h2><FaMoneyBillWave /> Yêu cầu hoàn tiền</h2>
+              <button className="appointment-detail-page-btn-close" onClick={() => setShowRefundModal(false)}>
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="appointment-detail-page-modal-body">
+              <div className="appointment-detail-page-info-box" style={{
+                backgroundColor: '#fff8e1',
+                border: '1px solid #ffe082',
+                borderRadius: '6px',
+                padding: '12px',
+                marginBottom: '16px'
+              }}>
+                <p style={{ margin: 0, color: '#7c4700' }}>
+                  <FaExclamationTriangle style={{ marginRight: '8px' }} />
+                  Lịch hẹn <strong>{appointment.code}</strong> đã bị hủy và đã thanh toán. Bạn có thể gửi yêu cầu hoàn tiền tại đây.
+                </p>
+              </div>
+
+              <div className="appointment-detail-page-form-group">
+                <label htmlFor="refundBankName"><FaHospital /> Ngân hàng nhận tiền *</label>
+                <input
+                  id="refundBankName"
+                  type="text"
+                  className="appointment-detail-page-form-control"
+                  value={refundData.bankName}
+                  onChange={(e) => setRefundData({ ...refundData, bankName: e.target.value })}
+                  placeholder="Ví dụ: Vietcombank"
+                />
+              </div>
+
+              <div className="appointment-detail-page-form-group">
+                <label htmlFor="refundAccountNumber"><FaCreditCard /> Số tài khoản *</label>
+                <input
+                  id="refundAccountNumber"
+                  type="text"
+                  className="appointment-detail-page-form-control"
+                  value={refundData.accountNumber}
+                  onChange={(e) => setRefundData({ ...refundData, accountNumber: e.target.value })}
+                  placeholder="Nhập số tài khoản nhận tiền"
+                />
+              </div>
+
+              <div className="appointment-detail-page-form-group">
+                <label htmlFor="refundAccountHolder"><FaUser /> Chủ tài khoản *</label>
+                <input
+                  id="refundAccountHolder"
+                  type="text"
+                  className="appointment-detail-page-form-control"
+                  value={refundData.accountHolder}
+                  onChange={(e) => setRefundData({ ...refundData, accountHolder: e.target.value })}
+                  placeholder="Nhập tên chủ tài khoản"
+                />
+              </div>
+
+              <div className="appointment-detail-page-form-group">
+                <label htmlFor="refundReason"><FaNotesMedical /> Lý do hoàn tiền *</label>
+                <textarea
+                  id="refundReason"
+                  className="appointment-detail-page-form-control"
+                  value={refundData.reason}
+                  onChange={(e) => setRefundData({ ...refundData, reason: e.target.value })}
+                  placeholder="Nhập lý do bạn muốn hoàn tiền..."
+                />
+              </div>
+
+              {refundPolicyText && (
+                <div className="appointment-detail-page-info-box" style={{
+                  backgroundColor: '#f1f8e9',
+                  border: '1px solid #c8e6c9',
+                  borderRadius: '6px',
+                  padding: '12px',
+                  marginTop: '12px'
+                }}>
+                  <p style={{ margin: 0, fontSize: '0.92rem', color: '#4e6b2f' }}>
+                    <FaInfoCircle style={{ marginRight: '8px' }} />
+                    <strong>Quy định hoàn tiền:</strong> {refundPolicyText}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="appointment-detail-page-modal-footer">
+              <button
+                className="appointment-detail-page-btn-modal btn-secondary"
+                onClick={() => setShowRefundModal(false)}
+                disabled={submitting}
+              >
+                Đóng
+              </button>
+              <button
+                className="appointment-detail-page-btn-modal btn-primary"
+                onClick={handleRefundSubmit}
+                disabled={submitting}
+              >
+                {submitting ? <FaSpinner className="fa-spin" /> : <FaMoneyBillWave />}
+                Gửi yêu cầu hoàn tiền
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL ĐỔI PHƯƠNG THỨC THANH TOÁN */}
       {showChangePaymentModal && (
         <div className="appointment-detail-page-modal-overlay" onClick={() => setShowChangePaymentModal(false)}>
@@ -1212,10 +1441,8 @@ const AppointmentDetailPage = () => {
                   value={newPaymentMethod}
                   onChange={(e) => setNewPaymentMethod(e.target.value)}
                 >
-                  <option value="cash">💰 Tiền mặt (Thanh toán tại quầy)</option>
-                  <option value="vnpay">🏦 VNPay (Chuyển khoản qua ứng dụng VNPay)</option>
-                  <option value="momo">📱 MoMo (Chuyển khoản qua ứng dụng MoMo)</option>
-                  <option value="bank_transfer">🏦 Chuyển khoản Ngân hàng (Quốc tế/Nội địa)</option>
+                  <option value="cash">Thanh toán tại quầy</option>
+                  <option value="online">Thanh toán online</option>
                 </select>
               </div>
 
@@ -1230,8 +1457,8 @@ const AppointmentDetailPage = () => {
                   <FaInfoCircle style={{ marginRight: '8px' }} />
                   <strong>Lưu ý:</strong> 
                   {newPaymentMethod === 'cash' 
-                    ? ' Bạn sẽ thanh toán tiền mặt tại quầy lễ tân. Không có hạn thanh toán.'
-                    : ' Bạn sẽ thanh toán qua ứng dụng/chuyển khoản. Hạn thanh toán: 30 phút trước giờ khám.'}
+                    ? ' Bạn sẽ thanh toán tại quầy. Vui lòng có mặt trước 30 phút để đóng tiền và check-in.'
+                    : ' Bạn chọn thanh toán online. Nếu chưa thanh toán ngay, hệ thống sẽ tiếp tục nhắc để bạn hoàn tất trước thời gian checkin.'}
                 </p>
               </div>
             </div>
@@ -1246,10 +1473,12 @@ const AppointmentDetailPage = () => {
               </button>
               <button 
                 className="appointment-detail-page-btn-modal btn-primary"
-                onClick={handleChangePaymentMethod}
+                onClick={() => handleChangePaymentMethod(newPaymentMethod === 'online')}
                 disabled={changingPayment}
               >
-                {changingPayment ? <FaSpinner className="fa-spin" /> : 'Xác nhận'}
+                {changingPayment
+                  ? <FaSpinner className="fa-spin" />
+                  : (newPaymentMethod === 'online' ? 'Xác nhận & Thanh toán ngay' : 'Xác nhận')}
               </button>
             </div>
           </div>

@@ -116,7 +116,7 @@ const MyMedicalRecordsPage = () => {
               <FaFileMedicalAlt />
             </div>
             <h1>Hồ sơ Y tế của tôi</h1>
-            <p>Nơi lưu trữ tất cả kết quả khám bệnh của bạn tại Clinic System.</p>
+            <p>Nơi lưu trữ tất cả kết quả khám bệnh của bạn tại Easy Medify.</p>
             {records.length > 0 && (
               <span className="MyMedicalRecordsPage-count-badge">
                 <FaCheckCircle />

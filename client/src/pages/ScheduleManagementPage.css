@@ -322,6 +322,121 @@
 
 /* ========== TAB 2 & 3: LỊCH BÁC SĨ / NHÂN VIÊN ========== */
 
+/* ── ROW 1: Chọn người dùng ── */
+.schedule-management-page__user-select-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.schedule-management-page__specialty-select {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  background-color: var(--color-background);
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.schedule-management-page__user-select-wrap {
+  flex: 1;
+  min-width: 260px;
+  max-width: 460px;
+  z-index: 10;
+}
+
+/* ── ROW 2: View controls (giống MySchedulePage) ── */
+.schedule-management-page__view-controls-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.schedule-management-page__view-mode-group {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.schedule-management-page__today-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-background);
+  border-radius: var(--border-radius);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: var(--transition);
+}
+
+.schedule-management-page__today-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+  background-color: var(--color-primary-light);
+}
+
+/* ── ROW 3: Event filter buttons (class mới, tránh xung đột với filter-btn cũ) ── */
+.schedule-management-page__event-filter-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-background-light);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  opacity: 0.6;
+  transition: var(--transition);
+}
+
+.schedule-management-page__event-filter-btn:hover {
+  opacity: 1;
+  background-color: var(--color-background);
+}
+
+.schedule-management-page__event-filter-btn.active {
+  opacity: 1;
+}
+
+.schedule-management-page__event-filter-btn.active.filter-schedules {
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary-dark);
+  color: var(--color-primary-dark);
+}
+
+.schedule-management-page__event-filter-btn.active.filter-overtime {
+  background-color: #ddd6fe; /* Tím - khớp với event--overtime */
+  border-color: #a78bfa;
+  color: #5b21b6;
+}
+
+.schedule-management-page__event-filter-btn.active.filter-appointments {
+  background-color: #fecaca; /* Đỏ nhạt - khớp với event--appointment */
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.schedule-management-page__event-filter-btn.active.filter-leaves {
+  background-color: var(--color-warning);
+  border-color: var(--color-warning-dark);
+  color: #a16207;
+}
+
+
+
 /* Header chứa dropdown và các nút điều khiển */
 .schedule-management-page__doctor-header {
   display: flex;
@@ -427,29 +542,33 @@
   opacity: 1;
 }
 
-/* Gán màu cho từng loại filter */
+/* Gán màu cho từng loại filter -- ĐỒng bộ với màu event trên lịch */
+/* Lịch làm việc: xanh lá (màu theme chính) */
 .schedule-management-page__event-type-filters .schedule-management-page__filter-btn.active.filter-schedules {
-  background-color: var(--color-primary-light);
-  border-color: var(--color-primary-dark);
-  color: var(--color-primary-dark);
+  background-color: #a0d9b5;
+  border-color: #4ade80;
+  color: #166534;
 }
 
+/* Tăng ca: tím (overtime = purple trên CalendarView) */
 .schedule-management-page__event-type-filters .schedule-management-page__filter-btn.active.filter-overtime {
-  background-color: #dbeafe; /* Blue pastel */
-  border-color: #3b82f6;
-  color: #1e40af;
+  background-color: #ddd6fe;
+  border-color: #a78bfa;
+  color: #5b21b6;
 }
 
+/* Lịch hẹn: đỏ nhạt (khớp với event--appointment trên CalendarView) */
 .schedule-management-page__event-type-filters .schedule-management-page__filter-btn.active.filter-appointments {
-  background-color: #fecaca; /* Red pastel */
+  background-color: #fecaca;
   border-color: #f87171;
   color: #991b1b;
 }
 
+/* Lịch nghỉ: đỏ cam/vàng cảnh báo */
 .schedule-management-page__event-type-filters .schedule-management-page__filter-btn.active.filter-leaves {
-  background-color: var(--color-warning);
-  border-color: var(--color-warning-dark);
-  color: #a16207;
+  background-color: #fde68a;
+  border-color: #f6d057;
+  color: #92400e;
 }
 
 /* Điều hướng tháng/tuần */
