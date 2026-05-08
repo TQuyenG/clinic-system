@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { CallQueueProvider } from './contexts/CallQueueContext';
 import reportWebVitals from './reportWebVitals';
 
 // ✅ Suppress ResizeObserver errors (common in React apps, không ảnh hưởng functionality)
@@ -44,7 +45,9 @@ if (typeof window !== 'undefined' && window.ResizeObserver) {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <CallQueueProvider>
+      <App />
+    </CallQueueProvider>
   </React.StrictMode>
 );
 

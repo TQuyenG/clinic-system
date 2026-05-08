@@ -10,47 +10,21 @@ const { Op } = require('sequelize');
  * - upcoming: 24h trước appointment_date + appointment_start_time
  * - in_progress: trong khoảng start_time đến end_time
  * - completed: sau end_time
- * - passed: 1 ngày sau end_time
+ * - passed: không còn lưu vào DB, chỉ là trạng thái tính toán ở frontend
  */
 async function updateAppointmentStatuses() {
   try {
     const now = new Date();
     
-    // 1. Update to 'upcoming' (24 giờ trước appointment)
-    const upcomingThreshold = new Date(now);
-    upcomingThreshold.setHours(now.getHours() + 24);
-    
-    const upcomingCount = await models.Appointment.update(
-      { status: 'upcoming' },
-      {
-        where: {
-          status: 'confirmed',
-          [Op.and]: [
-            sequelize.where(
-              sequelize.fn('TIMESTAMP', 
-                sequelize.col('appointment_date'), 
-                sequelize.col('appointment_start_time')
-              ),
-              { [Op.lte]: upcomingThreshold }
-            ),
-            sequelize.where(
-              sequelize.fn('TIMESTAMP', 
-                sequelize.col('appointment_date'), 
-                sequelize.col('appointment_start_time')
-              ),
-              { [Op.gt]: now }
-            )
-          ]
-        }
-      }
-    );
+    // 1. [REMOVED] Update to 'upcoming' is deprecated - 'upcoming' không tồn tại trong status enum
+    // Thay vào đó, 'upcoming' được tính toán ở frontend: (appointment_date < now+24h && status=='confirmed')
     
     // 2. Update to 'in_progress' (đang trong giờ khám)
     const inProgressCount = await models.Appointment.update(
       { status: 'in_progress' },
       {
         where: {
-          status: { [Op.in]: ['confirmed', 'upcoming'] },
+          status: 'confirmed',
           [Op.and]: [
             sequelize.where(
               sequelize.fn('TIMESTAMP', 
@@ -76,7 +50,7 @@ async function updateAppointmentStatuses() {
       { status: 'completed' },
       {
         where: {
-          status: { [Op.in]: ['confirmed', 'upcoming', 'in_progress'] },
+          status: { [Op.in]: ['confirmed', 'in_progress'] },
           [Op.and]: [
             sequelize.where(
               sequelize.fn('TIMESTAMP', 
@@ -98,29 +72,7 @@ async function updateAppointmentStatuses() {
       }
     );
     
-    // 4. Update to 'passed' (1 ngày sau khi kết thúc)
-    const passedThreshold = new Date(now);
-    passedThreshold.setDate(passedThreshold.getDate() - 1);
-    
-    const passedCount = await models.Appointment.update(
-      { status: 'passed' },
-      {
-        where: {
-          status: { [Op.in]: ['completed'] },
-          [Op.and]: [
-            sequelize.where(
-              sequelize.fn('TIMESTAMP', 
-                sequelize.col('appointment_date'), 
-                sequelize.col('appointment_end_time')
-              ),
-              { [Op.lt]: passedThreshold }
-            )
-          ]
-        }
-      }
-    );
-    
-    // 5. Tự động cập nhật medical_record_status nếu đã có hồ sơ y tế
+    // 4. Tự động cập nhật medical_record_status nếu đã có hồ sơ y tế
     const medicalRecordCount = await sequelize.query(`
       UPDATE appointments a
       INNER JOIN medical_records mr ON a.id = mr.appointment_id
@@ -128,14 +80,12 @@ async function updateAppointmentStatuses() {
       WHERE a.medical_record_status = 'no_record'
     `, { type: sequelize.QueryTypes.UPDATE });
 
-    const totalUpdates = upcomingCount[0] + inProgressCount[0] + completedCount[0] + passedCount[0];
+    const totalUpdates = inProgressCount[0] + completedCount[0];
     
     if (totalUpdates > 0) {
       console.log(`✅ [CRON] Updated ${totalUpdates} appointments:`, {
-        upcoming: upcomingCount[0],
         in_progress: inProgressCount[0],
         completed: completedCount[0],
-        passed: passedCount[0],
         medical_records: medicalRecordCount[0] || 0
       });
     }
@@ -152,22 +102,8 @@ async function updateConsultationStatuses() {
   try {
     const now = new Date();
     
-    // 1. Update to 'upcoming' (24h trước appointment_time)
-    const upcomingThreshold = new Date(now);
-    upcomingThreshold.setHours(now.getHours() + 24);
-    
-    const upcomingCount = await models.Consultation.update(
-      { status: 'upcoming' },
-      {
-        where: {
-          status: 'confirmed',
-          appointment_time: {
-            [Op.lte]: upcomingThreshold,
-            [Op.gt]: now
-          }
-        }
-      }
-    );
+    // 1. [REMOVED] Update to 'upcoming' - 'upcoming' không tồn tại trong status enum của Consultation
+    // Thay vào đó, 'upcoming' được tính toán ở frontend
     
     // 2. Update to 'in_progress' (đang trong giờ tư vấn)
     // Giả sử mỗi consultation kéo dài duration_minutes (mặc định 30 phút nếu không có)
@@ -175,7 +111,7 @@ async function updateConsultationStatuses() {
       { status: 'in_progress' },
       {
         where: {
-          status: { [Op.in]: ['confirmed', 'upcoming'] },
+          status: 'confirmed',
           appointment_time: { [Op.lte]: now },
           [Op.or]: [
             // Nếu có ended_at, kiểm tra chưa kết thúc
@@ -263,11 +199,10 @@ async function updateConsultationStatuses() {
       WHERE c.medical_record_status = 'no_record'
     `, { type: sequelize.QueryTypes.UPDATE });
 
-    const totalUpdates = upcomingCount[0] + inProgressCount[0] + completedCount[0] + passedCount[0];
+    const totalUpdates = inProgressCount[0] + completedCount[0] + passedCount[0];
     
     if (totalUpdates > 0) {
       console.log(`✅ [CRON] Updated ${totalUpdates} consultations:`, {
-        upcoming: upcomingCount[0],
         in_progress: inProgressCount[0],
         completed: completedCount[0],
         passed: passedCount[0],

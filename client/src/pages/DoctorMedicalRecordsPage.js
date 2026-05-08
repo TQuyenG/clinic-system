@@ -21,7 +21,7 @@ import {
   FaChevronDown, FaClipboardList, FaPills
 } from 'react-icons/fa';
 
-const SHOWN_STATUSES = ['confirmed', 'upcoming', 'in_progress', 'completed', 'passed'];
+const SHOWN_STATUSES = ['confirmed', 'in_progress', 'completed'];
 
 const STATUS_MAP = {
   confirmed:   { label: 'Đã xác nhận', cls: 'dmrp-s-confirmed'  },
@@ -179,7 +179,12 @@ const DoctorMedicalRecordsPage = () => {
         name.toLowerCase().includes(search.toLowerCase()) ||
         code.toLowerCase().includes(search.toLowerCase()) ||
         diag.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = !statusFilter || a.status === statusFilter;
+      let matchStatus = true;
+      if (statusFilter) {
+        if (statusFilter === 'upcoming') matchStatus = !!a.isUpcoming;
+        else if (statusFilter === 'passed') matchStatus = !!a.isPassed;
+        else matchStatus = a.status === statusFilter;
+      }
       const hasRecord   = !!a.MedicalRecord;
       const matchRecord = !recordFilter ||
         (recordFilter === 'has'  && hasRecord)  ||
@@ -200,7 +205,7 @@ const DoctorMedicalRecordsPage = () => {
   const stats = useMemo(() => ({
     total:     appointments.length,
     hasRecord: appointments.filter(a => !!a.MedicalRecord).length,
-    noRecord:  appointments.filter(a => !a.MedicalRecord && ['completed','passed'].includes(a.status)).length,
+    noRecord:  appointments.filter(a => !a.MedicalRecord && (a.status === 'completed' || a.isPassed)).length,
   }), [appointments]);
 
   const getPatientName = (a) =>
@@ -346,7 +351,7 @@ const DoctorMedicalRecordsPage = () => {
               <div className="dmrp-empty"><FaExclamationTriangle /><h3>Không tìm thấy lịch hẹn nào</h3><p>Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p></div>
             ) : filteredAppointments.map(appt => {
               const hasRecord = !!appt.MedicalRecord;
-              const canEnter  = ['completed', 'passed', 'in_progress'].includes(appt.status);
+              const canEnter  = (appt.status === 'completed' || appt.isPassed || appt.status === 'in_progress');
               const ss        = STATUS_MAP[appt.status] || { label: appt.status, cls: 'dmrp-s-default' };
 
               return (

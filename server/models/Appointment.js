@@ -30,10 +30,18 @@ module.exports = (sequelize) => {
     appointment_end_time: { type: DataTypes.TIME, allowNull: true }, // [SỬA]: Cho phép null vì Offline không có end_time cố định
     
     // TRẠNG THÁI WORKFLOW
-    status: { 
-      type: DataTypes.ENUM('pending', 'confirmed', 'upcoming','waiting_pay','waiting_exam', 'in_progress', 'completed', 'passed', 'cancelled'), 
-      defaultValue: 'pending'
-    },
+      // [OPTIMIZATION_V1.1] WORKFLOW STATUS - REDUCED 9→5 STATUSES
+      // Deprecated status mappings (details in OPTIMIZATION_PHASE1_NOTES.md):
+      // - upcoming → DEPRECATED: Calculate as (appointment_date < now+24h && status=='confirmed')
+      // - waiting_pay → DEPRECATED: Use payment_status field (unpaid/paid_online/paid_at_clinic)
+      // - waiting_exam → DEPRECATED: Renamed to 'in_progress' (after check-in)
+      // - passed → DEPRECATED: Calculate as (appointment_date < today && status=='completed')
+      // Keeps: pending, confirmed, in_progress, completed, cancelled
+      status: { 
+        type: DataTypes.ENUM('pending', 'confirmed', 'in_progress', 'completed', 'cancelled'), 
+        defaultValue: 'pending',
+        comment: '[OPTIMIZATION_V1.1] Simplified 5-status workflow. Dynamic: isUpcoming, isPassed'
+      },
     
     // TRẠNG THÁI THANH TOÁN
     payment_status: { 

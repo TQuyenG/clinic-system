@@ -3,8 +3,10 @@
 
 const { models, sequelize } = require('../config/db');
 const { Op } = require('sequelize');
+const bcrypt = require('bcryptjs');
 const moment = require('moment'); // Thêm Moment.js
 const emailSender = require('../utils/emailSender');
+const appointmentHelper = require('../utils/appointmentHelper');
 
 // Helper (Copy từ appointmentController)
 const timeToMinutes = (timeStr) => {
@@ -12,6 +14,8 @@ const timeToMinutes = (timeStr) => {
   const [hours, minutes] = timeStr.split(':').map(Number);
   return hours * 60 + minutes;
 };
+
+const rangesOverlap = (startA, endA, startB, endB) => startA < endB && endA > startB;
 
 /**
  * ==================== PATIENT METHODS ====================
@@ -33,10 +37,24 @@ exports.createConsultation = async (req, res) => {
       current_medications,
       symptom_duration,
       attachments,
-      notes
+      notes,
+      name,
+      email,
+      phone,
+      dob,
+      gender
     } = req.body;
 
-    const patient_id = req.user.id;
+    const isReceptionBooking = req.user?.role === 'staff' || req.user?.role === 'admin';
+    let patient_id = req.user.id;
+
+    const normalizeGender = (value) => {
+      const raw = String(value || '').trim().toLowerCase();
+      if (raw === 'male' || raw === 'nam' || raw === 'm') return 'male';
+      if (raw === 'female' || raw === 'nu' || raw === 'nữ' || raw === 'f') return 'female';
+      if (raw === 'other' || raw === 'khac' || raw === 'khác') return 'other';
+      return null;
+    };
 
     // Validate
     if (!doctor_id || !consultation_pricing_id || !appointment_time || !chief_complaint) {
@@ -44,6 +62,81 @@ exports.createConsultation = async (req, res) => {
         success: false,
         message: 'Thiếu thông tin bắt buộc (bác sĩ, gói dịch vụ, thời gian, triệu chứng)'
       });
+    }
+
+    if (isReceptionBooking && (!name || !phone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Thiếu thông tin bệnh nhân (họ tên, số điện thoại) cho đặt lịch tại quầy'
+      });
+    }
+
+    // Staff/Admin đặt giúp bệnh nhân: resolve user bệnh nhân theo phone/email, nếu chưa có thì tạo mới.
+    if (isReceptionBooking) {
+      const trimmedEmail = String(email || '').trim().toLowerCase();
+      const trimmedPhone = String(phone || '').trim();
+      const trimmedName = String(name || '').trim();
+
+      let patientUser = null;
+      if (trimmedEmail || trimmedPhone) {
+        const searchConditions = [];
+        if (trimmedEmail) searchConditions.push({ email: trimmedEmail });
+        if (trimmedPhone) searchConditions.push({ phone: trimmedPhone });
+
+        if (searchConditions.length > 0) {
+          patientUser = await models.User.findOne({
+            where: {
+              role: 'patient',
+              [Op.or]: searchConditions
+            }
+          });
+        }
+      }
+
+      if (!patientUser) {
+        let generatedEmail = trimmedEmail;
+        if (!generatedEmail) {
+          generatedEmail = `walkin.${Date.now()}.${Math.floor(Math.random() * 10000)}@clinic.local`;
+        } else {
+          const existingByEmail = await models.User.findOne({ where: { email: generatedEmail } });
+          if (existingByEmail && existingByEmail.role !== 'patient') {
+            generatedEmail = `walkin.${Date.now()}.${Math.floor(Math.random() * 10000)}@clinic.local`;
+          }
+        }
+
+        const existingGenerated = await models.User.findOne({ where: { email: generatedEmail } });
+        if (existingGenerated && existingGenerated.role !== 'patient') {
+          generatedEmail = `walkin.${Date.now()}.${Math.floor(Math.random() * 10000)}@clinic.local`;
+        }
+
+        const passwordHash = await bcrypt.hash(`WalkIn@${Date.now()}`, 10);
+        patientUser = await models.User.create({
+          email: generatedEmail,
+          username: trimmedPhone || generatedEmail.split('@')[0],
+          password_hash: passwordHash,
+          full_name: trimmedName,
+          phone: trimmedPhone || null,
+          dob: dob || null,
+          gender: normalizeGender(gender),
+          role: 'patient',
+          is_active: true,
+          is_verified: false
+        });
+      } else {
+        const updates = {};
+        if (trimmedName && !patientUser.full_name) updates.full_name = trimmedName;
+        if (trimmedPhone && !patientUser.phone) updates.phone = trimmedPhone;
+        if (dob && !patientUser.dob) updates.dob = dob;
+        if (gender && !patientUser.gender) {
+          const mappedGender = normalizeGender(gender);
+          if (mappedGender) updates.gender = mappedGender;
+        }
+        if (Object.keys(updates).length > 0) {
+          await patientUser.update(updates);
+        }
+      }
+
+      patient_id = patientUser.id;
     }
 
     // 1. Kiểm tra Gói dịch vụ (Package)
@@ -72,13 +165,21 @@ exports.createConsultation = async (req, res) => {
     }
 
     // Lấy thông tin Patient
-    const patient = await models.Patient.findOne({ 
-        where: { user_id: patient_id }, 
-        attributes: ['id'],
-        raw: true 
+    let patient = await models.Patient.findOne({
+      where: { user_id: patient_id },
+      attributes: ['id'],
+      raw: true
     });
-    // Gán vào req.user để dùng cho Quy tắc 3
-    if (patient) req.user.Patient = patient;
+
+    // Dữ liệu cũ có thể thiếu bản ghi patient profile, tạo bổ sung để đảm bảo tính nhất quán.
+    if (!patient) {
+      await models.Patient.create({ user_id: patient_id });
+      patient = await models.Patient.findOne({
+        where: { user_id: patient_id },
+        attributes: ['id'],
+        raw: true
+      });
+    }
 
     // 3. Lấy thông tin Gói
 const consultation_type = pkg.package_type;
@@ -94,56 +195,53 @@ const endTimeStr = appointmentEndTime.format('HH:mm:ss');
 // === BẮT ĐẦU KIỂM TRA XUNG ĐỘT ===
 const transaction = await sequelize.transaction();
 try {
-
-  // QUY TẮC 1: Bác sĩ có lịch làm việc không?
-  // (Chúng ta dùng logic tương tự getAvailableSlotsLogic của appointmentController)
-  const doctorSchedules = await models.Schedule.findAll({ 
-      where: {
-          user_id: doctor_id,
-          date: appointmentDate,
-          status: 'available' // Chỉ kiểm tra lịch 'available'
-      },
-      transaction
+  const availabilityContext = await appointmentHelper.getDoctorAvailabilityContext({
+    doctorId: doctor.Doctor.id,
+    appointmentDate: appointmentDate,
+    transaction
   });
 
-  const doctorShifts = await models.WorkShiftConfig.findAll({ 
-      where: { is_active: true }, 
-      transaction 
-  });
-  const dayOfWeek = appointmentStartTime.day(); // 0=Chủ Nhật, 1=Thứ Hai, ..., 6=Thứ Bảy
-  // Nguồn lịch: Lịch cố định (Schedule) ưu tiên, nếu không có thì dùng Lịch Mặc định (WorkShift)
-  const sourceShifts = doctorSchedules.length > 0 
-    ? doctorSchedules 
-    : doctorShifts.filter(s => {
-        // Đảm bảo days_of_week là mảng
-        const daysArray = Array.isArray(s.days_of_week) ? s.days_of_week : JSON.parse(s.days_of_week || '[]');
-        // Kiểm tra cả dạng SỐ và dạng CHUỖI
-        return daysArray.includes(dayOfWeek) || daysArray.includes(String(dayOfWeek));
-      });
+  if (availabilityContext.leaveBlocksAll) {
+    await transaction.rollback();
+    return res.status(400).json({
+      success: false,
+      message: 'Bác sĩ đang nghỉ trong ngày này.'
+    });
+  }
 
-// THÊM LOG ĐỂ DEBUG
-console.log('DEBUG getAvailableSlots:', {
+  const sourceShifts = availabilityContext.sourceShifts || [];
+  const leave = availabilityContext.leave;
+  const leaveShiftNames = new Set((availabilityContext.leaveShiftNames || []).map((value) => String(value)));
+
+  console.log('DEBUG getAvailableSlots:', {
     selectedDate: appointmentDate,
-    dayOfWeek,
-    doctorSchedulesCount: doctorSchedules.length,
-    doctorShiftsCount: doctorShifts.length,
+    dayOfWeek: availabilityContext.dayOfWeek,
     sourceShiftsCount: sourceShifts.length,
+    busyCount: (availabilityContext.busyIntervals || []).length,
+    leaveType: leave?.leave_type || null,
     sourceShifts: sourceShifts.map(s => ({ start: s.start_time, end: s.end_time, days: s.days_of_week }))
-});
+  });
   const slotStartMinutes = appointmentStartTime.hours() * 60 + appointmentStartTime.minutes();
   const slotEndMinutes = slotStartMinutes + duration_minutes;
 
   const isDoctorAvailable = sourceShifts.some(shift => {
+    if (leaveShiftNames.has(String(shift.shift_name || ''))) return false;
       const shiftStart = timeToMinutes(shift.start_time);
       const shiftEnd = timeToMinutes(shift.end_time);
       return slotStartMinutes >= shiftStart && slotEndMinutes <= shiftEnd;
   });
 
-  if (!isDoctorAvailable) {
+  const overlapsLeaveTimeRange = leave && leave.leave_type === 'time_range'
+  ? rangesOverlap(slotStartMinutes, slotEndMinutes, timeToMinutes(leave.time_from), timeToMinutes(leave.time_to))
+  : false;
+
+  const hasBusyConflict = (availabilityContext.busyIntervals || []).some(busy => rangesOverlap(slotStartMinutes, slotEndMinutes, busy.start, busy.end));
+
+  if (!isDoctorAvailable || overlapsLeaveTimeRange || hasBusyConflict) {
       await transaction.rollback();
       return res.status(400).json({
           success: false,
-          message: 'Bác sĩ không có lịch làm việc hoặc lịch đã kín vào thời gian này.'
+      message: 'Bác sĩ không có lịch làm việc hoặc lịch đã kín vào thời gian này.'
       });
   }
 
@@ -184,11 +282,11 @@ console.log('DEBUG getAvailableSlots:', {
   }
 
   // QUY TẮC 3: Bệnh nhân có bận không?
-  if (req.user.Patient) { // Chỉ check nếu patient có hồ sơ
+  if (patient) { // Chỉ check nếu patient có hồ sơ
     // 3a. Kiểm tra Appointment
     const patientApptConflict = await models.Appointment.findOne({
         where: {
-            patient_id: req.user.Patient.id, 
+            patient_id: patient.id,
             status: { [Op.notIn]: ['cancelled', 'completed'] },
             appointment_date: appointmentDate,
             [Op.or]: [
@@ -1385,87 +1483,32 @@ exports.getAvailableSlots = async (req, res) => {
     }
 
     const appointmentDate = moment(date).format('YYYY-MM-DD');
-    const dayOfWeek = moment(date).day();
 
-    // 3. QUY TẮC 1: Lấy lịch làm việc của bác sĩ (Copy từ createConsultation)
-    const doctorSchedules = await models.Schedule.findAll({ 
-        where: { 
-          [Op.or]: [
-            { user_id: doctor_id },    // Lịch cá nhân bác sĩ
-            { doctor_id: doctor.Doctor.id }  // Hoặc lịch theo doctor_id
-          ],
-          date: appointmentDate, 
-          status: 'available' 
-        }
+    const availabilityContext = await appointmentHelper.getDoctorAvailabilityContext({
+      doctorId: doctor.Doctor.id,
+      appointmentDate,
+      transaction: null
     });
-    const doctorShifts = await models.WorkShiftConfig.findAll({ 
-        where: { is_active: true } 
-    });
-    const sourceShifts = doctorSchedules.length > 0 
-        ? doctorSchedules 
-        : doctorShifts.filter(s => 
-            // SỬA Ở ĐÂY: Kiểm tra cả dạng SỐ và dạng CHUỖI
-            s.days_of_week.includes(dayOfWeek) || s.days_of_week.includes(String(dayOfWeek))
-          );
 
-    if (sourceShifts.length === 0) {
-      // Bác sĩ không làm việc ngày này
-      return res.json({ success: true, data: { availableSlots: [] } }); 
+    if (availabilityContext.leaveBlocksAll) {
+      return res.json({ success: true, data: { availableSlots: [] } });
     }
 
-    // 4. QUY TẮC 2: Lấy các lịch đã bận
-    // 2a. Appointments (khám tại quầy)
-    const busyAppointments = await models.Appointment.findAll({
-        where: {
-            doctor_id: doctor.Doctor.id,
-            status: { [Op.notIn]: ['cancelled', 'completed'] },
-            appointment_date: appointmentDate,
-        },
-        attributes: ['appointment_start_time', 'appointment_end_time'],
-        raw: true
-    });
-    // 2b. Consultations (tư vấn)
-    const busyConsultations = await models.Consultation.findAll({
-        where: {
-            doctor_id: doctor_id,
-            status: { [Op.notIn]: ['cancelled', 'rejected', 'expired', 'completed'] },
-            appointment_time: {
-                [Op.between]: [
-                    moment(date).startOf('day').toISOString(), 
-                    moment(date).endOf('day').toISOString()
-                ]
-            }
-        },
-        attributes: ['appointment_time', 'duration_minutes'],
-        raw: true
-    });
+    const sourceShifts = availabilityContext.sourceShifts || [];
+    const busySlotsInMinutes = availabilityContext.busyIntervals || [];
+    const leave = availabilityContext.leave;
+    const leaveShiftNames = new Set((availabilityContext.leaveShiftNames || []).map((value) => String(value)));
 
-    // 5. Chuyển đổi lịch bận sang phút
-    const busySlotsInMinutes = [];
-    busyAppointments.forEach(appt => {
-        busySlotsInMinutes.push({
-            start: timeToMinutes(appt.appointment_start_time),
-            end: timeToMinutes(appt.appointment_end_time)
-        });
-    });
-        
-    //  THÊM LOG DEBUG Ở ĐÂY
+    if (sourceShifts.length === 0) {
+      return res.json({ success: true, data: { availableSlots: [] } });
+    }
+
     console.log('🔍 [getAvailableSlots] Busy Slots:', {
-        date: date,
-        doctorId: doctor.user_id,
-        busyAppointmentsCount: busyAppointments.length,
-        busyConsultationsCount: busyConsultations.length,
-        totalBusySlotsInMinutes: busySlotsInMinutes.length,
-        busyAppointments: busyAppointments,
-        busyConsultations: busyConsultations,
-        busySlotsInMinutes: busySlotsInMinutes
-    });
-
-    busyConsultations.forEach(consult => {
-        const start = moment(consult.appointment_time);
-        const startMinutes = start.hours() * 60 + start.minutes();
-        const endMinutes = startMinutes + (consult.duration_minutes || 30);
-        busySlotsInMinutes.push({ start: startMinutes, end: endMinutes });
+      date: date,
+      doctorId: doctor.user_id,
+      sourceShiftCount: sourceShifts.length,
+      busyCount: busySlotsInMinutes.length,
+      leaveType: leave?.leave_type || null
     });
     
     // 6. Tạo ra các slot tiềm năng và kiểm tra
@@ -1473,6 +1516,8 @@ exports.getAvailableSlots = async (req, res) => {
     const slotInterval = 30; // Tạo slot mỗi 30 phút
 
     for (const shift of sourceShifts) {
+      if (leaveShiftNames.has(String(shift.shift_name || ''))) continue;
+
         const shiftStart = timeToMinutes(shift.start_time);
         const shiftEnd = timeToMinutes(shift.end_time);
         
@@ -1481,6 +1526,12 @@ exports.getAvailableSlots = async (req, res) => {
 
             // Slot phải nằm trọn trong ca làm việc
             if (slotEndMinutes > shiftEnd) continue;
+
+        if (leave && leave.leave_type === 'time_range') {
+          const leaveStart = timeToMinutes(leave.time_from);
+          const leaveEnd = timeToMinutes(leave.time_to);
+          if ((slotStartMinutes < leaveEnd) && (slotEndMinutes > leaveStart)) continue;
+        }
 
             // Kiểm tra xung đột với lịch bận
             const isBusy = busySlotsInMinutes.some(busy => {

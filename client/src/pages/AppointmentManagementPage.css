@@ -7,7 +7,7 @@
 /* === CSS VARIABLES === */
 :root {
   --apt-primary: #4caf50;
-  --apt-primary-light: #a5d6a7;
+  --apt-primary-light: #60a963;
   --apt-primary-lighter: #e8f5e9;
   --apt-primary-dark: #388e3c;
   --apt-accent: #66bb6a;
@@ -63,26 +63,23 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   min-height: 400px;
   color: var(--apt-primary);
   font-size: var(--apt-font-base);
-  gap: 12px;
+  background: transparent;
+  color: inherit;
+  gap: 10px;
 }
 
 /* === HEADER === */
 .appointment-management-header {
-  background: var(--apt-white);
-  border-radius: var(--apt-radius);
-  padding: clamp(12px, 2vw, 20px);
-  margin-bottom: clamp(10px, 1.5vw, 16px);
-  box-shadow: var(--apt-shadow-sm);
-  border: 1px solid var(--apt-border);
   display: flex;
-  flex-wrap: wrap;
-  gap: clamp(8px, 1.5vw, 14px);
   align-items: flex-start;
   justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+  padding: 16px 0;
+  border-bottom: 2px solid var(--apt-border);
 }
 
 .appointment-management-header-content {
@@ -178,18 +175,18 @@
 /* === STATS GRID === */
 .appointment-management-stats-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: clamp(6px, 1vw, 12px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(8px, 1vw, 12px);
   margin-bottom: clamp(10px, 1.5vw, 15px);
 }
 
 .appointment-management-stat-card {
   background: var(--apt-white);
   border-radius: var(--apt-radius);
-  padding: clamp(10px, 1.5vw, 16px);
+  padding: clamp(8px, 1.2vw, 12px);
   display: flex;
   align-items: center;
-  gap: clamp(8px, 1.2vw, 12px);
+  gap: clamp(6px, 1vw, 10px);
   box-shadow: var(--apt-shadow-sm);
   border: 1px solid var(--apt-border);
   transition: var(--apt-transition);
@@ -204,13 +201,13 @@
 }
 
 .appointment-management-stat-icon {
-  width: clamp(34px, 4vw, 46px);
-  height: clamp(34px, 4vw, 46px);
+  width: clamp(28px, 3.2vw, 38px);
+  height: clamp(28px, 3.2vw, 38px);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(14px, 2vw, 20px);
+  font-size: clamp(12px, 1.7vw, 16px);
   flex-shrink: 0;
   color: var(--apt-white);
 }
@@ -222,6 +219,7 @@
 .appointment-management-icon-waiting-pay { background: #ffca28; }
 .appointment-management-icon-waiting-exam { background: #81c784; }
 .appointment-management-icon-in-progress { background: #ba68c8; }
+.appointment-management-icon-waiting-result { background: #8e7cc3; }
 .appointment-management-icon-completed  { background: #4caf50; }
 .appointment-management-icon-passed     { background: #ff8a65; }
 .appointment-management-icon-cancelled  { background: #e57373; }
@@ -244,7 +242,7 @@
 }
 
 .appointment-management-stat-label {
-  font-size: clamp(9px, 1.1vw, 12px);
+  font-size: clamp(9px, 1vw, 11px);
   color: var(--apt-text-secondary);
   font-weight: 500;
   line-height: 1.2;
@@ -254,10 +252,30 @@
 }
 
 .appointment-management-stat-value {
-  font-size: clamp(15px, 2.2vw, 22px);
+  font-size: clamp(13px, 1.8vw, 18px);
   font-weight: 700;
   color: var(--apt-primary-dark);
   line-height: 1;
+}
+
+@media (max-width: 1199px) {
+  .appointment-management-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .appointment-management-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .appointment-management-stat-card {
+    padding: 10px 12px;
+  }
+
+  .appointment-management-stat-value {
+    font-size: 16px;
+  }
 }
 
 /* === FILTER PANEL === */
@@ -333,6 +351,22 @@
   font-weight: 700;
 }
 
+/* === FILTER LAYOUT: 2 ROWS === */
+/* === FILTER LAYOUT: 2 ROWS === */
+.appointment-management-filter-row-1 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: clamp(8px, 1.2vw, 12px);
+  margin-bottom: 12px !important;
+}
+
+.appointment-management-filter-row-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: clamp(8px, 1.2vw, 12px);
+  margin-bottom: 0 !important;
+}
+
 /* === TABLE === */
 .admin-appt-page-table-container {
   background: var(--apt-white);
@@ -348,6 +382,22 @@
   border-collapse: collapse;
   font-size: var(--apt-font-sm);
   min-width: 900px;
+}
+
+.admin-appt-page-sortable-th {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.admin-appt-page-sortable-th:hover {
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.admin-appt-page-sortable-th:hover svg {
+  color: inherit;
 }
 
 .admin-appt-page-table thead {
@@ -367,6 +417,26 @@
   letter-spacing: 0.4px;
   white-space: nowrap;
   color: var(--apt-white);
+}
+
+.admin-appt-page-sortable-th {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.admin-appt-page-sortable-th:hover {
+  background: var(--apt-primary-dark);
+  color: var(--apt-white);
+}
+
+.admin-appt-page-sortable-th:hover svg {
+  color: var(--apt-white);
+}
+
+.admin-appt-page-sortable-th:hover {
+  box-shadow: inset 0 -3px 0 var(--apt-primary-dark);
 }
 
 .admin-appt-page-table tbody tr {
@@ -424,6 +494,54 @@
   font-size: var(--apt-font-sm);
 }
 
+.admin-appt-page-service-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-appt-page-service-name {
+  font-weight: 600;
+  color: var(--apt-text);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.admin-appt-page-linked-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-appt-page-linked-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: var(--apt-font-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-appt-page-linked-chip-child {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.admin-appt-page-linked-chip-parent {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.admin-appt-page-linked-text {
+  font-size: var(--apt-font-xs);
+  color: var(--apt-text-secondary);
+  line-height: 1.4;
+}
+
 .admin-appt-page-datetime-info {
   display: flex;
   align-items: center;
@@ -455,6 +573,7 @@
 .amp-status-waiting-pay { background: #fff8e1; color: #8d6e00; }
 .amp-status-waiting-exam { background: #e8f5e9; color: #2e7d32; }
 .amp-status-in-progress{ background: #e1f5fe; color: #01579b; }
+.amp-status-waiting-result { background: #ede7f6; color: #5e35b1; }
 .amp-status-completed  { background: #e8f5e9; color: #2e7d32; }
 .amp-status-passed     { background: #fce4ec; color: #880e4f; }
 .amp-status-cancelled  { background: #ffebee; color: #b71c1c; }
@@ -500,6 +619,17 @@
   flex-shrink: 0;
   white-space: nowrap;
   text-decoration: none;
+  position: relative;
+}
+
+.admin-appt-page-btn-action .amp-btn-label {
+  display: none;
+}
+
+@media (min-width: 1200px) {
+  .admin-appt-page-btn-action .amp-btn-label {
+    display: inline;
+  }
 }
 
 /* Xem chi tiết - Xanh dương */
@@ -616,6 +746,74 @@
 .admin-appt-page-result-content strong {
   color: var(--apt-primary-dark);
   font-weight: 600;
+}
+
+.admin-appt-page-linked-section {
+  margin: 10px 0 14px;
+  padding: 12px;
+  border-radius: var(--apt-radius-sm);
+  background: #ffffff;
+  border: 1px solid var(--apt-border);
+}
+
+.admin-appt-page-linked-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--apt-font-sm);
+  font-weight: 700;
+  color: var(--apt-primary-dark);
+  margin-bottom: 10px;
+}
+
+.admin-appt-page-linked-note {
+  font-size: var(--apt-font-base);
+  color: var(--apt-text-secondary);
+}
+
+.admin-appt-page-linked-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-appt-page-linked-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: var(--apt-radius-xs);
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.admin-appt-page-linked-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-appt-page-linked-code {
+  font-weight: 700;
+  color: var(--apt-primary-dark);
+}
+
+.admin-appt-page-linked-service {
+  font-size: var(--apt-font-sm);
+  color: var(--apt-text);
+  word-break: break-word;
+}
+
+.admin-appt-page-linked-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-size: var(--apt-font-xs);
+  color: var(--apt-text-secondary);
 }
 
 /* === MODALS === */
@@ -845,58 +1043,44 @@
    RESPONSIVE BREAKPOINTS
    ============================================ */
 
-/* Large Desktop (>1400px) - Giữ bảng full width */
-@media (min-width: 1400px) {
+/* Desktop: 2 rows / 3 columns */
+@media (min-width: 1200px) {
   .appointment-management-stats-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-/* Desktop (1025px - 1399px) */
-@media (max-width: 1399px) and (min-width: 1025px) {
-  .appointment-management-stats-grid {
-    grid-template-columns: repeat(5, 1fr);
-  }
-}
-
-/* Tablet Landscape (769px - 1024px) */
-@media (max-width: 1024px) {
+/* Tablet: 2 columns */
+@media (max-width: 1199px) and (min-width: 768px) {
   .admin-appt-page-container {
     padding: 12px;
   }
 
   .appointment-management-stats-grid {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .appointment-management-stat-card {
-    flex-direction: column;
-    text-align: center;
-    padding: 10px 6px;
-    gap: 5px;
+    padding: 10px 12px;
   }
 
-  .appointment-management-stat-info {
-    align-items: center;
+  .appointment-management-stat-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
   }
 
   .admin-appt-page-table {
-    min-width: 800px;
-  }
-
-  .admin-appt-page-btn-action {
-    font-size: 11px;
+    min-width: 980px;
   }
 }
 
-/* Tablet Portrait (481px - 768px) */
-@media (max-width: 768px) {
+/* Mobile: 1 column stats, table remains scrollable until small phones */
+@media (max-width: 767px) {
   .admin-appt-page-container {
     padding: 10px;
   }
 
-  /* Header */
   .appointment-management-header {
     flex-direction: column;
     gap: 10px;
@@ -908,55 +1092,51 @@
   }
 
   .appointment-management-doctor-selector {
-    flex: 1;
     min-width: 0;
     max-width: 100%;
+    width: 100%;
   }
 
-  /* Stats: 3 col trên tablet */
+  .admin-appt-page-linked-item {
+    flex-direction: column;
+  }
+
+  .admin-appt-page-linked-item-meta {
+    justify-content: flex-start;
+  }
+
   .appointment-management-stats-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    grid-template-columns: 1fr;
   }
 
   .appointment-management-stat-card {
-    flex-direction: row;
-    text-align: left;
-    padding: 10px;
-    gap: 8px;
+    padding: 10px 12px;
   }
 
-  .appointment-management-stat-card-empty {
-    display: none;
-  }
-
-  .appointment-management-stat-info {
-    align-items: flex-start;
-  }
-
-  /* Filter: 2 col */
   .appointment-management-filter-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 
-  /* Filter actions */
-  .appointment-management-filter-actions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
+  .admin-appt-page-table-container {
+    overflow-x: auto;
   }
 
-  .appointment-management-filter-result {
-    text-align: center;
+  .admin-appt-page-table {
+    min-width: 920px;
+  }
+
+  .admin-appt-page-btn-action {
+    font-size: 11px;
+  }
+
+  .appointment-management-btn {
     font-size: 12px;
+    padding: 7px 12px;
   }
+}
 
-  .appointment-management-btn-reset {
-    width: 100%;
-    justify-content: center;
-  }
-
-  /* Table: card layout trên mobile */
+/* Small phones: convert table to card layout */
+@media (max-width: 639px) {
   .admin-appt-page-table-container {
     overflow-x: visible;
   }
@@ -1010,7 +1190,6 @@
     padding-top: 8px;
   }
 
-  /* Label prefix từ data-label */
   .admin-appt-page-table tbody td::before {
     content: attr(data-label);
     font-weight: 600;
@@ -1023,14 +1202,12 @@
     padding-top: 2px;
   }
 
-  /* Action buttons căn phải */
   .admin-appt-page-action-buttons {
     justify-content: flex-end;
     flex-wrap: wrap;
     margin-left: auto;
   }
 
-  /* Expanded row trên mobile */
   .admin-appt-page-expanded-row {
     margin-top: -10px !important;
     border-top: none !important;
@@ -1042,7 +1219,6 @@
     border-radius: 0 0 var(--apt-radius-sm) var(--apt-radius-sm);
   }
 
-  /* Modal responsive */
   .admin-appt-page-modal-overlay {
     padding: 10px;
     align-items: flex-end;
@@ -1060,78 +1236,6 @@
   .admin-appt-page-btn {
     width: 100%;
     justify-content: center;
-  }
-}
-
-/* Small Mobile (≤480px) */
-@media (max-width: 480px) {
-  .admin-appt-page-container {
-    padding: 8px;
-  }
-
-  .appointment-management-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
-  }
-
-  /* Ẩn 2 card empty */
-  .appointment-management-stat-card-empty {
-    display: none;
-  }
-
-  .appointment-management-stat-card {
-    padding: 10px;
-    flex-direction: row;
-    gap: 8px;
-  }
-
-  .appointment-management-filter-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .appointment-management-header-content h1 {
-    font-size: 16px;
-  }
-
-  .admin-appt-page-table tbody tr {
-    padding: 10px;
-  }
-
-  .admin-appt-page-table tbody td::before {
-    width: 76px;
-    font-size: 9px;
-  }
-
-  .admin-appt-page-btn-action {
-    height: 28px;
-    min-width: 28px;
-    font-size: 10px;
-    padding: 0 5px;
-  }
-
-  .admin-appt-page-status-badge,
-  .amp-payment-status-badge,
-  .amp-medical-record-badge {
-    font-size: 10px;
-    padding: 3px 7px;
-  }
-
-  .appointment-management-btn {
-    font-size: 12px;
-    padding: 7px 12px;
-  }
-}
-
-/* Very small (≤360px) */
-@media (max-width: 360px) {
-  .appointment-management-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .appointment-management-stat-icon {
-    width: 30px;
-    height: 30px;
-    font-size: 13px;
   }
 }
 

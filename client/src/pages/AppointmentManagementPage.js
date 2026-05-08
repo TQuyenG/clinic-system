@@ -4,10 +4,13 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import AppointmentActionButtons from '../components/appointments/AppointmentActionButtons';
 import appointmentService from '../services/appointmentService';
 import medicalRecordService from '../services/medicalRecordService'; 
 import ConfirmModal from '../components/medical/ConfirmModal';
 import { toast } from 'react-toastify';
+import CheckinTab from '../components/appointments/CheckinTab';
+import './AppointmentManagementPage.css';
 
 import { 
   FaCalendarAlt, FaClock, FaUserMd, FaCheckCircle, FaTimesCircle, 
@@ -15,9 +18,28 @@ import {
   FaPhone, FaEnvelope, FaSpinner, FaTimes,
   FaChevronDown, FaChevronUp, FaChevronRight, FaLock, FaSyncAlt, FaCheck,
   FaHospital, FaPlay, FaNotesMedical, FaMoneyBillWave, FaClipboardCheck,
-  FaStethoscope, FaFileAlt, FaList
+  FaStethoscope, FaFileAlt, FaList, FaCreditCard, FaUniversity, FaGlobe,
+  FaLink
 } from 'react-icons/fa';
-import './AppointmentManagementPage.css'; 
+// StatusBadge inline component
+const StatusBadge = ({ status, appointment }) => {
+  const s = String(status || '').toLowerCase();
+  const map = {
+    pending: { text: 'Chờ xác nhận', cls: 'amp-status-pending', icon: <FaHourglassHalf /> },
+    confirmed: { text: 'Đã xác nhận', cls: 'amp-status-confirmed', icon: <FaCheckCircle /> },
+    in_progress: { text: 'Đang khám', cls: 'amp-status-in-progress', icon: <FaSpinner /> },
+    waiting_result: { text: 'Chờ kết quả', cls: 'amp-status-waiting-result', icon: <FaHourglassHalf /> },
+    completed: { text: 'Đã hoàn thành', cls: 'amp-status-completed', icon: <FaCheckCircle /> },
+    cancelled: { text: 'Đã hủy', cls: 'amp-status-cancelled', icon: <FaTimes /> }
+  };
+  const info = map[s] || map.pending;
+  return (
+    <div className={`admin-appt-page-status-badge ${info.cls}`} role="status" aria-label={info.text}>
+      <span className="amp-me-1">{info.icon}</span>
+      <span>{info.text}</span>
+    </div>
+  );
+};
 
 const getPatientUser = (patient) => patient?.user || patient?.User || null;
 const getAppointmentPatientName = (appointment) => getPatientUser(appointment?.Patient)?.full_name || appointment?.guest_name || 'Khách vãng lai';
@@ -33,6 +55,33 @@ const getAppointmentSourceLabel = (appointment) => {
   if (appointment?.patient_id) return 'Bản thân';
   if (!appointment?.patient_id && appointment?.guest_name) return 'Khách tại quầy';
   return 'Không rõ';
+};
+
+const getSubServiceRequirementLabel = (appointment) => {
+  const context = appointment?.booking_context || {};
+  if (!context.parent_code) return null;
+  return context.required ? 'Bắt buộc' : 'Tùy chọn';
+};
+
+const getLinkedAppointmentSummary = (appointment) => {
+  const context = appointment?.booking_context || {};
+  const serviceIndications = Array.isArray(appointment?.service_indications) ? appointment.service_indications : [];
+  const linkedChildren = serviceIndications.filter((item) => (
+    item?.type === 'sub_appointment' || item?.linked_appointment_code || item?.appointment_code
+  ));
+
+  return {
+    isChild: Boolean(context.parent_code),
+    parentCode: context.parent_code || null,
+    required: Boolean(context.required),
+    linkedChildren,
+  };
+};
+
+const formatLinkedMode = (mode) => {
+  if (mode === 'immediate') return 'Khám ngay';
+  if (mode === 'schedule') return 'Đặt lịch phụ';
+  return 'Liên kết';
 };
 
 const AppointmentManagementPage = () => {
@@ -104,6 +153,7 @@ const AppointmentManagementPage = () => {
     appointmentType: 'all', // online, offline, all
     paymentStatus: 'all' // unpaid, paid_online, paid_at_clinic, all
   });
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState('');
@@ -126,8 +176,23 @@ const AppointmentManagementPage = () => {
     paid_at: new Date().toISOString().slice(0, 16)
   });
 
+  const normalizeStatusFilter = (status) => {
+    switch (status) {
+      case 'upcoming':
+        return 'confirmed';
+      case 'waiting_exam':
+        return 'in_progress';
+      case 'passed':
+        return 'completed';
+      case 'waiting_result':
+        return 'waiting_result';
+      default:
+        return status;
+    }
+  };
+
   useEffect(() => {
-    const allowedStatuses = new Set(['all', 'pending', 'confirmed', 'upcoming', 'waiting_pay', 'waiting_exam', 'in_progress', 'completed', 'passed', 'cancelled']);
+    const allowedStatuses = new Set(['all', 'pending', 'confirmed', 'upcoming', 'waiting_pay', 'waiting_exam', 'waiting_result', 'in_progress', 'completed', 'passed', 'cancelled']);
     const searchParams = new URLSearchParams(location.search);
     const status = searchParams.get('status');
     const date = searchParams.get('date');
@@ -135,7 +200,7 @@ const AppointmentManagementPage = () => {
     const nextFilters = {};
 
     if (status && allowedStatuses.has(status)) {
-      nextFilters.status = status;
+      nextFilters.status = status === 'waiting_pay' ? 'waiting_pay' : normalizeStatusFilter(status);
     }
 
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -168,7 +233,7 @@ const AppointmentManagementPage = () => {
   useEffect(() => {
     applyFilters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, appointments]);
+  }, [filters, appointments, sortConfig]);
 
   // --- 2. Lấy dữ liệu & Sắp xếp Mới nhất trước ---
   const fetchAllAppointments = async () => {
@@ -178,26 +243,33 @@ const AppointmentManagementPage = () => {
       if (selectedDoctorId) params.doctor_id = selectedDoctorId;
       
       let response;
-      // NẾU LÀ STAFF LÂM SÀNG -> Gọi API lấy lịch của bác sĩ mình quản lý
-      if (user?.role === 'staff' && user?.department === 'clinical') {
-         response = await appointmentService.getStaffManagedAppointments(params);
-      } 
-      // NẾU LÀ ADMIN HOẶC CÁC PHÒNG BAN KHÁC -> Gọi API lấy TẤT CẢ
-      else {
-         response = await appointmentService.getAllAppointments(params); 
+      // Role-aware fetching:
+      // - patient: only their appointments
+      // - doctor: doctor's own appointments
+      // - staff (clinical): staff-managed doctors' appointments
+      // - admin / other staff: all appointments
+      if (user?.role === 'patient') {
+        response = await appointmentService.getMyAppointments(params);
+      } else if (user?.role === 'doctor') {
+        response = await appointmentService.getDoctorAppointments(params);
+      } else if (user?.role === 'staff' && user?.department === 'clinical') {
+        response = await appointmentService.getStaffManagedAppointments(params);
+      } else {
+        response = await appointmentService.getAllAppointments(params);
       }
       
       if (response.data.success) {
-        // SẮP XẾP: Ngày giờ giảm dần (Mới nhất lên đầu)
+        // SẮP XẾP: Theo ngày tạo giảm dần (Lịch hẹn vừa tạo lên đầu)
         const sortedAppointments = (response.data.data || []).sort((a, b) => {
-          const dateTimeA = new Date(`${a.appointment_date}T${a.appointment_start_time}`);
-          const dateTimeB = new Date(`${b.appointment_date}T${b.appointment_start_time}`);
+          // Primary: Sort by created_at descending (newest created first)
+          const createdA = new Date(a.created_at);
+          const createdB = new Date(b.created_at);
           
-          if (isNaN(dateTimeA.getTime()) && isNaN(dateTimeB.getTime())) return 0;
-          if (isNaN(dateTimeA.getTime())) return 1;
-          if (isNaN(dateTimeB.getTime())) return -1;
+          if (isNaN(createdA.getTime()) && isNaN(createdB.getTime())) return 0;
+          if (isNaN(createdA.getTime())) return 1;
+          if (isNaN(createdB.getTime())) return -1;
 
-          return dateTimeB.getTime() - dateTimeA.getTime();
+          return createdB.getTime() - createdA.getTime();
         });
         setAppointments(sortedAppointments);
       }
@@ -209,10 +281,46 @@ const AppointmentManagementPage = () => {
     }
   };
 
+  const handleAppointmentAction = async (action, appointment) => {
+    if (!appointment) return;
+    switch (action) {
+      case 'confirm':
+        openActionModal(appointment, 'confirm');
+        break;
+      case 'cancel':
+        openActionModal(appointment, 'cancel');
+        break;
+      case 'checkin':
+        try {
+          setIsSubmitting(true);
+          if (appointment.id) {
+            await appointmentService.checkInAppointment(appointment.id, {});
+          } else if (appointment.code) {
+            await appointmentService.checkIn(appointment.code, 'clinical');
+          }
+          toast.success('Check-in thành công');
+          fetchAllAppointments();
+        } catch (err) {
+          console.error('Check-in error', err);
+          toast.error('Không thể check-in');
+        } finally {
+          setIsSubmitting(false);
+        }
+        break;
+      default:
+        console.warn('Unhandled appointment action:', action);
+        break;
+    }
+  };
+
   const applyFilters = () => {
     let filtered = [...appointments];
     if (filters.status !== 'all') {
-      filtered = filtered.filter(apt => apt.status === filters.status);
+      if (filters.status === 'waiting_pay') {
+        filtered = filtered.filter(apt => apt.payment_status === 'unpaid');
+      } else {
+        filtered = filtered.filter(apt => apt.status === normalizeStatusFilter(filters.status));
+      }
     }
     if (filters.date) {
       filtered = filtered.filter(apt => apt.appointment_date === filters.date);
@@ -252,11 +360,65 @@ const AppointmentManagementPage = () => {
       filtered.sort((a, b) => (a.code || '').localeCompare(b.code || ''));
     }
 
+    const compareText = (left, right) => String(left || '').localeCompare(String(right || ''), 'vi', { sensitivity: 'base' });
+    const compareDateTime = (left, right) => {
+      const leftDate = new Date(`${left?.appointment_date || ''}T${left?.appointment_start_time || '00:00:00'}`);
+      const rightDate = new Date(`${right?.appointment_date || ''}T${right?.appointment_start_time || '00:00:00'}`);
+      const leftTime = leftDate.getTime();
+      const rightTime = rightDate.getTime();
+      if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) return 0;
+      if (Number.isNaN(leftTime)) return 1;
+      if (Number.isNaN(rightTime)) return -1;
+      return leftTime - rightTime;
+    };
+
+    const sortMultiplier = sortConfig.direction === 'asc' ? 1 : -1;
+    const sortValueMap = {
+      code: (apt) => apt.code,
+      patient: (apt) => getAppointmentPatientName(apt),
+      service: (apt) => apt.Service?.name,
+      doctor: (apt) => apt.Doctor?.user?.full_name,
+      date: (apt) => `${apt.appointment_date || ''}T${apt.appointment_start_time || '00:00:00'}`,
+      status: (apt) => apt.status,
+      payment: (apt) => apt.payment_status,
+      medical: (apt) => apt.medical_record_status,
+      created_at: (apt) => apt.created_at
+    };
+
+    filtered.sort((left, right) => {
+      const getter = sortValueMap[sortConfig.key];
+      if (!getter) return 0;
+
+      if (sortConfig.key === 'date' || sortConfig.key === 'created_at') {
+        const base = compareDateTime({ appointment_date: getter(left)?.split('T')[0], appointment_start_time: getter(left)?.split('T')[1] || '00:00:00' }, { appointment_date: getter(right)?.split('T')[0], appointment_start_time: getter(right)?.split('T')[1] || '00:00:00' });
+        return base * sortMultiplier;
+      }
+
+      return compareText(getter(left), getter(right)) * sortMultiplier;
+    });
+
     setFilteredAppointments(filtered);
+  };
+
+  const handleSortColumn = (key) => {
+    setSortConfig((previous) => ({
+      key,
+      direction: previous.key === key && previous.direction === 'asc' ? 'desc' : 'asc'
+    }));
   };
 
   const handleFilterChange = (key, value) => {
     setFilters({ ...filters, [key]: value });
+
+    if (key === 'sortBy') {
+      if (value === 'newest') {
+        setSortConfig({ key: 'created_at', direction: 'desc' });
+      } else if (value === 'oldest') {
+        setSortConfig({ key: 'created_at', direction: 'asc' });
+      } else if (value === 'code') {
+        setSortConfig({ key: 'code', direction: 'asc' });
+      }
+    }
   };
 
   const resetFilters = () => {
@@ -270,11 +432,19 @@ const AppointmentManagementPage = () => {
       appointmentType: 'all',
       paymentStatus: 'all'
     });
+    setSortConfig({ key: 'created_at', direction: 'desc' });
   };
 
   const formatTime = (timeStr) => {
     if (!timeStr) return 'N/A';
     return timeStr.slice(0, 5);
+  };
+
+  const renderSortIndicator = (key) => {
+    if (sortConfig.key !== key) return <FaChevronDown style={{ opacity: 0.25, marginLeft: 6 }} />;
+    return sortConfig.direction === 'asc'
+      ? <FaChevronUp style={{ marginLeft: 6 }} />
+      : <FaChevronDown style={{ marginLeft: 6 }} />;
   };
 
   // --- Logic Modal Action ---
@@ -402,31 +572,11 @@ const AppointmentManagementPage = () => {
   };
 
   // --- Helper Helpers ---
-  const getStatusBadge = (status) => {
-    let text, icon, className;
-    switch (status) {
-      case 'pending':
-        text = 'Chờ xác nhận'; icon = <FaHourglassHalf />; className = 'amp-status-pending'; break;
-      case 'confirmed':
-        text = 'Đã xác nhận'; icon = <FaCheckCircle />; className = 'amp-status-confirmed'; break;
-      case 'upcoming':
-        text = 'Sắp tới'; icon = <FaClock />; className = 'amp-status-upcoming'; break;
-      case 'waiting_pay':
-        text = 'Chờ thanh toán'; icon = <FaMoneyBillWave />; className = 'amp-status-waiting-pay'; break;
-      case 'waiting_exam':
-        text = 'Chờ khám'; icon = <FaHospital />; className = 'amp-status-waiting-exam'; break;
-      case 'in_progress':
-        text = 'Đang khám'; icon = <FaClock />; className = 'amp-status-in-progress'; break;
-      case 'completed':
-        text = 'Hoàn thành'; icon = <FaCheckCircle />; className = 'amp-status-completed'; break;
-      case 'passed':
-        text = 'Đã qua'; icon = <FaTimesCircle />; className = 'amp-status-passed'; break;
-      case 'cancelled':
-        text = 'Đã hủy'; icon = <FaTimesCircle />; className = 'amp-status-cancelled'; break;
-      default:
-        text = 'Không rõ'; icon = <FaTimes />; className = 'amp-status-cancelled'; break;
-    }
-    return <span className={`admin-appt-page-status-badge ${className}`}>{icon} {text}</span>;
+  // Accept either a status string or full appointment object (to use computed flags)
+  const getStatusBadge = (sOrApt) => {
+    const apt = (sOrApt && typeof sOrApt === 'object') ? sOrApt : null;
+    const status = apt ? apt.status : sOrApt;
+    return <StatusBadge status={status} appointment={apt} />;
   };
 
   const getPaymentStatusBadge = (paymentStatus) => {
@@ -450,7 +600,7 @@ const AppointmentManagementPage = () => {
 
   const getMedicalRecordBadge = (status) => {
     if (status === 'has_record') {
-      return <span className="amp-medical-record-badge amp-has-record"><FaCheckCircle className="amp-me-1"/>Có HSKB</span>;
+      return <span className="amp-medical-record-badge amp-has-record"><FaCheckCircle className="amp-me-1"/>Có Kết quả khám</span>;
     }
     return <span className="amp-medical-record-badge amp-no-record"><FaTimes className="amp-me-1"/>Chưa có</span>;
   };
@@ -460,15 +610,11 @@ const AppointmentManagementPage = () => {
     // Tính toán dựa trên danh sách filteredAppointments để số liệu khớp với bộ lọc
     const filteredTotal = filteredAppointments.length;
     
-    // Trạng thái lịch hẹn (giống như trong bộ lọc)
     const filteredPending = filteredAppointments.filter(a => a.status === 'pending').length;
     const filteredConfirmed = filteredAppointments.filter(a => a.status === 'confirmed').length;
-    const filteredUpcoming = filteredAppointments.filter(a => a.status === 'upcoming').length;
-    const filteredWaitingPay = filteredAppointments.filter(a => a.status === 'waiting_pay').length;
-    const filteredWaitingExam = filteredAppointments.filter(a => a.status === 'waiting_exam').length;
     const filteredInProgress = filteredAppointments.filter(a => a.status === 'in_progress').length;
+    const filteredWaitingResult = filteredAppointments.filter(a => a.status === 'waiting_result').length;
     const filteredCompleted = filteredAppointments.filter(a => a.status === 'completed').length;
-    const filteredPassed = filteredAppointments.filter(a => a.status === 'passed').length;
     const filteredCancelled = filteredAppointments.filter(a => a.status === 'cancelled').length;
     
     return { 
@@ -476,12 +622,9 @@ const AppointmentManagementPage = () => {
       filteredTotal, 
       filteredPending, 
       filteredConfirmed,
-      filteredUpcoming,
-      filteredWaitingPay,
-      filteredWaitingExam,
       filteredInProgress,
+      filteredWaitingResult,
       filteredCompleted,
-      filteredPassed,
       filteredCancelled
     };
   };
@@ -581,49 +724,24 @@ const AppointmentManagementPage = () => {
               </div>
             </div>
             <div className="appointment-management-stat-card">
-              <div className="appointment-management-stat-icon appointment-management-icon-upcoming"><FaClock /></div>
-              <div className="appointment-management-stat-info">
-                <span className="appointment-management-stat-label">Sắp Tới</span>
-                <span className="appointment-management-stat-value">{stats.filteredUpcoming}</span>
-              </div>
-            </div>
-            <div className="appointment-management-stat-card">
-              <div className="appointment-management-stat-icon appointment-management-icon-pending"><FaMoneyBillWave /></div>
-              <div className="appointment-management-stat-info">
-                <span className="appointment-management-stat-label">Chờ Thanh Toán</span>
-                <span className="appointment-management-stat-value">{stats.filteredWaitingPay}</span>
-              </div>
-            </div>
-            <div className="appointment-management-stat-card">
-              <div className="appointment-management-stat-icon appointment-management-icon-confirmed"><FaHospital /></div>
-              <div className="appointment-management-stat-info">
-                <span className="appointment-management-stat-label">Chờ Khám</span>
-                <span className="appointment-management-stat-value">{stats.filteredWaitingExam}</span>
-              </div>
-            </div>
-            <div className="appointment-management-stat-card">
               <div className="appointment-management-stat-icon appointment-management-icon-in-progress"><FaPlay /></div>
               <div className="appointment-management-stat-info">
                 <span className="appointment-management-stat-label">Đang Khám</span>
                 <span className="appointment-management-stat-value">{stats.filteredInProgress}</span>
               </div>
             </div>
-          </div>
-
-          {/* Stats Grid 2 - Trạng thái lịch hẹn (tiếp) */}
-          <div className="appointment-management-stats-grid">
+            <div className="appointment-management-stat-card">
+              <div className="appointment-management-stat-icon appointment-management-icon-waiting-result"><FaHourglassHalf /></div>
+              <div className="appointment-management-stat-info">
+                <span className="appointment-management-stat-label">Chờ Kết Quả</span>
+                <span className="appointment-management-stat-value">{stats.filteredWaitingResult}</span>
+              </div>
+            </div>
             <div className="appointment-management-stat-card">
               <div className="appointment-management-stat-icon appointment-management-icon-completed"><FaCheck /></div>
               <div className="appointment-management-stat-info">
                 <span className="appointment-management-stat-label">Đã Hoàn Thành</span>
                 <span className="appointment-management-stat-value">{stats.filteredCompleted}</span>
-              </div>
-            </div>
-            <div className="appointment-management-stat-card">
-              <div className="appointment-management-stat-icon appointment-management-icon-passed"><FaTimesCircle /></div>
-              <div className="appointment-management-stat-info">
-                <span className="appointment-management-stat-label">Đã Qua</span>
-                <span className="appointment-management-stat-value">{stats.filteredPassed}</span>
               </div>
             </div>
             <div className="appointment-management-stat-card">
@@ -633,75 +751,92 @@ const AppointmentManagementPage = () => {
                 <span className="appointment-management-stat-value">{stats.filteredCancelled}</span>
               </div>
             </div>
-            <div className="appointment-management-stat-card appointment-management-stat-card-empty">
-              <div className="appointment-management-stat-info">
-                <span className="appointment-management-stat-label">&nbsp;</span>
-                <span className="appointment-management-stat-value">&nbsp;</span>
-              </div>
-            </div>
-            <div className="appointment-management-stat-card appointment-management-stat-card-empty">
-              <div className="appointment-management-stat-info">
-                <span className="appointment-management-stat-label">&nbsp;</span>
-                <span className="appointment-management-stat-value">&nbsp;</span>
-              </div>
-            </div>
           </div>
 
           {/* Tabs Navigation */}
-          <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', marginBottom: '20px', gap: '5px' }}>
+          <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', marginBottom: '20px', gap: '5px', flexWrap: 'wrap' }}>
             <button
+              type="button"
               onClick={() => setActiveTab('appointments')}
               style={{
                 padding: '12px 20px',
                 border: 'none',
-                background: activeTab === 'appointments' ? '#0066cc' : 'transparent',
+                background: activeTab === 'appointments' ? '#4caf50' : 'transparent',
                 color: activeTab === 'appointments' ? '#fff' : '#6b7280',
                 fontWeight: activeTab === 'appointments' ? '600' : '500',
                 cursor: 'pointer',
                 fontSize: '14px',
-                borderBottom: activeTab === 'appointments' ? '3px solid #0066cc' : 'none',
+                borderBottom: activeTab === 'appointments' ? '3px solid #4caf50' : 'none',
                 transition: 'all 0.2s'
               }}
             >
               <FaList style={{ marginRight: '8px' }} /> Danh sách lịch hẹn
             </button>
+            {(user && (user.role === 'admin' || user.role === 'staff')) && (
             <button
+              type="button"
               onClick={() => setActiveTab('checkin')}
               style={{
                 padding: '12px 20px',
                 border: 'none',
-                background: activeTab === 'checkin' ? '#0066cc' : 'transparent',
+                background: activeTab === 'checkin' ? '#4caf50' : 'transparent',
                 color: activeTab === 'checkin' ? '#fff' : '#6b7280',
                 fontWeight: activeTab === 'checkin' ? '600' : '500',
                 cursor: 'pointer',
                 fontSize: '14px',
-                borderBottom: activeTab === 'checkin' ? '3px solid #0066cc' : 'none',
+                borderBottom: activeTab === 'checkin' ? '3px solid #4caf50' : 'none',
                 transition: 'all 0.2s'
               }}
             >
-              <FaClipboardCheck style={{ marginRight: '8px' }} /> Checkin quầy tiếp nhận
+              <FaClipboardCheck style={{ marginRight: '8px' }} /> Tiếp đón / Check-in
             </button>
+            )}
           </div>
 
           {/* Tab Content */}
           {activeTab === 'appointments' ? (
-            <>
+          <>
               {/* APPOINTMENTS TAB */}
               <div className="appointment-management-filter-panel"> 
-            <div className="appointment-management-filter-grid">
+            {/* Hàng 1: Tìm kiếm + Nút Đặt lại */}
+            <div className="appointment-management-filter-grid appointment-management-filter-row-1">
+              <div className="appointment-management-filter-group" style={{ flex: 1 }}>
+                <label><FaSearch /> Tìm kiếm nhanh</label>
+                <input 
+                  type="text" 
+                  placeholder="Mã lịch, tên bệnh nhân, email, sĐT..." 
+                  value={filters.search} 
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div className="appointment-management-filter-group" style={{ flex: 1 }}>
+                <label><FaUserMd /> Bác sĩ</label>
+                <input type="text" placeholder="Tên bác sĩ..." value={filters.doctor} onChange={(e) => handleFilterChange('doctor', e.target.value)} style={{ width: '100%' }} />
+              </div>
+              <div className="appointment-management-filter-group" style={{ flex: 1 }}>
+                <label><FaHospital /> Dịch vụ</label>
+                <input type="text" placeholder="Tên dịch vụ..." value={filters.service} onChange={(e) => handleFilterChange('service', e.target.value)} style={{ width: '100%' }} />
+              </div>
+              <div className="appointment-management-filter-group" style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '8px' }}>
+                <button className="appointment-management-btn appointment-management-btn-reset" onClick={resetFilters} style={{ width: '100%', justifyContent: 'center' }}>
+                  <FaSyncAlt /> Đặt lại
+                </button>
+              </div>
+            </div>
+
+            {/* Hàng 2: Các dropdown lọc */}
+            <div className="appointment-management-filter-grid appointment-management-filter-row-2">
               <div className="appointment-management-filter-group">
-                <label><FaFilter /> Trạng thái lịch</label>
+                <label><FaFilter /> Trạng thái</label>
                 <select value={filters.status} onChange={(e) => handleFilterChange('status', e.target.value)}>
-                  <option value="all">Tất cả trạng thái</option>
+                  <option value="all">Tất cả</option>
                   <option value="pending">Chờ xác nhận</option>
                   <option value="confirmed">Đã xác nhận</option>
-                  <option value="upcoming">Sắp tới</option>
-                  <option value="waiting_pay">Chờ thanh toán</option>
-                  <option value="waiting_exam">Chờ khám</option>
                   <option value="in_progress">Đang khám</option>
-                  <option value="completed">Đã hoàn thành</option>
-                  <option value="passed">Đã qua</option>
-                  <option value="cancelled">Đã hủy</option>
+                  <option value="waiting_result">Chờ Kết Quả</option>
+                  <option value="completed">Hoàn thành</option>
+                  <option value="cancelled">Hủy</option>
                 </select>
               </div>
               <div className="appointment-management-filter-group">
@@ -709,18 +844,8 @@ const AppointmentManagementPage = () => {
                 <select value={filters.paymentStatus} onChange={(e) => handleFilterChange('paymentStatus', e.target.value)}>
                   <option value="all">Tất cả</option>
                   <option value="unpaid">Chưa thanh toán</option>
-                  <option value="paid_online">Đã thanh toán online</option>
+                  <option value="paid_online">Đã thanh toán (Online)</option>
                   <option value="paid_at_clinic">Thanh toán tại quầy</option>
-                  <option value="refunded">Đã hoàn tiền</option>
-                  <option value="not_required">Miễn phí</option>
-                </select>
-              </div>
-              <div className="appointment-management-filter-group">
-                <label><FaHospital /> Loại hình</label>
-                <select value={filters.appointmentType} onChange={(e) => handleFilterChange('appointmentType', e.target.value)}>
-                  <option value="all">Tất cả</option>
-                  <option value="online">Online</option>
-                  <option value="offline">Tại viện</option>
                 </select>
               </div>
               <div className="appointment-management-filter-group">
@@ -728,38 +853,16 @@ const AppointmentManagementPage = () => {
                 <input type="date" value={filters.date} onChange={(e) => handleFilterChange('date', e.target.value)} />
               </div>
               <div className="appointment-management-filter-group">
-                <label><FaUserMd /> Bác sĩ</label>
-                <input type="text" placeholder="Tên bác sĩ..." value={filters.doctor} onChange={(e) => handleFilterChange('doctor', e.target.value)} />
-              </div>
-              <div className="appointment-management-filter-group">
-                <label><FaUserMd /> Dịch vụ</label>
-                <input type="text" placeholder="Tên dịch vụ..." value={filters.service} onChange={(e) => handleFilterChange('service', e.target.value)} />
-              </div>
-              <div className="appointment-management-filter-group">
-                <label><FaSearch /> Tìm kiếm</label>
-                <input 
-                  type="text" 
-                  placeholder="Mã/Tên/Email/SĐT..." 
-                  value={filters.search} 
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                />
-              </div>
-              <div className="appointment-management-filter-group">
-                <label><FaClock /> Sắp xếp</label>
-                <select value={filters.sortBy} onChange={(e) => handleFilterChange('sortBy', e.target.value)}>
-                  <option value="newest">Mới nhất</option>
-                  <option value="oldest">Cũ nhất</option>
-                  <option value="code">Theo mã</option>
+                <label><FaHospital /> Loại hình</label>
+                <select value={filters.appointmentType} onChange={(e) => handleFilterChange('appointmentType', e.target.value)}>
+                  <option value="all">Tất cả</option>
+                  <option value="online">Online</option>
+                  <option value="offline">Offline</option>
                 </select>
               </div>
             </div>
-            <div className="appointment-management-filter-actions">
-              <button className="appointment-management-btn appointment-management-btn-reset" onClick={resetFilters}>
-                <FaSyncAlt /> Đặt lại
-              </button>
-              <span className="appointment-management-filter-result">
-                Hiển thị <strong>{filteredAppointments.length}</strong> / {appointments.length} lịch hẹn
-              </span>
+            <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '12px', textAlign: 'right' }}>
+              Hiển thị <strong>{filteredAppointments.length}</strong> / {appointments.length} lịch hẹn
             </div>
           </div>
 
@@ -768,25 +871,28 @@ const AppointmentManagementPage = () => {
             <table className="admin-appt-page-table">
               <thead>
                 <tr>
-                  <th>Mã Lịch Hẹn</th>
-                  <th>Bệnh nhân</th>
-                  <th>Dịch vụ</th>
-                  <th>Bác sĩ</th>
-                  <th>Ngày & Giờ</th>
-                  <th>Trạng thái</th>
-                  <th>Thanh toán</th>
-                  <th>HSKB</th>
+                  <th style={{ width: '50px' }}>STT</th>
+                  <th onClick={() => handleSortColumn('code')} className={`admin-appt-page-sortable-th ${sortConfig.key === 'code' ? 'is-sorted' : ''}`}>Mã Lịch Hẹn {renderSortIndicator('code')}</th>
+                  <th onClick={() => handleSortColumn('patient')} className={`admin-appt-page-sortable-th ${sortConfig.key === 'patient' ? 'is-sorted' : ''}`}>Bệnh nhân {renderSortIndicator('patient')}</th>
+                  <th onClick={() => handleSortColumn('service')} className={`admin-appt-page-sortable-th ${sortConfig.key === 'service' ? 'is-sorted' : ''}`}>Dịch vụ {renderSortIndicator('service')}</th>
+                  <th onClick={() => handleSortColumn('doctor')} className={`admin-appt-page-sortable-th ${sortConfig.key === 'doctor' ? 'is-sorted' : ''}`}>Bác sĩ {renderSortIndicator('doctor')}</th>
+                  <th onClick={() => handleSortColumn('date')} className={`admin-appt-page-sortable-th ${sortConfig.key === 'date' ? 'is-sorted' : ''}`}>Ngày &amp; Giờ {renderSortIndicator('date')}</th>
+                  <th onClick={() => handleSortColumn('status')} className={`admin-appt-page-sortable-th ${sortConfig.key === 'status' ? 'is-sorted' : ''}`}>Trạng thái {renderSortIndicator('status')}</th>
+                  <th onClick={() => handleSortColumn('payment')} className={`admin-appt-page-sortable-th ${sortConfig.key === 'payment' ? 'is-sorted' : ''}`}>Thanh toán {renderSortIndicator('payment')}</th>
+                  <th onClick={() => handleSortColumn('medical')} className={`admin-appt-page-sortable-th ${sortConfig.key === 'medical' ? 'is-sorted' : ''}`}>Kết quả khám {renderSortIndicator('medical')}</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAppointments.length > 0 ? (
-                  filteredAppointments.map(apt => {
+                  filteredAppointments.map((apt, index) => {
                     const medicalRecord = apt.MedicalRecord;
                     const isExpanded = expandedRow === medicalRecord?.id;
+                    const linkedSummary = getLinkedAppointmentSummary(apt);
                     return (
                       <React.Fragment key={apt.id}>
                         <tr className={isExpanded ? 'amp-row-expanded' : ''}>
+                            <td data-label="STT" style={{ width: '50px', textAlign: 'center', fontWeight: 'bold' }}>{index + 1}</td>
                           <td data-label="Mã Lịch Hẹn">{apt.code}</td>
                           
                           {/* SỬA LỖI: KIỂM TRA KỸ DỮ LIỆU BỆNH NHÂN */}
@@ -795,6 +901,18 @@ const AppointmentManagementPage = () => {
                               <span className="amp-fw-bold text-wrap">{getAppointmentPatientName(apt)}</span>
                               <div className="amp-text-muted amp-small">
                                 <span className="frdeskpage-badge frdeskpage-badge-gray">{getAppointmentSourceLabel(apt)}</span>
+                                {getSubServiceRequirementLabel(apt) && (
+                                  <span
+                                    className="frdeskpage-badge"
+                                    style={{
+                                      marginLeft: '6px',
+                                      background: apt.booking_context?.required ? '#fee2e2' : '#e2e8f0',
+                                      color: apt.booking_context?.required ? '#b91c1c' : '#334155',
+                                    }}
+                                  >
+                                    {getSubServiceRequirementLabel(apt)}
+                                  </span>
+                                )}
                               </div>
                               <div className="amp-text-muted amp-small">
                                 {getPatientUser(apt.Patient) ? (
@@ -820,26 +938,48 @@ const AppointmentManagementPage = () => {
                             </div>
                           </td>
                           
-                          <td data-label="Dịch vụ" className="text-wrap">{apt.Service?.name || 'N/A'}</td>
+                          <td data-label="Dịch vụ" className="text-wrap">
+                            <div className="admin-appt-page-service-cell">
+                              <div className="admin-appt-page-service-name">{apt.Service?.name || 'N/A'}</div>
+                              {linkedSummary.isChild && linkedSummary.parentCode && (
+                                <div className="admin-appt-page-linked-meta">
+                                  <span className="admin-appt-page-linked-chip admin-appt-page-linked-chip-child">
+                                    <FaLink /> Lịch phụ
+                                  </span>
+                                  <span className="admin-appt-page-linked-text">
+                                    Thuộc lịch cha {linkedSummary.parentCode}
+                                  </span>
+                                </div>
+                              )}
+                              {!linkedSummary.isChild && linkedSummary.linkedChildren.length > 0 && (
+                                <div className="admin-appt-page-linked-meta">
+                                  <span className="admin-appt-page-linked-chip admin-appt-page-linked-chip-parent">
+                                    <FaLink /> {linkedSummary.linkedChildren.length} lịch phụ
+                                  </span>
+                                  <span className="admin-appt-page-linked-text">
+                                    Có chỉ định / lịch phụ liên kết
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
                           
                           <td data-label="Bác sĩ">
                             <div className="admin-appt-page-doctor-info">
-                              <FaUserMd className="amp-me-1"/>
                               <span>{apt.Doctor?.user?.full_name || 'Đang cập nhật'}</span>
+                              {apt.Doctor?.Specialty && <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '4px' }}>{apt.Doctor.Specialty.name || apt.Specialty?.name}</div>}
                             </div>
                           </td>
                           
                           <td data-label="Ngày & Giờ">
-                            <div className="admin-appt-page-datetime-info">
-                              <FaCalendarAlt /> <span className="amp-fw-bold">{new Date(apt.appointment_date).toLocaleDateString('vi-VN')}</span>
-                            </div>
-                            <div className="admin-appt-page-datetime-info">
-                              <FaClock /> <span className="amp-text-primary">{formatTime(apt.appointment_start_time)}</span>
+                            <div className="admin-appt-page-datetime-info" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+                              <span className="amp-fw-bold">{new Date(apt.appointment_date).toLocaleDateString('vi-VN')}</span>
+                              <span className="amp-text-primary">{formatTime(apt.appointment_start_time)}</span>
                             </div>
                           </td>
                           
                           <td data-label="Trạng thái">
-                            {getStatusBadge(apt.status)}
+                            {getStatusBadge(apt)}
                           </td>
                           
                           <td data-label="Thanh toán">
@@ -847,10 +987,10 @@ const AppointmentManagementPage = () => {
                             {apt.payment_method && (
                               <div className="payment-method-info">
                                 <small className="amp-text-muted">
-                                  {apt.payment_method === 'cash' ? '💵 Tiền mặt' :
-                                   apt.payment_method === 'card' ? '💳 Thẻ' :
-                                   apt.payment_method === 'bank_transfer' ? '🏦 Chuyển khoản' :
-                                   apt.payment_method === 'online' ? '🌐 Online' :
+                                  {apt.payment_method === 'cash' ? <>&nbsp;<FaMoneyBillWave /> Tiền mặt</> :
+                                   apt.payment_method === 'card' ? <>&nbsp;<FaCreditCard /> Thẻ</> :
+                                   apt.payment_method === 'bank_transfer' ? <>&nbsp;<FaUniversity /> Chuyển khoản</> :
+                                   apt.payment_method === 'online' ? <>&nbsp;<FaGlobe /> Online</> :
                                    apt.payment_method}
                                 </small>
                               </div>
@@ -864,21 +1004,12 @@ const AppointmentManagementPage = () => {
                             )}
                           </td>
                           
-                          <td data-label="HSKB">
+                          <td data-label="Kết quả khám">
                             {getMedicalRecordBadge(apt.medical_record_status || 'no_record')}
                           </td>
 
                           <td data-label="Thao tác">
                             <div className="admin-appt-page-action-buttons">
-                              <Link 
-                                to={`/lich-hen/${apt.code}`}
-                                className="admin-appt-page-btn-action amp-btn-view"
-                                title="Xem chi tiết"
-                              >
-                                <FaEye />
-                                <span className="amp-btn-label">Chi tiết</span>
-                              </Link>
-                              
                               {(() => {
                                 const isPaid = apt.payment_status === 'paid_online' || 
                                                apt.payment_status === 'paid_at_clinic' || 
@@ -890,7 +1021,7 @@ const AppointmentManagementPage = () => {
 
                                 return (
                                   <>
-                                    {/* --- BẮT ĐẦU: NÚT LẬP HỒ SƠ Y TẾ DÀNH CHO LÂM SÀNG --- */}
+                                    {/* Preserve 'Lập HS' button for clinical staff */}
                                     {isClinicalStaff && apt.appointment_type === 'offline' && 
                                      (apt.status === 'confirmed' || apt.status === 'in_progress' || isPaid) && 
                                      (!apt.medical_record_status || apt.medical_record_status === 'no_record') && (
@@ -903,36 +1034,26 @@ const AppointmentManagementPage = () => {
                                         <span className="amp-btn-label">Lập HS</span>
                                       </button>
                                     )}
-                                    {/* --- KẾT THÚC: NÚT LẬP HỒ SƠ Y TẾ --- */}
 
-                                    {apt.status === 'pending' && (
-                                      <button className="admin-appt-page-btn-action appointment-management-action-confirm" onClick={() => openActionModal(apt, 'confirm')} title="Xác nhận lịch hẹn" > 
-                                        <FaClipboardCheck />
-                                        <span className="amp-btn-label">Duyệt</span>
-                                      </button>
-                                    )}
-                                    {apt.payment_status === 'unpaid' && (apt.status === 'pending' || apt.status === 'confirmed') && (
-                                      <button 
-                                        className="admin-appt-page-btn-action appointment-management-action-payment" 
-                                        onClick={() => openPaymentModal(apt)} 
-                                        title="Xác nhận thanh toán tại quầy"
+                                    {/* Button: Xem kết quả cho bệnh nhân khi trạng thái Đang khám */}
+                                    {user?.role === 'patient' && apt.status === 'in_progress' && (
+                                      <button
+                                        className="admin-appt-page-btn-action appointment-management-action-view"
+                                        onClick={() => navigate(`/lich-hen/${apt.code}`)}
+                                        title="Xem kết quả"
                                       >
-                                        <FaMoneyBillWave />
-                                        <span className="amp-btn-label">Thanh toán</span>
+                                        <FaEye />
+                                        <span className="amp-btn-label">Xem kết quả</span>
                                       </button>
                                     )}
-                                    {(apt.status === 'confirmed' || apt.status === 'upcoming' || apt.status === 'in_progress' || (apt.status === 'pending' && isPaid)) && (
-                                      <button className="admin-appt-page-btn-action appointment-management-action-complete" onClick={() => navigate(`/nhap-ket-qua/${apt.code}`)} title="Hoàn thành & Nhập kết quả" > 
-                                        <FaStethoscope />
-                                        <span className="amp-btn-label">Nhập KQ</span>
-                                      </button>
-                                    )}
-                                    {(apt.status !== 'completed' && apt.status !== 'passed' && apt.status !== 'cancelled') && (
-                                      <button className="admin-appt-page-btn-action appointment-management-action-cancel" onClick={() => openActionModal(apt, 'cancel')} title="Hủy lịch hẹn" > 
-                                        <FaBan />
-                                        <span className="amp-btn-label">Hủy</span>
-                                      </button>
-                                    )}
+
+                                    <AppointmentActionButtons
+                                      role={user?.role === 'patient' ? 'patient' : 'doctor'}
+                                      appointment={apt}
+                                      detailPath={`/lich-hen/${apt.code}`}
+                                      onAction={handleAppointmentAction}
+                                      showMinimalActions={true}
+                                    />
                                   </>
                                 );
                               })()}
@@ -954,11 +1075,40 @@ const AppointmentManagementPage = () => {
                         
                         {isExpanded && medicalRecord && (
                           <tr className="admin-appt-page-expanded-row">
-                            <td colSpan="8">
+                            <td colSpan="10">
                               <div className="admin-appt-page-result-content">
                                 <p className="mb-2"><strong>Mã Hồ Sơ:</strong> {medicalRecord.record_code}</p>
                                 <p className="mb-2"><strong>Mã Tra Cứu:</strong> <span className="amp-text-danger amp-fw-bold">{medicalRecord.lookup_code}</span> <FaLock size={12} className="amp-text-danger"/></p>
                                 <p className="mb-2"><strong>Kết Luận:</strong> {medicalRecord.diagnosis || 'Chưa có kết luận'}</p>
+                                {(linkedSummary.isChild || linkedSummary.linkedChildren.length > 0) && (
+                                  <div className="admin-appt-page-linked-section">
+                                    <div className="admin-appt-page-linked-title">
+                                      <FaLink /> Liên kết lịch hẹn
+                                    </div>
+                                    {linkedSummary.isChild && linkedSummary.parentCode && (
+                                      <p className="admin-appt-page-linked-note mb-2">
+                                        Lịch này là lịch phụ của <strong>{linkedSummary.parentCode}</strong>
+                                      </p>
+                                    )}
+                                    {!linkedSummary.isChild && linkedSummary.linkedChildren.length > 0 && (
+                                      <div className="admin-appt-page-linked-list">
+                                        {linkedSummary.linkedChildren.map((link) => (
+                                          <div key={link.id || `${link.linked_appointment_code || link.appointment_code || 'link'}-${link.service_name || ''}`} className="admin-appt-page-linked-item">
+                                            <div className="admin-appt-page-linked-item-main">
+                                              <span className="admin-appt-page-linked-code">{link.linked_appointment_code || link.appointment_code || 'N/A'}</span>
+                                              <span className="admin-appt-page-linked-service">{link.service_name || 'Dịch vụ phụ'}</span>
+                                            </div>
+                                            <div className="admin-appt-page-linked-item-meta">
+                                              <span>{link.required ? 'Bắt buộc' : 'Tùy chọn'}</span>
+                                              <span>{formatLinkedMode(link.mode)}</span>
+                                              <StatusBadge status={link.status} />
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                                 <Link to={`/ho-so-kham-benh/${medicalRecord.record_code}`} className="amp-small amp-text-decoration-none amp-fw-bold">
                                   Xem chi tiết hồ sơ <FaChevronRight size={10} className="ms-1"/>
                                 </Link>
@@ -971,135 +1121,15 @@ const AppointmentManagementPage = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="8" className="text-center py-4 amp-text-muted">Không tìm thấy lịch hẹn nào theo bộ lọc.</td>
+                    <td colSpan="10" className="text-center py-4 amp-text-muted">Không tìm thấy lịch hẹn nào theo bộ lọc.</td>
                   </tr>
                 )}
               </tbody>
             </table>
               </div>
-            </>
+          </>
           ) : (
-            <>
-            {/* CHECKIN TAB */}
-            <div className="appointment-management-filter-panel" style={{ marginBottom: '20px' }}>
-              <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: '600' }}>Danh sách lịch hẹn cần checkin</h3>
-              <div className="appointment-management-filter-grid">
-                <div className="appointment-management-filter-group">
-                  <label><FaCalendarAlt /> Ngày khám</label>
-                  <input type="date" value={filters.date} onChange={(e) => handleFilterChange('date', e.target.value)} />
-                </div>
-                <div className="appointment-management-filter-group">
-                  <label><FaUserMd /> Bác sĩ</label>
-                  <input type="text" placeholder="Tên bác sĩ..." value={filters.doctor} onChange={(e) => handleFilterChange('doctor', e.target.value)} />
-                </div>
-                <div className="appointment-management-filter-group">
-                  <label><FaSearch /> Tìm kiếm</label>
-                  <input 
-                    type="text" 
-                    placeholder="Mã/Tên/Email/SĐT..." 
-                    value={filters.search} 
-                    onChange={(e) => handleFilterChange('search', e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="admin-appt-page-table-container">
-              <table className="admin-appt-page-table">
-                <thead>
-                  <tr>
-                    <th>Mã Lịch Hẹn</th>
-                    <th>Bệnh nhân</th>
-                    <th>Dịch vụ</th>
-                    <th>Bác sĩ</th>
-                    <th>Ngày & Giờ</th>
-                    <th>Trạng thái</th>
-                    <th>Thao tác Checkin</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAppointments.filter(apt => 
-                    apt.appointment_type === 'offline' && 
-                    (apt.status === 'confirmed' || apt.status === 'upcoming')
-                  ).length > 0 ? (
-                    filteredAppointments
-                      .filter(apt => 
-                        apt.appointment_type === 'offline' && 
-                        (apt.status === 'confirmed' || apt.status === 'upcoming')
-                      )
-                      .map(apt => (
-                        <tr key={apt.id}>
-                          <td data-label="Mã Lịch Hẹn" className="amp-fw-bold">{apt.code}</td>
-                          
-                          <td data-label="Bệnh nhân">
-                            <div className="admin-appt-page-patient-info">
-                              <span className="amp-fw-bold text-wrap">{getAppointmentPatientName(apt)}</span>
-                              <div className="amp-text-muted amp-small">
-                                {getPatientUser(apt.Patient) ? (
-                                  <>
-                                    <div className="amp-d-flex amp-align-items-center">
-                                      <FaPhone className="amp-me-1" size={10}/> {getAppointmentPatientPhone(apt)}
-                                    </div>
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="amp-d-flex amp-align-items-center">
-                                      <FaPhone className="amp-me-1" size={10}/> {apt.guest_phone || 'N/A'}
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          
-                          <td data-label="Dịch vụ" className="text-wrap">{apt.Service?.name || 'N/A'}</td>
-                          
-                          <td data-label="Bác sĩ">
-                            <div className="admin-appt-page-doctor-info">
-                              <FaUserMd className="amp-me-1"/>
-                              <span>{apt.Doctor?.user?.full_name || 'Đang cập nhật'}</span>
-                            </div>
-                          </td>
-                          
-                          <td data-label="Ngày & Giờ">
-                            <div className="admin-appt-page-datetime-info">
-                              <FaCalendarAlt /> <span className="amp-fw-bold">{new Date(apt.appointment_date).toLocaleDateString('vi-VN')}</span>
-                            </div>
-                            <div className="admin-appt-page-datetime-info">
-                              <FaClock /> <span className="amp-text-primary">{formatTime(apt.appointment_start_time)}</span>
-                            </div>
-                          </td>
-                          
-                          <td data-label="Trạng thái">
-                            {getStatusBadge(apt.status)}
-                          </td>
-
-                          <td data-label="Thao tác Checkin">
-                            <div className="admin-appt-page-action-buttons">
-                              <button 
-                                className="admin-appt-page-btn-action amp-btn-primary"
-                                onClick={() => {
-                                  // TODO: Implement checkin logic
-                                  toast.info('Tính năng checkin sẽ được cập nhật');
-                                }}
-                                title="Thực hiện Checkin"
-                              >
-                                <FaClipboardCheck />
-                                <span className="amp-btn-label">Checkin</span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                  ) : (
-                    <tr>
-                      <td colSpan="7" className="text-center py-4 amp-text-muted">Không có lịch hẹn nào cần checkin.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            </>
+            <CheckinTab />
           )}
         </div>
         
@@ -1116,6 +1146,9 @@ const AppointmentManagementPage = () => {
                   <p><strong>Mã:</strong> {selectedAppointment.code}</p>
                   <p><strong>Bệnh nhân:</strong> {getAppointmentPatientName(selectedAppointment)}</p>
                   <p><strong>Đặt cho:</strong> {getAppointmentSourceLabel(selectedAppointment)}</p>
+                  {getSubServiceRequirementLabel(selectedAppointment) && (
+                    <p><strong>Yêu cầu:</strong> {getSubServiceRequirementLabel(selectedAppointment)}</p>
+                  )}
                   <p><strong>Thời gian:</strong> {new Date(selectedAppointment.appointment_date).toLocaleDateString('vi-VN')} lúc {formatTime(selectedAppointment.appointment_start_time)}</p>
                 </div>
                 {actionType === 'confirm' ? (
@@ -1169,6 +1202,9 @@ const AppointmentManagementPage = () => {
                   <p><strong>Mã:</strong> {selectedAppointment.code}</p>
                   <p><strong>Bệnh nhân:</strong> {getAppointmentPatientName(selectedAppointment)}</p>
                   <p><strong>Đặt cho:</strong> {getAppointmentSourceLabel(selectedAppointment)}</p>
+                  {getSubServiceRequirementLabel(selectedAppointment) && (
+                    <p><strong>Yêu cầu:</strong> {getSubServiceRequirementLabel(selectedAppointment)}</p>
+                  )}
                   <p><strong>Dịch vụ:</strong> {selectedAppointment.Service?.name}</p>
                   <p><strong>Số tiền:</strong> {selectedAppointment.Service?.price?.toLocaleString('vi-VN')} đ</p>
                 </div>

@@ -149,7 +149,7 @@ async function sendAppointmentReminders() {
         {
           model: models.Patient,
           as: 'Patient',
-          include: [{ model: models.User, as: 'user', attributes: ['id', 'email', 'full_name'] }]
+          include: [{ model: models.User, as: 'User', attributes: ['id', 'email', 'full_name'] }]
         },
         {
           model: models.Doctor,

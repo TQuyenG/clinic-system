@@ -50,12 +50,12 @@ router.get('/packages', consultationController.getAllPublicPackages);
  * Tạo tư vấn mới (đặt lịch)
  * POST /api/consultations
  * Auth: Required
- * Role: patient
+ * Role: patient, staff, admin (quầy tiếp đón cần tạo giúp)
  */
 router.post(
   '/',
   authMiddleware,
-  authorize('patient'),
+  authorize('patient', 'staff', 'admin'),
   consultationController.createConsultation
 );
 
@@ -102,12 +102,12 @@ router.get(
  * LẤY KHUNG GIỜ KHẢ DỤNG (CHO TRANG ĐẶT LỊCH)
  * GET /api/consultations/available-slots
  * Auth: Required
- * Role: patient
+ * Role: patient, staff, admin (quầy tiếp đón cần xem slot)
  */
 router.get(
   '/available-slots',
   authMiddleware,
-  authorize('patient'), // Chỉ bệnh nhân mới cần xem slot để đặt
+  authorize('patient', 'staff', 'admin'),
   consultationController.getAvailableSlots
 );
 

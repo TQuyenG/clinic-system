@@ -1,5 +1,5 @@
 // client/src/App.js
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -68,11 +68,10 @@ import PermissionDebugPage from './pages/PermissionDebugPage';
 
 // Appointments & Medical Records
 import AppointmentBookingPage from './pages/AppointmentBookingPage';
-import MyAppointmentsPage from './pages/MyAppointmentsPage';
-import DoctorAppointmentsPage from './pages/DoctorAppointmentsPage';
 import AppointmentDetailPage from './pages/AppointmentDetailPage';
 import MedicalRecordFormPage from './pages/MedicalRecordFormPage';
 import MedicalRecordViewPage from './pages/MedicalRecordViewPage';
+import SharedHealthProfilePage from './pages/SharedHealthProfilePage';
 import DoctorMedicalRecordsPage from './pages/DoctorMedicalRecordsPage';
 import MyMedicalRecordsPage from './pages/MyMedicalRecordsPage';
 
@@ -114,10 +113,13 @@ import ConsultationPackageManagementPage from './pages/ConsultationPackageManage
 import GroupPostDetailPage from './pages/GroupPostDetailPage';
 
 // Toast & CSS
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './utils/css/toast.css'; 
+import CustomToasts from './components/common/CustomToasts';
+import { ToastProvider } from './contexts/ToastContext';
 import './App.css';
+import './styles/theme.css';
 import './services/ws'; // Initialize WebSocket
 
 // Marketing & Events
@@ -160,11 +162,8 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 
 // --- Component điều hướng trang lịch hẹn ---
 const AppointmentPageDispatcher = () => {
-  const { user } = useAuth();
-  if (user && user.role === 'doctor') {
-    return <DoctorAppointmentsPage />;
-  }
-  return <MyAppointmentsPage />;
+  // Unified appointment page for all roles; internal logic will fetch role-specific data
+  return <AppointmentManagementPage />;
 };
 
 const ReceptionRoute = ({ children }) => {
@@ -181,6 +180,10 @@ const ReceptionRoute = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user.role === 'admin') {
+    return children;
   }
 
   if (!(canAccessModule('appointments') || hasPermission('payments', 'pos'))) {
@@ -238,25 +241,13 @@ const ConsultationRealtimeRoute = ({ children }) => {
 
 // --- App Component ---
 function App() {
-  // Override native alert to use toast
-  useEffect(() => {
-    const _origAlert = window.alert;
-    window.alert = (msg) => {
-      try {
-        toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
-      } catch (err) {
-        toast.error('Thông báo');
-      }
-    };
-    return () => { window.alert = _origAlert; };
-  }, []);
-
   return (
     <Router>
       <DepartmentColorProvider>
         <AuthProvider>
-          <MainLayout>
-            <Routes>
+          <ToastProvider>
+            <MainLayout>
+              <Routes>
             {/* ========== 1. AUTH ========== */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/dang-nhap" element={<LoginPage />} />
@@ -365,13 +356,14 @@ function App() {
             <Route path="/ho-so-y-te" element={<ProtectedRoute requiredRole="patient"><MedicalRecordViewPage /></ProtectedRoute>} />
             <Route path="/danh-sach-ho-so" element={<ProtectedRoute requiredRole={['patient', 'doctor', 'admin', 'staff']}><MyMedicalRecordsPage /></ProtectedRoute>} />
             
-            <Route path="/lich-hen-cua-toi" element={<ProtectedRoute requiredRole={['patient', 'doctor']}><AppointmentPageDispatcher /></ProtectedRoute>} />
+            <Route path="/lich-hen-cua-toi" element={<ProtectedRoute requiredRole={['patient', 'doctor', 'admin', 'staff']}><AppointmentPageDispatcher /></ProtectedRoute>} />
             <Route path="/my-appointments" element={<Navigate to="/lich-hen-cua-toi" replace />} /> 
             
             <Route path="/lich-hen/:code" element={<ProtectedRoute requiredRole={['patient', 'doctor', 'staff', 'admin']}><AppointmentDetailPage /></ProtectedRoute>} />
             <Route path="/guest/appointment/:token" element={<AppointmentDetailPage />} />
             
-            <Route path="/nhap-ket-qua/:code" element={<ProtectedRoute requiredRole={['doctor', 'admin']}><MedicalRecordFormPage /></ProtectedRoute>} />
+            <Route path="/nhap-ket-qua/:code" element={<ProtectedRoute requiredRole={['doctor', 'admin', 'staff']}><MedicalRecordFormPage /></ProtectedRoute>} />
+            <Route path="/ho-so-suc-khoe-cong-khai/:code" element={<ProtectedRoute requiredRole={['doctor', 'admin', 'staff', 'patient']}><SharedHealthProfilePage /></ProtectedRoute>} />
             <Route path="/ket-qua-kham/:record_id" element={<ProtectedRoute requiredRole={['patient', 'doctor', 'admin', 'staff']}><MedicalRecordViewPage /></ProtectedRoute>} />
 
             {/* ========== 9. CONSULTATION (Tư vấn) ========== */}
@@ -426,22 +418,24 @@ function App() {
             {/* ========== 404 - NOT FOUND ========== */}
             <Route path="/404" element={<div style={{ textAlign: 'center', padding: '50px' }}><h1>404 - Không tìm thấy trang</h1><p>Trang bạn đang tìm kiếm không tồn tại</p><a href="/">Về trang chủ</a></div>} />
             <Route path="*" element={<Navigate to="/404" replace />} />
-          </Routes>
-        </MainLayout>
-        
-        <ToastContainer
-          position="bottom-right"
-          autoClose={6000}
-          hideProgressBar={false}
-          newestOnTop={true}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="light"
-          style={{ zIndex: 40000, bottom: '96px' }}
-        />
+              </Routes>
+            </MainLayout>
+            
+            <CustomToasts />
+            <ToastContainer
+              position="top-right"
+              autoClose={12000}
+              hideProgressBar={false}
+              newestOnTop={true}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="light"
+              style={{ zIndex: 40000, top: '96px', right: '20px' }}
+            />
+          </ToastProvider>
         </AuthProvider>
       </DepartmentColorProvider>
     </Router>

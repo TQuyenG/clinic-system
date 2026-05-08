@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
-  timeout: 10000,
+  timeout: 30000, // Tăng từ 10s lên 30s để tránh timeout khi transaction DB
   headers: {
     'Content-Type': 'application/json'
   }

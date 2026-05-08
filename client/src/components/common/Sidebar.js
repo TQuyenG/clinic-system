@@ -299,11 +299,12 @@ const Sidebar = ({ onToggle }) => {
       addIf(canAccessModule('appointments') || isDoctorUser, {
         id: 'manage_appointments',
         type: 'item',
-        to: isDoctorUser ? '/lich-hen-cua-toi' : '/quan-ly-lich-hen',
+        // Unified appointment management route for all roles
+        to: '/lich-hen-cua-toi',
         icon: FaClipboardList,
         label: isDoctorUser ? 'Lịch hẹn của tôi' : 'Quản lý lịch hẹn'
       });
-      addIf(canAccessModule('appointments') || hasPermission('payments', 'pos'), { id: 'manage_reception', type: 'item', to: '/quay-tiep-don', icon: FaHeadset, label: 'Tiếp đón / Check-in' });
+      addIf(isAdminUser || canAccessModule('appointments') || hasPermission('payments', 'pos'), { id: 'manage_reception', type: 'item', to: '/quay-tiep-don', icon: FaHeadset, label: 'Tiếp đón / Check-in' });
       // Allow doctors to access medical records menu even if module flag is off
       addIf(canAccessModule('medical_records') || isDoctorUser, { id: 'manage_medical_records', type: 'item', to: '/ho-so-benh-an', icon: FaFileMedicalAlt, label: 'Hồ sơ bệnh án' });
       addIf(canAccessModule('doctors') || canAccessModule('patients') || canAccessModule('staff_management') || isAdminUser, { id: 'manage_users', type: 'dropdown', icon: FaUsers, label: 'Quản lý người dùng' });

@@ -9,7 +9,8 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   FaUserMd, FaWeight, FaRuler, FaTint, FaIdCard, FaAllergies,
   FaHeartbeat, FaPhone, FaSave, FaEdit, FaCheckCircle, FaExclamationTriangle,
-  FaArrowLeft, FaCalculator, FaHistory, FaNotesMedical, FaInfoCircle
+  FaArrowLeft, FaCalculator, FaHistory, FaNotesMedical, FaInfoCircle,
+  FaToggleOn, FaToggleOff, FaTimes
 } from 'react-icons/fa';
 import './HealthProfilePage.css';
 
@@ -24,6 +25,9 @@ const HealthProfilePage = () => {
     completionRate: 0,
     missingFields: []
   });
+  const [showShareConfirmModal, setShowShareConfirmModal] = useState(false);
+  const [pendingShareValue, setPendingShareValue] = useState(false);
+  const [shareToggleLoading, setShareToggleLoading] = useState(false);
 
   const [healthData, setHealthData] = useState({
     height: '',
@@ -38,7 +42,8 @@ const HealthProfilePage = () => {
     vaccination_history: '',
     smoking_status: 'no',
     alcohol_consumption: 'no',
-    exercise_frequency: 'rarely'
+    exercise_frequency: 'rarely',
+    share_with_doctors: false
   });
 
   const [bmi, setBmi] = useState(null);
@@ -122,6 +127,30 @@ const HealthProfilePage = () => {
     setHealthData(prev => ({ ...prev, [field]: value }));
   };
 
+  const openShareConfirmModal = (nextValue) => {
+    setPendingShareValue(nextValue);
+    setShowShareConfirmModal(true);
+  };
+
+  const confirmShareToggle = async () => {
+    try {
+      setShareToggleLoading(true);
+      const payload = { ...healthData, share_with_doctors: pendingShareValue };
+      const res = await userService.updatePatientHealthInfo(payload);
+      if (res.data.success) {
+        toast.success(pendingShareValue ? 'Đã bật chia sẻ công khai cho bác sĩ' : 'Đã tắt chia sẻ công khai');
+        setShowShareConfirmModal(false);
+        setEditing(false);
+        await loadHealthProfile();
+      }
+    } catch (error) {
+      console.error('Toggle share profile error:', error);
+      toast.error('Không thể cập nhật trạng thái chia sẻ');
+    } finally {
+      setShareToggleLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="HealthProfilePage-loading">
@@ -171,6 +200,42 @@ const HealthProfilePage = () => {
             <FaInfoCircle /> Còn thiếu: {profileStatus.missingFields.join(', ')}
           </p>
         )}
+      </div>
+
+      <div className="HealthProfilePage-section" style={{ marginTop: '1rem' }}>
+        <div className="HealthProfilePage-section-header">
+          <h2><FaInfoCircle /> Chia sẻ hồ sơ cho bác sĩ</h2>
+        </div>
+        <div className="HealthProfilePage-section-content">
+          <div className="HealthProfilePage-form-group HealthProfilePage-full">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontWeight: 700 }}>Cho phép bác sĩ đang khám xem hồ sơ sức khỏe của tôi</div>
+                <small style={{ color: '#6b7280', display: 'block', marginTop: '0.35rem' }}>
+                  Khi bật, bác sĩ có thể xem nhanh các chỉ số cơ bản và tiền sử bệnh để hỗ trợ chẩn đoán.
+                </small>
+              </div>
+              <button
+                type="button"
+                className="HealthProfilePage-btn-save"
+                onClick={() => openShareConfirmModal(!healthData.share_with_doctors)}
+                disabled={shareToggleLoading}
+                style={{ minWidth: '240px' }}
+              >
+                {healthData.share_with_doctors ? <FaToggleOff /> : <FaToggleOn />}
+                {healthData.share_with_doctors ? 'Tắt chia sẻ công khai' : 'Bật chia sẻ công khai'}
+              </button>
+            </div>
+          </div>
+          {healthData.share_with_doctors && (
+            <div className="HealthProfilePage-completion-card" style={{ marginTop: '0.75rem', borderColor: '#22c55e' }}>
+              <div className="HealthProfilePage-completion-header">
+                <h3>Trạng thái chia sẻ</h3>
+                <span className="HealthProfilePage-completion-badge HealthProfilePage-complete">Đang công khai</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -403,6 +468,36 @@ const HealthProfilePage = () => {
           </div>
         )}
       </form>
+
+      {showShareConfirmModal && (
+        <div className="HealthProfilePage-modal-overlay" onClick={() => !shareToggleLoading && setShowShareConfirmModal(false)}>
+          <div className="HealthProfilePage-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="HealthProfilePage-modal-header">
+              <h3>
+                {pendingShareValue ? 'Bật chia sẻ công khai' : 'Tắt chia sẻ công khai'}
+              </h3>
+              <button type="button" className="HealthProfilePage-modal-close" onClick={() => setShowShareConfirmModal(false)} disabled={shareToggleLoading}>
+                <FaTimes />
+              </button>
+            </div>
+            <div className="HealthProfilePage-modal-body">
+              <p>
+                {pendingShareValue
+                  ? 'Bác sĩ đang khám sẽ có thể xem hồ sơ sức khỏe của bạn. Hãy đảm bảo các thông tin đã cập nhật là chính xác.'
+                  : 'Bác sĩ sẽ không còn nhìn thấy hồ sơ sức khỏe công khai của bạn từ các trang khám bệnh.'}
+              </p>
+            </div>
+            <div className="HealthProfilePage-modal-actions">
+              <button type="button" className="HealthProfilePage-btn-cancel" onClick={() => setShowShareConfirmModal(false)} disabled={shareToggleLoading}>
+                Hủy
+              </button>
+              <button type="button" className="HealthProfilePage-btn-save" onClick={confirmShareToggle} disabled={shareToggleLoading}>
+                {shareToggleLoading ? 'Đang cập nhật...' : 'Xác nhận'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -122,7 +122,8 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
   };
 
   // ✅ NO EMOJI - USE ICONS
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (sOrObj) => {
+    const status = (sOrObj && typeof sOrObj === 'object') ? sOrObj.status : sOrObj;
     const config = {
       'pending': { class: 'crl-badge-warn', icon: <FaClock/>, text: 'Chờ duyệt' },
       'confirmed': { class: 'crl-badge-info', icon: <FaCheckCircle/>, text: 'Đã xác nhận' },
@@ -318,7 +319,7 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
                                     )}
 
                                     {/* 3. Sắp diễn ra hoặc Đang diễn ra -> Nút VÀO PHÒNG */}
-                                    {(item.status === 'upcoming' || item.status === 'in_progress') && (
+                                    {(item.isUpcoming || item.status === 'in_progress') && (
                                       <button 
                                         className="crl-btn-icon success" 
                                         style={{ width: 'auto', padding: '0 10px', fontSize: '12px' }}
@@ -345,7 +346,7 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
                                     )}
                                     
                                     {/* Bác sĩ vào phòng */}
-                                    {(item.status === 'upcoming' || item.status === 'in_progress') && (
+                                    {(item.isUpcoming || item.status === 'in_progress') && (
                                        <button className="crl-btn-icon success" onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)} title="Vào phòng"><FaCheck /></button>
                                     )}
                                     

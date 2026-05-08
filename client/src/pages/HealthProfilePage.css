@@ -519,6 +519,85 @@
   color: #991b1b;
 }
 
+/* ===== MODAL ===== */
+.HealthProfilePage-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 9999;
+}
+
+.HealthProfilePage-modal-content {
+  width: min(520px, 100%);
+  background: var(--hpp-white);
+  border-radius: 16px;
+  border: 1px solid var(--hpp-border);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+}
+
+.HealthProfilePage-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--hpp-border-gray);
+  background: linear-gradient(90deg, #f0fdf4, #ffffff);
+}
+
+.HealthProfilePage-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--hpp-text-primary);
+}
+
+.HealthProfilePage-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--hpp-border-gray);
+  border-radius: 999px;
+  background: var(--hpp-gray-100);
+  color: var(--hpp-text-light);
+  cursor: pointer;
+}
+
+.HealthProfilePage-modal-body {
+  padding: 1rem 1.1rem 0.85rem;
+  color: var(--hpp-text-secondary);
+  line-height: 1.6;
+}
+
+.HealthProfilePage-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0.85rem 1.1rem 1.1rem;
+}
+
+@media (max-width: 640px) {
+  .HealthProfilePage-header {
+    flex-wrap: wrap;
+  }
+
+  .HealthProfilePage-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .HealthProfilePage-modal-actions .HealthProfilePage-btn-cancel,
+  .HealthProfilePage-modal-actions .HealthProfilePage-btn-save {
+    width: 100%;
+  }
+}
+
 .HealthProfilePage-form-group.HealthProfilePage-emergency label svg {
   color: var(--hpp-danger);
 }

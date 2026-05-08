@@ -40,6 +40,115 @@ const createInternalNotification = async (data, transaction = null) => {
     }
 };
 
+const isFinalMedicalRecordSubmit = (value) => String(value).toLowerCase() === 'false';
+
+const getPatientContactFromRecord = (record) => {
+  const appointment = record?.Appointment || {};
+  const appointmentPatientUser = appointment?.Patient?.User || appointment?.Patient?.user || null;
+  const directPatientUser = record?.Patient?.User || record?.Patient?.user || null;
+  const doctorUser = record?.Doctor?.user || appointment?.Doctor?.user || null;
+
+  const patientSource = directPatientUser || appointmentPatientUser || {};
+
+  return {
+    patient_name: patientSource.full_name || appointment.guest_name || null,
+    patient_phone: patientSource.phone || appointment.guest_phone || null,
+    patient_email: patientSource.email || appointment.guest_email || null,
+    doctor_name: doctorUser?.full_name || null,
+    doctor_phone: doctorUser?.phone || null
+  };
+};
+
+const serializeMedicalRecord = (record) => {
+  const plainRecord = record?.toJSON ? record.toJSON() : (record || {});
+  const patientContact = getPatientContactFromRecord(plainRecord);
+
+  return {
+    ...plainRecord,
+    ...patientContact,
+    Appointment: plainRecord.Appointment ? {
+      ...plainRecord.Appointment,
+      patient_name: patientContact.patient_name,
+      patient_phone: patientContact.patient_phone,
+      patient_email: patientContact.patient_email
+    } : null,
+    Patient: plainRecord.Patient ? {
+      ...plainRecord.Patient,
+      User: plainRecord.Patient.User || plainRecord.Patient.user || null
+    } : null,
+    Doctor: plainRecord.Doctor ? {
+      ...plainRecord.Doctor,
+      user: plainRecord.Doctor.user || null
+    } : null
+  };
+};
+
+const getMedicalRecordDetailInclude = () => ([
+  {
+    model: models.Appointment,
+    as: 'Appointment',
+    attributes: [
+      'id', 'code', 'patient_id', 'doctor_id', 'service_id',
+      'guest_name', 'guest_email', 'guest_phone', 'guest_gender', 'guest_dob',
+      'appointment_date', 'appointment_start_time', 'appointment_end_time',
+      'appointment_type', 'status', 'reason', 'payment_status', 'queue_type',
+      'queue_number', 'display_queue', 'booking_context', 'service_indications',
+      'next_appointment', 'medical_result', 'prescription', 'medical_files',
+      'completed_at', 'completed_by'
+    ],
+    include: [
+      {
+        model: models.Patient,
+        as: 'Patient',
+        attributes: ['id', 'user_id', 'username', 'code', 'medical_history'],
+        include: [{
+          model: models.User,
+          attributes: ['id', 'full_name', 'phone', 'email', 'gender', 'dob', 'avatar_url']
+        }]
+      },
+      {
+        model: models.Doctor,
+        as: 'Doctor',
+        attributes: ['id', 'user_id', 'username', 'code', 'specialty_id', 'experience_years', 'title', 'position', 'workplace'],
+        include: [{
+          model: models.User,
+          as: 'user',
+          attributes: ['id', 'full_name', 'phone', 'email', 'avatar_url']
+        }]
+      },
+      {
+        model: models.Service,
+        as: 'Service',
+        attributes: ['id', 'name', 'price', 'duration']
+      },
+      {
+        model: models.Specialty,
+        as: 'Specialty',
+        attributes: ['id', 'name', 'slug']
+      }
+    ]
+  },
+  {
+    model: models.Patient,
+    as: 'Patient',
+    attributes: ['id', 'user_id', 'username', 'code', 'medical_history'],
+    include: [{
+      model: models.User,
+      attributes: ['id', 'full_name', 'phone', 'email', 'gender', 'dob', 'avatar_url']
+    }]
+  },
+  {
+    model: models.Doctor,
+    as: 'Doctor',
+    attributes: ['id', 'user_id', 'username', 'code', 'specialty_id', 'experience_years', 'title', 'position', 'workplace'],
+    include: [{
+      model: models.User,
+      as: 'user',
+      attributes: ['id', 'full_name', 'phone', 'email', 'avatar_url']
+    }]
+  }
+]);
+
 /**
  * @desc    Helper xử lý đường dẫn file
  */
@@ -98,8 +207,10 @@ exports.createMedicalRecord = async (req, res) => {
       size: file.size
     })) : [];
 
+    const isFinalSubmit = isFinalMedicalRecordSubmit(is_draft);
+
     // --- SỬA: Kiểm tra cờ is_draft để quyết định trạng thái Record ---
-    const recordStatus = is_draft === 'true' ? 'draft' : 'completed';
+    const recordStatus = isFinalSubmit ? 'completed' : 'draft';
 
     // 4. Tạo Record
     const medicalRecord = await models.MedicalRecord.create({
@@ -126,16 +237,16 @@ exports.createMedicalRecord = async (req, res) => {
     
     // 5. Cập nhật trạng thái Appointment
     // --- SỬA: Nếu là lưu nháp, đổi status lịch hẹn thành 'in_progress' ---
-    const apptStatus = is_draft === 'true' ? 'in_progress' : 'completed';
+    const apptStatus = isFinalSubmit ? 'completed' : 'in_progress';
     await appointment.update({ 
       status: apptStatus, 
-      completed_at: is_draft === 'true' ? null : new Date(), 
+      completed_at: isFinalSubmit ? new Date() : null, 
       completed_by: req.user.id 
     }, { transaction: t });
 
     
-    // 5b. Tạo thông báo cho Bệnh nhân (nếu là user)
-    if(appointment.patient_id && appointment.Patient?.User) {
+    // 5b. Tạo thông báo cho Bệnh nhân (chỉ khi hoàn thành)
+    if (isFinalSubmit && appointment.patient_id && appointment.Patient?.User) {
         await createInternalNotification({
             user_id: appointment.Patient.User.id,
             type: 'appointment',
@@ -149,11 +260,11 @@ exports.createMedicalRecord = async (req, res) => {
     
     await t.commit();
 
-    // 6. Gửi Email (Bất đồng bộ - không cần await)
+    // 6. Gửi Email (Bất đồng bộ - không cần await, chỉ khi hoàn thành)
     const patientEmail = appointment.guest_email || appointment.Patient?.User?.email;
     const patientName = appointment.guest_name || appointment.Patient?.User?.full_name;
 
-    if (patientEmail && plaintextLookupCode) {
+    if (isFinalSubmit && patientEmail && plaintextLookupCode) {
       emailSender.sendEmail({
         to: patientEmail,
         subject: `[Bảo mật] Kết quả khám bệnh & Mã tra cứu cho lịch hẹn ${appointment.code}`,
@@ -170,7 +281,7 @@ exports.createMedicalRecord = async (req, res) => {
       await medicalRecord.update({ lookup_code_sent: true });
     }
 
-    res.status(201).json({ success: true, message: 'Tạo hồ sơ y tế thành công', data: medicalRecord });
+    res.status(201).json({ success: true, message: 'Tạo hồ sơ y tế thành công', data: serializeMedicalRecord(medicalRecord) });
 
   } catch (error) {
     if (t && !t.finished) await t.rollback();
@@ -246,6 +357,8 @@ exports.updateMedicalRecord = async (req, res) => {
     const finalReportFiles = [...keptReports, ...newReportFiles];
     
     // --- SỬA: Thiết lập Object cập nhật ---
+    const isFinalSubmit = isFinalMedicalRecordSubmit(is_draft);
+
     const updateData = {
       diagnosis: diagnosis || record.diagnosis,
       symptoms: symptoms || record.symptoms,
@@ -259,22 +372,28 @@ exports.updateMedicalRecord = async (req, res) => {
 
     if (vitals) updateData.vitals_json = JSON.parse(vitals);
     if (clinical_note) updateData.clinical_note = clinical_note;
-    if (is_draft === 'false') updateData.status = 'completed'; // Nếu Bác sĩ ấn lưu hoàn thành
+    updateData.status = isFinalSubmit ? 'completed' : 'draft';
+    updateData.record_stage = isFinalSubmit ? 'completed' : (record.record_stage || 'vitals_inputted');
 
     // 5. Cập nhật DB
     await record.update(updateData, { transaction: t });
 
     // --- SỬA: Nếu Bác sĩ hoàn thành, đổi status lịch hẹn thành 'completed' ---
-    if (is_draft === 'false') {
+    if (isFinalSubmit) {
       await models.Appointment.update(
         { status: 'completed', completed_at: new Date(), completed_by: req.user.id },
+        { where: { id: record.appointment_id }, transaction: t }
+      );
+    } else {
+      await models.Appointment.update(
+        { status: 'in_progress', completed_at: null, completed_by: null },
         { where: { id: record.appointment_id }, transaction: t }
       );
     }
     
     // 5b. Tạo thông báo cập nhật
     const appointment = record.Appointment;
-    if(appointment.patient_id && appointment.Patient?.User) {
+    if (isFinalSubmit && appointment.patient_id && appointment.Patient?.User) {
         await createInternalNotification({
             user_id: appointment.Patient.User.id,
             type: 'appointment',
@@ -299,11 +418,11 @@ exports.updateMedicalRecord = async (req, res) => {
       }
     });
 
-    // 7. Gửi Email thông báo cập nhật (KHÔNG gửi mã code)
+    // 7. Gửi Email thông báo cập nhật (KHÔNG gửi mã code, chỉ khi hoàn thành)
     const patientEmail = appointment.guest_email || appointment.Patient?.User?.email;
     const patientName = appointment.guest_name || appointment.Patient?.User?.full_name;
 
-    if (patientEmail) {
+    if (isFinalSubmit && patientEmail) {
       emailSender.sendEmail({
         to: patientEmail,
         subject: `[Cập nhật] Kết quả khám bệnh cho lịch hẹn ${appointment.code}`,
@@ -317,7 +436,7 @@ exports.updateMedicalRecord = async (req, res) => {
       });
     }
 
-    res.status(200).json({ success: true, message: 'Cập nhật hồ sơ thành công', data: record });
+    res.status(200).json({ success: true, message: 'Cập nhật hồ sơ thành công', data: serializeMedicalRecord(record) });
 
   } catch (error) {
     if (t && !t.finished) await t.rollback();
@@ -393,8 +512,39 @@ exports.lookupMedicalRecord = async (req, res) => {
       where: { appointment_id: appointment.id },
       // Include đầy đủ thông tin để hiển thị
       include: [
-        { model: models.Appointment, as: 'Appointment' },
-        { model: models.Doctor, as: 'Doctor', include: [{ model: models.User, as: 'user' }] },
+        {
+          model: models.Appointment,
+          as: 'Appointment',
+          attributes: ['id', 'code', 'guest_name', 'guest_email', 'guest_phone', 'appointment_date', 'appointment_start_time', 'appointment_end_time', 'appointment_type', 'status', 'service_id', 'doctor_id', 'patient_id'],
+          include: [
+            {
+              model: models.Patient,
+              as: 'Patient',
+              attributes: ['id', 'user_id', 'username', 'code'],
+              include: [{
+                model: models.User,
+                attributes: ['id', 'full_name', 'phone', 'email', 'avatar_url']
+              }]
+            },
+            {
+              model: models.Doctor,
+              as: 'Doctor',
+              include: [{ model: models.User, as: 'user', attributes: ['id', 'full_name', 'phone', 'email', 'avatar_url'] }]
+            },
+            {
+              model: models.Service,
+              as: 'Service',
+              attributes: ['id', 'name', 'price', 'duration']
+            },
+            {
+              model: models.Specialty,
+              as: 'Specialty',
+              attributes: ['id', 'name', 'slug']
+            }
+          ]
+        },
+        { model: models.Patient, as: 'Patient', include: [{ model: models.User, attributes: ['id', 'full_name', 'phone', 'email', 'avatar_url'] }] },
+        { model: models.Doctor, as: 'Doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'full_name', 'phone', 'email', 'avatar_url'] }] },
       ]
     });
     
@@ -410,7 +560,7 @@ exports.lookupMedicalRecord = async (req, res) => {
     }
 
     // 4. Trả về dữ liệu (frontend sẽ render)
-    res.status(200).json({ success: true, data: record });
+    res.status(200).json({ success: true, data: serializeMedicalRecord(record) });
 
   } catch (error) {
     console.error('ERROR in lookupMedicalRecord:', error);
@@ -505,11 +655,7 @@ exports.getMedicalRecordById = async (req, res) => {
     }
     
     const record = await models.MedicalRecord.findByPk(id, {
-      include: [
-        { model: models.Appointment, as: 'Appointment' },
-        { model: models.Patient, as: 'Patient', include: [{ model: models.User }] },
-        { model: models.Doctor, as: 'Doctor', include: [{ model: models.User, as: 'user' }] },
-      ]
+      include: getMedicalRecordDetailInclude()
     });
     
     if (!record) {
@@ -536,7 +682,7 @@ exports.getMedicalRecordById = async (req, res) => {
     }
     // admin và staff: được xem tất cả
     
-    res.status(200).json({ success: true, data: record });
+    res.status(200).json({ success: true, data: serializeMedicalRecord(record) });
   } catch (error) {
     console.error('ERROR in getMedicalRecordById:', error);
     res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
@@ -598,7 +744,7 @@ exports.getAdminMedicalRecords = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: rows,
+      data: rows.map(serializeMedicalRecord),
       pagination: { totalItems: count, totalPages: Math.ceil(count / limit), currentPage: parseInt(page), itemsPerPage: parseInt(limit) }
     });
 
@@ -796,7 +942,7 @@ exports.getMyMedicalRecords = async (req, res) => {
       order: [['created_at', 'DESC']]
     });
 
-    res.status(200).json({ success: true, data: records });
+    res.status(200).json({ success: true, data: records.map(serializeMedicalRecord) });
 
   } catch (error) {
     console.error('ERROR in getMyMedicalRecords:', error);

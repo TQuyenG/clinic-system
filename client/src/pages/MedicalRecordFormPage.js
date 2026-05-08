@@ -1,24 +1,582 @@
 // client/src/pages/MedicalRecordFormPage.js
 // FILE MỚI - Trang Nhập/Cập nhật Hồ sơ Y tế (BS/Admin)
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import appointmentService from '../services/appointmentService';
+import serviceService from '../services/serviceService';
 import medicalRecordService from '../services/medicalRecordService';
 import api from '../services/api'; // [MỚI] Import API instance
+import MedicalRecordSummarySections from '../components/medical/MedicalRecordSummarySections';
 
 // Import CSS
 import './MedicalRecordFormPage.css';
+import './MedicalRecordViewPage.css';
+
 
 // Import Icons (Theo yêu cầu, dùng thư viện)
 import {
   FaUserInjured, FaUserMd, FaCalendarAlt, FaNotesMedical,
   FaFileMedical, FaFilePrescription, FaUpload, FaTrash,
   FaPlus, FaSpinner, FaSave, FaExclamationTriangle,
-  FaFileImage, FaFilePdf, FaFileWord, FaTimes
+  FaFileImage, FaFilePdf, FaFileWord, FaTimes,
+  FaSun, FaCloudSun, FaMoon, FaInfoCircle, FaBolt
 } from 'react-icons/fa';
+
+// ─── helpers dùng chung trong SubServiceInline ───────────────────────────────
+const formatDateISO = (date) => {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const getNextThreeDays = () => {
+  const days = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    days.push(d);
+  }
+  return days;
+};
+
+const formatCheckinSlotLabel = (timeStr) => {
+  if (!timeStr) return '';
+  const [h, m] = String(timeStr).slice(0, 5).split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return String(timeStr).slice(0, 5);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} – ${String((h+1)%24).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+};
+
+const SHIFT_META = {
+  morning:   { label: 'Buổi sáng',  Icon: FaSun      },
+  afternoon: { label: 'Buổi chiều', Icon: FaCloudSun },
+  evening:   { label: 'Buổi tối',   Icon: FaMoon     },
+};
+
+// ─── SlotPicker: chọn ngày → load slot từ API → hiển thị slot grid ───────────
+const SlotPicker = ({ doctorId, serviceId, selectedDate, selectedTime, onDateChange, onTimeChange }) => {
+  const [loadingSlots, setLoadingSlots]     = useState(false);
+  const [availableShifts, setAvailableShifts] = useState({ morning: [], afternoon: [], evening: [] });
+  const nextThreeDays = getNextThreeDays();
+
+  useEffect(() => {
+    if (!doctorId || !selectedDate || !serviceId) {
+      setAvailableShifts({ morning: [], afternoon: [], evening: [] });
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setLoadingSlots(true);
+      try {
+        const res = await appointmentService.getAvailableSlots(doctorId, selectedDate, serviceId, 'offline');
+        if (cancelled) return;
+        if (res?.data?.success) {
+          const rawSlots = res.data.data?.raw || [];
+          const grouped = { morning: [], afternoon: [], evening: [] };
+          rawSlots.forEach(slot => {
+            if (slot.status === 'available' && grouped[slot.shift_name]) {
+              grouped[slot.shift_name].push({ time: slot.time, shift_name: slot.shift_name });
+            }
+          });
+          setAvailableShifts(grouped);
+        } else {
+          setAvailableShifts({ morning: [], afternoon: [], evening: [] });
+        }
+      } catch {
+        if (!cancelled) setAvailableShifts({ morning: [], afternoon: [], evening: [] });
+      } finally {
+        if (!cancelled) setLoadingSlots(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [doctorId, selectedDate, serviceId]);
+
+  const hasAnySlot = availableShifts.morning.length || availableShifts.afternoon.length || availableShifts.evening.length;
+
+  if (!doctorId || !serviceId) {
+    return (
+      <div className="mrfp-slot-picker-hint">
+        <FaInfoCircle /> Vui lòng chọn dịch vụ phụ trước khi chọn lịch.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mrfp-slot-picker">
+      {/* Chọn ngày */}
+      <div className="mrfp-slot-date-row">
+        {nextThreeDays.map(date => {
+          const iso = formatDateISO(date);
+          return (
+            <button
+              key={iso}
+              type="button"
+              className={`mrfp-slot-date-btn ${selectedDate === iso ? 'active' : ''}`}
+              onClick={() => { onDateChange(iso); onTimeChange(''); }}
+            >
+              <span className="mrfp-slot-date-weekday">
+                {date.toLocaleDateString('vi-VN', { weekday: 'short' })}
+              </span>
+              <strong className="mrfp-slot-date-num">
+                {date.getDate()}/{date.getMonth() + 1}
+              </strong>
+            </button>
+          );
+        })}
+        <input
+          type="date"
+          className="mrfp-slot-date-input"
+          value={selectedDate}
+          min={formatDateISO(new Date())}
+          onChange={e => { onDateChange(e.target.value); onTimeChange(''); }}
+        />
+      </div>
+
+      {/* Slot grid */}
+      {selectedDate && (
+        <div className="mrfp-slot-grid-area">
+          {loadingSlots ? (
+            <div className="mrfp-slot-loading">
+              <FaSpinner className="mrfp-slot-spin" /> Đang tải lịch trống...
+            </div>
+          ) : !hasAnySlot ? (
+            <div className="mrfp-slot-empty">
+              <FaExclamationTriangle /> Không có slot trống cho ngày này.
+            </div>
+          ) : (
+            ['morning', 'afternoon', 'evening'].map(pd => {
+              const slots = availableShifts[pd];
+              if (!slots?.length) return null;
+              const { label, Icon } = SHIFT_META[pd];
+              return (
+                <div key={pd} className="mrfp-slot-section">
+                  <div className="mrfp-slot-section-label">
+                    <Icon /> {label}
+                  </div>
+                  <div className="mrfp-slot-grid">
+                    {slots.map((slot, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`mrfp-slot-btn ${selectedTime === slot.time ? 'active' : ''}`}
+                        onClick={() => onTimeChange(slot.time)}
+                      >
+                        {formatCheckinSlotLabel(slot.time)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── SubServiceInline ─────────────────────────────────────────────────────────
+const SubServiceInline = ({ parentAppointment, rows: externalRows = null, onChange }) => {
+  const rootRef = useRef(null);
+  const [pickerRowId, setPickerRowId] = useState(null);
+  const [pickerQuery, setPickerQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [rowsState, setRowsState] = useState([]);
+  const rows = Array.isArray(externalRows) ? externalRows : rowsState;
+  const updateRows = (next) => {
+    if (typeof onChange === 'function') onChange(next);
+    setRowsState(next);
+  };
+  const [submittingRow, setSubmittingRow] = useState(null);
+
+  const parentContext = {
+    code: parentAppointment?.code || '--',
+    patientName: parentAppointment?.patient_name || parentAppointment?.Patient?.User?.full_name || parentAppointment?.guest_name || '--',
+    patientPhone: parentAppointment?.patient_phone || parentAppointment?.Patient?.User?.phone || parentAppointment?.guest_phone || '--',
+    doctorName: parentAppointment?.doctor_name || parentAppointment?.Doctor?.user?.full_name || '--',
+    date: parentAppointment?.appointment_date ? new Date(parentAppointment.appointment_date).toLocaleDateString('vi-VN') : '--',
+  };
+
+  const selectedServiceIds = new Set(rows.filter((row) => row.service_id).map((row) => row.service_id));
+  const linkedCount = rows.filter((row) => row.service_id && (row.appointment_code || row.status === 'scheduled' || row.status === 'immediate')).length;
+
+  const getTextValue = (value) => {
+    if (value == null) return '';
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+    if (typeof value === 'object') return value.name || value.title || value.label || '';
+    return '';
+  };
+
+  const normalizeService = (service) => ({
+    id: service?.id,
+    name: getTextValue(service?.name || service?.title),
+    price: service?.price || 0,
+    specialtyName: getTextValue(service?.specialty_name || service?.specialty),
+    departmentName: getTextValue(service?.department_name || service?.department),
+    description: getTextValue(service?.description),
+  });
+
+  useEffect(() => {
+    // If externalRows provided, prefer that. Otherwise initialize from parentAppointment when empty.
+    if (Array.isArray(externalRows) && externalRows.length > 0) {
+      setRowsState(externalRows);
+      return;
+    }
+    if (Array.isArray(parentAppointment?.service_indications) && parentAppointment.service_indications.length > 0 && rows.length === 0) {
+      const mapped = parentAppointment.service_indications.map((item, index) => ({
+        id: item.id || item.linked_appointment_id || Date.now() + index,
+        service_id: item.service_id || null,
+        service_name: item.service_name || item.name || '',
+        price: item.price || 0,
+        doctor_id: parentAppointment?.Doctor?.id || null,
+        specialty: item.specialty || '',
+        date: item.appointment_date || '',
+        time: item.appointment_start_time || '',
+        required: Boolean(item.required),
+        mode: item.mode || 'schedule',
+        status: item.status || (item.linked_appointment_code ? 'scheduled' : ''),
+        appointment_code: item.linked_appointment_code || item.appointment_code || null,
+        appointment_id: item.linked_appointment_id || item.appointment_id || null,
+      }));
+      updateRows(mapped);
+    }
+  }, [parentAppointment, externalRows]);
+
+  useEffect(() => {
+    if (pickerRowId == null) {
+      setResults([]);
+      setPickerQuery('');
+      return;
+    }
+
+    if (pickerQuery && pickerQuery.trim().length > 1) {
+      const t = setTimeout(() => loadServices(pickerQuery), 300);
+      return () => clearTimeout(t);
+    }
+
+    if (!pickerQuery || pickerQuery.trim().length === 0) {
+      loadServices('');
+    } else {
+      setResults([]);
+    }
+  }, [pickerQuery, pickerRowId]);
+
+  useEffect(() => {
+    const onDocMouseDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setPickerRowId(null);
+      }
+    };
+    window.addEventListener('mousedown', onDocMouseDown);
+    return () => {
+      window.removeEventListener('mousedown', onDocMouseDown);
+    };
+  }, []);
+
+  const loadServices = async (q) => {
+    try {
+      setLoadingResults(true);
+      const res = await serviceService.getPublicServices({ search: q, limit: 20 });
+      const payload = res?.data?.data;
+      let list = [];
+      if (Array.isArray(payload)) list = payload;
+      else if (Array.isArray(res?.data)) list = res.data;
+      else if (payload && Array.isArray(payload.data)) list = payload.data;
+      else if (payload && Array.isArray(payload.items)) list = payload.items;
+      else if (payload && Array.isArray(payload.services)) list = payload.services;
+      else list = [];
+      setResults(list);
+    } catch (err) {
+      console.error('Load services error', err);
+      setResults([]);
+    } finally {
+      setLoadingResults(false);
+    }
+  };
+
+  const addRow = () => {
+    const newRow = {
+      id: Date.now() + Math.random(),
+      service_id: null,
+      service_name: '',
+      price: 0,
+      doctor_id: parentAppointment?.Doctor?.id || null,
+      specialty: '',
+      date: '',
+      time: '',
+      mode: 'schedule',
+      required: false,
+    };
+    updateRows([...(rows || []), newRow]);
+  };
+
+  const findEarliestSlotAndPatch = async (row) => {
+    try {
+      // search next 3 days for first available slot
+      const days = getNextThreeDays();
+      for (const d of days) {
+        const iso = formatDateISO(d);
+        const res = await appointmentService.getAvailableSlots(row.doctor_id || parentAppointment?.Doctor?.id, iso, row.service_id, 'offline');
+        if (res?.data?.success) {
+          const raw = res.data.data?.raw || [];
+          const available = raw.find(s => s.status === 'available');
+          if (available && available.time) {
+            patchRow(row.id, { date: iso, time: available.time });
+            return { date: iso, time: available.time };
+          }
+        }
+      }
+      // no slot found - leave as is
+      return null;
+    } catch (err) {
+      console.error('Error finding earliest slot', err);
+      return null;
+    }
+  };
+
+  const openPicker = (rowId) => {
+    if (pickerRowId === rowId) {
+      // toggle off
+      setPickerRowId(null);
+      return;
+    }
+    setPickerRowId(rowId);
+    setPickerQuery('');
+    loadServices('');
+  };
+
+  const selectServiceForRow = (rowId, service) => {
+    const normalized = normalizeService(service);
+    if (!normalized.id) return;
+    if (selectedServiceIds.has(normalized.id)) return;
+    updateRows((rows || []).map((row) => (
+      row.id === rowId
+        ? {
+            ...row,
+            service_id: normalized.id,
+            service_name: normalized.name,
+            price: normalized.price,
+            specialty: normalized.specialtyName,
+          }
+        : row
+    )));
+    setPickerRowId(null);
+  };
+
+  const removeRow = (rowId) => updateRows((rows || []).filter((x) => x.id !== rowId));
+  const patchRow = (rowId, patch) => updateRows((rows || []).map((x) => (x.id === rowId ? { ...x, ...patch } : x)));
+
+  const handleSchedule = async (row) => {
+    const mode = row.mode === 'immediate' ? 'immediate' : 'schedule';
+    const appointmentDate = row.date || parentAppointment?.appointment_date || new Date().toISOString().split('T')[0];
+    const appointmentTime = row.time || parentAppointment?.appointment_start_time || new Date().toTimeString().slice(0, 8);
+    if (!row.service_id || !parentAppointment?.code) return;
+    if (mode === 'schedule' && (!row.date || !row.time)) return;
+    try {
+      setSubmittingRow(row.id);
+      const payload = {
+        service_id: row.service_id,
+        service_name: row.service_name,
+        mode,
+        appointment_date: appointmentDate,
+        appointment_start_time: appointmentTime,
+        required: row.required,
+      };
+      const res = await appointmentService.createSubServiceAppointment(parentAppointment.code, payload);
+      if (res?.data?.success) {
+        const created = res?.data?.data || {};
+        patchRow(row.id, {
+          status: mode === 'immediate' ? 'immediate' : 'scheduled',
+          appointment_code: created.code || null,
+          appointment_id: created.id || null,
+          date: created.appointment_date || appointmentDate,
+          time: created.appointment_start_time || appointmentTime,
+        });
+      }
+    } catch (err) {
+      console.error('Schedule booking error', err);
+      toast.error('Đặt lịch thất bại. Vui lòng thử lại.');
+    } finally {
+      setSubmittingRow(null);
+    }
+  };
+
+  return (
+    <div className="medical-record-form-page-subservice-root" ref={rootRef}>
+      <div className="medical-record-form-page-subservice-header">
+        <div>
+          <div className="medical-record-form-page-subservice-title">Chọn dịch vụ phụ</div>
+          <div className="medical-record-form-page-subservice-subtitle">
+            Chọn dịch vụ từ kho, rồi gắn ngay vào lịch hiện tại để bác sĩ và quầy dễ theo dõi.
+          </div>
+        </div>
+        <div className="medical-record-form-page-subservice-header-actions">
+          <div className="medical-record-form-page-subservice-count">Đã chọn {rows.filter((row) => row.service_id).length} dịch vụ</div>
+          <button type="button" className="medical-record-form-page-subservice-btn-add-row" onClick={addRow}>
+            <FaPlus /> Thêm dịch vụ phụ
+          </button>
+        </div>
+      </div>
+
+      <div className="medical-record-form-page-subservice-summary">
+        <div className="medical-record-form-page-subservice-summary-item">
+          <span className="medical-record-form-page-subservice-summary-label">Lịch gốc</span>
+          <strong>{parentContext.code}</strong>
+        </div>
+        <div className="medical-record-form-page-subservice-summary-item">
+          <span className="medical-record-form-page-subservice-summary-label">Bệnh nhân</span>
+          <strong>{parentContext.patientName}</strong>
+          <small>{parentContext.patientPhone}</small>
+        </div>
+        <div className="medical-record-form-page-subservice-summary-item">
+          <span className="medical-record-form-page-subservice-summary-label">Bác sĩ</span>
+          <strong>{parentContext.doctorName}</strong>
+          <small>{parentContext.date}</small>
+        </div>
+        <div className="medical-record-form-page-subservice-summary-item medical-record-form-page-subservice-summary-item--highlight">
+          <span className="medical-record-form-page-subservice-summary-label">Đã liên kết</span>
+          <strong>{linkedCount}</strong>
+          <small>dịch vụ đã có lịch hoặc đã đánh dấu</small>
+        </div>
+      </div>
+
+      <div className="medical-record-form-page-subservice-rows">
+        {rows.length === 0 ? (
+          <div className="medical-record-form-page-subservice-empty">Chưa có dịch vụ phụ nào. Bấm <strong>Thêm dịch vụ phụ</strong> để bắt đầu.</div>
+        ) : (
+          rows.map((row, index) => (
+            <div className="medical-record-form-page-subservice-row" key={row.id}>
+              {/* Hàng 1: Số thứ tự + Tên dịch vụ (dropdown) + Nút xóa */}
+              <div className="medical-record-form-page-subservice-row-line1">
+                <div className="medical-record-form-page-subservice-row-index">{index + 1}</div>
+                <div className="medical-record-form-page-subservice-row-name-wrap">
+                  <button
+                    type="button"
+                    className={`medical-record-form-page-subservice-service-field ${row.service_id ? 'has-value' : 'placeholder'}`}
+                    onClick={() => openPicker(row.id)}
+                  >
+                    {row.service_name || 'Tên dịch vụ'}
+                  </button>
+                  {pickerRowId === row.id && (
+                    <div className="medical-record-form-page-subservice-picker">
+                      <div className="medical-record-form-page-subservice-picker-search">
+                        <input
+                          value={pickerQuery}
+                          onChange={(e) => setPickerQuery(e.target.value)}
+                          placeholder="Tìm dịch vụ..."
+                          className="medical-record-form-page-subservice-picker-input"
+                        />
+                        {loadingResults && <FaSpinner className="medical-record-form-page-subservice-spin" />}
+                      </div>
+                      <div className="medical-record-form-page-subservice-picker-list">
+                        {results.length === 0 ? (
+                          <div className="medical-record-form-page-subservice-picker-empty">Không có dịch vụ phù hợp.</div>
+                        ) : results.map((service) => (
+                          <button
+                            type="button"
+                            key={service.id}
+                            className="medical-record-form-page-subservice-picker-item"
+                            disabled={selectedServiceIds.has(service.id)}
+                            onClick={() => selectServiceForRow(row.id, service)}
+                          >
+                            <div className="medical-record-form-page-subservice-picker-item-top">
+                              <strong>{getTextValue(service.name || service.title)}</strong>
+                              <span className="medical-record-form-page-subservice-picker-meta-inline">{getTextValue(service.specialty_name || service.specialty || service.department_name || service.department)} • {Number(service.price || 0).toLocaleString()}đ</span>
+                            </div>
+                            <div className="medical-record-form-page-subservice-picker-item-bottom">
+                              <span className="medical-record-form-page-subservice-picker-action">{selectedServiceIds.has(service.id) ? 'Đã thêm' : 'Thêm'}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <button type="button" className="medical-record-form-page-subservice-btn-remove" onClick={() => removeRow(row.id)}>
+                  <FaTrash />
+                </button>
+              </div>
+
+              {/* Hàng 2: Chuyên khoa + Giá tiền + Badge */}
+              <div className="medical-record-form-page-subservice-row-line2">
+                <span className="medical-record-form-page-subservice-row-price">
+                  {getTextValue(row.specialty) ? `${getTextValue(row.specialty)} • ` : ''}{Number(row.price || 0).toLocaleString()}đ
+                </span>
+                <div className={`medical-record-form-page-subservice-required-badge ${row.required ? 'is-required' : 'is-optional'}`}>
+                  {row.required ? 'Bắt buộc' : 'Tùy chọn'}
+                </div>
+                {row.status === 'scheduled' && (
+                  <div className="medical-record-form-page-subservice-required-badge is-optional">Đã tạo lịch</div>
+                )}
+                {row.status === 'immediate' && (
+                  <div className="medical-record-form-page-subservice-required-badge is-required">Làm ngay</div>
+                )}
+              </div>
+
+              {/* Hàng 3: Chọn ngày + Slot picker + Checkboxes + Buttons hành động */}
+              <div className="medical-record-form-page-subservice-row-line3">
+                {/* Slot picker để chọn ngày/giờ */}
+                {row.service_id && (
+                    <SlotPicker
+                    doctorId={row.doctor_id || parentAppointment?.Doctor?.id}
+                    serviceId={row.service_id}
+                    selectedDate={row.date}
+                    selectedTime={row.time}
+                    onDateChange={(date) => patchRow(row.id, { date, time: '' })}
+                    onTimeChange={(time) => patchRow(row.id, { time })}
+                  />
+                )}
+
+                {/* Controls hàng dưới */}
+                <div className="medical-record-form-page-subservice-row-line3-controls">
+                  <label className="medical-record-form-page-subservice-row-required" title="Đánh dấu dịch vụ này là bắt buộc phải thực hiện cho bệnh nhân">
+                    <input
+                      type="checkbox"
+                      checked={row.required}
+                      onChange={(e) => patchRow(row.id, { required: e.target.checked })}
+                    /> Bắt buộc
+                  </label>
+                  <label className="medical-record-form-page-subservice-row-do-now" title="Chọn để hệ thống tìm slot trống sớm nhất, sau đó nhấn 'Tạo liên kết ngay' để đặt lịch">
+                    <input
+                      type="checkbox"
+                      checked={row.mode === 'immediate'}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          patchRow(row.id, { mode: 'immediate' });
+                        } else {
+                          patchRow(row.id, { mode: 'schedule' });
+                        }
+                      }}
+                    /> Làm ngay
+                  </label>
+                  <div className="medical-record-form-page-subservice-row-actions">
+                    <button
+                      type="button"
+                      className="medical-record-form-page-subservice-btn-schedule"
+                      onClick={() => handleSchedule(row)}
+                      disabled={row.mode === 'schedule' && (!row.date || !row.time || submittingRow === row.id)}
+                      title={row.mode === 'schedule' && (!row.date || !row.time) ? 'Vui lòng chọn ngày và giờ trước khi đặt lịch' : (row.mode === 'immediate' ? 'Nhấn để tạo lịch liên kết' : 'Nhấn để đặt lịch liên kết')}
+                    >
+                      {submittingRow === row.id
+                        ? <FaSpinner className="medical-record-form-page-subservice-spin" />
+                        : row.mode === 'immediate' ? <FaBolt /> : <FaCalendarAlt />
+                      } {row.mode === 'immediate' ? 'Tạo liên kết ngay' : 'Đặt lịch liên kết'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
 
 const MedicalRecordFormPage = () => {
   const { code } = useParams(); // Mã lịch hẹn (AP-1234)
@@ -27,11 +585,14 @@ const MedicalRecordFormPage = () => {
   const { user } = useAuth();
 
   const recordId = searchParams.get('record_id');
-  const isUpdateMode = useMemo(() => !!recordId, [recordId]);
+  const [activeRecordId, setActiveRecordId] = useState(recordId);
+  const isUpdateMode = useMemo(() => !!activeRecordId, [activeRecordId]);
 
   const [appointment, setAppointment] = useState(null);
+  const [subServiceRows, setSubServiceRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   // === Form State ===
   // 1. Dữ liệu text
@@ -54,7 +615,7 @@ const MedicalRecordFormPage = () => {
 
   // 2. Đơn thuốc
   const [prescriptionList, setPrescriptionList] = useState([
-    { name: '', dosage: '', quantity: '', instructions: '' }
+    { name: '', dosage: '', quantity: '', instructions: '', unit: '' }
   ]);
 
   // 3. Files (Logic upload phức tạp)
@@ -68,7 +629,83 @@ const MedicalRecordFormPage = () => {
   // [MỚI] State quản lý gợi ý thuốc
   const [medicineSuggestions, setMedicineSuggestions] = useState([]); 
   const [showSuggestionsIndex, setShowSuggestionsIndex] = useState(null);
-  const [serviceIndicationText, setServiceIndicationText] = useState('');
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  const getPatientName = () => appointment?.patient_name || appointment?.Patient?.User?.full_name || appointment?.guest_name || '--';
+  const getPatientPhone = () => appointment?.patient_phone || appointment?.Patient?.User?.phone || appointment?.guest_phone || '--';
+  const getPatientEmail = () => appointment?.patient_email || appointment?.Patient?.User?.email || appointment?.guest_email || '--';
+  const getDoctorName = () => appointment?.doctor_name || appointment?.Doctor?.user?.full_name || '--';
+  const getDoctorPhone = () => appointment?.doctor_phone || appointment?.Doctor?.user?.phone || '--';
+  const getDoctorEmail = () => appointment?.doctor_email || appointment?.Doctor?.user?.email || '--';
+  const getServiceName = () => appointment?.service_name || appointment?.Service?.name || (appointment?.Appointment && appointment.Appointment.service_name) || '';
+  const previewTestImages = [
+    ...keptTestImages.map((file) => ({ ...file, source: 'Cũ' })),
+    ...newTestImages.map((it) => ({ name: it.name, originalname: it.name, source: 'Mới', url: it.url, size: it.size }))
+  ];
+  const previewReportFiles = [
+    ...keptReportFiles.map((file) => ({ ...file, source: 'Cũ' })),
+    ...newReportFiles.map((it) => ({ name: it.name, originalname: it.name, source: 'Mới', url: it.url, size: it.size }))
+  ];
+
+  // File upload limits (reasonable average-high defaults)
+  const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB per file
+  const MAX_TOTAL_BYTES = 30 * 1024 * 1024; // 30 MB total
+  const [notifyDoctor, setNotifyDoctor] = useState(true);
+  const previewServiceIndications = (Array.isArray(subServiceRows) && subServiceRows.length > 0)
+    ? subServiceRows
+    : (Array.isArray(appointment?.service_indications)
+      ? appointment.service_indications
+      : Array.isArray(appointment?.Appointment?.service_indications)
+        ? appointment.Appointment.service_indications
+        : Array.isArray(appointment?.MedicalRecord?.service_indications)
+          ? appointment.MedicalRecord.service_indications
+          : []);
+  const previewRecord = {
+    ...appointment,
+    patient_name: getPatientName(),
+    patient_phone: getPatientPhone(),
+    patient_email: getPatientEmail(),
+    doctor_name: getDoctorName(),
+    doctor_phone: getDoctorPhone(),
+    doctor_email: getDoctorEmail(),
+    diagnosis: formData.diagnosis,
+    symptoms: formData.symptoms,
+    treatment_plan: formData.treatment_plan,
+    advice: formData.advice,
+    follow_up_date: formData.follow_up_date,
+    prescription_json: prescriptionList,
+    vitals_json: formData.vitals,
+    clinical_note: formData.clinical_note,
+    service_indications: previewServiceIndications,
+    test_images_json: previewTestImages,
+    report_files_json: previewReportFiles,
+    Appointment: {
+      ...(appointment || {}),
+      appointment_date: appointment?.appointment_date,
+      patient_name: getPatientName(),
+      patient_phone: getPatientPhone(),
+      patient_email: getPatientEmail(),
+      guest_name: appointment?.guest_name,
+      guest_phone: appointment?.guest_phone,
+      service_indications: previewServiceIndications,
+    },
+    Doctor: appointment?.Doctor || { user: { full_name: getDoctorName() } },
+  };
+
+  const sharedHealthHistory = useMemo(() => {
+    const raw = appointment?.Patient?.medical_history;
+    if (!raw) return null;
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw);
+      } catch (error) {
+        return null;
+      }
+    }
+    return raw;
+  }, [appointment]);
+
+  const canViewSharedHealthProfile = Boolean(sharedHealthHistory?.share_with_doctors);
 
   // === Tải dữ liệu ===
   useEffect(() => {
@@ -84,17 +721,34 @@ const MedicalRecordFormPage = () => {
         }
         const appt = apptResponse.data.data;
         setAppointment(appt);
-
-        // Nếu là chế độ TẠO nhưng lịch hẹn này đã có hồ sơ y tế, chuyển sang trang Cập nhật
-        if (!isUpdateMode && appt?.MedicalRecord) {
-          toast.info('Lịch hẹn này đã có hồ sơ y tế. Chuyển sang trang cập nhật.');
-          navigate(`/lich-hen/${code}?record_id=${appt.MedicalRecord.id}`);
-          return;
+        const currentRecordId = recordId || appt?.MedicalRecord?.id || null;
+        if (currentRecordId) {
+          setActiveRecordId(String(currentRecordId));
         }
+        // initialize sub-service rows from appointment if present
+        const initialSvc = Array.isArray(appt?.service_indications) ? appt.service_indications
+          : Array.isArray(appt?.Appointment?.service_indications) ? appt.Appointment.service_indications
+          : Array.isArray(appt?.MedicalRecord?.service_indications) ? appt.MedicalRecord.service_indications
+          : [];
+        setSubServiceRows(initialSvc.map((item, index) => ({
+          id: item.id || item.linked_appointment_id || Date.now() + index,
+          service_id: item.service_id || null,
+          service_name: item.service_name || item.name || '',
+          price: item.price || 0,
+          doctor_id: appt?.Doctor?.id || null,
+          specialty: item.specialty || '',
+          date: item.appointment_date || '',
+          time: item.appointment_start_time || '',
+          required: Boolean(item.required),
+          mode: item.mode || 'schedule',
+          status: item.status || (item.linked_appointment_code ? 'scheduled' : ''),
+          appointment_code: item.linked_appointment_code || item.appointment_code || null,
+          appointment_id: item.linked_appointment_id || item.appointment_id || null,
+        })));
 
-        // 2. Nếu là chế độ Cập nhật, tải hồ sơ cũ
-        if (isUpdateMode) {
-          const recordResponse = await medicalRecordService.getMedicalRecordById(recordId);
+        // 2. Nếu đã có hồ sơ y tế nháp/cũ thì vẫn dùng chung form này để tiếp tục chỉnh sửa
+        if (currentRecordId) {
+          const recordResponse = await medicalRecordService.getMedicalRecordById(currentRecordId);
           if (!recordResponse.data.success) {
             toast.error('Không tìm thấy hồ sơ y tế.');
             navigate(`/lich-hen/${code}`);
@@ -114,9 +768,16 @@ const MedicalRecordFormPage = () => {
               weight: '', height: '', respiratory_rate: ''
             }
           });
-          setPrescriptionList(record.prescription_json || [{ name: '', dosage: '', quantity: '', instructions: '' }]);
+          setPrescriptionList((record.prescription_json || [{ name: '', dosage: '', quantity: '', instructions: '', unit: '' }]).map((p) => ({
+            name: p.name || '',
+            dosage: p.dosage || '',
+            quantity: p.quantity || '',
+            instructions: p.instructions || '',
+            unit: p.unit || ''
+          })));
           setKeptTestImages(record.test_images_json || []);
           setKeptReportFiles(record.report_files_json || []);
+          setSubServiceRows(record.service_indications || []);
         }
 
       } catch (error) {
@@ -156,7 +817,7 @@ const MedicalRecordFormPage = () => {
   };
 
   const addPrescriptionRow = () => {
-    setPrescriptionList([...prescriptionList, { name: '', dosage: '', quantity: '', instructions: '' }]);
+    setPrescriptionList([...prescriptionList, { name: '', dosage: '', quantity: '', instructions: '', unit: '' }]);
   };
 
   const removePrescriptionRow = (index) => {
@@ -166,22 +827,33 @@ const MedicalRecordFormPage = () => {
   };
 
   // [MỚI] Hàm tìm kiếm thuốc khi gõ
-  const handleSearchMedicine = async (index, value) => {
+  const handleSearchMedicine = async (index, value, force = false) => {
     // 1. Cập nhật text hiển thị ngay lập tức
     const newList = [...prescriptionList];
     newList[index].name = value;
     setPrescriptionList(newList);
 
-    // 2. Gọi API tìm kiếm (Debounce đơn giản: chỉ tìm khi > 1 ký tự)
-    if (value.trim().length > 1) {
+    // 2. Gọi API tìm kiếm (Debounce đơn giản)
+    // Nếu force=true thì tải từ kho ngay cả khi query rỗng
+    const q = String(value || '').trim();
+    if (force || q.length > 0) {
       try {
-        const res = await api.get(`/articles/medicines?search=${encodeURIComponent(value)}&limit=5`);
-        if (res.data.success) {
-          setMedicineSuggestions(res.data.medicines || []);
+        const res = await api.get(`/articles/medicines?search=${encodeURIComponent(q)}&limit=8`);
+        if (res.data && res.data.success) {
+          // Normalize possible array shapes and keep all matching medicines, including out-of-stock ones.
+          let meds = res.data.medicines || res.data.data || res.data.items || [];
+          if (!Array.isArray(meds) && Array.isArray(res.data.data)) meds = res.data.data;
+          if (!Array.isArray(meds)) meds = [];
+          setMedicineSuggestions(meds);
           setShowSuggestionsIndex(index);
+          } else {
+          setMedicineSuggestions([]);
+          setShowSuggestionsIndex(null);
         }
       } catch (error) {
         console.error(error);
+        setMedicineSuggestions([]);
+        setShowSuggestionsIndex(null);
       }
     } else {
       setMedicineSuggestions([]);
@@ -193,23 +865,46 @@ const MedicalRecordFormPage = () => {
   const selectMedicine = (index, medicine) => {
     const newList = [...prescriptionList];
     newList[index].name = medicine.name;
-    newList[index].unit = medicine.unit || 'Hộp'; // Tự động điền đơn vị
+    newList[index].unit = medicine.unit || medicine.default_unit || 'Hộp'; // Tự động điền đơn vị
+    newList[index].quantity = newList[index].quantity || '1';
     setPrescriptionList(newList);
     setShowSuggestionsIndex(null); // Ẩn gợi ý
   };
 
   // [MỚI] Ẩn gợi ý khi click ra ngoài (dùng setTimeout để sự kiện click kịp chạy)
   const handleBlurSearch = () => {
-    setTimeout(() => setShowSuggestionsIndex(null), 200);
+    setTimeout(() => setShowSuggestionsIndex(null), 300);
   };
 
   // === Xử lý Files ===
   const handleFileChange = (e, fileType) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    // compute current total bytes (kept + new)
+    const keptBytes = [...keptTestImages, ...keptReportFiles].reduce((s, f) => s + (f.size || 0), 0);
+    const currentNewBytes = [...newTestImages, ...newReportFiles].reduce((s, f) => s + (f.size || (f.file && f.file.size) || 0), 0);
+    let totalBytes = keptBytes + currentNewBytes;
+
+    const accepted = [];
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast.error(`Tệp "${file.name}" vượt quá giới hạn ${Math.round(MAX_FILE_SIZE_BYTES/1024/1024)}MB và sẽ bị bỏ qua.`);
+        continue;
+      }
+      if (totalBytes + file.size > MAX_TOTAL_BYTES) {
+        toast.error(`Không thể thêm "${file.name}" — tổng dung lượng vượt giới hạn ${Math.round(MAX_TOTAL_BYTES/1024/1024)}MB.`);
+        continue;
+      }
+      totalBytes += file.size;
+      // create object with preview url
+      accepted.push({ file, url: URL.createObjectURL(file), name: file.name, size: file.size });
+    }
+
     if (fileType === 'test_images') {
-      setNewTestImages(prev => [...prev, ...files]);
+      setNewTestImages(prev => [...prev, ...accepted]);
     } else {
-      setNewReportFiles(prev => [...prev, ...files]);
+      setNewReportFiles(prev => [...prev, ...accepted]);
     }
     // Reset input để có thể chọn lại file giống
     e.target.value = null; 
@@ -217,9 +912,17 @@ const MedicalRecordFormPage = () => {
 
   const removeNewFile = (index, fileType) => {
     if (fileType === 'test_images') {
-      setNewTestImages(prev => prev.filter((_, i) => i !== index));
+      setNewTestImages(prev => {
+        const item = prev[index];
+        if (item && item.url) URL.revokeObjectURL(item.url);
+        return prev.filter((_, i) => i !== index);
+      });
     } else {
-      setNewReportFiles(prev => prev.filter((_, i) => i !== index));
+      setNewReportFiles(prev => {
+        const item = prev[index];
+        if (item && item.url) URL.revokeObjectURL(item.url);
+        return prev.filter((_, i) => i !== index);
+      });
     }
   };
 
@@ -233,10 +936,87 @@ const MedicalRecordFormPage = () => {
     }
   };
 
-  // === Xử lý Submit ===
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Revoke object URLs on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      newTestImages.forEach((it) => { if (it && it.url) URL.revokeObjectURL(it.url); });
+      newReportFiles.forEach((it) => { if (it && it.url) URL.revokeObjectURL(it.url); });
+    };
+  }, []);
 
+  const buildSubmissionData = ({ isDraft }) => {
+    const submissionData = new FormData();
+
+    submissionData.append('is_draft', isDraft ? 'true' : 'false');
+    submissionData.append('appointment_id', appointment.id);
+    submissionData.append('diagnosis', formData.diagnosis);
+    submissionData.append('symptoms', formData.symptoms);
+    submissionData.append('treatment_plan', formData.treatment_plan);
+    submissionData.append('advice', formData.advice);
+    submissionData.append('follow_up_date', formData.follow_up_date);
+    submissionData.append('clinical_note', formData.clinical_note);
+    submissionData.append('vitals', JSON.stringify(formData.vitals));
+
+    const validPrescriptions = prescriptionList.filter((p) => p.name && p.quantity);
+    if (validPrescriptions.length > 0) {
+      submissionData.append('prescription_json', JSON.stringify(validPrescriptions));
+    }
+
+    // include sub-service indications so backend can persist them
+    try {
+      submissionData.append('service_indications', JSON.stringify(subServiceRows || []));
+    } catch (err) {
+      // noop
+    }
+
+    // newTestImages/newReportFiles are stored as { file, url, name, size }
+    newTestImages.forEach((item) => submissionData.append('test_images', item.file));
+    newReportFiles.forEach((item) => submissionData.append('report_files', item.file));
+
+    // include notify flag for backend to optionally notify the doctor
+    submissionData.append('notify_doctor', notifyDoctor ? 'true' : 'false');
+
+    if (isUpdateMode) {
+      submissionData.append('keep_test_images', JSON.stringify(keptTestImages));
+      submissionData.append('keep_report_files', JSON.stringify(keptReportFiles));
+    }
+
+    return { submissionData };
+  };
+
+  // === Xử lý Submit ===
+  const handleOpenPreview = (e) => {
+    e.preventDefault();
+    setShowPreviewModal(true);
+  };
+
+  const saveDraftMedicalRecord = async () => {
+    if (!appointment || !appointment.id) return toast.error('Không tìm thấy lịch hẹn');
+
+    try {
+      setIsSavingDraft(true);
+      const { submissionData } = buildSubmissionData({ isDraft: true });
+      const targetRecordId = activeRecordId || recordId;
+      let response;
+      if (targetRecordId) {
+        response = await medicalRecordService.updateMedicalRecord(targetRecordId, submissionData);
+      } else {
+        response = await medicalRecordService.createMedicalRecord(submissionData);
+      }
+      const nextRecordId = response?.data?.data?.id;
+      if (nextRecordId) {
+        setActiveRecordId(String(nextRecordId));
+      }
+      toast.success('Lưu nháp thành công');
+    } catch (error) {
+      console.error('Save draft error:', error);
+      toast.error(error.response?.data?.message || 'Lỗi khi lưu nháp');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const executeFinalSubmit = async () => {
     // Check quyền nhân viên lâm sàng (Chỉ lưu sinh hiệu, không cần chẩn đoán)
     const isClinicalStaff = user?.role === 'staff' && (user?.department === 'clinical' || user?.staff?.department === 'clinical');
 
@@ -248,78 +1028,28 @@ const MedicalRecordFormPage = () => {
 
     try {
       setSubmitting(true);
-      const submissionData = new FormData();
-      
-      // Định tuyến cờ để Backend biết lưu dạng "nháp" hay "hoàn thành"
-      submissionData.append('is_draft', isClinicalStaff ? 'true' : 'false');
-
-      // 1. Thêm appointment_id (BẮT BUỘC)
-      submissionData.append('appointment_id', appointment.id);
-
-      // 2. Thêm dữ liệu text
-      submissionData.append('diagnosis', formData.diagnosis);
-      submissionData.append('symptoms', formData.symptoms);
-      submissionData.append('treatment_plan', formData.treatment_plan);
-      submissionData.append('advice', formData.advice);
-      submissionData.append('follow_up_date', formData.follow_up_date);
-
-      // 3. Thêm đơn thuốc (JSON string)
-      // Lọc bỏ các hàng trống
-      const validPrescriptions = prescriptionList.filter(p => p.name && p.quantity);
-      if (validPrescriptions.length > 0) {
-        submissionData.append('prescription_json', JSON.stringify(validPrescriptions));
-      }
-
-      const validIndications = serviceIndicationText
-        .split(/\n|,/)
-        .map(item => item.trim())
-        .filter(Boolean);
-
-      if (validIndications.length > 0) {
-        submissionData.append('service_indication_text', JSON.stringify(validIndications));
-      }
-
-      // 4. Thêm file
-      // 4a. File MỚI (để backend xử lý)
-      newTestImages.forEach(file => {
-        submissionData.append('test_images', file);
+      const { submissionData } = buildSubmissionData({
+        isDraft: isClinicalStaff
       });
-      newReportFiles.forEach(file => {
-        submissionData.append('report_files', file);
-      });
-      
-      // 4b. File CŨ (để backend biết giữ lại)
-      // Đây là logic quan trọng khớp với backend của bạn
-      if (isUpdateMode) {
-        submissionData.append('keep_test_images', JSON.stringify(keptTestImages));
-        submissionData.append('keep_report_files', JSON.stringify(keptReportFiles));
-      }
 
       // 5. Gọi API
-      if (isUpdateMode) {
-        await medicalRecordService.updateMedicalRecord(recordId, submissionData);
+      const targetRecordId = activeRecordId || recordId;
+      let response;
+      if (targetRecordId) {
+        response = await medicalRecordService.updateMedicalRecord(targetRecordId, submissionData);
         toast.success('Cập nhật hồ sơ y tế thành công!');
       } else {
-        await medicalRecordService.createMedicalRecord(submissionData);
+        response = await medicalRecordService.createMedicalRecord(submissionData);
         toast.success('Tạo hồ sơ y tế thành công!');
       }
 
-      if (!isUpdateMode && validIndications.length > 0 && appointment?.id) {
-        try {
-          const indications = validIndications.map((serviceName, index) => ({
-            service_name: serviceName,
-            order_sequence: index + 1,
-            dependencies: []
-          }));
-          await appointmentService.addServiceIndications(appointment.id, indications);
-          console.log('[LOG] Added service indications from MedicalRecordFormPage:', indications);
-        } catch (indicationError) {
-          console.error('Service indication error:', indicationError);
-          toast.warn('Hồ sơ đã lưu, nhưng chưa đồng bộ được chỉ định dịch vụ phụ.');
-        }
+      const nextRecordId = response?.data?.data?.id;
+      if (nextRecordId) {
+        setActiveRecordId(String(nextRecordId));
       }
 
       // 6. Điều hướng
+      setShowPreviewModal(false);
       navigate(`/lich-hen/${code}`);
 
     } catch (error) {
@@ -350,7 +1080,7 @@ const MedicalRecordFormPage = () => {
 
   return (
     <div className="medical-record-form-page-container">
-      <form className="medical-record-form-page-form" onSubmit={handleSubmit}>
+      <form className="medical-record-form-page-form" onSubmit={handleOpenPreview}>
         
         {/* Header */}
         <div className="medical-record-form-page-header">
@@ -358,14 +1088,26 @@ const MedicalRecordFormPage = () => {
             <h1>{isUpdateMode ? 'Cập nhật' : 'Tạo'} Hồ Sơ Y Tế</h1>
             <p>Nhập kết quả khám cho lịch hẹn <strong>{appointment?.code}</strong></p>
           </div>
-          <button 
-            type="submit" 
-            className="medical-record-form-page-btn-submit" 
-            disabled={submitting}
-          >
-            {submitting ? <FaSpinner className="medical-record-form-page-spin-icon-small" /> : <FaSave />}
-            {isUpdateMode ? 'Lưu Cập Nhật' : 'Lưu Hồ Sơ'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="medical-record-form-page-btn-submit medical-record-form-page-btn-secondary"
+              onClick={saveDraftMedicalRecord}
+              disabled={submitting || isSavingDraft}
+            >
+              {isSavingDraft ? <FaSpinner className="medical-record-form-page-spin-icon-small" /> : <FaSave />}
+              Lưu nháp
+            </button>
+            <button
+              type="submit"
+              className="medical-record-form-page-btn-submit"
+              disabled={submitting}
+            >
+              {submitting ? <FaSpinner className="medical-record-form-page-spin-icon-small" /> : <FaSave />}
+              Xem trước & gửi
+            </button>
+            
+          </div>
         </div>
 
         {/* Thông tin lịch hẹn */}
@@ -374,24 +1116,45 @@ const MedicalRecordFormPage = () => {
             <FaUserInjured className="medical-record-form-page-info-icon" />
             <div className="medical-record-form-page-info-text">
               <label>Bệnh nhân</label>
-              <span>{appointment?.Patient?.user?.full_name || appointment?.guest_name}</span>
+              <span>{getPatientName()}</span>
+              <small className="medical-record-form-page-info-sub">{getPatientPhone()}{getPatientEmail() ? ` • ${getPatientEmail()}` : ''}</small>
             </div>
           </div>
           <div className="medical-record-form-page-info-item">
             <FaUserMd className="medical-record-form-page-info-icon" />
             <div className="medical-record-form-page-info-text">
               <label>Bác sĩ</label>
-              <span>{appointment?.Doctor?.user?.full_name}</span>
+              <span>{getDoctorName()}</span>
+              <small className="medical-record-form-page-info-sub">{getDoctorPhone()}{getDoctorEmail() ? ` • ${getDoctorEmail()}` : ''}</small>
             </div>
           </div>
           <div className="medical-record-form-page-info-item">
             <FaCalendarAlt className="medical-record-form-page-info-icon" />
             <div className="medical-record-form-page-info-text">
               <label>Ngày khám</label>
-              <span>{new Date(appointment?.appointment_date).toLocaleDateString('vi-VN')}</span>
+              <span>{appointment?.appointment_date ? new Date(appointment?.appointment_date).toLocaleDateString('vi-VN') : '--'}{getServiceName() ? ` • ${getServiceName()}` : ''}</span>
             </div>
           </div>
         </div>
+        {canViewSharedHealthProfile && (
+          <div className="medical-record-form-page-card" style={{ marginBottom: '1.5rem', padding: '1rem', borderLeft: '4px solid #22c55e' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                <strong>Hồ sơ sức khỏe đã được chia sẻ</strong>
+                <div style={{ color: '#6b7280', fontSize: '0.9rem', marginTop: '0.25rem' }}>
+                  Bác sĩ có thể mở nhanh hồ sơ công khai của bệnh nhân để xem chỉ số và tiền sử liên quan.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="medical-record-form-page-btn-submit medical-record-form-page-btn-secondary"
+                onClick={() => navigate(`/ho-so-suc-khoe-cong-khai/${code}`)}
+              >
+                Xem hồ sơ công khai
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Cột chính */}
         <div className="medical-record-form-page-main-grid">
@@ -399,43 +1162,6 @@ const MedicalRecordFormPage = () => {
           {/* Cột trái (Form chính) */}
           <div className="medical-record-form-page-left-col">
 
-            {/* 0. Chỉ số sinh tồn (Dành cho Điều dưỡng / Vận hành lâm sàng) */}
-            <div className="medical-record-form-page-card" style={{ backgroundColor: '#fff5f8', borderColor: '#ffb6c1' }}>
-              <h2 className="medical-record-form-page-card-title" style={{ color: '#d81b60' }}>
-                <FaNotesMedical /> Chỉ số sinh tồn (Sinh hiệu)
-              </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
-                <div className="medical-record-form-page-form-group">
-                  <label>Huyết áp (mmHg)</label>
-                  <input type="text" name="vitals.blood_pressure" className="medical-record-form-page-input" value={formData.vitals.blood_pressure} onChange={handleFormChange} placeholder="Ví dụ: 120/80" />
-                </div>
-                <div className="medical-record-form-page-form-group">
-                  <label>Mạch (l/p)</label>
-                  <input type="number" name="vitals.pulse" className="medical-record-form-page-input" value={formData.vitals.pulse} onChange={handleFormChange} />
-                </div>
-                <div className="medical-record-form-page-form-group">
-                  <label>Nhiệt độ (°C)</label>
-                  <input type="number" step="0.1" name="vitals.temperature" className="medical-record-form-page-input" value={formData.vitals.temperature} onChange={handleFormChange} />
-                </div>
-                <div className="medical-record-form-page-form-group">
-                  <label>Cân nặng (kg)</label>
-                  <input type="number" step="0.1" name="vitals.weight" className="medical-record-form-page-input" value={formData.vitals.weight} onChange={handleFormChange} />
-                </div>
-                <div className="medical-record-form-page-form-group">
-                  <label>Chiều cao (cm)</label>
-                  <input type="number" name="vitals.height" className="medical-record-form-page-input" value={formData.vitals.height} onChange={handleFormChange} />
-                </div>
-                <div className="medical-record-form-page-form-group">
-                  <label>Nhịp thở (l/p)</label>
-                  <input type="number" name="vitals.respiratory_rate" className="medical-record-form-page-input" value={formData.vitals.respiratory_rate} onChange={handleFormChange} />
-                </div>
-                <div className="medical-record-form-page-form-group full-span">
-                  <label>Ghi chú lâm sàng ban đầu</label>
-                  <textarea name="clinical_note" className="medical-record-form-page-textarea" rows="2" value={formData.clinical_note} onChange={handleFormChange} placeholder="Triệu chứng hiện tại, lý do khám..." />
-                </div>
-              </div>
-            </div>
-            
             {/* 1. Kết quả khám */}
             <div className="medical-record-form-page-card">
               <h2 className="medical-record-form-page-card-title">
@@ -497,19 +1223,6 @@ const MedicalRecordFormPage = () => {
                   />
                 </div>
 
-                {/* Chỉ định dịch vụ phụ */}
-                <div className="medical-record-form-page-form-group full-span">
-                  <label htmlFor="service_indication_text">Chỉ định dịch vụ phụ (nếu có)</label>
-                  <textarea
-                    id="service_indication_text"
-                    className="medical-record-form-page-textarea"
-                    rows="3"
-                    placeholder="Nhập mỗi dịch vụ một dòng, ví dụ: Siêu âm bụng\nXét nghiệm máu"
-                    value={serviceIndicationText}
-                    onChange={(e) => setServiceIndicationText(e.target.value)}
-                  />
-                  <small style={{ color: '#6b7280', display: 'block', marginTop: '4px' }}>Đã gắn ngay trong form kết quả khám để bác sĩ xử lý từ trang quản lý lịch hẹn.</small>
-                </div>
               </div>
             </div>
 
@@ -522,80 +1235,119 @@ const MedicalRecordFormPage = () => {
               <div className="medical-record-form-page-prescription-list">
                 {prescriptionList.map((item, index) => (
                   <div key={index} className="medical-record-form-page-prescription-row" style={{position: 'relative', overflow: 'visible'}}>
+                    <div
+                      style={{
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '999px',
+                        background: '#16a34a',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 800,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {index + 1}
+                    </div>
                     
-                    {/* [MỚI] Ô NHẬP TÊN THUỐC CÓ GỢI Ý & SEARCH */}
-                    <div style={{flex: 2, position: 'relative'}}>
+                    <div className="medical-record-form-page-prescription-field medical-record-form-page-prescription-name-field">
+                      <label className="medical-record-form-page-prescription-field-label">Tên thuốc</label>
                       <input
                         type="text"
                         name="name"
-                        className="medical-record-form-page-input"
-                        placeholder="Nhập tên thuốc..."
+                        className="medical-record-form-page-input medical-record-form-page-prescription-name-input"
+                        placeholder="Gõ tên thuốc, mã thuốc, thành phần hoặc nhóm thuốc trong kho..."
                         value={item.name}
                         onChange={(e) => handleSearchMedicine(index, e.target.value)}
                         onBlur={handleBlurSearch}
+                        onFocus={(e) => {
+                          const currentValue = e.target.value;
+                          if (currentValue) handleSearchMedicine(index, currentValue, true);
+                        }}
                         autoComplete="off"
                       />
+                      <div className="medical-record-form-page-prescription-field-hint">
+                        Gõ để tìm thuốc trong kho.
+                      </div>
                       {/* Dropdown Gợi ý */}
                       {showSuggestionsIndex === index && medicineSuggestions.length > 0 && (
-                        <ul style={{
-                          position: 'absolute', top: '100%', left: 0, right: 0,
-                          backgroundColor: 'white', border: '1px solid #ddd',
-                          borderRadius: '4px', zIndex: 1000, padding: 0, margin: 0,
-                          listStyle: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                          maxHeight: '200px', overflowY: 'auto'
-                        }}>
+                        <ul className="medical-record-form-page-prescription-suggestion-panel">
                           {medicineSuggestions.map((med) => (
                             <li 
                               key={med.id}
+                              className="medical-record-form-page-prescription-suggestion-item"
                               onClick={() => selectMedicine(index, med)}
-                              style={{
-                                padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #eee',
-                                fontSize: '14px', color: '#333'
-                              }}
-                              onMouseEnter={(e) => e.target.style.backgroundColor = '#f0fdf4'}
-                              onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
                             >
-                              <strong>{med.name}</strong> <small style={{color:'#666'}}>({med.unit}) - {parseInt(med.price).toLocaleString()}đ</small>
+                              <div className="medical-record-form-page-prescription-suggestion-top">
+                                <strong>{med.name}</strong>
+                                <span className="medical-record-form-page-prescription-suggestion-price">
+                                  {med.price ? `${parseInt(med.price).toLocaleString()}đ` : ''}
+                                </span>
+                              </div>
+                              <div className="medical-record-form-page-prescription-suggestion-meta">
+                                {med.unit ? `${med.unit} • ` : ''}
+                                {med.stock_total !== null && typeof med.stock_total !== 'undefined'
+                                  ? `Còn ${med.stock_total}`
+                                  : (med.category || med.group || 'Thuốc gợi ý')}
+                              </div>
                             </li>
                           ))}
                         </ul>
                       )}
                     </div>
 
-                    {/* [MỚI] Ô ĐƠN VỊ TÍNH (Đã update width nhỏ gọn hơn) */}
-                    <input
-                      type="text"
-                      name="unit"
-                      className="medical-record-form-page-input"
-                      placeholder="Đơn vị"
-                      value={item.unit}
-                      onChange={(e) => handlePrescriptionChange(index, e)}
-                      style={{width: '80px'}} 
-                    />
-                  <input
-                    type="text"
-                    name="quantity"
-                    className="medical-record-form-page-input input-small"
-                    placeholder="SL"
-                    value={item.quantity}
-                    onChange={(e) => handlePrescriptionChange(index, e)}
-                  />
-                    <input
-                      type="text"
-                      name="dosage"
-                      className="medical-record-form-page-input input-small"
-                      placeholder="Liều dùng"
-                      value={item.dosage}
-                      onChange={(e) => handlePrescriptionChange(index, e)}
-                    />
-                    <input
-                      type="text"
-                      name="instructions"
-                      className="medical-record-form-page-input input-large"
-                      placeholder="Hướng dẫn (VD: Sáng 1, Tối 1 sau ăn)"
-                      value={item.instructions}
-                      onChange={(e) => handlePrescriptionChange(index, e)}
-                    />
+                    {/* [MỚI] Các trường đơn thuốc có nhãn rõ ràng */}
+                    <div className="medical-record-form-page-prescription-field medical-record-form-page-prescription-unit-field">
+                      <label className="medical-record-form-page-prescription-field-label">Đơn vị</label>
+                      <input
+                        type="text"
+                        name="unit"
+                        className="medical-record-form-page-input"
+                        placeholder="Đơn vị"
+                        value={item.unit}
+                        onChange={(e) => handlePrescriptionChange(index, e)}
+                      />
+                    </div>
+
+                    {/* SL */}
+                    <div className="medical-record-form-page-prescription-field input-small">
+                      <label className="medical-record-form-page-prescription-field-label">SL</label>
+                      <input
+                        type="text"
+                        name="quantity"
+                        className="medical-record-form-page-input"
+                        placeholder="SL"
+                        value={item.quantity}
+                        onChange={(e) => handlePrescriptionChange(index, e)}
+                      />
+                    </div>
+
+                    {/* Liều dùng */}
+                    <div className="medical-record-form-page-prescription-field input-small">
+                      <label className="medical-record-form-page-prescription-field-label">Liều dùng</label>
+                      <input
+                        type="text"
+                        name="dosage"
+                        className="medical-record-form-page-input"
+                        placeholder="Liều dùng"
+                        value={item.dosage}
+                        onChange={(e) => handlePrescriptionChange(index, e)}
+                      />
+                    </div>
+
+                    <div className="medical-record-form-page-prescription-field input-large">
+                      <label className="medical-record-form-page-prescription-field-label">Hướng dẫn</label>
+                      <input
+                        type="text"
+                        name="instructions"
+                        className="medical-record-form-page-input input-large"
+                        placeholder="Hướng dẫn (VD: Sáng 1, Tối 1 sau ăn)"
+                        value={item.instructions}
+                        onChange={(e) => handlePrescriptionChange(index, e)}
+                      />
+                    </div>
                     <button 
                       type="button" 
                       className="medical-record-form-page-btn-icon medical-record-form-page-btn-remove"
@@ -615,10 +1367,55 @@ const MedicalRecordFormPage = () => {
                 <FaPlus /> Thêm thuốc
               </button>
             </div>
+
+            {/* 3. Dịch vụ phụ */}
+            <div style={{ marginTop: '0.25rem' }}>
+              <h2 className="medical-record-form-page-card-title" style={{ borderRadius: '12px 12px 0 0' }}>
+                <FaNotesMedical /> Danh sách dịch vụ phụ
+              </h2>
+              <SubServiceInline parentAppointment={appointment} rows={subServiceRows} onChange={setSubServiceRows} />
+            </div>
           </div>
           
           {/* Cột phải (Tái khám & Upload) */}
           <div className="medical-record-form-page-right-col">
+
+            {/* 0. Chỉ số sinh tồn (Dành cho Điều dưỡng / Vận hành lâm sàng) */}
+            <div className="medical-record-form-page-card" style={{ backgroundColor: '#fff5f8', borderColor: '#ffb6c1' }}>
+              <h2 className="medical-record-form-page-card-title" style={{ color: '#d81b60' }}>
+                <FaNotesMedical /> Chỉ số sinh tồn (Sinh hiệu)
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
+                <div className="medical-record-form-page-form-group">
+                  <label>Huyết áp (mmHg)</label>
+                  <input type="text" name="vitals.blood_pressure" className="medical-record-form-page-input" value={formData.vitals.blood_pressure} onChange={handleFormChange} placeholder="Ví dụ: 120/80" />
+                </div>
+                <div className="medical-record-form-page-form-group">
+                  <label>Mạch (l/p)</label>
+                  <input type="number" name="vitals.pulse" className="medical-record-form-page-input" value={formData.vitals.pulse} onChange={handleFormChange} />
+                </div>
+                <div className="medical-record-form-page-form-group">
+                  <label>Nhiệt độ (°C)</label>
+                  <input type="number" step="0.1" name="vitals.temperature" className="medical-record-form-page-input" value={formData.vitals.temperature} onChange={handleFormChange} />
+                </div>
+                <div className="medical-record-form-page-form-group">
+                  <label>Cân nặng (kg)</label>
+                  <input type="number" step="0.1" name="vitals.weight" className="medical-record-form-page-input" value={formData.vitals.weight} onChange={handleFormChange} />
+                </div>
+                <div className="medical-record-form-page-form-group">
+                  <label>Chiều cao (cm)</label>
+                  <input type="number" name="vitals.height" className="medical-record-form-page-input" value={formData.vitals.height} onChange={handleFormChange} />
+                </div>
+                <div className="medical-record-form-page-form-group">
+                  <label>Nhịp thở (l/p)</label>
+                  <input type="number" name="vitals.respiratory_rate" className="medical-record-form-page-input" value={formData.vitals.respiratory_rate} onChange={handleFormChange} />
+                </div>
+                <div className="medical-record-form-page-form-group full-span">
+                  <label>Ghi chú lâm sàng ban đầu</label>
+                  <textarea name="clinical_note" className="medical-record-form-page-textarea" rows="2" value={formData.clinical_note} onChange={handleFormChange} placeholder="Triệu chứng hiện tại, lý do khám..." />
+                </div>
+              </div>
+            </div>
 
             {/* 3. Tái khám */}
             <div className="medical-record-form-page-card">
@@ -652,6 +1449,16 @@ const MedicalRecordFormPage = () => {
                 <span>Không upload thông tin nhạy cảm (CCCD, Ngân hàng). Chỉ upload tệp liên quan đến khám bệnh.</span>
               </div>
 
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input type="checkbox" checked={notifyDoctor} onChange={(e) => setNotifyDoctor(e.target.checked)} />
+                  Thông báo bác sĩ khi có tệp đính kèm
+                </label>
+                <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>
+                  Giới hạn: {Math.round(MAX_FILE_SIZE_BYTES/1024/1024)}MB/tệp, tổng {Math.round(MAX_TOTAL_BYTES/1024/1024)}MB
+                </div>
+              </div>
+
               {/* Upload Ảnh XN */}
               <div className="medical-record-form-page-file-group">
                 <label>Ảnh xét nghiệm (jpg, png, webp)</label>
@@ -667,20 +1474,32 @@ const MedicalRecordFormPage = () => {
                   style={{ display: 'none' }}
                 />
                 <div className="medical-record-form-page-file-list">
-                  {keptTestImages.map((file, index) => (
-                    <div key={`kept-img-${index}`} className="medical-record-form-page-file-item">
-                      <FaFileImage />
-                      <span className="medical-record-form-page-file-name" title={file.originalname}>{file.originalname}</span>
-                      <button type="button" onClick={() => removeKeptFile(index, 'test_images')}><FaTimes /></button>
-                    </div>
-                  ))}
-                  {newTestImages.map((file, index) => (
-                    <div key={`new-img-${index}`} className="medical-record-form-page-file-item new">
-                      <FaFileImage />
-                      <span className="medical-record-form-page-file-name" title={file.name}>{file.name}</span>
-                      <button type="button" onClick={() => removeNewFile(index, 'test_images')}><FaTimes /></button>
-                    </div>
-                  ))}
+                    {keptTestImages.map((file, index) => {
+                      const fileUrl = file.url || file.file_url || file.path || null;
+                      const isImage = (file.originalname || file.name || '').toLowerCase().match(/\.(jpg|jpeg|png|webp)$/);
+                      return (
+                        <div key={`kept-img-${index}`} className="medical-record-form-page-file-item">
+                          {isImage ? (
+                            fileUrl ? <a href={fileUrl} target="_blank" rel="noreferrer"><img src={fileUrl} alt={file.originalname || file.name} style={{ height: 42, borderRadius: 6 }} /></a>
+                                    : <FaFileImage />
+                          ) : renderFileIcon(file.originalname || file.name || '')}
+                          {fileUrl ? (
+                            <a className="medical-record-form-page-file-name" href={fileUrl} target="_blank" rel="noreferrer" title={file.originalname || file.name}>{file.originalname || file.name}</a>
+                          ) : (
+                            <span className="medical-record-form-page-file-name" title={file.originalname || file.name}>{file.originalname || file.name}</span>
+                          )}
+                          <button type="button" onClick={() => removeKeptFile(index, 'test_images')}><FaTimes /></button>
+                        </div>
+                      );
+                    })}
+                    {newTestImages.map((item, index) => (
+                      <div key={`new-img-${index}`} className="medical-record-form-page-file-item new">
+                        {item.url ? <img src={item.url} alt={item.name} style={{ height: 42, borderRadius: 6 }} /> : <FaFileImage />}
+                        <a className="medical-record-form-page-file-name" href={item.url} target="_blank" rel="noreferrer" title={item.name}>{item.name}</a>
+                        <small style={{ marginLeft: 8, color: '#6b7280' }}>{(item.size/1024/1024).toFixed(2)}MB</small>
+                        <button type="button" onClick={() => removeNewFile(index, 'test_images')}><FaTimes /></button>
+                      </div>
+                    ))}
                 </div>
               </div>
 
@@ -698,27 +1517,75 @@ const MedicalRecordFormPage = () => {
                   onChange={(e) => handleFileChange(e, 'report_files')}
                   style={{ display: 'none' }}
                 />
-                <div className="medical-record-form-page-file-list">
-                  {keptReportFiles.map((file, index) => (
-                    <div key={`kept-rep-${index}`} className="medical-record-form-page-file-item">
-                      {renderFileIcon(file.originalname)}
-                      <span className="medical-record-form-page-file-name" title={file.originalname}>{file.originalname}</span>
-                      <button type="button" onClick={() => removeKeptFile(index, 'report_files')}><FaTimes /></button>
-                    </div>
-                  ))}
-                  {newReportFiles.map((file, index) => (
-                    <div key={`new-rep-${index}`} className="medical-record-form-page-file-item new">
-                      {renderFileIcon(file.name)}
-                      <span className="medical-record-form-page-file-name" title={file.name}>{file.name}</span>
-                      <button type="button" onClick={() => removeNewFile(index, 'report_files')}><FaTimes /></button>
-                    </div>
-                  ))}
+                    <div className="medical-record-form-page-file-list">
+                      {keptReportFiles.map((file, index) => {
+                        const fileUrl = file.url || file.file_url || file.path || null;
+                        return (
+                          <div key={`kept-rep-${index}`} className="medical-record-form-page-file-item">
+                            {renderFileIcon(file.originalname || file.name || '')}
+                            {fileUrl ? (
+                              <a className="medical-record-form-page-file-name" href={fileUrl} target="_blank" rel="noreferrer" title={file.originalname || file.name}>{file.originalname || file.name}</a>
+                            ) : (
+                              <span className="medical-record-form-page-file-name" title={file.originalname || file.name}>{file.originalname || file.name}</span>
+                            )}
+                            <button type="button" onClick={() => removeKeptFile(index, 'report_files')}><FaTimes /></button>
+                          </div>
+                        );
+                      })}
+                      {newReportFiles.map((item, index) => (
+                        <div key={`new-rep-${index}`} className="medical-record-form-page-file-item new">
+                          {renderFileIcon(item.name)}
+                          <a className="medical-record-form-page-file-name" href={item.url} target="_blank" rel="noreferrer" title={item.name}>{item.name}</a>
+                          <small style={{ marginLeft: 8, color: '#6b7280' }}>{(item.size/1024/1024).toFixed(2)}MB</small>
+                          <button type="button" onClick={() => removeNewFile(index, 'report_files')}><FaTimes /></button>
+                        </div>
+                      ))}
                 </div>
               </div>
             </div>
-
-          </div>
+              </div>
         </div>
+
+        {showPreviewModal && (
+          <div className="mrfp-preview-overlay" onClick={() => !submitting && setShowPreviewModal(false)}>
+            <div className="mrfp-preview-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="mrfp-preview-header">
+                <div>
+                  <h3>Xem trước hồ sơ trước khi gửi</h3>
+                  <p>Kiểm tra đầy đủ dữ liệu sẽ gửi cho bệnh nhân trước khi xác nhận.</p>
+                </div>
+                <button type="button" className="mrfp-preview-close" onClick={() => setShowPreviewModal(false)}>
+                  <FaTimes />
+                </button>
+              </div>
+
+              <MedicalRecordSummarySections
+                record={previewRecord}
+                patientName={getPatientName()}
+                patientPhone={getPatientPhone()}
+                patientEmail={getPatientEmail()}
+                doctorName={getDoctorName()}
+                doctorPhone={getDoctorPhone()}
+                doctorEmail={getDoctorEmail()}
+                serviceName={getServiceName()}
+                fileUrl={(u) => u}
+                showFileLinks={true}
+              />
+
+              <div className="mrfp-preview-actions">
+                <button type="button" className="medical-record-form-page-btn-submit medical-record-form-page-btn-secondary" onClick={() => setShowPreviewModal(false)} disabled={submitting}>
+                  Đóng
+                </button>
+                <button type="button" className="medical-record-form-page-btn-submit" onClick={executeFinalSubmit} disabled={submitting}>
+                  {submitting ? <FaSpinner className="medical-record-form-page-spin-icon-small" /> : <FaSave />}
+                  Xác nhận gửi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        
 
       </form>
     </div>
@@ -726,3 +1593,4 @@ const MedicalRecordFormPage = () => {
 };
 
 export default MedicalRecordFormPage;
+

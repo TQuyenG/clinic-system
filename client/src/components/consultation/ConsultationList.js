@@ -58,7 +58,9 @@ const ConsultationList = ({ type = 'patient', filters = {} }) => {
     }
   };
 
-  const getStatusBadge = (status) => {
+  // Accept either status string or full consultation object
+  const getStatusBadge = (sOrObj) => {
+    const status = (sOrObj && typeof sOrObj === 'object') ? sOrObj.status : sOrObj;
     const statusConfig = consultationService.formatStatus(status);
     return (
       <span className={`status-badge status-${statusConfig.color}`}>

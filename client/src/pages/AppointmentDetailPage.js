@@ -15,6 +15,7 @@ import './AppointmentDetailPage.css';
 // Import Service và Components mới
 import appointmentService from '../services/appointmentService';
 import paymentService from '../services/paymentService';
+import medicalRecordService from '../services/medicalRecordService';
 import { useAuth } from '../contexts/AuthContext';
 import PasswordConfirmModal from '../components/auth/PasswordConfirmModal'; 
 
@@ -23,8 +24,10 @@ import {
   FaCalendarAlt, FaUserMd, FaHospital, FaClock, FaMoneyBillWave, FaUser,
   FaEnvelope, FaPhone, FaCheckCircle, FaExclamationTriangle, FaArrowLeft,
   FaTimes, FaNotesMedical, FaEdit, FaCreditCard, FaSpinner, FaInfoCircle,
-  FaTimesCircle, FaBan, FaVideo, FaHeart, FaMapMarkerAlt, FaStar, FaShieldAlt
+  FaTimesCircle, FaBan, FaVideo, FaHeart, FaMapMarkerAlt, FaStar, FaShieldAlt,
+  FaSave, FaPaperPlane, FaSearch, FaStethoscope
 } from 'react-icons/fa';
+import StatusBadge from '../components/StatusBadge';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -55,6 +58,66 @@ const AppointmentDetailPage = () => {
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
   const [availableSlots, setAvailableSlots] = useState([]);
+
+  // Draft / Result saving states
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftMedicalRecord, setDraftMedicalRecord] = useState(null);
+  const [isDraftSaved, setIsDraftSaved] = useState(false);
+  const [medicalEditorText, setMedicalEditorText] = useState('');
+
+  // Draft medical record save (inline while in_progress)
+  const saveDraftMedicalRecord = async (recordPayload = {}) => {
+    if (!appointment || !appointment.id) return toast.error('Không tìm thấy lịch hẹn');
+    try {
+      setIsSavingDraft(true);
+      const payload = { ...recordPayload, appointment_id: appointment.id, is_draft: true };
+      let res;
+      if (appointment.MedicalRecord && appointment.MedicalRecord.id) {
+        res = await medicalRecordService.updateMedicalRecord(appointment.MedicalRecord.id, payload);
+      } else {
+        // create expects FormData for files; but for simple JSON fields backend should accept JSON as well
+        res = await medicalRecordService.createMedicalRecord(payload);
+      }
+      if (res.data && res.data.success) {
+        setDraftMedicalRecord(res.data.data);
+        setIsDraftSaved(true);
+        toast.success('Lưu nháp thành công');
+        await loadAppointment();
+      } else {
+        toast.error('Lưu nháp không thành công');
+      }
+    } catch (err) {
+      console.error('Save draft error', err);
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu nháp');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const sendFinalMedicalRecord = async (recordPayload = {}) => {
+    if (!appointment || !appointment.id) return toast.error('Không tìm thấy lịch hẹn');
+    try {
+      setSubmitting(true);
+      const payload = { ...recordPayload, appointment_id: appointment.id, is_draft: false };
+      let res;
+      if (appointment.MedicalRecord && appointment.MedicalRecord.id) {
+        res = await medicalRecordService.updateMedicalRecord(appointment.MedicalRecord.id, payload);
+      } else {
+        res = await medicalRecordService.createMedicalRecord(payload);
+      }
+      if (res.data && res.data.success) {
+        toast.success('Kết quả đã gửi cho bệnh nhân');
+        await loadAppointment();
+      } else {
+        toast.error('Gửi kết quả không thành công');
+      }
+    } catch (err) {
+      console.error('Send final record error', err);
+      toast.error(err.response?.data?.message || 'Lỗi khi gửi kết quả');
+    } finally {
+      setSubmitting(false);
+    }
+  };
   
   // State cho modal đổi phương thức thanh toán
   const [showChangePaymentModal, setShowChangePaymentModal] = useState(false);
@@ -68,6 +131,7 @@ const AppointmentDetailPage = () => {
   const [adminStatus, setAdminStatus] = useState('');
   const [adminAddress, setAdminAddress] = useState('');
   const [adminCancelReason, setAdminCancelReason] = useState('');
+  const [showAdminCancelModal, setShowAdminCancelModal] = useState(false);
 
   // Loading states
   const [submitting, setSubmitting] = useState(false);
@@ -134,6 +198,13 @@ const AppointmentDetailPage = () => {
 
     return () => clearInterval(interval);
   }, [appointment]);
+
+  // Sync editor text when appointment loads
+  useEffect(() => {
+    if (!appointment) return;
+    const existing = appointment.MedicalRecord?.result || appointment.MedicalRecord?.notes || '';
+    setMedicalEditorText(existing);
+  }, [appointment?.MedicalRecord]);
 
   // ========== LOAD DATA ==========
   const loadAppointment = async () => {
@@ -287,7 +358,8 @@ const AppointmentDetailPage = () => {
   // ========== BUSINESS LOGIC ==========
   const canCancelAppointment = () => {
     if (!appointment) return false;
-    if (['cancelled', 'completed', 'passed', 'in_progress'].includes(appointment.status)) return false;
+    const isPassed = !!appointment.isPassed || appointment.status === 'passed';
+    if (['cancelled', 'completed', 'in_progress'].includes(appointment.status) || isPassed) return false;
     const now = new Date();
     const appointmentDateTime = parseAppointmentDateTime(
       appointment.appointment_date,
@@ -300,7 +372,8 @@ const AppointmentDetailPage = () => {
 
   const canRescheduleAppointment = () => {
     if (!appointment) return false;
-    if (['cancelled', 'completed', 'passed', 'in_progress'].includes(appointment.status)) return false;
+    const isPassed = !!appointment.isPassed || appointment.status === 'passed';
+    if (['cancelled', 'completed', 'in_progress'].includes(appointment.status) || isPassed) return false;
     if ((appointment.reschedule_count || 0) >= 3) return false;
     const now = new Date();
     const appointmentDateTime = parseAppointmentDateTime(
@@ -438,6 +511,48 @@ const AppointmentDetailPage = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleStatusChange = async (nextStatus) => {
+    if (!nextStatus || !appointment) return;
+
+    if (nextStatus === 'cancelled' && !adminCancelReason.trim()) {
+      toast.error('Vui lòng nhập lý do hủy (khi Admin/BS hủy)');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setAdminStatus(nextStatus);
+
+      await appointmentService.updateAppointmentDetails(code, {
+        status: nextStatus,
+        appointment_address: adminAddress,
+        cancel_reason: adminCancelReason,
+      });
+
+      toast.success('Cập nhật lịch hẹn thành công!');
+      loadAppointment();
+    } catch (error) {
+      console.error('Status update error:', error);
+      toast.error(error.response?.data?.message || 'Lỗi khi cập nhật trạng thái');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveDraftMedicalRecord = () => {
+    return saveDraftMedicalRecord({
+      result: medicalEditorText,
+      notes: medicalEditorText
+    });
+  };
+
+  const handleSendMedicalRecord = () => {
+    return sendFinalMedicalRecord({
+      result: medicalEditorText,
+      notes: medicalEditorText
+    });
   };
 
   // Handler cho luồng Hồ sơ Y tế (MỚI)
@@ -681,6 +796,15 @@ const AppointmentDetailPage = () => {
   const isPatient = user && user.role === 'patient';
   const isAdminOrDoctor = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'staff');
   const isOwner = isPatient && user.id === appointment.Patient?.user_id;
+  const sharedHealthHistory = (() => {
+    const raw = appointment?.Patient?.medical_history;
+    if (!raw) return null;
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw); } catch (error) { return null; }
+    }
+    return raw;
+  })();
+  const canViewSharedHealthProfile = Boolean(sharedHealthHistory?.share_with_doctors);
   const doctorProfileCode = appointment?.Doctor?.user?.code
     || appointment?.Doctor?.User?.code
     || appointment?.Doctor?.code
@@ -700,9 +824,8 @@ const AppointmentDetailPage = () => {
               Chi tiết lịch hẹn: {appointment.code}
             </h1>
           </div>
-          <div className={`appointment-detail-page-status-badge ${statusInfo.class}`}>
-            {statusInfo.icon}
-            {statusInfo.text}
+          <div>
+            <StatusBadge status={appointment.status} appointment={appointment} />
           </div>
         </div>
 
@@ -890,53 +1013,38 @@ const AppointmentDetailPage = () => {
                 </div>
               </div>
             </div>
-
-            {/* Khung Kết quả khám (LOGIC MỚI) */}
-            {appointment.status === 'completed' && (
+            
+            {/* Khung Kết quả khám - Khi đã hoàn thành */}
+            {(appointment.status === 'completed' || appointment.status === 'passed') && (
               <div className="appointment-detail-page-card">
                 <h2 className="appointment-detail-page-card-title">
                   <FaNotesMedical />
                   Kết quả khám
                 </h2>
                 
-                {/* Nếu chưa có hồ sơ (MedicalRecord) */}
                 {!appointment.MedicalRecord && (
                   <p className="appointment-detail-page-rating-text">
                     Bác sĩ đang cập nhật kết quả. Vui lòng quay lại sau.
                   </p>
                 )}
                 
-                {/* Nếu ĐÃ CÓ hồ sơ */}
-                {/* Luồng 3: Bệnh nhân (chỉ chủ sở hữu) */}
                 {isOwner && appointment.MedicalRecord && (
                    <button 
                      className="appointment-detail-page-btn-action btn-primary"
-                     onClick={handleViewMedicalRecord} // Mở modal
+                     onClick={handleViewMedicalRecord}
                    >
                      <FaShieldAlt /> Xem chi tiết hồ sơ y tế (Bảo mật)
                    </button>
                 )}
-                
-                {/* Luồng 1 & 2: Bác sĩ/Admin */}
+
                 {isAdminOrDoctor && appointment.MedicalRecord && (
-                   <Link 
-                     to={`/nhap-ket-qua/${appointment.code}?record_id=${appointment.MedicalRecord.id}`} 
-                     className="appointment-detail-page-btn-action btn-primary"
-                   >
-                     <FaEdit /> Cập nhật kết quả khám
-                   </Link>
+                  <Link 
+                    to={`/nhap-ket-qua/${appointment.code}?record_id=${appointment.MedicalRecord.id}`} 
+                    className="appointment-detail-page-btn-action btn-primary"
+                  >
+                    <FaEdit /> Xem & Chỉnh sửa kết quả
+                  </Link>
                 )}
-                
-                {/* Luồng 1 (Bổ sung): BS/Admin chưa nhập */}
-                 {isAdminOrDoctor && !appointment.MedicalRecord && (
-                   <Link 
-                     to={`/nhap-ket-qua/${appointment.code}`} 
-                     className="appointment-detail-page-btn-action btn-primary"
-                   >
-                     <FaNotesMedical /> Nhập kết quả khám
-                   </Link>
-                 )}
-                
               </div>
             )}
             
@@ -944,6 +1052,94 @@ const AppointmentDetailPage = () => {
           
           {/* CỘT BÊN PHẢI (Thanh toán & Thao tác) */}
           <div className="appointment-detail-page-sidebar-col">
+            
+            {/* ADMIN STATUS CARD - Quản lý trạng thái khám (dành cho bác sĩ/staff) */}
+            {isAdminOrDoctor && (
+              <div className="appointment-detail-page-card admin-status-card">
+                <h2 className="appointment-detail-page-card-title">
+                  <FaStethoscope /> Quản lý trạng thái khám
+                </h2>
+                
+                {/* Status Stepper - Option A UI */}
+                {(appointment.status === 'confirmed' || appointment.status === 'in_progress' || appointment.status === 'completed' || appointment.status === 'passed') && (
+                  <div className="appointment-detail-page-status-stepper">
+                    {/* Step 1: Xác nhận */}
+                    <div className={`stepper-step ${appointment.status !== 'pending' ? 'completed' : 'active'}`}>
+                      <div className="stepper-circle">
+                        {appointment.status !== 'pending' ? <FaCheckCircle /> : '1'}
+                      </div>
+                      <div className="stepper-label">Xác nhận</div>
+                    </div>
+                    <div className="stepper-line"></div>
+                    
+                    {/* Step 2: Đang khám */}
+                    <div className={`stepper-step ${(appointment.status === 'in_progress' || appointment.status === 'completed' || appointment.status === 'passed') ? (appointment.status === 'in_progress' ? 'active' : 'completed') : 'pending'}`}>
+                      <div className="stepper-circle">
+                        {(appointment.status === 'completed' || appointment.status === 'passed') ? <FaCheckCircle /> : (appointment.status === 'in_progress' ? <FaSpinner className="spin" /> : '2')}
+                      </div>
+                      <div className="stepper-label">Đang khám</div>
+                    </div>
+                    <div className="stepper-line"></div>
+                    
+                    {/* Step 3: Hoàn thành */}
+                    <div className={`stepper-step ${(appointment.status === 'completed' || appointment.status === 'passed') ? 'completed' : 'pending'}`}>
+                      <div className="stepper-circle">
+                        {(appointment.status === 'completed' || appointment.status === 'passed') ? <FaCheckCircle /> : '3'}
+                      </div>
+                      <div className="stepper-label">Hoàn thành</div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Status Buttons */}
+                <div className="appointment-detail-page-button-group" style={{ marginTop: '16px' }}>
+                  {appointment.status === 'confirmed' && (
+                    <>
+                      <button
+                        className="appointment-detail-page-btn-action btn-start-exam"
+                        onClick={() => handleStatusChange('in_progress')}
+                      >
+                        <FaCheckCircle /> Đã vào
+                      </button>
+                    </>
+                  )}
+                  {appointment.status === 'in_progress' && (
+                    <>
+                      <button
+                        className="appointment-detail-page-btn-action btn-complete"
+                        onClick={() => handleStatusChange('completed')}
+                      >
+                        <FaCheckCircle /> Hoàn thành khám
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {canViewSharedHealthProfile && isAdminOrDoctor && (
+                  <div style={{ marginTop: '14px' }}>
+                    <button
+                      type="button"
+                      className="appointment-detail-page-btn-action btn-secondary"
+                      onClick={() => navigate(`/ho-so-suc-khoe-cong-khai/${appointment.code}`)}
+                    >
+                      <FaInfoCircle /> Xem hồ sơ sức khỏe chia sẻ
+                    </button>
+                  </div>
+                )}
+                
+                {isAdminOrDoctor && (
+                  <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e0e0e0' }}>
+                    <Link
+                      to={`/nhap-ket-qua/${appointment.code}${appointment.MedicalRecord?.id ? `?record_id=${appointment.MedicalRecord.id}` : ''}`}
+                      className="appointment-detail-page-btn-action btn-primary"
+                      style={{ width: '100%', display: 'inline-flex', justifyContent: 'center' }}
+                    >
+                      <FaNotesMedical /> {appointment.MedicalRecord ? 'Nhập / cập nhật kết quả khám' : 'Nhập kết quả khám'}
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Thanh toán */}
             <div className="appointment-detail-page-card">
@@ -1114,65 +1310,37 @@ const AppointmentDetailPage = () => {
               </div>
             )}
 
-            {/* Khung quản lý */}
+            {/* Khung Quản lý địa chỉ & Thông tin bổ sung */}
             {isAdminOrDoctor && (
               <div className="appointment-detail-page-card admin-card">
                 <h2 className="appointment-detail-page-card-title">
                   <FaShieldAlt />
-                  Quản lý (Admin/Bác sĩ)
+                  Thông tin quản lý
                 </h2>
-                
-                {/* Cập nhật trạng thái */}
-                <div className="appointment-detail-page-form-group">
-                  <label htmlFor="adminStatus">Cập nhật trạng thái</label>
-                  <select 
-                    id="adminStatus" 
-                    className="appointment-detail-page-form-control"
-                    value={adminStatus}
-                    onChange={(e) => setAdminStatus(e.target.value)}
-                  >
-                    <option value="pending">Chờ xác nhận</option>
-                    <option value="confirmed">Đã xác nhận</option>
-                    <option value="in_progress">Đang khám</option>
-                    <option value="completed">Đã hoàn thành</option>
-                    <option value="cancelled">Hủy lịch</option>
-                  </select>
-                </div>
-                
-                {/* Lý do nếu hủy */}
-                {adminStatus === 'cancelled' && (
-                  <div className="appointment-detail-page-form-group">
-                    <label htmlFor="adminCancelReason">Lý do hủy *</label>
-                    <textarea 
-                      id="adminCancelReason"
-                      className="appointment-detail-page-form-control"
-                      value={adminCancelReason}
-                      onChange={(e) => setAdminCancelReason(e.target.value)}
-                      placeholder="Nhập lý do hủy..."
-                    />
-                  </div>
-                )}
                 
                 {/* Cập nhật địa chỉ */}
                 <div className="appointment-detail-page-form-group">
-                  <label htmlFor="adminAddress">Cập nhật địa chỉ khám</label>
+                  <label htmlFor="adminAddress"><FaMapMarkerAlt /> Cập nhật địa chỉ khám</label>
                   <textarea 
                     id="adminAddress"
                     className="appointment-detail-page-form-control"
                     value={adminAddress}
                     onChange={(e) => setAdminAddress(e.target.value)}
                     placeholder="Nhập địa chỉ khám (nếu cần thay đổi)..."
+                    rows={3}
                   />
                 </div>
-                
-                <button
-                    className="appointment-detail-page-btn-action btn-primary"
-                    onClick={handleAdminUpdate}
-                    disabled={submitting}
+
+                {/* Nút hủy lịch (nếu cần) */}
+                {['pending', 'confirmed', 'in_progress'].includes(appointment.status) && (
+                  <button
+                    className="appointment-detail-page-btn-action btn-cancel"
+                    onClick={() => setShowAdminCancelModal(true)}
+                    style={{ marginTop: '10px' }}
                   >
-                    {submitting ? <FaSpinner className="fa-spin" /> : <FaCheckCircle />}
-                    Cập nhật
-                </button>
+                    <FaBan /> Hủy lịch (Admin)
+                  </button>
+                )}
               </div>
             )}
             
@@ -1414,6 +1582,53 @@ const AppointmentDetailPage = () => {
               >
                 {submitting ? <FaSpinner className="fa-spin" /> : <FaMoneyBillWave />}
                 Gửi yêu cầu hoàn tiền
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL HỦY (ADMIN CANCEL) */}
+      {showAdminCancelModal && (
+        <div className="appointment-detail-page-modal-overlay" onClick={() => setShowAdminCancelModal(false)}>
+          <div className="appointment-detail-page-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="appointment-detail-page-modal-header">
+              <h2><FaBan /> Hủy lịch hẹn (Admin)</h2>
+              <button className="appointment-detail-page-btn-close" onClick={() => setShowAdminCancelModal(false)}>
+                <FaTimes />
+              </button>
+            </div>
+            <div className="appointment-detail-page-modal-body">
+              <p className="appointment-detail-page-modal-text">
+                Hủy lịch hẹn <strong>{appointment.code}</strong> bắt buộc phải có lý do.
+              </p>
+              <div className="appointment-detail-page-form-group">
+                <label htmlFor="adminCancelReasonModal"><FaNotesMedical /> Lý do hủy *</label>
+                <textarea
+                  id="adminCancelReasonModal"
+                  value={adminCancelReason}
+                  onChange={(e) => setAdminCancelReason(e.target.value)}
+                  className="appointment-detail-page-form-control"
+                  placeholder="Nhập lý do hủy lịch hẹn từ phía Admin..."
+                  rows={4}
+                />
+              </div>
+            </div>
+            <div className="appointment-detail-page-modal-footer">
+              <button
+                className="appointment-detail-page-btn-modal btn-secondary"
+                onClick={() => { setShowAdminCancelModal(false); setAdminCancelReason(''); }}
+                disabled={submitting}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                className="appointment-detail-page-btn-modal btn-danger"
+                onClick={() => { handleStatusChange('cancelled').then(() => setShowAdminCancelModal(false)); }}
+                disabled={submitting || !adminCancelReason.trim()}
+              >
+                {submitting ? <FaSpinner className="fa-spin" /> : <FaBan />}
+                Xác nhận hủy
               </button>
             </div>
           </div>

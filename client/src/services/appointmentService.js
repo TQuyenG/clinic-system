@@ -125,6 +125,19 @@ const appointmentService = {
     return api.put(`/appointments/${code}/check-in`, { type });
   },
 
+  callQueueNumber: (code) => {
+    // Timeout riêng cho hàm này (30 giây) vì có nhiều DB transaction
+    return api.put(`/appointments/${code}/call-number`, {}, { timeout: 30000 });
+  },
+
+  getCallLogs: (date) => {
+    return api.get('/appointments/call-logs', { params: { date } });
+  },
+
+  getSlotsStatsToday: (serviceId) => {
+    return api.get(`/appointments/service/${serviceId}/slots-stats-today`);
+  },
+
   // ===== [MỚI] APPOINTMENT OPTIMIZATION: Service Indications & Edge Cases =====
 
   /**
@@ -226,7 +239,27 @@ const appointmentService = {
       config.params = { token: guestToken };
     }
     return api.put(`/appointments/${code}/change-payment-method`, payload, config);
+  },
+
+  /**
+   * Thu ngân cập nhật thanh toán tại quầy
+   * Route: PUT /api/appointments/:id/payment
+   * Note: :id backend hỗ trợ cả appointment code hoặc numeric id
+   */
+  updatePaymentInfo: (idOrCode, payload) => {
+    return api.put(`/appointments/${idOrCode}/payment`, payload);
   }
+  ,
+
+    /**
+     * Tạo lịch hẹn phụ (sub-service appointment)
+     * Doctor chỉ định dịch vụ phụ cho bệnh nhân
+     * POST /api/appointments/:parent_code/sub-service
+     * mode: 'immediate' (làm ngay) | 'schedule' (đặt lịch)
+     */
+    createSubServiceAppointment: (parentCode, payload) => {
+      return api.post(`/appointments/${parentCode}/sub-service`, payload);
+    }
 };
 
 export default appointmentService;

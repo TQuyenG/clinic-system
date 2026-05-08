@@ -15,6 +15,7 @@ import {
   FaTimes, FaHeart, FaBan, FaShieldAlt, FaSmile, FaSpinner
 } from 'react-icons/fa';
 import appointmentService from '../services/appointmentService';
+import WalkInReceptionModal from '../components/appointments/WalkInReceptionModal';
 import './FrontDeskPage.css';
 
 // ─── CUSTOM MODAL ──────────────────────────────────
@@ -243,13 +244,12 @@ const FrontDeskPage = () => {
         }
 
         const unpaid = all.filter(a =>
-          ['pending', 'confirmed', 'upcoming', 'waiting_pay'].includes(a.status) &&
-          a.payment_status === 'unpaid'
+          ((['pending', 'confirmed', 'waiting_pay'].includes(a.status) || a.isUpcoming) && a.payment_status === 'unpaid')
         ).sort((a,b) => (a.appointment_start_time || '').localeCompare(b.appointment_start_time || ''));
         setUnpaidAppointments(unpaid);
 
         const paid = all.filter(a => 
-          ['confirmed', 'waiting_exam', 'in_progress', 'completed'].includes(a.status) && 
+          (['confirmed', 'waiting_exam', 'in_progress', 'completed'].includes(a.status) || a.isUpcoming) && 
           (a.payment_status === 'paid_online' || a.payment_status === 'not_required' || a.payment_status === 'paid_at_clinic' || a.queue_number)
         ).sort((a,b) => {
            if (a.queue_number && b.queue_number) return a.queue_number - b.queue_number;
@@ -763,6 +763,7 @@ const FrontDeskPage = () => {
                   <th className="frd-th-idx">#</th>
                   <th className="frd-th-code">Mã HS</th>
                   <th className="frd-th-stt">Số TT</th>
+                  <th className="frd-tc frd-th-status">Đã Checkin</th>
                   <th className="frd-th-name">Họ tên bệnh nhân</th>
                   <th className="frd-th-dob">Năm sinh</th>
                   <th className="frd-th-phone">SĐT</th>
@@ -799,6 +800,13 @@ const FrontDeskPage = () => {
                      <td className="frd-fw-700 frd-uppercase">
                         {appt.guest_name || appt.Patient?.User?.full_name}
                      </td>
+                    <td className="frd-tc">
+                      {appt.checked_in_at ? (
+                        <span className="frdeskpage-badge frdeskpage-badge-pill frdeskpage-badge-blue">Đã Checkin</span>
+                      ) : (
+                        <span className="frdeskpage-badge frdeskpage-badge-pill frdeskpage-badge-gray">Chưa Checkin</span>
+                      )}
+                    </td>
                      <td className="frd-gray-text">
                         {appt.guest_dob ? new Date(appt.guest_dob).getFullYear() : (appt.Patient?.User?.dob ? new Date(appt.Patient.User.dob).getFullYear() : '--')}
                      </td>
@@ -867,7 +875,7 @@ const FrontDeskPage = () => {
                 
                 {(receptionTab === 'payment' ? unpaidAppointments : paidAppointments).length === 0 && (
                   <tr>
-                      <td colSpan="10" className="frd-empty-cell">
+                        <td colSpan="11" className="frd-empty-cell">
                           <span>Không có dữ liệu cho ngày {new Date(receptionFilter.date).toLocaleDateString('vi-VN')}</span>
                       </td>
                   </tr>
@@ -1957,215 +1965,11 @@ const FrontDeskPage = () => {
       {activeTab === 'cashier' && renderCashier()} 
       {activeTab === 'pharmacy' && renderPharmacy()}
 
-      {/* ========================================================
-          MODAL ĐĂNG KÝ MỚI LỄ TÂN TẠO KHÁCH TẠI QUẦY (WALK-IN)
-          (ĐÃ SỬA LẠI LOGIC CHỌN CA OFF-LINE)
-          ======================================================== */}
-      <FrdModal
+      <WalkInReceptionModal
         show={showNewPatientForm}
         onHide={() => setShowNewPatientForm(false)}
-        size="lg"
-      >
-        <FrdModal.Header onHide={() => setShowNewPatientForm(false)} className="frd-modal-header-green">
-            <FaUserPlus/> Tiếp đón / Đặt lịch hộ bệnh nhân
-        </FrdModal.Header>
-
-        <FrdModal.Body>
-          <form onSubmit={handleWalkInSubmit} id="walkInForm">
-            <div className="frd-form-grid-2">
-              
-              {/* Họ tên */}
-              <div className="frd-col-full">
-                <label className="frdeskpage-label">Họ và tên bệnh nhân <span className="frd-required">*</span></label>
-                <input
-                  className="frdeskpage-input frd-input-upper"
-                  placeholder="Nhập họ tên bệnh nhân..."
-                  value={walkInForm.guest_name}
-                  onChange={e => setWalkInForm({...walkInForm, guest_name: e.target.value})}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="frdeskpage-label">Email</label>
-                <input
-                  className="frdeskpage-input"
-                  type="email"
-                  placeholder="example@email.com"
-                  value={walkInForm.guest_email}
-                  onChange={e => setWalkInForm({...walkInForm, guest_email: e.target.value})}
-                />
-              </div>
-
-              {/* SĐT */}
-              <div>
-                <label className="frdeskpage-label">Số điện thoại <span className="frd-required">*</span></label>
-                <input
-                  className="frdeskpage-input"
-                  placeholder="0xxx xxx xxx"
-                  value={walkInForm.guest_phone}
-                  onChange={e => setWalkInForm({...walkInForm, guest_phone: e.target.value})}
-                  required
-                />
-              </div>
-
-              {/* Ngày sinh */}
-              <div>
-                <label className="frdeskpage-label">Ngày sinh</label>
-                <input
-                  type="date"
-                  className="frdeskpage-input"
-                  value={walkInForm.guest_dob}
-                  onChange={e => setWalkInForm({...walkInForm, guest_dob: e.target.value})}
-                />
-              </div>
-
-              {/* Giới tính */}
-              <div>
-                <label className="frdeskpage-label">Giới tính</label>
-                <select className="frdeskpage-select" value={walkInForm.guest_gender} onChange={e => setWalkInForm({...walkInForm, guest_gender: e.target.value})}>
-                  <option>Nam</option>
-                  <option>Nữ</option>
-                  <option>Khác</option>
-                </select>
-              </div>
-
-              {/* Loại hình khám */}
-              <div className="frd-col-full">
-                <label className="frdeskpage-label">Loại hình khám</label>
-                <div className="frd-toggle-group">
-                  <label className={`frd-toggle-item ${walkInForm.appointment_type === 'offline' ? 'active' : ''}`}>
-                    <input
-                      type="radio"
-                      name="appointment_type"
-                      value="offline"
-                      checked={walkInForm.appointment_type === 'offline'}
-                      onChange={e => {
-                        setWalkInForm({ ...walkInForm, appointment_type: e.target.value, appointment_start_time: '' });
-                        loadWalkInShifts(walkInForm.doctor_id, walkInForm.service_id, walkInForm.appointment_date, e.target.value);
-                      }}
-                    />
-                    Khám trực tiếp
-                  </label>
-                  <label className={`frd-toggle-item ${walkInForm.appointment_type === 'online' ? 'active' : ''}`}>
-                    <input
-                      type="radio"
-                      name="appointment_type"
-                      value="online"
-                      checked={walkInForm.appointment_type === 'online'}
-                      onChange={e => {
-                        setWalkInForm({ ...walkInForm, appointment_type: e.target.value, appointment_start_time: '' });
-                        loadWalkInShifts(walkInForm.doctor_id, walkInForm.service_id, walkInForm.appointment_date, e.target.value);
-                      }}
-                    />
-                    Khám online
-                  </label>
-                </div>
-              </div>
-
-              {/* Dịch vụ */}
-              <div>
-                <label className="frdeskpage-label">Dịch vụ Khám <span className="frd-required">*</span></label>
-                <select
-                  className="frdeskpage-select"
-                  value={walkInForm.service_id}
-                  onChange={e => {
-                    setWalkInForm({...walkInForm, service_id: e.target.value, appointment_start_time: ''});
-                    // Gọi API lấy Sức Chứa của các Ca / slot theo loại hình khám
-                    loadWalkInShifts(walkInForm.doctor_id, e.target.value, walkInForm.appointment_date, walkInForm.appointment_type);
-                  }}
-                  required
-                >
-                  <option value="">-- Chọn dịch vụ --</option>
-                  {servicesList.map(s => <option key={s.id} value={s.id}>{s.name} — {formatMoney(s.price)}</option>)}
-                </select>
-              </div>
-
-              {/* Bác sĩ */}
-              <div>
-                <label className="frdeskpage-label">Bác sĩ <span className="frd-required">*</span></label>
-                <select
-                  className="frdeskpage-select"
-                  value={walkInForm.doctor_id}
-                  onChange={e => {
-                    setWalkInForm({...walkInForm, doctor_id: e.target.value, appointment_start_time: ''});
-                    loadWalkInShifts(e.target.value, walkInForm.service_id, walkInForm.appointment_date, walkInForm.appointment_type);
-                  }}
-                  required
-                >
-                  <option value="">-- Chọn bác sĩ --</option>
-                  {walkInDoctors.map(d => <option key={d.id} value={d.doctor_id || d.id}>{d.full_name}</option>)}
-                </select>
-              </div>
-
-              {/* Ngày khám */}
-              <div>
-                <label className="frdeskpage-label">Ngày khám <span className="frd-required">*</span></label>
-                <input
-                  type="date"
-                  className="frdeskpage-input"
-                  value={walkInForm.appointment_date}
-                  min={new Date().toISOString().split('T')[0]}
-                  onChange={e => {
-                    setWalkInForm({...walkInForm, appointment_date: e.target.value, appointment_start_time: ''});
-                    loadWalkInShifts(walkInForm.doctor_id, walkInForm.service_id, e.target.value, walkInForm.appointment_type);
-                  }}
-                  required
-                />
-              </div>
-
-              {/* [SỬA ĐỔI GIAO DIỆN CHỌN CA] Thay vì ô giờ vuông nhỏ, dùng ô vuông to ghi tên Ca */}
-              <div className="frd-col-full">
-                <label className="frdeskpage-label">Chọn Ca Khám (Sức chứa hiện tại) <span className="frd-required">*</span></label>
-                {walkInShifts.length > 0 ? (
-                  <div className="frd-slot-grid" style={{maxHeight: 'none'}}>
-                    {walkInShifts.map((shift, idx) => (
-                      <button
-                        key={idx} type="button"
-                        style={{ padding: '8px 12px', textAlign: 'left', minWidth: '150px' }}
-                        className={`frd-slot-btn ${walkInForm.appointment_start_time === shift.time ? 'frd-slot-btn-active' : ''}`}
-                        onClick={() => setWalkInForm({...walkInForm, appointment_start_time: shift.time})}
-                      >
-                         <div style={{fontWeight: 800, fontSize: '13px'}}>{shift.shift_name === 'morning' ? 'Ca Sáng' : shift.shift_name === 'afternoon' ? 'Ca Chiều' : 'Ca Tối'}</div>
-                         <div style={{fontSize: '11px', opacity: 0.85, marginTop: '2px'}}>{shift.label}</div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="frd-slot-empty">
-                    {walkInForm.doctor_id && walkInForm.service_id ? 'Đã hết sức chứa hoặc Bác sĩ nghỉ ca này.' : 'Vui lòng chọn Bác sĩ và Dịch vụ trước'}
-                  </div>
-                )}
-              </div>
-
-              {/* Lý do khám */}
-              <div className="frd-col-full">
-                <label className="frdeskpage-label">Lý do / Triệu chứng</label>
-                <textarea
-                  className="frdeskpage-input"
-                  rows={2}
-                  placeholder="Mô tả triệu chứng..."
-                  value={walkInForm.reason}
-                  onChange={e => setWalkInForm({...walkInForm, reason: e.target.value})}
-                />
-              </div>
-            </div>
-          </form>
-        </FrdModal.Body>
-
-        <FrdModal.Footer>
-          <button type="button" className="frdeskpage-btn frdeskpage-btn-ghost" onClick={() => setShowNewPatientForm(false)}>
-            Hủy bỏ
-          </button>
-          <button type="submit" form="walkInForm" className="frdeskpage-btn frdeskpage-btn-primary" disabled={walkInSubmitting}>
-            {walkInSubmitting
-              ? 'Đang xử lý...'
-              : walkInForm.appointment_type === 'online'
-                ? <><FaUserPlus className="frd-btn-icon"/> Đặt lịch online hộ bệnh nhân</>
-                : <><FaUserPlus className="frd-btn-icon"/> Tạo hồ sơ & Tự động đẩy qua Thu ngân</>}
-          </button>
-        </FrdModal.Footer>
-      </FrdModal>
+        onSuccess={loadReceptionData}
+      />
 
       <FrdModal show={showDetailModal} onHide={() => setShowDetailModal(false)} size="xl" className="frd-modal-detail">
         <div className="frd-detail-header">
@@ -2450,8 +2254,8 @@ const FrontDeskPage = () => {
                     fontFamily: 'inherit'
                   }}
                 >
-                  <option value="cash">💵 Tiền mặt</option>
-                  <option value="transfer">🏦 Chuyển khoản</option>
+                  <option value="cash">Tiền mặt</option>
+                  <option value="transfer">Chuyển khoản</option>
                 </select>
                 <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: '#666' }}>
                   {paymentUpdateForm.payment_method === 'cash' 
@@ -2463,7 +2267,7 @@ const FrontDeskPage = () => {
               {/* Số tiền */}
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '13px' }}>
-                  💵 Số tiền thanh toán *
+                  Số tiền thanh toán *
                 </label>
                 <input
                   type="number"

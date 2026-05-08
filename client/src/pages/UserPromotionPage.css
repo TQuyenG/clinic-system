@@ -1,574 +1,652 @@
-/* UserPromotionPage.css - Giao diện Sống động & Thu hút */
+/* ===== UserPromotionPage.css ===== */
+/* Design: trắng + xanh lá nhạt — đồng bộ design system */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --promo-primary: #00b894; /* Xanh ngọc hiện đại */
-  --promo-secondary: #fdcb6e; /* Vàng gold điểm thưởng */
-  --promo-accent: #e17055; /* Cam đỏ nổi bật */
-  --promo-bg: #f0f2f5;
-  --promo-text: #2d3436;
-  --card-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-  --hover-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+  --upp-primary:        #16a34a;
+  --upp-primary-dark:   #15803d;
+  --upp-primary-light:  #bbf7d0;
+  --upp-primary-bg:     #f0fdf4;
+  --upp-badge-bg:       #dcfce7;
+  --upp-badge-text:     #166534;
+  --upp-accent:         #059669;
+
+  --upp-gold:           #d97706;
+  --upp-gold-bg:        #fef3c7;
+  --upp-orange:         #ea580c;
+  --upp-orange-bg:      #fff7ed;
+
+  --upp-white:          #ffffff;
+  --upp-border:         #d1fae5;
+  --upp-border-soft:    #e5e7eb;
+  --upp-neutral-50:     #f9fafb;
+  --upp-neutral-100:    #f3f4f6;
+  --upp-neutral-400:    #9ca3af;
+  --upp-neutral-500:    #6b7280;
+  --upp-neutral-700:    #374151;
+  --upp-neutral-900:    #111827;
+
+  --upp-shadow-sm:      0 1px 3px rgba(0,0,0,0.06);
+  --upp-shadow-md:      0 4px 14px rgba(22,163,74,0.12), 0 1px 4px rgba(0,0,0,0.05);
+  --upp-shadow-hover:   0 8px 22px rgba(22,163,74,0.18), 0 2px 6px rgba(0,0,0,0.07);
+  --upp-shadow-gold:    0 4px 14px rgba(217,119,6,0.2);
+
+  --upp-radius-sm:      6px;
+  --upp-radius-md:      10px;
+  --upp-radius-lg:      14px;
+  --upp-radius-xl:      20px;
+
+  --upp-font:           'Be Vietnam Pro', 'Segoe UI', system-ui, sans-serif;
+  --upp-fs-xs:          0.7rem;
+  --upp-fs-sm:          0.78rem;
+  --upp-fs-base:        0.84rem;
+  --upp-fs-md:          0.92rem;
+  --upp-fs-lg:          1.05rem;
+  --upp-fs-xl:          1.25rem;
+  --upp-fs-2xl:         1.55rem;
 }
 
-.user-promotion-page-container {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
-  padding: 30px 20px;
-  min-height: 85vh;
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ===== PAGE ===== */
+.upp-page {
+  background: linear-gradient(160deg, var(--upp-primary-bg) 0%, #ecfdf5 50%, #f9fafb 100%);
+  min-height: 100vh;
+  font-family: var(--upp-font);
+  font-size: var(--upp-fs-base);
+  color: var(--upp-neutral-700);
 }
 
-/* Header rực rỡ hơn */
-.user-promotion-page-header-sm {
-  text-align: center;
-  margin-bottom: 35px;
-}
-
-.user-promotion-page-header-sm h2 {
-  font-size: 2.2rem;
-  color: var(--promo-primary);
-  margin-bottom: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  background: -webkit-linear-gradient(45deg, var(--promo-primary), var(--promo-secondary));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.user-promotion-page-header-sm p {
-  color: #636e72;
-  font-size: 1.1rem;
-}
-
-/* Tabs Navigation Hình viên thuốc */
-.user-promotion-page-tabs-sm {
-  display: flex;
-  justify-content: center;
-  background: white;
-  padding: 8px;
-  border-radius: 50px;
-  box-shadow: var(--card-shadow);
-  margin: 0 auto 40px auto;
-  max-width: 600px;
-}
-
-.user-promotion-page-tab-btn-sm {
-  flex: 1;
-  padding: 12px 20px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #b2bec3;
-  transition: all 0.3s ease;
-  border-radius: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.user-promotion-page-tab-btn-sm.active {
-  background: var(--promo-primary);
-  color: white;
-  box-shadow: 0 4px 10px rgba(0, 184, 148, 0.3);
-}
-
-.user-promotion-page-tab-btn-sm svg {
-  font-size: 1.2rem;
-}
-
-/* Container nội dung chính */
-.user-promotion-page-content-sm {
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-/* --- TAB 1: VOUCHER CARDS --- */
-.user-promotion-page-voucher-list-sm {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 25px;
-}
-
-.user-promotion-page-voucher-card-sm {
-  background: white;
-  border-radius: 15px;
+/* ===== MARQUEE BANNER ===== */
+.upp-marquee {
+  background: var(--upp-gold-bg);
+  border-bottom: 1px solid #fde68a;
+  padding: 7px 0;
+  display: flex; align-items: center;
   overflow: hidden;
-  box-shadow: var(--card-shadow);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  border: 1px solid rgba(0,0,0,0.05);
+}
+.upp-marquee__icon {
+  flex-shrink: 0; padding: 0 14px;
+  color: var(--upp-gold); font-size: 0.9rem;
+  display: flex; align-items: center;
+}
+.upp-marquee__text {
+  font-size: var(--upp-fs-sm); font-weight: 600;
+  color: var(--upp-orange); flex: 1; white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ===== PAGE HEADER ===== */
+.upp-header {
+  text-align: center; padding: 28px 16px 20px;
+  position: relative; overflow: hidden;
+  background: linear-gradient(150deg, #166534 0%, #16a34a 60%, #059669 100%);
+  color: var(--upp-white);
+}
+.upp-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #34d399, #86efac, #34d399);
+}
+.upp-header__title {
+  font-size: var(--upp-fs-2xl); font-weight: 800;
+  margin: 0 0 7px; letter-spacing: -0.5px;
+}
+.upp-header__sub { font-size: var(--upp-fs-sm); opacity: 0.88; margin: 0; }
+
+/* ===== TABS ===== */
+.upp-tabs {
+  display: flex; justify-content: center;
+  background: var(--upp-white); padding: 6px;
+  border-radius: var(--upp-radius-xl); box-shadow: var(--upp-shadow-md);
+  margin: 20px auto; max-width: 560px;
+  border: 1px solid var(--upp-border);
+}
+.upp-tab {
+  flex: 1; padding: 10px 16px; border: none;
+  background: transparent; cursor: pointer;
+  font-size: var(--upp-fs-sm); font-weight: 600;
+  font-family: var(--upp-font); color: var(--upp-neutral-500);
+  transition: all 0.25s; border-radius: var(--upp-radius-xl);
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  white-space: nowrap;
+}
+.upp-tab svg { font-size: 0.8rem; color: inherit; }
+.upp-tab--active {
+  background: var(--upp-primary); color: var(--upp-white);
+  box-shadow: 0 3px 10px rgba(22,163,74,0.3);
+}
+.upp-tab:hover:not(.upp-tab--active) { color: var(--upp-primary); background: var(--upp-primary-bg); }
+
+/* ===== CONTENT WRAPPER ===== */
+.upp-content {
+  max-width: 900px; margin: 0 auto; padding: 0 14px 40px;
+}
+
+/* ===== SUB-TAB NAV ===== */
+.upp-subtab-nav {
+  display: flex; gap: 10px; margin-bottom: 18px;
+  border-bottom: 2px solid var(--upp-border); padding-bottom: 0;
+  flex-wrap: wrap;
+}
+.upp-subtab {
+  padding: 8px 16px; border: none; background: transparent;
+  cursor: pointer; font-size: var(--upp-fs-sm); font-weight: 600;
+  font-family: var(--upp-font); color: var(--upp-neutral-500);
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  transition: all 0.2s; display: flex; align-items: center; gap: 5px;
+  white-space: nowrap; border-radius: var(--upp-radius-sm) var(--upp-radius-sm) 0 0;
+}
+.upp-subtab svg { font-size: 0.75rem; color: inherit; }
+.upp-subtab:hover { color: var(--upp-primary); }
+.upp-subtab--active { color: var(--upp-primary); border-bottom-color: var(--upp-primary); }
+
+/* ===== VOUCHER GRID ===== */
+.upp-voucher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 16px;
+}
+
+/* ===== VOUCHER CARD ===== */
+.upp-voucher-card {
+  background: var(--upp-white);
+  border: 1px solid var(--upp-border);
+  border-radius: var(--upp-radius-lg);
+  overflow: hidden; position: relative;
+  box-shadow: var(--upp-shadow-sm);
+  transition: box-shadow 0.2s, transform 0.18s, border-color 0.2s;
+}
+.upp-voucher-card:hover {
+  box-shadow: var(--upp-shadow-hover);
+  transform: translateY(-3px);
+  border-color: var(--upp-primary-light);
+}
+
+/* Ticket-style top bar */
+.upp-voucher-card__topbar {
+  height: 5px;
+  background: linear-gradient(90deg, var(--upp-primary), var(--upp-accent));
+}
+
+.upp-voucher-card__body { padding: 16px; text-align: center; }
+
+.upp-voucher-card__icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--upp-gold-bg); margin: 0 auto 10px;
+}
+.upp-voucher-card__icon svg { font-size: 1.3rem; color: var(--upp-gold); }
+
+.upp-voucher-card__name {
+  font-size: var(--upp-fs-md); font-weight: 700;
+  color: var(--upp-neutral-900); margin: 0 0 6px;
+}
+.upp-voucher-card__code {
+  font-size: var(--upp-fs-sm); font-weight: 700;
+  color: var(--upp-primary); letter-spacing: 1px;
+  background: var(--upp-primary-bg);
+  border: 1px dashed var(--upp-border);
+  border-radius: var(--upp-radius-sm);
+  padding: 4px 10px; display: inline-block; margin-bottom: 8px;
+}
+.upp-voucher-card__expiry {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  font-size: var(--upp-fs-xs); color: var(--upp-orange); font-weight: 600;
+}
+.upp-voucher-card__expiry svg { font-size: 0.65rem; color: inherit; }
+
+/* Progress bar */
+.upp-voucher-card__progress { margin: 10px 0 0; text-align: left; }
+.upp-voucher-card__progress-label {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: var(--upp-fs-xs); color: var(--upp-neutral-500); margin-bottom: 4px;
+}
+.upp-voucher-card__progress-bar {
+  width: 100%; height: 5px;
+  background: var(--upp-neutral-100); border-radius: 3px; overflow: hidden;
+}
+.upp-voucher-card__progress-fill {
+  height: 100%; border-radius: 3px; transition: width 0.5s ease;
+}
+.upp-voucher-card__progress-fill--normal { background: var(--upp-primary); }
+.upp-voucher-card__progress-fill--hot    { background: #dc2626; }
+
+/* Card actions */
+.upp-voucher-card__actions { display: flex; gap: 7px; margin-top: 12px; }
+
+.upp-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 5px; border: none; cursor: pointer;
+  font-family: var(--upp-font); font-weight: 600;
+  transition: all 0.2s; border-radius: var(--upp-radius-sm);
+}
+.upp-btn svg { font-size: 0.72rem; color: inherit; }
+
+.upp-btn--sm   { flex: 1; padding: 7px 10px; font-size: var(--upp-fs-xs); }
+.upp-btn--md   { padding: 9px 16px; font-size: var(--upp-fs-sm); }
+.upp-btn--full { width: 100%; padding: 10px; font-size: var(--upp-fs-sm); }
+
+.upp-btn--outline {
+  background: var(--upp-primary-bg);
+  border: 1px solid var(--upp-border);
+  color: var(--upp-neutral-700);
+}
+.upp-btn--outline:hover { background: var(--upp-badge-bg); border-color: var(--upp-primary-light); color: var(--upp-primary); }
+
+.upp-btn--primary {
+  background: var(--upp-primary); color: var(--upp-white);
+  box-shadow: 0 2px 6px rgba(22,163,74,0.28);
+}
+.upp-btn--primary:hover { background: var(--upp-primary-dark); box-shadow: 0 4px 12px rgba(22,163,74,0.36); }
+
+.upp-btn--orange {
+  background: var(--upp-orange); color: var(--upp-white);
+}
+.upp-btn--orange:hover { background: #c2410c; }
+
+.upp-btn--ghost-primary {
+  background: var(--upp-badge-bg); color: var(--upp-primary);
+  border: 1px solid var(--upp-border);
+}
+.upp-btn--ghost-primary:hover { background: var(--upp-primary); color: var(--upp-white); }
+
+.upp-btn--disabled {
+  background: var(--upp-neutral-100); color: var(--upp-neutral-400);
+  cursor: not-allowed; opacity: 0.7;
+}
+
+/* ===== RIBBON ===== */
+.upp-ribbon {
+  position: absolute; top: 14px; right: -32px;
+  background: #dc2626; color: var(--upp-white);
+  padding: 4px 36px; font-size: var(--upp-fs-xs); font-weight: 800;
+  text-transform: uppercase; transform: rotate(45deg);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 10; letter-spacing: 0.4px;
+  animation: uppRibbonPulse 1.5s infinite alternate;
+}
+@keyframes uppRibbonPulse {
+  from { background: #dc2626; }
+  to   { background: #ef4444; }
+}
+
+/* ===== GAME AREA ===== */
+.upp-game-area {
+  background: var(--upp-white);
+  border: 1px solid var(--upp-border);
+  border-radius: var(--upp-radius-lg);
+  padding: 30px 24px; text-align: center;
+  box-shadow: var(--upp-shadow-sm); position: relative; overflow: hidden;
+}
+.upp-game-area::before {
+  content: '';
+  position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+  background: repeating-conic-gradient(from 0deg, rgba(22,163,74,0.04) 0deg 20deg, transparent 20deg 40deg);
+  animation: uppSpinSlow 60s linear infinite; z-index: 0;
+}
+.upp-game-content { position: relative; z-index: 1; }
+
+/* Wheel container */
+.upp-wheel-wrap {
+  position: relative; width: 280px; height: 280px;
+  margin: 0 auto 22px; border-radius: 50%;
+  border: 7px solid var(--upp-white);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.13), inset 0 0 12px rgba(0,0,0,0.15);
+  overflow: hidden;
+  transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+}
+.upp-wheel-pointer {
+  position: absolute; top: -14px; left: 50%;
+  transform: translateX(-50%);
+  width: 28px; height: 38px;
+  background: var(--upp-orange);
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+  z-index: 10;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
+}
+.upp-wheel-center {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 46px; height: 46px;
+  background: var(--upp-white); border-radius: 50%; z-index: 5;
+  box-shadow: 0 3px 9px rgba(0,0,0,0.18);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--upp-fs-xs); font-weight: 800; color: var(--upp-orange);
+}
+.upp-wheel-text {
+  position: absolute; top: 50%; left: 50%;
+  width: 50%; transform-origin: 0 0;
+  text-align: right; padding-right: 18px;
+  font-weight: 700; color: var(--upp-white);
+  font-size: 0.72rem;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.45);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.upp-game-title { font-size: var(--upp-fs-xl); font-weight: 800; color: var(--upp-neutral-900); margin: 0 0 6px; }
+.upp-game-sub   { font-size: var(--upp-fs-sm); color: var(--upp-neutral-500); margin: 0 0 18px; }
+.upp-game-sub b { color: var(--upp-primary); }
+
+.upp-btn--spin {
+  padding: 12px 36px; font-size: var(--upp-fs-lg); font-weight: 800;
+  color: var(--upp-white);
+  background: linear-gradient(45deg, var(--upp-orange), #f97316);
+  border: none; border-radius: var(--upp-radius-xl);
+  cursor: pointer; font-family: var(--upp-font);
+  box-shadow: 0 6px 16px rgba(234,88,12,0.3);
+  transition: all 0.25s;
+}
+.upp-btn--spin:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 10px 20px rgba(234,88,12,0.38); }
+.upp-btn--spin:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.upp-game-result {
+  margin-top: 22px; padding: 16px; border-radius: var(--upp-radius-md);
+  animation: uppPopIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  display: flex; align-items: center; gap: 10px; justify-content: center;
+}
+.upp-game-result--win  { background: var(--upp-badge-bg); border: 2px solid var(--upp-primary-light); color: var(--upp-badge-text); }
+.upp-game-result--lose { background: #fee2e2; border: 2px solid #fecaca; color: #991b1b; }
+.upp-game-result svg   { font-size: 1.2rem; flex-shrink: 0; }
+.upp-game-result p     { margin: 0; font-weight: 600; font-size: var(--upp-fs-sm); }
+
+/* ===== HISTORY LIST ===== */
+.upp-history-list { display: flex; flex-direction: column; gap: 10px; }
+.upp-history-card {
+  display: flex; align-items: center; gap: 13px;
+  background: var(--upp-white); border: 1px solid var(--upp-border);
+  border-radius: var(--upp-radius-md); padding: 13px;
+  box-shadow: var(--upp-shadow-sm); transition: border-color 0.2s;
+}
+.upp-history-card:hover { border-color: var(--upp-primary-light); }
+.upp-history-card--card   { background: #fffbeb; }
+.upp-history-card--voucher { background: var(--upp-primary-bg); }
+
+.upp-history-card__img {
+  width: 54px; height: 54px; border-radius: var(--upp-radius-sm);
+  object-fit: cover; flex-shrink: 0; border: 1px solid var(--upp-border);
+}
+.upp-history-card__icon-wrap {
+  width: 54px; height: 54px; border-radius: var(--upp-radius-sm);
+  background: var(--upp-badge-bg); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--upp-border);
+}
+.upp-history-card__icon-wrap svg { font-size: 1.4rem; color: var(--upp-primary); }
+
+.upp-history-card__name  { font-weight: 700; font-size: var(--upp-fs-sm); color: var(--upp-neutral-900); display: block; margin-bottom: 3px; }
+.upp-history-card__date  { font-size: var(--upp-fs-xs); color: var(--upp-neutral-500); display: flex; align-items: center; gap: 4px; }
+.upp-history-card__date svg { font-size: 0.62rem; color: inherit; }
+.upp-history-card__code  {
+  margin-top: 6px; background: var(--upp-orange); color: var(--upp-white);
+  padding: 3px 9px; border-radius: var(--upp-radius-sm);
+  font-size: var(--upp-fs-xs); font-weight: 700; display: inline-block;
+}
+.upp-history-card__saved {
+  margin-top: 6px; color: var(--upp-primary); font-weight: 600;
+  font-size: var(--upp-fs-xs); display: flex; align-items: center; gap: 4px;
+}
+.upp-history-card__saved svg { font-size: 0.65rem; }
+
+/* ===== LOYALTY: CHECKIN ===== */
+.upp-checkin-box {
+  background: var(--upp-white); border: 1px solid var(--upp-border);
+  border-radius: var(--upp-radius-lg); padding: 22px; margin-bottom: 20px;
+  box-shadow: var(--upp-shadow-sm); text-align: center;
+}
+.upp-checkin-box__title { font-size: var(--upp-fs-lg); font-weight: 700; color: var(--upp-neutral-900); margin: 0 0 6px; }
+.upp-checkin-box__points {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--upp-gold-bg); color: var(--upp-gold);
+  border-radius: 20px; padding: 5px 14px;
+  font-size: var(--upp-fs-md); font-weight: 700; margin-bottom: 16px;
+}
+.upp-checkin-box__points svg { font-size: 0.9rem; color: inherit; }
+
+/* 7-day row */
+.upp-checkin-row {
+  display: flex; justify-content: space-between;
+  margin-top: 22px; position: relative;
+  max-width: 560px; margin-left: auto; margin-right: auto;
+}
+.upp-checkin-row::before {
+  content: '';
+  position: absolute; top: 20px; left: 5%; right: 5%; height: 3px;
+  background: var(--upp-border); z-index: 1;
+}
+.upp-checkin-item {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.upp-checkin-circle {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--upp-neutral-100); border: 2px solid var(--upp-border);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: var(--upp-fs-xs); color: var(--upp-neutral-400);
+  transition: all 0.25s;
+}
+.upp-checkin-circle svg { font-size: 1rem; }
+.upp-checkin-circle--done {
+  background: var(--upp-primary); border-color: var(--upp-primary);
+  color: var(--upp-white); box-shadow: 0 0 10px rgba(22,163,74,0.35);
+}
+.upp-checkin-label { font-size: var(--upp-fs-xs); color: var(--upp-neutral-500); font-weight: 600; }
+
+/* ===== REWARD STORE ===== */
+.upp-store-title {
+  font-size: var(--upp-fs-lg); font-weight: 700;
+  color: var(--upp-neutral-900); margin: 0 0 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.upp-store-title svg { color: var(--upp-primary); font-size: 0.95rem; }
+
+.upp-store-filters {
+  display: flex; gap: 8px; margin-bottom: 16px;
+  overflow-x: auto; padding-bottom: 4px; flex-wrap: nowrap;
+}
+.upp-store-filter {
+  padding: 6px 18px; border: 1px solid var(--upp-border);
+  background: var(--upp-white); border-radius: 20px;
+  cursor: pointer; font-size: var(--upp-fs-xs); font-weight: 600;
+  color: var(--upp-neutral-600); white-space: nowrap; transition: all 0.2s;
+  font-family: var(--upp-font);
+}
+.upp-store-filter:hover { background: var(--upp-badge-bg); color: var(--upp-primary); border-color: var(--upp-primary-light); }
+.upp-store-filter--active { background: var(--upp-primary); color: var(--upp-white); border-color: var(--upp-primary); }
+
+.upp-store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 15px; margin-top: 8px;
+}
+
+.upp-store-card {
+  background: var(--upp-white); border-radius: var(--upp-radius-md);
+  padding: 16px; box-shadow: var(--upp-shadow-sm);
+  border: 1px solid var(--upp-border);
+  transition: all 0.2s; position: relative; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.upp-store-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--upp-shadow-hover);
+  border-color: var(--upp-primary-light);
+}
+
+.upp-store-card__cost {
+  position: absolute; top: 0; right: 0;
+  background: var(--upp-gold-bg);
+  color: var(--upp-gold);
+  padding: 5px 13px; border-bottom-left-radius: var(--upp-radius-md);
+  font-weight: 800; font-size: var(--upp-fs-xs);
+  display: flex; align-items: center; gap: 4px;
+  border-left: 1px solid #fde68a; border-bottom: 1px solid #fde68a;
+}
+.upp-store-card__cost svg { font-size: 0.65rem; color: inherit; }
+
+.upp-store-card__name {
+  font-size: var(--upp-fs-md); font-weight: 700;
+  color: var(--upp-neutral-900); margin: 26px 0 7px;
+}
+.upp-store-card__discount {
+  color: var(--upp-primary); font-weight: 700; font-size: var(--upp-fs-md);
+  margin: 0 0 8px;
+}
+.upp-store-card__meta {
+  font-size: var(--upp-fs-xs); color: var(--upp-neutral-500);
+  flex: 1; line-height: 1.7; margin: 0 0 12px;
+}
+
+/* ===== MODAL OVERLAY ===== */
+.upp-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(3px); z-index: 10000;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.upp-modal {
+  background: var(--upp-white); width: 100%; max-width: 420px;
+  border-radius: var(--upp-radius-lg); overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.16);
+  border: 1px solid var(--upp-border);
+  animation: uppPopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Win popup */
+.upp-win-modal { max-width: 360px; }
+.upp-win-modal__header {
+  background: linear-gradient(135deg, var(--upp-gold), #f97316);
+  padding: 24px 20px; color: var(--upp-white); text-align: center;
+}
+.upp-win-modal__header-icon { font-size: 2.2rem; margin-bottom: 7px; display: flex; justify-content: center; }
+.upp-win-modal__header-icon svg { color: var(--upp-white); }
+.upp-win-modal__title { font-size: var(--upp-fs-xl); font-weight: 800; text-transform: uppercase; margin: 0; }
+
+.upp-win-modal__body { padding: 20px; text-align: center; }
+.upp-win-modal__reward-img {
+  width: 90px; height: 90px; border-radius: 50%;
+  object-fit: cover; border: 4px solid var(--upp-white);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.15); margin: 0 auto 12px;
+  display: block;
+}
+.upp-win-modal__reward-icon {
+  width: 90px; height: 90px; border-radius: 50%;
+  background: var(--upp-badge-bg); border: 4px solid var(--upp-white);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+  margin: 0 auto 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.upp-win-modal__reward-icon svg { font-size: 2.2rem; color: var(--upp-primary); }
+.upp-win-modal__name { font-weight: 700; font-size: var(--upp-fs-lg); color: var(--upp-neutral-900); margin: 0 0 14px; }
+
+.upp-win-modal__code-box {
+  background: var(--upp-orange-bg); border: 2px dashed var(--upp-orange);
+  border-radius: var(--upp-radius-md); padding: 13px; margin: 0 0 12px;
   position: relative;
 }
+.upp-win-modal__code-label { font-size: var(--upp-fs-xs); color: var(--upp-orange); margin: 0 0 4px; }
+.upp-win-modal__code-value {
+  font-size: 1.2rem; font-weight: 800; color: var(--upp-orange);
+  letter-spacing: 2px; margin: 0;
+}
+.upp-win-modal__confetti {
+  position: absolute; top: -13px;
+  font-size: 1.4rem; display: flex; align-items: center; justify-content: center;
+}
+.upp-win-modal__confetti--left  { left: 10px; }
+.upp-win-modal__confetti--right { right: 10px; }
+.upp-win-modal__confetti svg { animation: uppBounce 1s infinite alternate; color: var(--upp-gold); }
 
-.user-promotion-page-voucher-card-sm:hover {
-  transform: translateY(-8px);
-  box-shadow: var(--hover-shadow);
+.upp-win-modal__note { font-size: var(--upp-fs-xs); color: var(--upp-neutral-400); margin: 0 0 16px; }
+
+/* Voucher detail modal */
+.upp-detail-modal__header {
+  background: linear-gradient(135deg, var(--upp-primary), var(--upp-accent));
+  padding: 18px 20px; color: var(--upp-white);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.upp-detail-modal__title { font-size: var(--upp-fs-lg); font-weight: 700; text-transform: uppercase; margin: 0; }
+.upp-detail-modal__close {
+  width: 28px; height: 28px; background: rgba(255,255,255,0.2);
+  border: none; border-radius: var(--upp-radius-sm); cursor: pointer;
+  color: var(--upp-white); font-size: var(--upp-fs-lg);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--upp-font); transition: background 0.2s;
+}
+.upp-detail-modal__close:hover { background: rgba(255,255,255,0.35); }
+
+.upp-detail-modal__body { padding: 20px; }
+.upp-detail-modal__name {
+  font-size: var(--upp-fs-md); font-weight: 700;
+  color: var(--upp-neutral-900); text-align: center; margin: 0 0 14px;
+}
+.upp-detail-modal__code-box {
+  background: var(--upp-primary-bg); border: 1px dashed var(--upp-border);
+  border-radius: var(--upp-radius-md); padding: 13px; text-align: center; margin-bottom: 16px;
+}
+.upp-detail-modal__code-label { font-size: var(--upp-fs-xs); color: var(--upp-neutral-500); margin: 0 0 4px; }
+.upp-detail-modal__code-value {
+  font-size: 1.2rem; font-weight: 800; color: var(--upp-primary); letter-spacing: 1px; margin: 0;
 }
 
-/* Trang trí phần đầu thẻ voucher giống cuống vé */
-.voucher-card-header-decoration {
-    height: 15px;
-    background: var(--promo-primary);
-    background-image: radial-gradient(circle at 10px 15px, white 8px, transparent 9px);
-    background-size: 20px 20px;
-    background-position: -10px -5px;
-    margin-bottom: -1px; /* fix line */
+.upp-detail-modal__info { font-size: var(--upp-fs-sm); color: var(--upp-neutral-700); line-height: 1.9; }
+.upp-detail-modal__info-row { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 4px; }
+.upp-detail-modal__info-row svg { font-size: 0.72rem; color: var(--upp-primary); margin-top: 3px; flex-shrink: 0; }
+.upp-detail-modal__desc {
+  margin-top: 10px; padding: 10px; background: var(--upp-neutral-100);
+  border-radius: var(--upp-radius-sm); font-size: var(--upp-fs-xs); color: var(--upp-neutral-500);
 }
 
-
-.voucher-card-body {
-    padding: 20px;
-    text-align: center;
+/* ===== EMPTY STATE ===== */
+.upp-empty {
+  text-align: center; padding: 40px 16px;
+  background: var(--upp-white); border: 1px solid var(--upp-border);
+  border-radius: var(--upp-radius-lg);
 }
+.upp-empty__icon { font-size: 2.2rem; color: var(--upp-primary-light); margin-bottom: 12px; display: flex; justify-content: center; }
+.upp-empty__icon svg { color: var(--upp-neutral-400); }
+.upp-empty__title { font-size: var(--upp-fs-md); font-weight: 700; color: var(--upp-neutral-700); margin: 0 0 5px; }
+.upp-empty__sub   { font-size: var(--upp-fs-sm); color: var(--upp-neutral-500); margin: 0; }
 
-.voucher-icon-large {
-    font-size: 3rem;
-    color: var(--promo-secondary);
-    margin-bottom: 15px;
-    filter: drop-shadow(0 4px 6px rgba(253, 203, 110, 0.4));
-}
+/* ===== LOADING ===== */
+.upp-loading { text-align: center; padding: 36px; color: var(--upp-neutral-500); font-size: var(--upp-fs-sm); }
+.upp-spinner { width: 36px; height: 36px; border: 3px solid var(--upp-border); border-top-color: var(--upp-primary); border-radius: 50%; animation: uppSpin 0.85s linear infinite; margin: 0 auto 12px; }
 
-.user-promotion-page-voucher-card-sm h4 {
-  font-size: 1.3rem;
-  color: var(--promo-text);
-  margin-bottom: 10px;
-  font-weight: 700;
-}
-
-.user-promotion-page-voucher-card-sm p {
-  color: #636e72;
-  font-size: 0.95rem;
-  line-height: 1.4;
-}
-
-.voucher-expiry {
-    display: block;
-    margin-top: 10px;
-    font-size: 0.85rem;
-    color: #e17055;
-    font-weight: 600;
-}
-
-.user-promotion-page-btn-use-sm {
-  width: 100%;
-  padding: 12px;
-  margin-top: 15px;
-  border: none;
-  border-radius: 10px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.btn-apply-voucher {
-    background: var(--promo-primary);
-    color: white;
-}
-.btn-apply-voucher:hover { background: #00a383; box-shadow: 0 4px 10px rgba(0, 184, 148, 0.4); }
-
-.btn-save-voucher {
-    background: #dfe6e9;
-    color: var(--promo-text);
-}
-.btn-save-voucher:hover { background: #b2bec3; }
-
-
-/* --- TAB 2: GAME AREA --- */
-.game-area-container {
-    background: white;
-    padding: 40px;
-    border-radius: 20px;
-    box-shadow: var(--card-shadow);
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-
-/* Hiệu ứng nền game */
-.game-area-container::before {
-    content: '';
-    position: absolute;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background: repeating-conic-gradient(from 0deg, rgba(253, 203, 110, 0.1) 0deg 20deg, transparent 20deg 40deg);
-    animation: spin-slow 60s linear infinite;
-    z-index: 0;
-}
-
-.game-content-wrapper {
-    position: relative;
-    z-index: 1;
-}
-
-.game-wheel-icon {
-    font-size: 8rem;
-    color: var(--promo-accent);
-    margin-bottom: 20px;
-    filter: drop-shadow(0 5px 15px rgba(225, 112, 85, 0.4));
-    transition: transform 3s cubic-bezier(0.25, 0.1, 0.25, 1);
-}
-
-.spinning {
-    animation: spin-fast 1s linear infinite;
-}
-
-.user-promotion-page-btn-spin-sm {
-    padding: 15px 40px;
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: white;
-    background: linear-gradient(45deg, var(--promo-accent), #ff9f43);
-    border: none;
-    border-radius: 50px;
-    cursor: pointer;
-    box-shadow: 0 8px 15px rgba(225, 112, 85, 0.3);
-    transition: all 0.3s;
-}
-
-.user-promotion-page-btn-spin-sm:hover:not(:disabled) {
-    transform: scale(1.05);
-    box-shadow: 0 12px 20px rgba(225, 112, 85, 0.4);
-}
-.user-promotion-page-btn-spin-sm:disabled { opacity: 0.7; cursor: not-allowed; }
-
-
-/* Game Result Popup Animation */
-.user-promotion-page-game-result-sm {
-  margin-top: 30px;
-  padding: 20px;
-  border-radius: 15px;
-  animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-}
-
-.user-promotion-page-game-result-sm.win {
-  background: #d4edda;
-  color: #155724;
-  border: 2px solid #c3e6cb;
-}
-.user-promotion-page-game-result-sm.lose {
-  background: #f8d7da;
-  color: #721c24;
-  border: 2px solid #f5c6cb;
-}
-.result-icon.win { color: #28a745; font-size: 2rem; margin-bottom: 10px; }
-
-
-/* --- TAB 3: LOYALTY POINTS --- */
-.loyalty-dashboard {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 25px;
-}
-
-@media (max-width: 768px) {
-    .loyalty-dashboard { grid-template-columns: 1fr; }
-}
-
-.points-summary-card {
-    background: linear-gradient(135deg, var(--promo-secondary), #f3a683);
-    color: white;
-    padding: 30px;
-    border-radius: 20px;
-    text-align: center;
-    box-shadow: 0 10px 20px rgba(253, 203, 110, 0.3);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-}
-
-.points-icon-wrapper {
-    font-size: 4rem;
-    margin-bottom: 10px;
-    text-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
-
-.points-total {
-    font-size: 3.5rem;
-    font-weight: 800;
-    line-height: 1;
-    text-shadow: 0 3px 6px rgba(0,0,0,0.2);
-}
-
-.points-label { font-size: 1.1rem; opacity: 0.9; }
-
-.actions-card {
-    background: white;
-    padding: 30px;
-    border-radius: 20px;
-    box-shadow: var(--card-shadow);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 20px;
-}
-
-.action-btn {
-    padding: 18px;
-    border: none;
-    border-radius: 15px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-    transition: all 0.3s;
-    color: white;
-}
-
-.btn-checkin {
-    background: linear-gradient(to right, #00b894, #55efc4);
-    box-shadow: 0 5px 15px rgba(0, 184, 148, 0.3);
-}
-.btn-checkin:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 184, 148, 0.4); }
-
-.btn-exchange {
-    background: linear-gradient(to right, #e17055, #fab1a0);
-    box-shadow: 0 5px 15px rgba(225, 112, 85, 0.3);
-}
-.btn-exchange:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(225, 112, 85, 0.4); }
-
-.btn-icon-large { font-size: 1.8rem; }
-
-/* KEYFRAMES ANIMATIONS */
-@keyframes spin-fast { 100% { transform: rotate(360deg); } }
-@keyframes spin-slow { 100% { transform: rotate(360deg); } }
-@keyframes popIn {
-  0% { transform: scale(0); opacity: 0; }
-  80% { transform: scale(1.1); opacity: 1; }
+/* ===== KEYFRAMES ===== */
+@keyframes uppSpin     { to { transform: rotate(360deg); } }
+@keyframes uppSpinSlow { to { transform: rotate(360deg); } }
+@keyframes uppPopIn {
+  0%   { transform: scale(0.7); opacity: 0; }
+  80%  { transform: scale(1.04); opacity: 1; }
   100% { transform: scale(1); }
 }
-
-/* Loading & Empty States */
-.loading-spinner, .empty-state { color: #b2bec3; font-size: 1.2rem; margin-top: 30px; }
-
-/* --- REAL WHEEL UI --- */
-.real-wheel-container {
-    position: relative;
-    width: 300px;
-    height: 300px;
-    margin: 0 auto 30px auto;
-    border-radius: 50%;
-    border: 8px solid white;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15), inset 0 0 15px rgba(0,0,0,0.2);
-    overflow: hidden;
-    transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); /* Hiệu ứng xoay mượt */
+@keyframes uppBounce {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-6px); }
 }
 
-/* Nút kim chỉ ở giữa */
-.wheel-pointer {
-    position: absolute;
-    top: -15px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 30px;
-    height: 40px;
-    background: var(--promo-accent);
-    clip-path: polygon(50% 100%, 0 0, 100% 0);
-    z-index: 10;
-    filter: drop-shadow(0 3px 3px rgba(0,0,0,0.3));
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .upp-header { padding: 22px 14px 18px; }
+  .upp-header__title { font-size: 1.3rem; }
+  .upp-tabs { margin: 14px 10px; max-width: 100%; }
+  .upp-tab  { padding: 8px 10px; font-size: 0.72rem; }
+  .upp-content { padding: 0 10px 32px; }
+  .upp-voucher-grid  { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .upp-store-grid    { grid-template-columns: 1fr; }
+  .upp-checkin-circle { width: 36px; height: 36px; }
+  .upp-game-area  { padding: 20px 14px; }
+  .upp-wheel-wrap { width: 240px; height: 240px; }
 }
 
-.wheel-center-dot {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 50px;
-    height: 50px;
-    background: white;
-    border-radius: 50%;
-    z-index: 5;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    color: var(--promo-accent);
-}
-
-.wheel-slice {
-    position: absolute;
-    top: 0; right: 0; bottom: 0; left: 0;
-    clip-path: polygon(50% 50%, 100% 0, 100% 100%);
-}
-
-.wheel-text {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 50%;
-    transform-origin: 0 0;
-    text-align: right;
-    padding-right: 20px;
-    font-weight: 700;
-    color: white;
-    font-size: 0.85rem;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-    /* Giới hạn chữ */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* =========================================
-   HIỆU ỨNG CẢNH BÁO "SẮP HẾT" CHO VOUCHER
-========================================= */
-.voucher-almost-out-ribbon {
-    position: absolute;
-    top: 15px;
-    right: -32px;
-    background: #d63031;
-    color: white;
-    padding: 4px 35px;
-    font-size: 0.7rem;
-    font-weight: 900;
-    text-transform: uppercase;
-    transform: rotate(45deg);
-    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-    z-index: 10;
-    letter-spacing: 0.5px;
-    /* Hiệu ứng nhấp nháy màu đỏ */
-    animation: pulse-ribbon 1.5s infinite alternate;
-}
-
-@keyframes pulse-ribbon {
-    0% { background-color: #d63031; transform: rotate(45deg) scale(1); }
-    100% { background-color: #ff4757; transform: rotate(45deg) scale(1.05); }
-}
-/* TRƯỚC KHI SỬA: Bỏ qua (Chỉ cần dán vào cuối file) */
-
-/* SAU KHI SỬA (Thêm vào cuối file) */
-/* =========================================
-   GIAO DIỆN ĐIỂM DANH & CỬA HÀNG ĐỔI THƯỞNG
-========================================= */
-.checkin-progress-container {
-    background: #fff;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: var(--card-shadow);
-    margin-bottom: 30px;
-    text-align: center;
-}
-.checkin-days-row {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 30px;
-    position: relative;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-}
-.checkin-days-row::before {
-    content: '';
-    position: absolute;
-    top: 20px;
-    left: 5%;
-    right: 5%;
-    height: 4px;
-    background: #dfe6e9;
-    z-index: 1;
-}
-.checkin-day-item {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-}
-.checkin-circle {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    background: #dfe6e9;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    color: #b2bec3;
-    transition: 0.3s;
-    border: 3px solid #fff;
-}
-.checkin-circle.active {
-    background: var(--promo-primary);
-    color: white;
-    box-shadow: 0 0 12px rgba(0, 184, 148, 0.4);
-}
-.checkin-label {
-    font-size: 0.85rem;
-    color: #636e72;
-    font-weight: 700;
-}
-
-/* Lưới Cửa hàng Voucher */
-.reward-store-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
-}
-.reward-store-card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: var(--card-shadow);
-    border: 1px solid #f1f2f6;
-    transition: 0.3s;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-.reward-store-card:hover {
-    transform: translateY(-5px);
-    box-shadow: var(--hover-shadow);
-    border-color: #0984e3;
-}
-.reward-points-cost {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background: #fdcb6e;
-    color: #d35400;
-    padding: 6px 15px;
-    border-bottom-left-radius: 12px;
-    font-weight: 900;
-    font-size: 0.95rem;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-.store-filters {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    overflow-x: auto;
-    padding-bottom: 10px;
-}
-.store-filter-btn {
-    padding: 8px 22px;
-    border: 1px solid #dfe6e9;
-    background: #fff;
-    border-radius: 20px;
-    cursor: pointer;
-    font-weight: 600;
-    color: #636e72;
-    white-space: nowrap;
-    transition: 0.2s;
-}
-.store-filter-btn.active {
-    background: var(--promo-primary);
-    color: white;
-    border-color: var(--promo-primary);
-    box-shadow: 0 4px 10px rgba(0, 184, 148, 0.2);
+@media (max-width: 480px) {
+  .upp-voucher-grid { grid-template-columns: 1fr; }
+  .upp-tabs { flex-wrap: wrap; border-radius: var(--upp-radius-lg); }
+  .upp-tab  { flex: 1 1 40%; border-radius: var(--upp-radius-md); }
+  .upp-wheel-wrap { width: 210px; height: 210px; }
+  .upp-checkin-row { gap: 4px; }
+  .upp-checkin-circle { width: 30px; height: 30px; font-size: 0.62rem; }
+  .upp-checkin-label  { font-size: 0.62rem; }
+  .upp-modal { border-radius: var(--upp-radius-md); }
+  .upp-store-filters { flex-wrap: wrap; }
+  .upp-store-filter { flex: 1 1 auto; text-align: center; }
 }

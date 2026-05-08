@@ -20,7 +20,11 @@ import {
   FaHashtag,
   FaExclamationTriangle,
   FaShieldAlt,
-  FaCheckCircle
+  FaCheckCircle,
+  FaNotesMedical,
+  FaArrowLeft,
+  FaClipboardList,
+  FaUser
 } from 'react-icons/fa';
 
 const MyMedicalRecordsPage = () => {
@@ -107,39 +111,47 @@ const MyMedicalRecordsPage = () => {
 
   return (
     <>
+      {/* ── STICKY HEADER (đồng bộ với MedicalRecordViewPage) ── */}
+      <header className="MyMedicalRecordsPage-header">
+        <div className="MyMedicalRecordsPage-header-top">
+          <button className="MyMedicalRecordsPage-btn-back" onClick={() => navigate(-1)}>
+            <FaArrowLeft /> Quay lại
+          </button>
+
+          <div className="MyMedicalRecordsPage-brand">
+            <div className="MyMedicalRecordsPage-brand-logo">
+              <FaNotesMedical />
+            </div>
+            <span className="MyMedicalRecordsPage-brand-name">Hồ Sơ Y Tế</span>
+          </div>
+
+          {records.length > 0 && (
+            <span className="MyMedicalRecordsPage-count-badge">
+              <FaCheckCircle />
+              {records.length} hồ sơ
+            </span>
+          )}
+        </div>
+
+        {/* ---- TABS ---- */}
+        <nav className="MyMedicalRecordsPage-tabs">
+          <button
+            className={`MyMedicalRecordsPage-tab${activeTab === 'records' ? ' MyMedicalRecordsPage-tab--active' : ''}`}
+            onClick={() => setActiveTab('records')}
+          >
+            <FaClipboardList /> Hồ sơ khám bệnh
+          </button>
+          <button
+            className={`MyMedicalRecordsPage-tab${activeTab === 'health' ? ' MyMedicalRecordsPage-tab--active' : ''}`}
+            onClick={() => navigate('/ho-so-y-te?tab=health-profile')}
+          >
+            <FaUser /> Sức khỏe cá nhân
+          </button>
+        </nav>
+      </header>
+
       <div className="MyMedicalRecordsPage-container">
         <div className="MyMedicalRecordsPage-wrapper">
-
-          {/* Header */}
-          <div className="MyMedicalRecordsPage-header">
-            <div className="MyMedicalRecordsPage-header-icon">
-              <FaFileMedicalAlt />
-            </div>
-            <h1>Hồ sơ Y tế của tôi</h1>
-            <p>Nơi lưu trữ tất cả kết quả khám bệnh của bạn tại Easy Medify.</p>
-            {records.length > 0 && (
-              <span className="MyMedicalRecordsPage-count-badge">
-                <FaCheckCircle />
-                {records.length} hồ sơ
-              </span>
-            )}
-          </div>
-
-          {/* ---- TABS ---- */}
-          <div className="MyMedicalRecordsPage-tabs">
-            <button
-              className={`MyMedicalRecordsPage-tab${activeTab === 'records' ? ' active' : ''}`}
-              onClick={() => setActiveTab('records')}
-            >
-              <FaFileMedicalAlt /> Hồ sơ khám bệnh
-            </button>
-            <button
-              className={`MyMedicalRecordsPage-tab${activeTab === 'health' ? ' active' : ''}`}
-              onClick={() => navigate('/ho-so-y-te?tab=health-profile')}
-            >
-              <FaUserMd /> Sức khỏe cá nhân
-            </button>
-          </div>
 
           {/* ---- TAB: HỒ SƠ KHÁM BỆNH ---- */}
           {activeTab === 'records' && (

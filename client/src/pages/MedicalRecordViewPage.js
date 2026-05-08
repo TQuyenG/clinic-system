@@ -12,6 +12,7 @@ import medicalRecordService from '../services/medicalRecordService';
 import userService from '../services/userService';
 import { useAuth } from '../contexts/AuthContext';
 import './MedicalRecordViewPage.css';
+import MedicalRecordSummarySections from '../components/medical/MedicalRecordSummarySections';
 
 import {
   FaUserInjured, FaUserMd, FaCalendarAlt, FaNotesMedical,
@@ -20,7 +21,8 @@ import {
   FaArrowLeft, FaPrint, FaSave, FaWeight, FaRuler, FaTint, FaIdCard,
   FaAllergies, FaHeartbeat, FaPhone, FaEdit, FaCheckCircle,
   FaInfoCircle, FaClipboardList, FaUser, FaExclamationTriangle,
-  FaTimes, FaPlus, FaSyringe, FaPills, FaRunning, FaBeer, FaSmoking
+  FaTimes, FaPlus, FaSyringe, FaPills, FaRunning, FaBeer, FaSmoking,
+  FaShareAlt, FaGlobe
 } from 'react-icons/fa';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -192,6 +194,9 @@ const MedicalRecordViewPage = ({ mode }) => {
   const [editingSection, setEditingSection] = useState(null);
   const [draft,          setDraft]          = useState({});
   const [medInput,       setMedInput]       = useState('');
+  const [showShareConfirmModal, setShowShareConfirmModal] = useState(false);
+  const [shareToggleLoading, setShareToggleLoading] = useState(false);
+  const [pendingShareValue, setPendingShareValue] = useState(null);
 
   const [healthData, setHealthData] = useState({
     height:'', weight:'', blood_type:'', health_insurance:'',
@@ -246,6 +251,7 @@ const MedicalRecordViewPage = ({ mode }) => {
           catch (_) { med = {}; }
         }
         const merged = { ...healthData, ...(med || {}) };
+        merged.share_with_doctors = !!merged.share_with_doctors;
         setHealthData(merged);
         setCompletionRate(calcCompletion(merged));
         setMissingFields(missing_fields || []);
@@ -289,6 +295,32 @@ const MedicalRecordViewPage = ({ mode }) => {
     } catch (_) { toast.error('Lỗi cập nhật'); }
   };
 
+  const openShareConfirmModal = (nextValue) => {
+    setPendingShareValue(nextValue);
+    setShowShareConfirmModal(true);
+  };
+
+  const confirmShareToggle = async () => {
+    if (pendingShareValue === null) return;
+
+    try {
+      setShareToggleLoading(true);
+      const payload = { ...healthData, share_with_doctors: pendingShareValue };
+      const res = await userService.updatePatientHealthInfo(payload);
+      if (res.data.success) {
+        setHealthData(payload);
+        toast.success(pendingShareValue ? 'Đã bật chia sẻ công khai cho bác sĩ' : 'Đã tắt chia sẻ công khai cho bác sĩ');
+        setShowShareConfirmModal(false);
+        setPendingShareValue(null);
+        await loadHealthProfile();
+      }
+    } catch (_) {
+      toast.error('Không thể cập nhật trạng thái chia sẻ');
+    } finally {
+      setShareToggleLoading(false);
+    }
+  };
+
   /* ── BMI ── */
   const bmiStatus = () => {
     if (!bmi) return null;
@@ -310,6 +342,13 @@ const MedicalRecordViewPage = ({ mode }) => {
   };
   const fileUrl = (url) => url ? `${API_URL}${url.startsWith('/') ? url : `/${url}`}` : '#';
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' }) : 'N/A';
+  const patientName = record?.patient_name || record?.Appointment?.patient_name || record?.Patient?.User?.full_name || record?.Patient?.user?.full_name || record?.Appointment?.guest_name || 'N/A';
+  const patientPhone = record?.patient_phone || record?.Appointment?.patient_phone || record?.Patient?.User?.phone || record?.Patient?.user?.phone || record?.Appointment?.guest_phone || 'N/A';
+  const patientEmail = record?.patient_email || record?.Appointment?.patient_email || record?.Patient?.User?.email || record?.Patient?.user?.email || record?.Appointment?.guest_email || 'N/A';
+  const doctorName = record?.doctor_name || record?.Doctor?.user?.full_name || 'N/A';
+  const doctorPhone = record?.doctor_phone || record?.Doctor?.user?.phone || 'N/A';
+  const doctorEmail = record?.doctor_email || record?.Doctor?.user?.email || 'N/A';
+  const serviceName = record?.Service?.name || record?.Appointment?.Service?.name || record?.Appointment?.service_name || 'N/A';
 
   /* ── Props chung cho sub-components ── */
   const secProps = { editingSection, onStartEdit: startEdit, onCancel: cancelEdit, onSave: saveSection };
@@ -407,130 +446,17 @@ const MedicalRecordViewPage = ({ mode }) => {
               </div>
             ) : (
               <>
-                <div className="mrvp-meta-strip">
-                  <div className="mrvp-meta-card">
-                    <span className="mrvp-iconbox mrvp-iconbox--md mrvp-iconbox--green">
-                      <Icon as={FaUserInjured} />
-                    </span>
-                    <div className="mrvp-meta-texts">
-                      <span className="mrvp-meta-lbl">Bệnh nhân</span>
-                      <span className="mrvp-meta-val">{record.Patient?.user?.full_name || record.Appointment?.guest_name || 'N/A'}</span>
-                    </div>
-                  </div>
-                  <div className="mrvp-meta-card">
-                    <span className="mrvp-iconbox mrvp-iconbox--md mrvp-iconbox--blue">
-                      <Icon as={FaUserMd} />
-                    </span>
-                    <div className="mrvp-meta-texts">
-                      <span className="mrvp-meta-lbl">Bác sĩ phụ trách</span>
-                      <span className="mrvp-meta-val">{record.Doctor?.user?.full_name || 'N/A'}</span>
-                    </div>
-                  </div>
-                  <div className="mrvp-meta-card">
-                    <span className="mrvp-iconbox mrvp-iconbox--md mrvp-iconbox--amber">
-                      <Icon as={FaCalendarAlt} />
-                    </span>
-                    <div className="mrvp-meta-texts">
-                      <span className="mrvp-meta-lbl">Ngày khám</span>
-                      <span className="mrvp-meta-val">{fmtDate(record.Appointment?.appointment_date || record.created_at)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mrvp-record-grid">
-                  <div className="mrvp-record-col">
-                    <div className="mrvp-card">
-                      <div className="mrvp-diag-block">
-                        <div className="mrvp-diag-lbl"><Icon as={FaStethoscope} /> Chẩn đoán</div>
-                        <p className="mrvp-diag-text">{record.diagnosis || 'Không có chẩn đoán.'}</p>
-                      </div>
-                      {[
-                        { label:'Triệu chứng',          text: record.symptoms },
-                        { label:'Kế hoạch điều trị',    text: record.treatment_plan },
-                        { label:'Lời khuyên bác sĩ',    text: record.advice },
-                      ].map(({ label, text }) => (
-                        <div key={label} className="mrvp-rec-row">
-                          <div className="mrvp-rec-row-lbl">{label}</div>
-                          <p className="mrvp-rec-row-text">{text || 'Không có thông tin.'}</p>
-                        </div>
-                      ))}
-                      {record.follow_up_date && (
-                        <div className="mrvp-followup-row">
-                          <Icon as={FaCalendarAlt} />
-                          <strong>Tái khám:</strong>&nbsp;{fmtDate(record.follow_up_date)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mrvp-record-col">
-                    {record.prescription_json?.length > 0 && (
-                      <div className="mrvp-card">
-                        <div className="mrvp-card-head">
-                          <Icon as={FaFilePrescription} />
-                          <span className="mrvp-card-head-title">Đơn thuốc</span>
-                        </div>
-                        <table className="mrvp-rx-table">
-                          <thead>
-                            <tr>
-                              <th>Tên thuốc</th><th>SL</th>
-                              <th>Liều dùng</th><th>Hướng dẫn</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {record.prescription_json.map((item, i) => (
-                              <tr key={i}>
-                                <td data-label="Thuốc">{item.name}</td>
-                                <td data-label="SL">{item.quantity}</td>
-                                <td data-label="Liều">{item.dosage}</td>
-                                <td data-label="HD">{item.instructions}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-
-                    {(record.test_images_json?.length > 0 || record.report_files_json?.length > 0) && (
-                      <div className="mrvp-card">
-                        <div className="mrvp-card-head">
-                          <Icon as={FaFileMedical} />
-                          <span className="mrvp-card-head-title">Tài liệu đính kèm</span>
-                        </div>
-                        {record.test_images_json?.length > 0 && (
-                          <div className="mrvp-file-group">
-                            <div className="mrvp-file-group-title"><Icon as={FaFileImage} /> Ảnh xét nghiệm</div>
-                            <div className="mrvp-file-list">
-                              {record.test_images_json.map((f,i) => (
-                                <a key={i} href={fileUrl(f.url)} className="mrvp-file-item"
-                                   target="_blank" rel="noopener noreferrer" download={f.originalname}>
-                                  <Icon as={fileIcon(f.originalname)} />
-                                  <span className="mrvp-file-name" title={f.originalname}>{f.originalname}</span>
-                                  <Icon as={FaDownload} className="mrvp-file-dl" />
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {record.report_files_json?.length > 0 && (
-                          <div className="mrvp-file-group">
-                            <div className="mrvp-file-group-title"><Icon as={FaFilePdf} /> File báo cáo</div>
-                            <div className="mrvp-file-list">
-                              {record.report_files_json.map((f,i) => (
-                                <a key={i} href={fileUrl(f.url)} className="mrvp-file-item"
-                                   target="_blank" rel="noopener noreferrer" download={f.originalname}>
-                                  <Icon as={fileIcon(f.originalname)} />
-                                  <span className="mrvp-file-name" title={f.originalname}>{f.originalname}</span>
-                                  <Icon as={FaDownload} className="mrvp-file-dl" />
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <MedicalRecordSummarySections
+                  record={record}
+                  patientName={patientName}
+                  patientPhone={patientPhone}
+                  patientEmail={patientEmail}
+                  doctorName={doctorName}
+                  doctorPhone={doctorPhone}
+                  doctorEmail={doctorEmail}
+                  serviceName={serviceName}
+                  fileUrl={fileUrl}
+                />
               </>
             )
           )}
@@ -815,16 +741,76 @@ const MedicalRecordViewPage = ({ mode }) => {
 
                 {/* ── Bottom actions ───────────────────────── */}
                 <div className="mrvp-hp-full">
+                  <div className="mrvp-share-block">
+                    <div className="mrvp-share-copy">
+                      <div className="mrvp-share-title">
+                        <Icon as={FaGlobe} /> Chia sẻ hồ sơ cho bác sĩ
+                      </div>
+                      <p className="mrvp-share-text">
+                        {healthData.share_with_doctors
+                          ? 'Đang bật chia sẻ công khai để bác sĩ đang khám có thể xem hồ sơ sức khỏe của bạn.'
+                          : 'Bật chia sẻ để bác sĩ đang khám xem nhanh thông tin sức khỏe cá nhân của bạn.'}
+                      </p>
+                    </div>
+                    <button
+                      className={`mrvp-btn-share ${healthData.share_with_doctors ? 'mrvp-btn-share--active' : ''}`}
+                      type="button"
+                      onClick={() => openShareConfirmModal(!healthData.share_with_doctors)}
+                    >
+                      <Icon as={FaShareAlt} />
+                      {healthData.share_with_doctors ? 'Tắt chia sẻ công khai' : 'Bật chia sẻ công khai'}
+                    </button>
+                  </div>
                   <div className="mrvp-hp-actions">
                     <button className="mrvp-btn-export" type="button" onClick={() => window.print()}>
                       <Icon as={FaPrint} /> Xuất PDF
                     </button>
-                    <button className="mrvp-btn-send" type="button"
-                      onClick={() => toast.info('Tính năng gửi hồ sơ cho bác sĩ sẽ có trong phiên tư vấn')}>
-                      <Icon as={FaUserMd} /> Gửi cho bác sĩ
-                    </button>
                   </div>
                 </div>
+
+                {showShareConfirmModal && (
+                  <div className="mrvp-modal-overlay" role="presentation" onClick={() => !shareToggleLoading && setShowShareConfirmModal(false)}>
+                    <div className="mrvp-modal" role="dialog" aria-modal="true" aria-labelledby="mrvp-share-modal-title" onClick={(e) => e.stopPropagation()}>
+                      <div className="mrvp-modal-head">
+                        <div className="mrvp-modal-title" id="mrvp-share-modal-title">
+                          <Icon as={FaUserMd} /> {pendingShareValue ? 'Bật chia sẻ công khai?' : 'Tắt chia sẻ công khai?'}
+                        </div>
+                        <button
+                          type="button"
+                          className="mrvp-modal-close"
+                          onClick={() => !shareToggleLoading && setShowShareConfirmModal(false)}
+                          aria-label="Đóng"
+                        >
+                          <Icon as={FaTimes} />
+                        </button>
+                      </div>
+                      <p className="mrvp-modal-text">
+                        {pendingShareValue
+                          ? 'Khi bật, bác sĩ đang khám có thể xem hồ sơ sức khỏe cá nhân của bạn để hỗ trợ chẩn đoán và tư vấn.'
+                          : 'Khi tắt, bác sĩ sẽ không còn thấy hồ sơ sức khỏe cá nhân của bạn ở chế độ chia sẻ công khai.'}
+                      </p>
+                      <div className="mrvp-modal-actions">
+                        <button
+                          type="button"
+                          className="mrvp-modal-btn mrvp-modal-btn--ghost"
+                          onClick={() => setShowShareConfirmModal(false)}
+                          disabled={shareToggleLoading}
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          type="button"
+                          className="mrvp-modal-btn mrvp-modal-btn--primary"
+                          onClick={confirmShareToggle}
+                          disabled={shareToggleLoading}
+                        >
+                          {shareToggleLoading ? <Icon as={FaSpinner} className="mrvp-icon--spin" /> : null}
+                          {shareToggleLoading ? 'Đang cập nhật...' : 'Xác nhận'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
               </div>
             )

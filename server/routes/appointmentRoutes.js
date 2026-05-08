@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const appointmentController = require('../controllers/appointmentController');
 const appointmentOptimizer = require('../controllers/appointmentOptimizationController');
-const { authenticateToken, authorize } = require('../middleware/authMiddleware');
+const { authenticateToken, authenticateTokenOptional, authorize } = require('../middleware/authMiddleware');
 
 // ========== PUBLIC ROUTES ==========
 
@@ -110,6 +110,12 @@ router.get('/staff/clinical-queue',
   appointmentController.getClinicalQueue
 );
 
+router.get('/call-logs',
+  authenticateToken,
+  authorize('admin', 'staff'),
+  appointmentController.getCallLogs
+);
+
 /**
  * Xác nhận lịch hẹn
  * PUT /api/appointments/:id/confirm
@@ -165,6 +171,12 @@ router.put('/:code/check-in',
   authenticateToken,
   authorize('admin', 'staff'),
   appointmentController.checkIn
+);
+
+router.put('/:code/call-number',
+  authenticateToken,
+  authorize('admin', 'staff'),
+  appointmentController.callQueueNumber
 );
 
 // ========== COMMON ROUTES ==========
@@ -256,7 +268,7 @@ router.patch('/:id/service-indications/:indication_id/complete',
  */
 router.patch('/:id/no-show',
   authenticateToken,
-  authorize('doctor', 'staff'),
+  authorize('doctor', 'staff', 'admin'),
   appointmentOptimizer.handleNoShow
 );
 
@@ -287,6 +299,7 @@ router.put('/:id/prioritize-now',
  * Body: { payment_method: 'cash' | 'vnpay' | 'momo' | 'bank_transfer' }
  */
 router.put('/:code/change-payment-method',
+  authenticateTokenOptional,
   appointmentController.changePaymentMethod
 );
 
@@ -298,6 +311,19 @@ router.get('/service/:serviceId/slots-stats-today',
   authenticateToken,
   authorize('admin', 'manager', 'staff'),
   appointmentController.getSlotsStatsToday
+);
+
+/**
+ * POST /api/appointments/:parent_code/sub-service
+ * Tạo lịch hẹn phụ (sub-service appointment)
+ * Doctor chỉ định dịch vụ phụ cho bệnh nhân
+ * Body: { service_id, service_name, mode, appointment_date, appointment_start_time }
+ * mode: 'immediate' (làm ngay) | 'schedule' (đặt lịch)
+ */
+router.post('/:parent_code/sub-service',
+  authenticateToken,
+  authorize('doctor', 'staff', 'admin'),
+  appointmentController.createSubServiceAppointment
 );
 
 module.exports = router;
