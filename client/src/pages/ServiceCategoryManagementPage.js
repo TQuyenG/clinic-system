@@ -514,10 +514,11 @@ const ServiceCategoryManagementPage = () => {
       {/* Header */}
       <div className="service-category-mgnt-header">
         <div className="service-category-mgnt-header-left">
-          <h1>Quản lý Danh mục Dịch vụ</h1>
-          <span className="service-category-mgnt-count">
-            {filteredCategories.length} danh mục
-          </span>
+          <div className="service-category-mgnt-header-title">
+            <h1>Quản lý Danh mục Dịch vụ</h1>
+            <p>Quản lý nhóm dịch vụ, hình ảnh và trạng thái hiển thị.</p>
+          </div>
+          <span className="service-category-mgnt-count">{filteredCategories.length} danh mục</span>
         </div>
         <div className="service-category-mgnt-header-right">
           <button 

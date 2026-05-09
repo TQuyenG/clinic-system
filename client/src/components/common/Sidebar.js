@@ -130,7 +130,7 @@ const Sidebar = ({ onToggle }) => {
     if (location.pathname.startsWith('/quan-ly-tu-van') || location.pathname.startsWith('/admin/tu-van')) {
       setConsultationMenuOpen(true);
     }
-    if (location.pathname.startsWith('/quan-ly-dich-vu') || location.pathname.startsWith('/quan-ly-danh-muc-dich-vu')) {
+    if (location.pathname.startsWith('/quan-ly-dich-vu') || location.pathname.startsWith('/quan-ly-lich-hen')) {
       setServiceMenuOpen(true);
     }
     if (location.pathname.startsWith('/quan-ly-nhan-vien')) {
@@ -296,14 +296,6 @@ const Sidebar = ({ onToggle }) => {
 
     if (isAdminUser || isStaffUser || isDoctorUser) {
       // Doctors go to personal appointments; admin/staff keep the management page
-      addIf(canAccessModule('appointments') || isDoctorUser, {
-        id: 'manage_appointments',
-        type: 'item',
-        // Unified appointment management route for all roles
-        to: '/lich-hen-cua-toi',
-        icon: FaClipboardList,
-        label: isDoctorUser ? 'Lịch hẹn của tôi' : 'Quản lý lịch hẹn'
-      });
       addIf(isAdminUser || canAccessModule('appointments') || hasPermission('payments', 'pos'), { id: 'manage_reception', type: 'item', to: '/quay-tiep-don', icon: FaHeadset, label: 'Tiếp đón / Check-in' });
       // Allow doctors to access medical records menu even if module flag is off
       addIf(canAccessModule('medical_records') || isDoctorUser, { id: 'manage_medical_records', type: 'item', to: '/ho-so-benh-an', icon: FaFileMedicalAlt, label: 'Hồ sơ bệnh án' });
@@ -314,7 +306,7 @@ const Sidebar = ({ onToggle }) => {
       const schedulePageLabel = isDoctorUser ? 'Lịch làm việc của tôi' : (canManageWorkSchedule ? 'Quản lý lịch làm việc' : 'Lịch làm việc của tôi');
       addIf(isDoctorUser || isStaffUser || isAdminUser, { id: 'work_schedule', type: 'item', to: schedulePagePath, icon: FaCalendarCheck, label: schedulePageLabel });
       addIf(canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call'), { id: 'manage_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
-      addIf(canAccessModule('services') || canAccessModule('service_categories'), { id: 'manage_services', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý Dịch vụ' });
+      addIf(canAccessModule('services') || canAccessModule('service_categories') || canAccessModule('appointments'), { id: 'manage_services', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý dịch vụ' });
       addIf(canAccessModule('articles'), { id: 'manage_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
         { to: '/quan-ly-bai-viet', label: 'Bài viết' },
         { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
@@ -537,6 +529,11 @@ const Sidebar = ({ onToggle }) => {
                       isOpen={isConsultationMenuOpen}
                       onToggle={() => setConsultationMenuOpen(!isConsultationMenuOpen)}
                     >
+                      {(hasPermission('consultation_pricing', 'create') || hasPermission('consultation_pricing', 'edit') || hasPermission('consultation_pricing', 'delete') || hasPermission('consultation_pricing', 'hide') || hasPermission('consultation_pricing', 'set_price')) && (
+                        <Link to="/quan-ly-tu-van/goi-dich-vu" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/goi-dich-vu' ? 'sidebar-active' : ''}`}>
+                          <span className="sidebar-submenu-dot">•</span> Quản lý gói tư vấn
+                        </Link>
+                      )}
                       {(canAccessModule('consultations') || canAccessModule('consultation_realtime')) && (
                         <Link to="/quan-ly-tu-van/realtime" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && !location.search.includes('video') ? 'sidebar-active' : ''}`}>
                           <span className="sidebar-submenu-dot">•</span> Quản lý Realtime
@@ -547,23 +544,18 @@ const Sidebar = ({ onToggle }) => {
                           <span className="sidebar-submenu-dot">•</span> Quản lý tư vấn video call
                         </Link>
                       )}
-                      {(hasPermission('consultation_pricing', 'create') || hasPermission('consultation_pricing', 'edit') || hasPermission('consultation_pricing', 'delete') || hasPermission('consultation_pricing', 'hide') || hasPermission('consultation_pricing', 'set_price')) && (
-                        <Link to="/quan-ly-tu-van/goi-dich-vu" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/goi-dich-vu' ? 'sidebar-active' : ''}`}>
-                          <span className="sidebar-submenu-dot">•</span> Quản lý gói dịch vụ
-                        </Link>
-                      )}
                     </MenuDropdown>
                   )}
 
-                  {item.id === 'manage_services' && (canAccessModule('services') || canAccessModule('service_categories')) && (
+                  {item.id === 'manage_services' && (canAccessModule('services') || canAccessModule('service_categories') || canAccessModule('appointments') || isAdmin) && (
                     <MenuDropdown
                       icon={FaBriefcaseMedical}
                       label={item.label}
                       isOpen={isServiceMenuOpen}
                       onToggle={() => setServiceMenuOpen(!isServiceMenuOpen)}
                     >
-                      {canAccessModule('service_categories') && <Link to="/quan-ly-danh-muc-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-danh-muc-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Danh mục Dịch vụ</Link>}
-                      {canAccessModule('services') && <Link to="/quan-ly-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Dịch vụ</Link>}
+                      {(canAccessModule('services') || canAccessModule('service_categories') || isAdmin) && <Link to="/quan-ly-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý gói dịch vụ</Link>}
+                      {(canAccessModule('appointments') || isAdmin) && <Link to="/quan-ly-lich-hen" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-lich-hen') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý lịch hẹn</Link>}
                     </MenuDropdown>
                   )}
 
@@ -632,9 +624,9 @@ const Sidebar = ({ onToggle }) => {
 
                   {(item.id === 'admin_consultations') && (
                     <MenuDropdown icon={FaRegComments} label={item.label} isOpen={isConsultationMenuOpen} onToggle={() => setConsultationMenuOpen(!isConsultationMenuOpen)}>
+                      <Link to="/quan-ly-tu-van/goi-dich-vu" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/goi-dich-vu' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý gói tư vấn</Link>
                       <Link to="/quan-ly-tu-van/realtime" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && !location.search.includes('video') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý Realtime</Link>
                       <Link to="/quan-ly-tu-van/realtime?type=video" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && location.search.includes('video') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý tư vấn video call</Link>
-                      <Link to="/quan-ly-tu-van/goi-dich-vu" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/goi-dich-vu' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý gói dịch vụ</Link>
                     </MenuDropdown>
                   )}
 
@@ -646,12 +638,6 @@ const Sidebar = ({ onToggle }) => {
                     </MenuDropdown>
                   )}
 
-                  {(item.id === 'admin_services_dropdown') && (
-                    <MenuDropdown icon={FaBriefcaseMedical} label={item.label} isOpen={isServiceMenuOpen} onToggle={() => setServiceMenuOpen(!isServiceMenuOpen)}>
-                      <Link to="/quan-ly-danh-muc-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-danh-muc-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Danh mục Dịch vụ</Link>
-                      <Link to="/quan-ly-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Dịch vụ</Link>
-                    </MenuDropdown>
-                  )}
                 </>
               )}
             </div>

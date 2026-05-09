@@ -222,7 +222,7 @@ const MedicalRecordViewPage = ({ mode }) => {
   }, [healthData.height, healthData.weight]);
 
   /* ── Conditional return AFTER hooks ── */
-  if (mode === 'management') return <Navigate to="/danh-sach-ho-so" replace />;
+  if (mode === 'management') return <Navigate to="/ho-so-benh-an" replace />;
 
   /* ── Loaders ── */
   const loadMedicalRecord = async () => {
@@ -399,7 +399,7 @@ const MedicalRecordViewPage = ({ mode }) => {
           <button
             className={`mrvp-tab ${activeTab === 'records' ? 'mrvp-tab--active' : ''}`}
             onClick={() => {
-              if (!record_id) navigate(user?.role === 'patient' ? '/danh-sach-ho-so' : '/ho-so-benh-an');
+              if (!record_id) navigate(user?.role === 'patient' ? '/danh-sach-ho-so?tab=records' : '/ho-so-benh-an');
               else setActiveTab('records');
             }}
           >
@@ -430,7 +430,7 @@ const MedicalRecordViewPage = ({ mode }) => {
                 <span>Vui lòng chọn một hồ sơ khám bệnh để xem.</span>
                 <button
                   style={{ marginTop:'.5rem', padding:'.4rem .875rem', fontSize:'var(--mrvp-fs-sm)', fontWeight:600, background:'var(--mrvp-green)', color:'#fff', border:'none', borderRadius:'var(--mrvp-r-sm)', cursor:'pointer' }}
-                  onClick={() => navigate('/danh-sach-ho-so')}
+                  onClick={() => navigate('/danh-sach-ho-so?tab=records')}
                 >
                   Xem danh sách hồ sơ
                 </button>

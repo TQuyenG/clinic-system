@@ -36,6 +36,7 @@ const MyMedicalRecordsPage = () => {
   const [activeTab, setActiveTab] = useState('records'); // 'records' | 'health'
   const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [recordType, setRecordType] = useState('offline'); // 'offline' | 'online' | 'all'
 
   // State cho modal bảo mật
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -106,8 +107,14 @@ const MyMedicalRecordsPage = () => {
     const code = (record.Appointment?.code || '').toLowerCase();
     const doctor = (record.Doctor?.user?.full_name || '').toLowerCase();
     const matchSearch = !keyword || code.includes(keyword) || doctor.includes(keyword);
-    return matchSearch;
+    const apptType = record.Appointment?.appointment_type || 'offline';
+    const matchType = recordType === 'all' ? true : apptType === recordType;
+    const matchStatus = filterStatus === 'all' ? true : (record.Appointment?.status || 'completed') === filterStatus;
+    return matchSearch && matchType && matchStatus;
   });
+
+  const offlineCount = records.filter(record => (record.Appointment?.appointment_type || 'offline') === 'offline').length;
+  const onlineCount = records.filter(record => (record.Appointment?.appointment_type || 'offline') === 'online').length;
 
   return (
     <>
@@ -178,6 +185,27 @@ const MyMedicalRecordsPage = () => {
                 </select>
               </div>
 
+              <div className="MyMedicalRecordsPage-type-tabs">
+                <button
+                  className={`MyMedicalRecordsPage-type-tab ${recordType === 'offline' ? 'active' : ''}`}
+                  onClick={() => setRecordType('offline')}
+                >
+                  Hồ sơ khám tại viện ({offlineCount})
+                </button>
+                <button
+                  className={`MyMedicalRecordsPage-type-tab ${recordType === 'online' ? 'active' : ''}`}
+                  onClick={() => setRecordType('online')}
+                >
+                  Hồ sơ tư vấn online ({onlineCount})
+                </button>
+                <button
+                  className={`MyMedicalRecordsPage-type-tab ${recordType === 'all' ? 'active' : ''}`}
+                  onClick={() => setRecordType('all')}
+                >
+                  Tất cả ({records.length})
+                </button>
+              </div>
+
               {/* Kết quả lọc */}
               {searchText && (
                 <p className="MyMedicalRecordsPage-result-count">
@@ -207,9 +235,14 @@ const MyMedicalRecordsPage = () => {
                           <FaHashtag />
                           {record.Appointment?.code || 'N/A'}
                         </div>
-                        <div className="MyMedicalRecordsPage-card-status">
+                        <div className="MyMedicalRecordsPage-card-header-right">
+                          <div className={`MyMedicalRecordsPage-type-badge ${(record.Appointment?.appointment_type || 'offline') === 'online' ? 'online' : 'offline'}`}>
+                            {(record.Appointment?.appointment_type || 'offline') === 'online' ? 'Tư vấn online' : 'Khám tại viện'}
+                          </div>
+                          <div className="MyMedicalRecordsPage-card-status">
                           <span className="MyMedicalRecordsPage-card-status-dot" />
                           Đã hoàn thành
+                          </div>
                         </div>
                       </div>
                       <div className="MyMedicalRecordsPage-card-body">

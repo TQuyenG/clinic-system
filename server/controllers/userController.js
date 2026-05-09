@@ -1716,7 +1716,7 @@ exports.getDoctors = async (req, res) => {
 // Lấy danh sách bác sĩ với phân trang
 exports.getAllDoctorsPublic = async (req, res) => {
   try {
-    const { specialty_id, min_experience, search, page = 1, limit = 12 } = req.query;
+    const { specialty_id, min_experience, search, page = 1, limit = 500 } = req.query;
     const offset = (page - 1) * limit;
     const userWhere = { role: 'doctor', is_active: true, is_verified: true };
 
@@ -1885,8 +1885,7 @@ exports.getUsersByRole = async (req, res) => {
     // Cấu hình query
     const queryOptions = {
       where: {
-        role: { [Op.in]: roles },
-        is_active: true // Chỉ lấy user đang hoạt động
+        role: { [Op.in]: roles }
       },
       attributes: ['id', 'full_name', 'email', 'role', 'avatar_url'],
       limit: parseInt(limit),
@@ -1898,8 +1897,9 @@ exports.getUsersByRole = async (req, res) => {
       queryOptions.include = [
         { 
           model: models.Doctor, 
-          attributes: ['id', 'specialty_id'], // Lấy ID hồ sơ bác sĩ
-          required: false, // Left join để không mất user nếu chưa có hồ sơ doctor (phòng hờ)
+          attributes: ['id', 'specialty_id', 'work_status'], // Lấy ID + work_status
+          required: true, // Inner join - chỉ lấy user có hồ sơ Doctor
+          where: { work_status: 'active' }, // Chỉ lấy bác sĩ đang hoạt động
           include: [
             {
               model: models.Specialty,
@@ -1932,21 +1932,20 @@ exports.getUsersByRole = async (req, res) => {
     if (req.user && req.user.role === 'staff') {
       const currentStaffId = req.user.id;
       
-      // Tìm thông tin Staff hiện tại để lấy danh sách bác sĩ đang quản lý
+      // Tìm thông tin Staff hiện tại để lấy danh sách bác sĩ từ JSON column (source of truth)
       const currentStaff = await models.Staff.findOne({
         where: { user_id: currentStaffId },
-        include: [{ model: models.Doctor, as: 'managedDoctors', attributes: ['id'] }]
+        attributes: ['id', 'managed_doctors']
       });
 
       if (currentStaff) {
-        // Lấy danh sách ID các bác sĩ được phân công (Đây là ID của bảng Doctor)
-        const managedDoctorIds = currentStaff.managedDoctors ? currentStaff.managedDoctors.map(d => d.id) : [];
+        // Lấy danh sách ID từ JSON column (nguồn dữ liệu chuẩn)
+        const managedDoctorIds = currentStaff.managed_doctors?.doctor_ids || [];
 
-        // Lọc formattedUsers: Chỉ giữ lại Bác sĩ thuộc danh sách quản lý (hoặc chính mình nếu cần)
+        // Lọc formattedUsers: Chỉ giữ lại Bác sĩ thuộc danh sách quản lý
         const filteredUsers = formattedUsers.filter(u => {
-          // Nếu user là bác sĩ, kiểm tra ID (lưu ý: u.id ở đây đã được map thành Doctor ID ở logic trên)
           if (u.role === 'doctor') {
-            return managedDoctorIds.includes(u.id);
+            return managedDoctorIds.includes(u.id); // u.id là Doctor.id
           }
           return true; // Giữ lại các role khác (nếu có)
         });

@@ -179,6 +179,12 @@ router.put('/:code/call-number',
   appointmentController.callQueueNumber
 );
 
+router.post('/:code/call-again',
+  authenticateToken,
+  authorize('admin', 'staff'),
+  appointmentController.callAgain
+);
+
 // ========== COMMON ROUTES ==========
 /**
  * Lấy chi tiết lịch hẹn

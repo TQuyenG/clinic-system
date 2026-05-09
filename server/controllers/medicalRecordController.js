@@ -931,7 +931,7 @@ exports.getMyMedicalRecords = async (req, res) => {
         {
           model: models.Appointment,
           as: 'Appointment',
-          attributes: ['code', 'appointment_date']
+          attributes: ['code', 'appointment_date', 'appointment_type']
         },
         {
           model: models.Doctor,

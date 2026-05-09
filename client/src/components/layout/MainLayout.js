@@ -19,7 +19,7 @@ const MainLayout = ({ children }) => {
   '/bai-viet-da-luu', '/thong-ke', '/lich-hen-cua-toi', '/quan-ly-tu-van/goi-dich-vu', '/quan-ly-tu-van/realtime',
   '/ho-so-y-te', '/thong-bao', '/cai-dat-tai-khoan', '/quan-ly-he-thong', '/lich-cua-toi', '/staff/tu-van/realtime', '/staff/tu-van/video',
   '/quan-ly-danh-muc-bac-si', '/quan-ly-bac-si', '/quan-ly-danh-muc-nhan-vien', '/quan-ly-nhan-vien', '/quan-ly-benh-nhan',
-  '/quan-ly-danh-muc-dich-vu', '/quan-ly-dich-vu', '/quan-ly-dien-dan', '/quan-ly-thuoc', '/quan-ly-benh-ly',
+  '/quan-ly-dich-vu', '/quan-ly-dien-dan', '/quan-ly-thuoc', '/quan-ly-benh-ly',
   '/admin/tu-van/realtime', '/admin/tu-van/packages', '/quan-ly-gioi-thieu',
   '/quan-ly-thanh-toan/giao-dich', '/quan-ly-thanh-toan/hoan-tien', '/quan-ly-thanh-toan/chinh-sach',
   '/quan-ly-thanh-toan/cau-hinh', '/quan-ly-lien-he', '/quan-ly-phan-hoi', '/quan-ly-cau-hoi-thuong-gap', '/quan-ly-chinh-sach-bao-mat',

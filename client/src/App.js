@@ -83,6 +83,7 @@ import FrontDeskPage from './pages/FrontDeskPage';
 import PharmacyStockPage from './pages/PharmacyStockPage';
 import RefundRequestPage from './pages/RefundRequestPage';
 import RefundPolicyConfigPage from './pages/RefundPolicyConfigPage';
+import ServiceManagementPage from './pages/ServiceManagementPage';
 
 // Consultation (Tư vấn)
 import ChatRoomPage from './pages/ChatRoomPage';
@@ -105,8 +106,6 @@ import StatisticsPage from './pages/StatisticsPage';
 import SystemSettingsPage from './pages/SystemSettingsPage';
 import StaffManagementPage from './pages/StaffManagementPage';
 import ContactManagementPage from './pages/ContactManagementPage';
-import ServiceManagementPage from './pages/ServiceManagementPage';
-import ServiceCategoryManagementPage from './pages/ServiceCategoryManagementPage';
 import AppointmentManagementPage from './pages/AppointmentManagementPage';
 import ConsultationRealtimeManagementPage from './pages/ConsultationRealtimeManagementPage';
 import ConsultationPackageManagementPage from './pages/ConsultationPackageManagementPage';
@@ -230,6 +229,10 @@ const ConsultationRealtimeRoute = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user.role === 'admin') {
+    return children;
   }
 
   if (!(canAccessModule('consultations') || canAccessModule('consultation_realtime') || canAccessModule('video_call'))) {
@@ -371,9 +374,9 @@ function App() {
             <Route path="/dat-lich-tu-van" element={<ProtectedRoute requiredRole={['patient','admin','doctor', 'staff']}><ConsultationBookingPage /></ProtectedRoute>} />
             <Route path="/lich-tu-van-cua-toi" element={<ProtectedRoute requiredRole={['patient', 'doctor']}><ConsultationHistoryPage /></ProtectedRoute>} />
             
-            <Route path="/tu-van/video/:id" element={<ProtectedRoute requiredRole={['patient', 'doctor']}><VideoCallRoomPage /></ProtectedRoute>} />
-            <Route path="/tu-van/:id/video" element={<ProtectedRoute requiredRole={['patient', 'doctor']}><VideoCallRoomPage /></ProtectedRoute>} />
-            <Route path="/tu-van/:id/chat" element={<ProtectedRoute requiredRole={['patient', 'doctor']}><ChatRoomPage /></ProtectedRoute>} />
+            <Route path="/tu-van/video/:id" element={<ProtectedRoute requiredRole={['patient', 'doctor', 'admin']}><VideoCallRoomPage /></ProtectedRoute>} />
+            <Route path="/tu-van/:id/video" element={<ProtectedRoute requiredRole={['patient', 'doctor', 'admin']}><VideoCallRoomPage /></ProtectedRoute>} />
+            <Route path="/tu-van/:id/chat" element={<ProtectedRoute requiredRole={['patient', 'doctor', 'admin']}><ChatRoomPage /></ProtectedRoute>} />
             <Route path="/tu-van/:id" element={<ProtectedRoute requiredRole={['patient', 'doctor', 'admin', 'staff']}><ConsultationDetailPage /></ProtectedRoute>} />
             
             {/* ========== 10. STAFF & DOCTOR ========== */}
@@ -393,8 +396,8 @@ function App() {
             <Route path="/quan-ly-bai-viet" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="articles"><ArticleManagementPage /></PermissionRoute>} />
             <Route path="/phe-duyet-bai-viet/:id" element={<PermissionRoute requiredRole={['admin', 'staff']} module="articles"><ArticleReviewPage /></PermissionRoute>} />
             <Route path="/quan-ly-he-thong" element={<PermissionRoute requiredRole={['admin', 'staff']} module="system_settings"><SystemSettingsPage /></PermissionRoute>} />
-            <Route path="/quan-ly-danh-muc-dich-vu" element={<PermissionRoute requiredRole={['admin', 'staff']} module="service_categories"><ServiceCategoryManagementPage /></PermissionRoute>} />
-            <Route path="/quan-ly-dich-vu" element={<PermissionRoute requiredRole={['admin', 'staff']} module="services"><ServiceManagementPage /></PermissionRoute>} />
+            <Route path="/quan-ly-dich-vu" element={<ProtectedRoute requiredRole={['admin', 'staff']}><ServiceManagementPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-danh-muc-dich-vu" element={<Navigate to="/quan-ly-dich-vu?tab=categories" replace />} />
             
             <Route path="/quan-ly-thuoc" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="medicines"><EntityManagementPage entityType="medicine" /></PermissionRoute>} />
             <Route path="/quan-ly-benh-ly" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="diseases"><EntityManagementPage entityType="disease" /></PermissionRoute>} />

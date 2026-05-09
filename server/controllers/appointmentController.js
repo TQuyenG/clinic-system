@@ -2654,7 +2654,7 @@ exports.checkIn = async (req, res) => {
 
       if (hasQueueAlready) {
         // Nếu lịch đã được cấp số lúc thanh toán tại quầy, chỉ chuyển sang đang khám
-        // Ch? ghi nh?n check-in, status s? chuy?n khi b�c si b?m '�� v�o ph�ng'
+        // Ch? ghi nh?n check-in, status s? chuy?n khi b�c si b?m '�� v�o ph�ng'
       } else {
         const queueType = appointment.queue_type || 'normal'; 
         const prefix = queueType === 'priority' ? 'U' : 'N'; // U: Đặt lịch trước | N: Vãng lai
@@ -2689,7 +2689,7 @@ exports.checkIn = async (req, res) => {
         updateData.display_queue = `${prefix}${String(nextDisplayNum).padStart(2, '0')}`;
         // [OPTIMIZATION_V1.1] Changed from 'waiting_exam' to 'in_progress'
         // BEFORE: waiting_exam (deprecated status)
-        // AFTER (REMOVED): Kh�ng set status ? d�y, ch? c?p s?
+        // AFTER (REMOVED): Kh�ng set status ? d�y, ch? c?p s?
         console.log(`[OPTIMIZATION_V1.1] Check-in (${appointment.code}): Status will change when doctor enters (queue: ${updateData.display_queue})`);
       }
     }
@@ -2983,6 +2983,89 @@ exports.getCallLogs = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Gọi lại số đã gọi trước đó (không thay đổi queue_number)
+ * @route   POST /api/appointments/:code/call-again
+ * @access  Private (Admin/Staff)
+ */
+exports.callAgain = async (req, res) => {
+  try {
+    const { code } = req.params;
+    const appointment = await models.Appointment.findOne({
+      where: { code },
+      include: [
+        { model: models.Patient, as: 'Patient', required: false, include: [{ model: models.User, as: 'User', required: false }] },
+        { model: models.Doctor, as: 'Doctor', required: false, include: [{ model: models.User, as: 'user', required: false, attributes: ['id', 'full_name'] }] },
+        { model: models.Service, as: 'Service', required: false }
+      ]
+    });
+
+    if (!appointment) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
+
+    const today = moment().format('YYYY-MM-DD');
+    const queueDate = moment(appointment.appointment_date).format('YYYY-MM-DD');
+    if (queueDate !== today) return res.status(400).json({ success: false, message: 'Chỉ gọi lại cho lịch hẹn trong ngày' });
+
+    if (!['paid_online', 'paid_at_clinic'].includes(appointment.payment_status)) {
+      return res.status(400).json({ success: false, message: 'Lịch hẹn chưa thanh toán, không thể gọi lại' });
+    }
+
+    const calledQueue = appointment.display_queue || appointment.queue_number || null;
+    const queueLogPayload = {
+      appointment_id: appointment.id,
+      called_by: req.user?.id || null,
+      queue_number: String(calledQueue || ''),
+      doctor_id: appointment.doctor_id,
+      service_name: appointment.Service?.name || null,
+      patient_name: appointment.guest_name || appointment.Patient?.User?.full_name || null,
+      appointment_date: queueDate,
+      called_at: new Date(),
+      metadata: {
+        appointment_code: appointment.code,
+        queue_type: appointment.queue_type || null,
+        payment_status: appointment.payment_status || null,
+        note: 'call_again'
+      }
+    };
+
+    if (models.AppointmentQueueLog) {
+      try { await models.AppointmentQueueLog.create(queueLogPayload); } catch (logError) { console.error('[callAgain] Queue log error:', logError); }
+    } else {
+      try {
+        await createAuditLog(req.user?.id || null, {
+          action_type: 'appointment_call_again',
+          target_type: 'appointment',
+          target_id: appointment.id,
+          target_name: appointment.code,
+          details: queueLogPayload
+        });
+      } catch (auditError) { console.error('[callAgain] Audit log error:', auditError); }
+    }
+
+    try {
+      const doctorUserId = appointment.Doctor?.user?.id || appointment.Doctor?.user_id;
+      if (doctorUserId) {
+        const patientName = appointment.guest_name || appointment.Patient?.User?.full_name || 'Bệnh nhân';
+        await notificationHelper.createNotification({
+          user_id: doctorUserId,
+          type: 'appointment_called',
+          title: 'Gọi lại số khám',
+          message: `Gọi lại: Bệnh nhân ${patientName} (${calledQueue}) đang được gọi lại.`,
+          link: `/lich-hen/${appointment.code}`,
+          data: { appointment_id: appointment.id, appointment_code: appointment.code, queue: calledQueue }
+        });
+      }
+    } catch (notifyError) {
+      console.error('[callAgain] Notification error:', notifyError);
+    }
+
+    return res.json({ success: true, message: `Đang gọi lại ${calledQueue}`, data: { called: appointment } });
+  } catch (error) {
+    console.error('ERROR callAgain:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi gọi lại' });
+  }
+};
+
 // =================================================================
 // 2. TẠO LỊCH WALK-IN (LỄ TÂN TẠO CHO KHÁCH TẠI QUẦY)
 // =================================================================
@@ -3271,19 +3354,23 @@ exports.changePaymentMethod = async (req, res) => {
 };
 
 /**
- * @desc    Lấy thống kê slot hôm nay theo từng ca cho 1 dịch vụ
- * @route   GET /api/appointments/service/:serviceId/slots-stats-today
+ * @desc    Lấy thống kê slot theo ca cho 1 dịch vụ (hỗ trợ lọc ngày + bác sĩ)
+ * @route   GET /api/appointments/service/:serviceId/slots-stats-today?date=YYYY-MM-DD&doctor_id=123
  * @access  Private (Admin, Manager)
  * @returns {shiftName: {display_name, booked, capacity, remaining, occupancy}}
  */
 exports.getSlotsStatsToday = async (req, res) => {
   try {
     const { serviceId } = req.params;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const todayEnd = new Date(today);
-    todayEnd.setHours(23, 59, 59, 999);
+    const { date, doctor_id } = req.query;
+
+    const selectedDate = date || moment().format('YYYY-MM-DD');
+    if (!moment(selectedDate, 'YYYY-MM-DD', true).isValid()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ngày không hợp lệ. Định dạng đúng: YYYY-MM-DD'
+      });
+    }
 
     // 1. Lấy thông tin dịch vụ
     const service = await models.Service.findByPk(serviceId, {
@@ -3298,7 +3385,6 @@ exports.getSlotsStatsToday = async (req, res) => {
     }
 
     const serviceDuration = service.duration || 15;
-    const hourlyCapacity = Math.max(1, Math.floor(60 / serviceDuration));
 
     // 2. Lấy tất cả shifts hoạt động
     const shifts = await models.WorkShiftConfig.findAll({
@@ -3307,22 +3393,28 @@ exports.getSlotsStatsToday = async (req, res) => {
       raw: true
     });
 
-    // 3. Lấy tất cả appointments hôm nay của dịch vụ (loại bỏ cancelled)
+    // 3. Lấy tất cả appointments theo ngày của dịch vụ (loại bỏ cancelled)
+    const appointmentWhere = {
+      service_id: serviceId,
+      appointment_date: selectedDate,
+      appointment_type: 'offline',
+      // [OPTIMIZATION_V1.1] Removed 'passed' status (now calculated dynamically)
+      status: { [Op.notIn]: ['cancelled'] }
+    };
+
+    if (doctor_id) {
+      appointmentWhere.doctor_id = doctor_id;
+    }
+
     const appointments = await models.Appointment.findAll({
-      where: {
-        service_id: serviceId,
-        appointment_date: today,
-        appointment_type: 'offline',
-          // [OPTIMIZATION_V1.1] Removed 'passed' status (now calculated dynamically)
-          status: { [Op.notIn]: ['cancelled'] }
-      },
+      where: appointmentWhere,
       attributes: ['appointment_start_time', 'appointment_type'],
       raw: true
     });
 
     // 4. Tính stats theo từng shift
     const stats = {};
-    const dayOfWeek = today.getDay();
+    const dayOfWeek = moment(selectedDate, 'YYYY-MM-DD').day();
 
     for (const shift of shifts) {
       // Kiểm tra shift có hoạt động vào hôm nay không
@@ -3342,9 +3434,9 @@ exports.getSlotsStatsToday = async (req, res) => {
         }
       }
 
-      // Tính capacity: mỗi shift có thể chứa bao nhiêu appointments
+      // Tính capacity: số khung giờ thực tế theo duration dịch vụ
       const shiftDurationMinutes = shiftEnd - shiftStart;
-      const shiftCapacity = Math.max(1, Math.floor(shiftDurationMinutes / serviceDuration)) * hourlyCapacity;
+      const shiftCapacity = Math.max(1, Math.floor(shiftDurationMinutes / serviceDuration));
 
       stats[shift.shift_name] = {
         display_name: shift.display_name || shift.shift_name,
@@ -3358,7 +3450,9 @@ exports.getSlotsStatsToday = async (req, res) => {
     res.json({ 
       success: true, 
       data: stats,
-      service_name: service.name
+      service_name: service.name,
+      date: selectedDate,
+      doctor_id: doctor_id || null
     });
 
   } catch (error) {

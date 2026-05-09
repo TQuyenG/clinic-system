@@ -770,7 +770,7 @@ const DoctorMedicalRecordsPage = () => {
                             </div>
                             {rec.prescription_json?.length > 0 && (
                               <div className="dmrp-result-section">
-                                <h4>💊 Đơn thuốc</h4>
+                                <h4><FaPills /> Đơn thuốc</h4>
                                 <div className="dmrp-rx-list">
                                   {rec.prescription_json.map((drug, i) => (
                                     <div key={i} className="dmrp-rx-item">

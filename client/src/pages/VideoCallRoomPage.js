@@ -150,6 +150,7 @@ const VideoCallRoomPage = () => {
   const { id: consultationId } = useParams();
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem('user') || '{}'), []);
+  const isDoctorOrAdmin = user.role === 'doctor' || user.role === 'admin';
   
   // State
   const [consultation, setConsultation] = useState(null);
@@ -334,7 +335,7 @@ const VideoCallRoomPage = () => {
         setCallStatus('Đang chờ người tham gia...');
 
         // 7. Chỉ Bác sĩ mới tạo Offer
-        if (user.role === 'doctor') {
+        if (isDoctorOrAdmin) {
           console.log('👨‍⚕️ [VideoCall] Bác sĩ đang tạo Offer...');
           setTimeout(async () => {
             if (isMounted) {
@@ -518,7 +519,7 @@ const VideoCallRoomPage = () => {
         if (newTimeLeft <= 0) {
           setTimeLeft(0);
           stopCallTimer();
-          if (user.role === 'doctor') {
+          if (isDoctorOrAdmin) {
             setShowEndCallModal(true); // Hiển thị modal cho bác sĩ
           } else {
             // Tự động ngắt kết nối cho bệnh nhân
@@ -629,7 +630,7 @@ const VideoCallRoomPage = () => {
 
   // ✅ SỬA: Logc Nút "Hoàn thành"
   const handleHangUp = () => {
-    if (user.role === 'doctor') {
+    if (isDoctorOrAdmin) {
       // Bác sĩ phải điền form
       setShowSummaryModal(true);
     } else {
@@ -960,11 +961,11 @@ if (loading) {
 
           {/* ========== ✅ THAY ĐỔI: NÚT KẾT THÚC/HOÀN THÀNH ========== */}
           <button 
-            className={`video-call-room-page-control-btn ${user.role === 'doctor' ? 'video-call-room-page-control-btn-complete' : 'video-call-room-page-control-btn-hangup'}`}
+            className={`video-call-room-page-control-btn ${isDoctorOrAdmin ? 'video-call-room-page-control-btn-complete' : 'video-call-room-page-control-btn-hangup'}`}
             onClick={handleHangUp}
-            title={user.role === 'doctor' ? 'Hoàn thành' : 'Kết thúc'}
+            title={isDoctorOrAdmin ? 'Hoàn thành' : 'Kết thúc'}
           >
-            {user.role === 'doctor' ? <FaSave /> : <FaPhoneSlash />}
+            {isDoctorOrAdmin ? <FaSave /> : <FaPhoneSlash />}
           </button>
           {/* ======================================================== */}
 

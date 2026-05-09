@@ -428,21 +428,20 @@
 .MyMedicalRecordsPage-search-wrap {
   flex: 1;
   min-width: 180px;
-  position: relative;
   display: flex;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .MyMedicalRecordsPage-search-icon {
-  position: absolute;
-  left: 0.65rem;
   color: var(--mmrp-text-muted);
   font-size: 0.7rem;
+  flex: 0 0 auto;
 }
 
 .MyMedicalRecordsPage-search-input {
   width: 100%;
-  padding: 0.45rem 0.75rem 0.45rem 1.8rem;
+  padding: 0.45rem 0.75rem;
   border: 1px solid var(--mmrp-border-soft);
   border-radius: var(--mmrp-radius);
   font-size: var(--mmrp-fs-sm);
@@ -478,4 +477,57 @@
   font-size: var(--mmrp-fs-xs);
   color: var(--mmrp-text-light);
   margin: 0 0 0.6rem 0;
+}
+
+.MyMedicalRecordsPage-type-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.MyMedicalRecordsPage-type-tab {
+  border: 1px solid var(--mmrp-border-soft);
+  background: #ffffff;
+  color: var(--mmrp-text-secondary);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: var(--mmrp-fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.MyMedicalRecordsPage-type-tab.active {
+  border-color: var(--mmrp-primary);
+  color: #ffffff;
+  background: var(--mmrp-primary);
+}
+
+.MyMedicalRecordsPage-card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.MyMedicalRecordsPage-type-badge {
+  font-size: var(--mmrp-fs-xs);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid transparent;
+}
+
+.MyMedicalRecordsPage-type-badge.offline {
+  background: #e0f2fe;
+  border-color: #bae6fd;
+  color: #0369a1;
+}
+
+.MyMedicalRecordsPage-type-badge.online {
+  background: #fef9c3;
+  border-color: #fde68a;
+  color: #92400e;
 }

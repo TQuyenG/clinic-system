@@ -1,10 +1,10 @@
 // client/src/pages/ServiceManagementPage.js
 import React, { useState, useEffect } from 'react';
-import api from '../services/api';
 import serviceService from '../services/serviceService';
 import serviceCategoryService from '../services/serviceCategoryService';
 import userService from '../services/userService';
 import specialtyService from '../services/specialtyService';
+import appointmentService from '../services/appointmentService';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -13,6 +13,14 @@ import {
   FaChevronLeft, FaChevronRight, FaImage, FaPauseCircle, FaBan, FaCalendarAlt, FaSpinner
 } from 'react-icons/fa';
 import './ServiceManagementPage.css';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import ServiceCategoryManagementPage from './ServiceCategoryManagementPage';
+
+const getTodayDateValue = () => {
+  const now = new Date();
+  const tzOffset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - tzOffset).toISOString().split('T')[0];
+};
 
 const ServiceManagementPage = () => {
   const { user } = useAuth();
@@ -25,6 +33,7 @@ const ServiceManagementPage = () => {
   const [doctors, setDoctors] = useState([]);
   const [filterSpecialtyId, setFilterSpecialtyId] = useState('');
   const [doctorsLoading, setDoctorsLoading] = useState(false);
+  const [slotDoctors, setSlotDoctors] = useState([]);
   
   const [showForm, setShowForm] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
@@ -51,6 +60,7 @@ const ServiceManagementPage = () => {
   const [filters, setFilters] = useState({ search: '', categoryId: '', status: '', page: 1, limit: 10 });
   const [pagination, setPagination] = useState({ total: 0, totalPages: 0, currentPage: 1 });
   const [slotStatsMap, setSlotStatsMap] = useState({}); // Map service.id → slot stats
+  const [slotFilters, setSlotFilters] = useState({ date: getTodayDateValue(), doctorId: '' });
   
   const [selectedDoctors, setSelectedDoctors] = useState([]); 
   
@@ -75,6 +85,20 @@ const ServiceManagementPage = () => {
     fetchSpecialties(); 
     fetchDoctors();     
   }, []);
+
+  // Tab handling: sync with URL ?tab=services|categories
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const requestedTab = searchParams.get('tab');
+  const validTabs = ['services','categories'];
+  const activeTab = validTabs.includes(requestedTab) ? requestedTab : 'services';
+
+  const handleTabChange = (tabKey) => {
+    const next = new URLSearchParams(location.search);
+    next.set('tab', tabKey);
+    navigate({ pathname: '/quan-ly-dich-vu', search: `?${next.toString()}` });
+  };
 
   const fetchCategories = async () => {
     try {
@@ -107,9 +131,11 @@ const ServiceManagementPage = () => {
       else if (Array.isArray(response.data?.data)) docs = response.data.data;
       else if (Array.isArray(response.data)) docs = response.data;
       setDoctors(docs);
+      setSlotDoctors(docs);
     } catch (error) { 
       toast.error('Không thể tải danh sách bác sĩ!');
       setDoctors([]); 
+      setSlotDoctors([]);
     } finally {
       setDoctorsLoading(false);
     }
@@ -151,11 +177,6 @@ const ServiceManagementPage = () => {
       if (response.data?.success && Array.isArray(response.data.data)) {
         setServices(response.data.data);
         setPagination(response.data.pagination || { total: 0, totalPages: 0, currentPage: 1 });
-        
-        // Fetch slot stats cho tất cả dịch vụ
-        response.data.data.forEach(service => {
-          if (service.id) fetchSlotStats(service.id);
-        });
       } else {
         setServices([]);
       }
@@ -166,21 +187,77 @@ const ServiceManagementPage = () => {
     }
   };
 
-  const fetchSlotStats = async (serviceId) => {
+  const fetchSlotStats = async (serviceId, selectedDate, selectedDoctorId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/appointments/service/${serviceId}/slots-stats-today`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setSlotStatsMap(prev => ({ ...prev, [serviceId]: data.data }));
-        }
+      const params = { date: selectedDate };
+      if (selectedDoctorId) {
+        params.doctor_id = selectedDoctorId;
+      }
+
+      const response = await appointmentService.getSlotsStatsToday(serviceId, params);
+      if (response.data?.success) {
+        setSlotStatsMap(prev => ({ ...prev, [serviceId]: response.data.data || {} }));
+      } else {
+        setSlotStatsMap(prev => ({ ...prev, [serviceId]: {} }));
       }
     } catch (error) {
       console.error('Lỗi fetch slot stats:', error);
+      setSlotStatsMap(prev => ({ ...prev, [serviceId]: {} }));
     }
+  };
+
+  useEffect(() => {
+    if (!Array.isArray(services) || services.length === 0) {
+      return;
+    }
+
+    setSlotStatsMap({});
+    services.forEach(service => {
+      if (service.id) {
+        fetchSlotStats(service.id, slotFilters.date, slotFilters.doctorId);
+      }
+    });
+  }, [services, slotFilters.date, slotFilters.doctorId]);
+
+  const handleSlotFilterChange = (e) => {
+    const { name, value } = e.target;
+    setSlotFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const getSlotStatsRows = (serviceId) => {
+    const stats = slotStatsMap[serviceId];
+    if (!stats) {
+      return { loading: true, rows: [] };
+    }
+
+    const rows = Object.values(stats).filter(shift => (shift?.capacity || 0) > 0);
+    return { loading: false, rows };
+  };
+
+  const renderSlotStatsCell = (serviceId) => {
+    const { loading: isSlotLoading, rows } = getSlotStatsRows(serviceId);
+
+    if (isSlotLoading) {
+      return <span className="smp-slot-loading">Đang tải...</span>;
+    }
+
+    if (rows.length === 0) {
+      return <span className="smp-slot-empty">Không có ca</span>;
+    }
+
+    return (
+      <div className="smp-slot-lines">
+        {rows.map((shift, idx) => (
+          <div key={`${serviceId}-${shift.display_name || idx}`} className="smp-slot-line">
+            <span className="smp-slot-shift">{shift.display_name || 'Ca'}</span>
+            <span className="smp-slot-value">{shift.remaining || 0}/{shift.capacity || 0}</span>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const handleInputChange = (e) => {
@@ -410,6 +487,13 @@ const ServiceManagementPage = () => {
     return doc.full_name || doc.user?.full_name || doc.name || 'Bác sĩ';
   };
 
+  const getDoctorFilterId = (doc) => {
+    if (!doc) return null;
+    if (doc.id) return Number(doc.id);
+    if (doc.doctor_id) return Number(doc.doctor_id);
+    return null;
+  };
+
   const getDoctorSpecialty = (doc) => {
     if (!doc) return '';
     if (doc.specialty_info?.name) return doc.specialty_info.name;
@@ -429,133 +513,156 @@ const ServiceManagementPage = () => {
     return `http://localhost:3001${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  const formatSlotStats = (serviceId) => {
-    const stats = slotStatsMap[serviceId];
-    if (!stats) return 'Đang tải...';
-    
-    const parts = [];
-    Object.entries(stats).forEach(([key, value]) => {
-      const remaining = value.remaining || 0;
-      const capacity = value.capacity || 0;
-      const displayName = value.display_name || key;
-      if (capacity > 0) {
-        parts.push(`${displayName}: ${remaining}/${capacity}`);
-      }
-    });
-    
-    return parts.length > 0 ? parts.join(' | ') : 'Không có ca';
-  };
-
   if (loading) return <div className="smp-page-container"><div className="smp-loading">Đang tải dữ liệu...</div></div>;
 
   const activeCount = Array.isArray(services) ? services.filter(s => s.status === 'active').length : 0;
   const categoryCount = Array.isArray(categories) ? categories.length : 0;
 
+  // Render tabs + content
+  const TabsHeader = (
+    <div className="smp-tabs-header">
+      <button className={`smp-tab ${activeTab === 'services' ? 'active' : ''}`} onClick={() => handleTabChange('services')}>Gói dịch vụ</button>
+      <button className={`smp-tab ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => handleTabChange('categories')}>Danh mục</button>
+    </div>
+  );
+
   return (
     <div className="smp-page-container">
-      <div className="smp-content-wrapper">
-        
-        <div className="smp-header">
-          <div className="smp-header-title">
-            <h1>Quản lý Dịch vụ Khám bệnh</h1>
-            <p>Quản lý các dịch vụ thực hiện tại bệnh viện, danh mục và bác sĩ thực hiện</p>
+      {TabsHeader}
+      {activeTab === 'services' ? (
+        <div className="smp-content-wrapper">
+          
+          <div className="smp-header">
+            <div className="smp-header-title">
+              <h1>Quản lý Dịch vụ Khám bệnh</h1>
+              <p>Quản lý các dịch vụ thực hiện tại bệnh viện, danh mục và bác sĩ thực hiện</p>
+            </div>
+            <button className="smp-btn smp-btn-primary" onClick={openAddForm}><FaPlus /> Thêm dịch vụ mới</button>
           </div>
-          <button className="smp-btn smp-btn-primary" onClick={openAddForm}><FaPlus /> Thêm dịch vụ mới</button>
-        </div>
 
-        <div className="smp-stats-grid">
-          <div className="smp-stat-card"><div className="smp-stat-icon"><FaStethoscope /></div><div className="smp-stat-info"><h3>Tổng dịch vụ</h3><p>{pagination?.total || 0}</p></div></div>
-          <div className="smp-stat-card"><div className="smp-stat-icon"><FaCheckCircle /></div><div className="smp-stat-info"><h3>Đang hoạt động</h3><p>{activeCount}</p></div></div>
-          <div className="smp-stat-card"><div className="smp-stat-icon"><FaList /></div><div className="smp-stat-info"><h3>Danh mục</h3><p>{categoryCount}</p></div></div>
-        </div>
-
-        <div className="smp-toolbar">
-          <div className="smp-search-box">
-            <FaSearch className="smp-search-icon" />
-            <input type="text" name="search" placeholder="Tìm kiếm theo tên dịch vụ..." value={filters.search} onChange={handleFilterChange} className="smp-search-input" />
+          <div className="smp-stats-grid">
+            <div className="smp-stat-card"><div className="smp-stat-icon"><FaStethoscope /></div><div className="smp-stat-info"><h3>Tổng dịch vụ</h3><p>{pagination?.total || 0}</p></div></div>
+            <div className="smp-stat-card"><div className="smp-stat-icon"><FaCheckCircle /></div><div className="smp-stat-info"><h3>Đang hoạt động</h3><p>{activeCount}</p></div></div>
+            <div className="smp-stat-card"><div className="smp-stat-icon"><FaList /></div><div className="smp-stat-info"><h3>Danh mục</h3><p>{categoryCount}</p></div></div>
           </div>
-          <div className="smp-filters">
-            <select name="categoryId" value={filters.categoryId} onChange={handleFilterChange} className="smp-filter-select">
-              <option value="">Tất cả danh mục</option>
-              {Array.isArray(categories) && categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-            </select>
-            <select name="status" value={filters.status} onChange={handleFilterChange} className="smp-filter-select">
-              <option value="">Tất cả trạng thái</option>
-              <option value="active">Đang hoạt động</option>
-              <option value="inactive">Tạm ngưng</option>
-            </select>
+
+          <div className="smp-toolbar">
+            <div className="smp-search-box">
+              <FaSearch className="smp-search-icon" />
+              <input type="text" name="search" placeholder="Tìm kiếm theo tên dịch vụ..." value={filters.search} onChange={handleFilterChange} className="smp-search-input" />
+            </div>
+            <div className="smp-filters">
+              <select name="categoryId" value={filters.categoryId} onChange={handleFilterChange} className="smp-filter-select">
+                <option value="">Tất cả danh mục</option>
+                {Array.isArray(categories) && categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+              </select>
+              <select name="status" value={filters.status} onChange={handleFilterChange} className="smp-filter-select">
+                <option value="">Tất cả trạng thái</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="inactive">Tạm ngưng</option>
+              </select>
+            </div>
+            <div className="smp-slot-filters">
+              <input
+                type="date"
+                name="date"
+                value={slotFilters.date}
+                onChange={handleSlotFilterChange}
+                className="smp-filter-select"
+                title="Lọc slot theo ngày"
+              />
+              <select
+                name="doctorId"
+                value={slotFilters.doctorId}
+                onChange={handleSlotFilterChange}
+                className="smp-filter-select"
+                title="Lọc slot theo bác sĩ"
+              >
+                <option value="">Tất cả bác sĩ</option>
+                {Array.isArray(slotDoctors) && slotDoctors.map(doctor => {
+                  const doctorId = getDoctorFilterId(doctor);
+                  if (!doctorId) return null;
+                  return (
+                    <option key={doctorId} value={doctorId}>
+                      BS. {getDoctorName(doctor)}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+
+          <div className="smp-table-container">
+            <table className="smp-table">
+              <thead>
+                <tr>
+                  <th>ID</th><th>Tên dịch vụ & Mô tả</th><th>Hình ảnh</th><th>Danh mục</th>
+                  <th>Bác sĩ thực hiện</th>
+                  <th>Lịch hẹn</th>
+                  <th>Slot còn lại/ca</th>
+                  <th>Giá & Thời gian</th><th>Trạng thái</th><th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.isArray(services) && services.length > 0 ? (
+                  services.map(service => (
+                    <tr key={service.id}>
+                      <td>#{service.id}</td>
+                      <td>
+                        <div className="smp-service-info">
+                          <span className="smp-service-name">{service.name}</span>
+                          {service.short_description && <span className="smp-service-desc">{service.short_description}</span>}
+                        </div>
+                      </td>
+                      <td>{service.image_url ? <img src={getImageUrl(service.image_url)} alt="" className="smp-image-preview" /> : <div className="smp-no-image"><FaImage size={16} /></div>}</td>
+                      <td><span className="smp-badge gray">{service.category?.name || 'Chưa phân loại'}</span></td>
+                      <td>
+                        <div className="smp-doctor-list">
+                          {Array.isArray(service.doctors) && service.doctors.length > 0 ? (
+                            <>
+                              {service.doctors.slice(0, 2).map((doc, idx) => (
+                                <span key={idx} className="smp-doctor-tag">BS. {getDoctorName(doc).split(' ').pop()}</span>
+                              ))}
+                              {service.doctors.length > 2 && <span className="smp-doctor-tag">+{service.doctors.length - 2}</span>}
+                            </>
+                          ) : <span className="smp-text-gray" style={{fontSize: '12px'}}>Tất cả</span>}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ color: '#d97706', fontWeight: '500' }}>Đang chạy: {service.active_appointments || 0}</span>
+                          <span style={{ color: '#16a34a', fontWeight: '500' }}>Đã xong: {service.completed_appointments || 0}</span>
+                        </div>
+                      </td>
+                      <td>
+                        {renderSlotStatsCell(service.id)}
+                      </td>
+                      <td>
+                        <div style={{fontWeight: '600', color: 'var(--smp-primary)'}}>{service.price?.toLocaleString('vi-VN')} đ</div>
+                        <div style={{fontSize: '12px', color: 'var(--smp-text-gray)'}}>{service.duration} phút</div>
+                      </td>
+                      <td><span className={`smp-badge ${service.status === 'active' ? 'success' : 'danger'}`}>{service.status === 'active' ? 'Hoạt động' : 'Tạm ngưng'}</span></td>
+                      <td>
+                        <div className="smp-actions">
+                          <button className="smp-btn-icon edit" onClick={() => openEditForm(service)}><FaEdit /></button>
+                          {service.status === 'active' && (
+                            <button className="smp-btn-icon" style={{color: '#d97706', background: '#fef3c7'}} onClick={() => openPauseModal(service)} title="Tạm dừng dịch vụ">
+                              <FaPauseCircle />
+                            </button>
+                          )}
+                          <button className="smp-btn-icon delete" onClick={() => handleDelete(service.id, service.name)}><FaTrash /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : <tr><td colSpan="10" className="smp-empty-state">Không có dữ liệu.</td></tr>}
+              </tbody>
+            </table>
           </div>
         </div>
-
-        <div className="smp-table-container">
-          <table className="smp-table">
-            <thead>
-              <tr>
-                <th>ID</th><th>Tên dịch vụ & Mô tả</th><th>Hình ảnh</th><th>Danh mục</th>
-                <th>Bác sĩ thực hiện</th>
-                <th>Lịch hẹn</th>
-                <th>Slot còn lại/ca</th>
-                <th>Giá & Thời gian</th><th>Trạng thái</th><th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.isArray(services) && services.length > 0 ? (
-                services.map(service => (
-                  <tr key={service.id}>
-                    <td>#{service.id}</td>
-                    <td>
-                      <div className="smp-service-info">
-                        <span className="smp-service-name">{service.name}</span>
-                        {service.short_description && <span className="smp-service-desc">{service.short_description}</span>}
-                      </div>
-                    </td>
-                    <td>{service.image_url ? <img src={getImageUrl(service.image_url)} alt="" className="smp-image-preview" /> : <div className="smp-no-image"><FaImage size={16} /></div>}</td>
-                    <td><span className="smp-badge gray">{service.category?.name || 'Chưa phân loại'}</span></td>
-                    <td>
-                      <div className="smp-doctor-list">
-                        {Array.isArray(service.doctors) && service.doctors.length > 0 ? (
-                          <>
-                            {service.doctors.slice(0, 2).map((doc, idx) => (
-                              <span key={idx} className="smp-doctor-tag">BS. {getDoctorName(doc).split(' ').pop()}</span>
-                            ))}
-                            {service.doctors.length > 2 && <span className="smp-doctor-tag">+{service.doctors.length - 2}</span>}
-                          </>
-                        ) : <span className="smp-text-gray" style={{fontSize: '12px'}}>Tất cả</span>}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <span style={{ color: '#d97706', fontWeight: '500' }}>Đang chạy: {service.active_appointments || 0}</span>
-                        <span style={{ color: '#16a34a', fontWeight: '500' }}>Đã xong: {service.completed_appointments || 0}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ fontSize: '12px', color: '#475569', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {formatSlotStats(service.id)}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{fontWeight: '600', color: 'var(--smp-primary)'}}>{service.price?.toLocaleString('vi-VN')} đ</div>
-                      <div style={{fontSize: '12px', color: 'var(--smp-text-gray)'}}>{service.duration} phút</div>
-                    </td>
-                    <td><span className={`smp-badge ${service.status === 'active' ? 'success' : 'danger'}`}>{service.status === 'active' ? 'Hoạt động' : 'Tạm ngưng'}</span></td>
-                    <td>
-                      <div className="smp-actions">
-                        <button className="smp-btn-icon edit" onClick={() => openEditForm(service)}><FaEdit /></button>
-                        {service.status === 'active' && (
-                          <button className="smp-btn-icon" style={{color: '#d97706', background: '#fef3c7'}} onClick={() => openPauseModal(service)} title="Tạm dừng dịch vụ">
-                            <FaPauseCircle />
-                          </button>
-                        )}
-                        <button className="smp-btn-icon delete" onClick={() => handleDelete(service.id, service.name)}><FaTrash /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : <tr><td colSpan="10" className="smp-empty-state">Không có dữ liệu.</td></tr>}
-            </tbody>
-          </table>
-        </div>
+      ) : (
+        <ServiceCategoryManagementPage />
+      )}
 
         {/* Modal Thêm/Sửa Dịch vụ */}
         {showForm && (
@@ -845,8 +952,6 @@ const ServiceManagementPage = () => {
             </div>
           </div>
         )}
-
-      </div>
     </div>
   );
 };

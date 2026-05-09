@@ -21,6 +21,8 @@ import {
   FaHistory,
   FaMoneyBillWave,
   FaListOl,
+  FaVolumeUp,
+  FaVolumeMute,
 } from 'react-icons/fa';
 import appointmentService from '../../services/appointmentService';
 import specialtyService from '../../services/specialtyService';
@@ -49,10 +51,12 @@ const CheckinTab = () => {
   const [callLogs, setCallLogs] = useState([]);
   const [statusView, setStatusView] = useState('all');
   const [absentCountdown, setAbsentCountdown] = useState(0);
+  const [audioEnabled, setAudioEnabled] = useState(true); // Audio toggle for TTS
   const [showCounterPaymentModal, setShowCounterPaymentModal] = useState(false);
   const [counterPaymentTarget, setCounterPaymentTarget] = useState(null);
   const [submittingCounterPayment, setSubmittingCounterPayment] = useState(false);
   const [selectedQueueAppointment, setSelectedQueueAppointment] = useState(null);
+  const [showCallExpiredModal, setShowCallExpiredModal] = useState(false); // Popup when call timer expires
   const [counterPaymentForm, setCounterPaymentForm] = useState({
     payment_method: 'cash',
     amount: 0,
@@ -396,6 +400,11 @@ const CheckinTab = () => {
     : (activeQueueIsCalled ? 'ĐANG GỌI' : 'ĐÃ CHỌN GỌI');
 
   const playCallSoundAndSpeech = (queueNumber, patientName) => {
+    // Guard: Only play sound and speech if audio is enabled
+    if (!audioEnabled) {
+      return;
+    }
+
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();
@@ -542,26 +551,9 @@ const CheckinTab = () => {
   }, [calledTicket?.called]);
 
   useEffect(() => {
-    // when countdown reaches zero and there is a called ticket, mark no-show and call next
+    // when countdown reaches zero and there is a called ticket, show expiry popup instead of auto-skip
     if (calledTicket?.called && absentCountdown === 0) {
-      const handleAutoSkip = async () => {
-        try {
-          const appt = calledTicket.called;
-          await appointmentService.markNoShow(appt.id || appt.code, 'Không có mặt tại quầy (auto-skip)');
-          toast.info('Đã đánh dấu vắng mặt (tự động). Gọi số tiếp theo...');
-          await loadAppointments({ silent: true });
-          await loadCallLogs({ silent: true });
-          setCalledTicket(null);
-          // call next if exists
-          if (queueReadyAppointments && queueReadyAppointments.length > 0) {
-            await handleCallNumber(queueReadyAppointments[0]);
-          }
-        } catch (error) {
-          console.error('[CheckinTab] auto-skip error', error);
-        }
-      };
-
-      handleAutoSkip();
+      setShowCallExpiredModal(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [absentCountdown]);
@@ -642,6 +634,64 @@ const CheckinTab = () => {
       toast.error(error.response?.data?.message || 'Lỗi khi đánh dấu vào khám');
     } finally {
       setCalling(false);
+    }
+  };
+
+  const handleCallAgainFromExpired = async () => {
+    if (!calledTicket?.called) return;
+    try {
+      setShowCallExpiredModal(false);
+      // Reset the countdown and call again
+      setAbsentCountdown(300); // Reset to 5 minutes
+      playCallSoundAndSpeech(calledTicket.called.display_queue || calledTicket.called.queue_number, getPatientName(calledTicket.called));
+      toast.info('Đang gọi lại...');
+    } catch (error) {
+      console.error('[CheckinTab] handleCallAgainFromExpired error', error);
+      toast.error('Lỗi khi gọi lại');
+    }
+  };
+
+  const handleCallAgain = (appt) => {
+    if (!appt) return;
+    (async () => {
+      try {
+        setCalling(true);
+        const res = await appointmentService.callAgain(appt.code);
+        if (res?.data?.success) {
+          // play audio locally as well
+          playCallSoundAndSpeech(appt.display_queue || appt.queue_number, getPatientName(appt));
+          setAbsentCountdown(300);
+          await loadCallLogs({ silent: true });
+          toast.info(res.data.message || 'Đang gọi lại...');
+        } else {
+          toast.error(res?.data?.message || 'Không thể gọi lại');
+        }
+      } catch (err) {
+        console.error('[CheckinTab] handleCallAgain error', err);
+        toast.error(err.response?.data?.message || 'Không thể gọi lại');
+      } finally {
+        setCalling(false);
+      }
+    })();
+  };
+
+  const handleMarkAbsentFromExpired = async () => {
+    if (!calledTicket?.called) return;
+    try {
+      setShowCallExpiredModal(false);
+      const appt = calledTicket.called;
+      await appointmentService.markNoShow(appt.id || appt.code, 'Vắng mặt - Hết thời gian chờ');
+      toast.success('Đã đánh dấu vắng mặt');
+      await loadAppointments({ silent: true });
+      await loadCallLogs({ silent: true });
+      setCalledTicket(null);
+      // Call next if exists
+      if (queueReadyAppointments && queueReadyAppointments.length > 0) {
+        await handleCallNumber(queueReadyAppointments[0]);
+      }
+    } catch (error) {
+      console.error('[CheckinTab] handleMarkAbsentFromExpired error', error);
+      toast.error('Lỗi khi đánh dấu vắng mặt');
     }
   };
 
@@ -1095,9 +1145,21 @@ const CheckinTab = () => {
                 <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
                   {activeQueueAppointment.Service?.name || '--'}
                 </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <button className="checkin-btn checkin-btn-secondary" type="button" onClick={() => printTicket(activeQueueAppointment)} style={{ flex: 1, minWidth: '90px' }}>
                     <FaPrint /> In phiếu
+                  </button>
+                  <button className="checkin-btn checkin-btn-secondary" type="button" onClick={() => handleCallAgain(activeQueueAppointment)} style={{ flex: 1, minWidth: '90px' }}>
+                    <FaPhone /> Gọi lại
+                  </button>
+                  <button 
+                    className={`checkin-btn checkin-btn-sm ${audioEnabled ? 'checkin-btn-primary' : 'checkin-btn-secondary'}`}
+                    type="button" 
+                    onClick={() => setAudioEnabled(!audioEnabled)}
+                    title={audioEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+                    style={{ padding: '6px 10px', minWidth: '40px' }}
+                  >
+                    {audioEnabled ? <FaVolumeUp size={14} /> : <FaVolumeMute size={14} />}
                   </button>
                   {activeQueueIsInProgress ? (
                     <span className="checkin-badge checkin-badge-green" style={{ alignSelf: 'center' }}>Đang khám</span>
@@ -1144,20 +1206,7 @@ const CheckinTab = () => {
                   <div><FaInfoCircle size={12} /> {queueReadyAppointments[0]?.Service?.name || '--'}</div>
                   <div><FaCreditCard size={12} /> {queueReadyAppointments[0]?.payment_status === 'paid_at_clinic' ? 'Đã thu quầy' : 'Đã thanh toán'}</div>
                 </div>
-                <div className="checkin-next-ticket-actions">
-                  {!isCheckedIn(queueReadyAppointments[0]) ? (
-                    <button className="checkin-btn checkin-btn-success" type="button" onClick={() => handleCheckIn(queueReadyAppointments[0])}>
-                      <FaCheckCircle /> Check-in trước
-                    </button>
-                  ) : (
-                    <button className="checkin-btn checkin-btn-secondary" type="button" onClick={() => handleSelectQueueAppointment(queueReadyAppointments[0])}>
-                      <FaBullhorn /> Chọn gọi
-                    </button>
-                  )}
-                  <button className="checkin-btn checkin-btn-secondary" type="button" onClick={() => printTicket(queueReadyAppointments[0])}>
-                    <FaPrint /> In phiếu
-                  </button>
-                </div>
+                {/* Removed inline 'Chọn gọi' and 'In phiếu' buttons per request */}
 
                 <div className="checkin-call-log-panel">
                   <div className="checkin-call-log-title"><FaHistory size={12} /> Nhật ký gọi số</div>
@@ -1248,6 +1297,38 @@ const CheckinTab = () => {
                 onClick={() => setShowCounterPaymentModal(false)}
               >
                 Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCallExpiredModal && calledTicket?.called && (
+        <div className="checkin-call-overlay" onClick={() => setShowCallExpiredModal(false)}>
+          <div className="checkin-call-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="checkin-call-close" type="button" onClick={() => setShowCallExpiredModal(false)}>
+              <FaTimes />
+            </button>
+            <div className="checkin-call-label">THỜI GIAN GỌI ĐÃ HẾT</div>
+            <div className="checkin-call-name">STT: {calledTicket.called.display_queue || calledTicket.called.queue_number}</div>
+            <div className="checkin-call-service">{getPatientName(calledTicket.called)}</div>
+            <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '8px', marginBottom: '16px', textAlign: 'center' }}>
+              Bệnh nhân không có mặt trong thời gian chờ. Bạn muốn gọi lại hay đánh dấu vắng mặt?
+            </div>
+            <div className="checkin-call-actions">
+              <button
+                className="checkin-btn checkin-btn-primary"
+                type="button"
+                onClick={handleCallAgainFromExpired}
+              >
+                <FaBullhorn /> Gọi lại
+              </button>
+              <button
+                className="checkin-btn checkin-btn-danger"
+                type="button"
+                onClick={handleMarkAbsentFromExpired}
+              >
+                <FaTimes /> Đánh dấu vắng mặt
               </button>
             </div>
           </div>

@@ -25,6 +25,7 @@ import chatService from '../../services/chatService';
 const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showGreeting, setShowGreeting] = useState(true);
   const MAX_RETRY_ATTEMPTS = 2;
 
   // Expose function để mở chatbot từ các nút khác trên trang web (VD: nút "Hỏi bác sĩ" ở trang chủ)
@@ -37,6 +38,16 @@ const Chatbot = () => {
       delete window.openChatbot;
     };
   }, []);
+
+  // Hide greeting tooltip after 4 seconds - show only once
+  useEffect(() => {
+    if (showGreeting) {
+      const timer = setTimeout(() => {
+        setShowGreeting(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showGreeting]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -207,7 +218,7 @@ const Chatbot = () => {
         aria-label="Mở chat hỗ trợ"
       >
         {isOpen ? <FaTimes /> : <FaComments />}
-        {!isOpen && (
+        {!isOpen && showGreeting && (
           <div className="chatbot-tooltip">
             <FaQuestionCircle /> Cần AI hỗ trợ?
           </div>

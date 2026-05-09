@@ -23,11 +23,14 @@
   right: 25px;
   z-index: var(--cb-z-index);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
 .chatbot-scroll-top-btn {
   position: absolute;
-  right: 56px;
+  right: 25px;
   bottom: 0;
   width: 46px;
   height: 46px;
@@ -70,6 +73,7 @@
   box-shadow: 0 10px 20px rgba(34, 197, 94, 0.28);
   transition: all 0.3s ease;
   position: relative;
+  margin-bottom: 10px;
 }
 
 .chatbot-toggle-btn:hover {
@@ -109,9 +113,9 @@
 
 /* --- Cửa sổ chat chính (Window) --- */
 .chatbot-window {
-  position: absolute;
+  position: fixed;
   bottom: 80px;
-  right: 0;
+  right: 25px;
   width: 380px;
   height: 600px;
   max-height: calc(100vh - 120px);
@@ -474,7 +478,7 @@
     width: 40px;
     height: 40px;
     font-size: 16px;
-    right: 48px;
+    right: 15px;
     bottom: 0;
   }
   
@@ -493,6 +497,7 @@
     height: calc(100vh - 126px);
     bottom: 58px;
     border-radius: 16px;
+    right: 12px;
   }
 
   .chatbot-header {

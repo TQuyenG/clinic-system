@@ -1,6 +1,7 @@
 // client/src/pages/AppointmentManagementPage.js
 // PHIÊN BẢN CẬP NHẬT HOÀN CHỈNH (ĐÃ FIX LỖI UNDEFINED PHONE)
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import { useAuth } from '../contexts/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -19,6 +20,7 @@ import {
   FaChevronDown, FaChevronUp, FaChevronRight, FaLock, FaSyncAlt, FaCheck,
   FaHospital, FaPlay, FaNotesMedical, FaMoneyBillWave, FaClipboardCheck,
   FaStethoscope, FaFileAlt, FaList, FaCreditCard, FaUniversity, FaGlobe,
+  FaFileExcel,
   FaLink
 } from 'react-icons/fa';
 // StatusBadge inline component
@@ -650,6 +652,25 @@ const AppointmentManagementPage = () => {
     link.click();
   };
 
+  const exportToExcel = () => {
+    const data = filteredAppointments.map(apt => ({
+      'Mã Lịch Hẹn': apt.code || '',
+      'Bệnh nhân': getAppointmentPatientName(apt) || 'Khách',
+      'Liên hệ': apt.Patient?.user?.phone || apt.guest_phone || 'N/A',
+      'Email': apt.Patient?.user?.email || apt.guest_email || 'N/A',
+      'Dịch vụ': apt.Service?.name || 'N/A',
+      'Bác sĩ': apt.Doctor?.user?.full_name || 'N/A',
+      'Ngày Khám': apt.appointment_date || '',
+      'Giờ Khám': formatTime(apt.appointment_start_time),
+      'Trạng thái': apt.status || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'LichHen');
+    XLSX.writeFile(workbook, `appointments_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   const stats = getStats();
 
   if (loading) {
@@ -696,6 +717,9 @@ const AppointmentManagementPage = () => {
               )}
               <button className="appointment-management-btn appointment-management-btn-export" onClick={exportToCSV}>
                 <FaDownload /> Xuất CSV
+              </button>
+              <button className="appointment-management-btn appointment-management-btn-export appointment-management-btn-export-secondary" onClick={exportToExcel}>
+                <FaFileExcel /> Xuất Excel
               </button>
             </div>
           </div>

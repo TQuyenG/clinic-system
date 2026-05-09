@@ -306,57 +306,73 @@ exports.getDoctorsBySpecialty = async (req, res) => {
   try {
     const { id } = req.params;
     const { models, Op } = require('../config/db');
+    const specialtyId = parseInt(id, 10); // ← FIX: Parse string to number
 
-    // Lấy từ User base (giống getAllDoctorsPublic) - hiệu quả hơn
-    const doctors = await models.User.findAll({
+    console.log(`[getDoctorsBySpecialty] Searching for specialty_id: ${specialtyId}, work_status: active`);
+
+    // Query trực tiếp từ Doctor table (đơn giản hơn)
+    const doctors = await models.Doctor.findAll({
       where: { 
-        role: 'doctor', 
-        is_active: true, 
-        is_verified: true 
+        specialty_id: specialtyId,
+        work_status: 'active'
       },
-      attributes: ['id', 'email', 'full_name', 'phone', 'avatar_url', 'gender'],
-      include: [{
-        model: models.Doctor,
-        as: 'Doctor',
-        where: { specialty_id: id },
-        required: true,
-        include: [{
+      include: [
+        { 
+          model: models.User, 
+          as: 'user',
+          attributes: ['id', 'email', 'full_name', 'phone', 'avatar_url', 'gender'],
+          required: true
+        },
+        { 
           model: models.Specialty, 
           as: 'specialty',
           attributes: ['id', 'name', 'slug', 'icon'],
           required: false
-        }]
-      }],
-      order: [['created_at', 'DESC']],
+        }
+      ],
+      order: [['id', 'ASC']],
       raw: false
     });
 
+    console.log(`[getDoctorsBySpecialty] Found ${doctors.length} doctors for specialty_id ${specialtyId}`);
+
     // Format response để match frontend expects
-    const formattedDoctors = doctors.map(user => {
-      const doctor = user.Doctor;
+    // Lấy pending_count cho mỗi bác sĩ
+    const formattedDoctors = await Promise.all(doctors.map(async doctor => {
+      
+      // Đếm số bài viết đang chờ review của bác sĩ này
+      const pendingCount = await models.Article.count({
+        where: {
+          medical_reviewer_id: doctor.id,
+          status: 'pending'
+        }
+      });
+      
+      const user = doctor.user || {};
       return {
-        id: doctor?.id || user.id,
+        id: doctor.id,
         user_id: user.id,
-        code: doctor?.code || `BS${String(user.id).padStart(5, '0')}`,
+        code: doctor.code || `BS${String(doctor.id).padStart(5, '0')}`,
         full_name: user.full_name,
         email: user.email,
         phone: user.phone,
         avatar_url: user.avatar_url,
         gender: user.gender,
-        specialty_id: doctor?.specialty_id,
-        specialty: doctor?.specialty,
-        experience_years: doctor?.experience_years || 0,
-        bio: doctor?.bio,
-        title: doctor?.title,
-        position: doctor?.position,
-        workplace: doctor?.workplace,
+        specialty_id: doctor.specialty_id,
+        specialty: doctor.specialty,
+        experience_years: doctor.experience_years || 0,
+        bio: doctor.bio,
+        title: doctor.title,
+        position: doctor.position,
+        workplace: doctor.workplace,
+        pending_count: pendingCount,
         user: {
           id: user.id,
           full_name: user.full_name,
           avatar_url: user.avatar_url
         }
       };
-    });
+    }));
 
     res.json({
       success: true,

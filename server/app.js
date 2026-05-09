@@ -370,9 +370,7 @@ global.wsSendToUser = sendToUser;
 
 
 // ========== CRON JOBS ==========
-// Import và khởi động Status Updater Cron Job
-const { startStatusUpdaterCron } = require('./jobs/statusUpdater');
-startStatusUpdaterCron();
+// [DISABLED] Status updater cron job đã tắt để không tự đổi trạng thái lịch hẹn/consultation.
 
 // Import và khởi động Appointment Reminder Job (1 tiếng trước)
 const { startAppointmentReminderJob } = require('./jobs/appointmentReminderJob');
@@ -414,7 +412,7 @@ cron.schedule('0 8 * * *', async () => {
           user_id: appointment.Patient.User.id,
           type: 'appointment',
           title: ' Nhắc lịch hẹn hôm nay',
-          content: `Bạn có lịch hẹn khám hôm nay lúc ${appointment.appointment_time} tại phòng khám. Vui lòng đến đúng giờ!`,
+          message: `Bạn có lịch hẹn khám hôm nay lúc ${appointment.appointment_time} tại phòng khám. Vui lòng đến đúng giờ!`,
           related_id: appointment.id,
           related_type: 'appointment',
           link: `/lich-hen/${appointment.id}`,
@@ -459,7 +457,7 @@ cron.schedule('*/30 * * * *', async () => {
         user_id: consultation.patient_id,
         type: 'consultation',
         title: ' Sắp đến giờ tư vấn',
-        content: 'Buổi tư vấn của bạn sẽ bắt đầu sau 30 phút. Vui lòng chuẩn bị sẵn sàng!',
+        message: 'Buổi tư vấn của bạn sẽ bắt đầu sau 30 phút. Vui lòng chuẩn bị sẵn sàng!',
         related_id: consultation.id,
         related_type: 'consultation',
         link: `/tu-van/${consultation.id}`,
@@ -472,7 +470,7 @@ cron.schedule('*/30 * * * *', async () => {
         user_id: consultation.doctor_id,
         type: 'consultation',
         title: ' Sắp đến giờ tư vấn',
-        content: 'Bạn có buổi tư vấn sau 30 phút. Vui lòng chuẩn bị!',
+        message: 'Bạn có buổi tư vấn sau 30 phút. Vui lòng chuẩn bị!',
         related_id: consultation.id,
         related_type: 'consultation',
         link: `/tu-van/${consultation.id}`,
@@ -557,7 +555,7 @@ cron.schedule('0 * * * *', async () => {
             user_id: patient.User.id,
             type: 'appointment',
             title: 'Lịch hẹn đã bị hủy',
-            content: `Lịch hẹn của bạn đã bị tự động hủy do quá 24h chưa được xác nhận. Vui lòng đặt lịch mới nếu vẫn muốn khám.`,
+            message: `Lịch hẹn của bạn đã bị tự động hủy do quá 24h chưa được xác nhận. Vui lòng đặt lịch mới nếu vẫn muốn khám.`,
             related_id: appointment.id,
             related_type: 'appointment',
             priority: 'normal',

@@ -220,25 +220,22 @@ exports.assignDoctorsToStaff = async (req, res) => {
     // --- KẾT THÚC ĐOẠN SỬA ---
     
     // 2. Cập nhật managed_doctors
-    // FIX: Chuyển đổi User.id -> Doctor.id nếu cần
+    // FIX: IDs từ frontend phải là Doctor.id (do API /users/by-role trả về Doctor.id)
     let validDoctorIds = [];
     if (doctor_ids && Array.isArray(doctor_ids) && doctor_ids.length > 0) {
-      // Tìm Doctor records dựa trên ID được gửi lên (có thể là Doctor.id hoặc User.id)
-      let doctors = await models.Doctor.findAll({
+      // Tìm Doctor records dựa trên Doctor.id (không try User.id để tránh confusion)
+      const doctors = await models.Doctor.findAll({
         where: { id: { [Op.in]: doctor_ids } },
         attributes: ['id']
       });
       
-      // Nếu không tìm thấy bằng Doctor.id, thử tìm bằng User.id
-      if (doctors.length === 0) {
-        doctors = await models.Doctor.findAll({
-          where: { user_id: { [Op.in]: doctor_ids } },
-          attributes: ['id', 'user_id']
-        });
-      }
-      
       validDoctorIds = doctors.map(d => d.id);
-      console.log('[assignDoctorsToStaff] Input IDs:', doctor_ids, '-> Valid Doctor IDs:', validDoctorIds);
+      console.log('[assignDoctorsToStaff] Input Doctor IDs:', doctor_ids, '-> Validated:', validDoctorIds);
+      
+      // Cảnh báo nếu có ID không tìm thấy
+      if (validDoctorIds.length !== doctor_ids.length) {
+        console.warn(`[assignDoctorsToStaff] ⚠️ Cảnh báo: ${doctor_ids.length - validDoctorIds.length} Doctor ID(s) không tìm thấy`);
+      }
     }
     
     staff.managed_doctors = { doctor_ids: validDoctorIds };

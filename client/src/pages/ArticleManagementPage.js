@@ -6,6 +6,7 @@
 // Bộ lọc cascade category_type → category_id (giống DoctorsListPage)
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
@@ -32,6 +33,8 @@ import './ArticleManagementPage.css';
 // ─────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────
+const Portal = ({ children }) => (typeof document !== 'undefined' ? createPortal(children, document.body) : null);
+
 function getColumnName(key) {
   const names = {
     id: 'ID', title: 'Tiêu đề', tags: 'Tags', category: 'Danh mục',
@@ -110,6 +113,11 @@ const ArticleManagementPage = () => {
   const [showDoctorSelectionModal, setShowDoctorSelectionModal] = useState(false);
   const [availableDoctors, setAvailableDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
+  const selectedMedicalReviewer = useMemo(() => {
+    if (assignedDoctor) return assignedDoctor;
+    if (!formData.medical_reviewer_id) return null;
+    return availableDoctors.find(doctor => String(doctor.id) === String(formData.medical_reviewer_id)) || null;
+  }, [assignedDoctor, availableDoctors, formData.medical_reviewer_id]);
   const [showReportsPopup, setShowReportsPopup] = useState(false);
   const [articleToReport, setArticleToReport] = useState(null);
   const [reportItems, setReportItems] = useState([]);
@@ -242,13 +250,24 @@ const ArticleManagementPage = () => {
     }
   }, [location.search]);
 
-  // Scroll lock — bao gồm cả closeConfirm popup
+  // Scroll lock — bao gồm cả closeConfirm popup (fix sidebar scroll bug)
   useEffect(() => {
     const anyOpen = showModal || showHidePopup || showRejectPopup || showAdminEditWarning
       || showSubmitConfirm || showDoctorSelectionModal || showAISupportMenu
       || showAIWarning || showPreviewPopup || closeConfirm.visible;
-    document.body.style.overflow = anyOpen ? 'hidden' : 'unset';
-    return () => { document.body.style.overflow = 'unset'; };
+    
+    if (anyOpen) {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollTop}px`;
+      document.body.style.width = '100%';
+      return () => {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        window.scrollTo(0, scrollTop);
+      };
+    }
   }, [showModal, showHidePopup, showRejectPopup, showAdminEditWarning,
     showSubmitConfirm, showDoctorSelectionModal, showAISupportMenu,
     showAIWarning, showPreviewPopup, closeConfirm.visible]);
@@ -264,9 +283,20 @@ const ArticleManagementPage = () => {
     const fetchDoctors = async () => {
       try {
         setLoadingDoctors(true);
+        console.log(`[ArticleManagementPage] Fetching doctors for specialty_id: ${formData.specialty_id}`);
         const r = await axios.get(`${API_BASE_URL}/api/specialties/${formData.specialty_id}/doctors`);
+        
+        console.log('[ArticleManagementPage] Response:', {
+          status: r.status,
+          success: r.data.success,
+          doctorsCount: (r.data.doctors || r.data.data || []).length,
+          response: r.data
+        });
+        
         if (r.data.success) {
           const docs = r.data.doctors || r.data.data || [];
+          console.log('[ArticleManagementPage] Raw doctors:', docs);
+          
           // Map về cấu trúc giống DoctorsListPage để hiện avatar, tên, pending_count
           const mapped = docs.map(d => ({
             id: d.id,
@@ -278,12 +308,22 @@ const ArticleManagementPage = () => {
               avatar_url: d.avatar_url || d.user?.avatar_url,
             }
           }));
+          
+          console.log('[ArticleManagementPage] Mapped doctors:', mapped);
           setAvailableDoctors(mapped);
+
+          if (formData.medical_reviewer_id) {
+            const currentReviewer = mapped.find(doctor => String(doctor.id) === String(formData.medical_reviewer_id));
+            if (currentReviewer) {
+              setAssignedDoctor(currentReviewer);
+            }
+          }
         } else {
+          console.warn('[ArticleManagementPage] Response success=false:', r.data);
           setAvailableDoctors([]);
         }
       } catch (e) {
-        console.error('fetchDoctors error:', e);
+        console.error('[ArticleManagementPage] fetchDoctors error:', e.message, e.response?.data);
         setAvailableDoctors([]);
       } finally {
         setLoadingDoctors(false);
@@ -828,8 +868,9 @@ const ArticleManagementPage = () => {
       askCloseConfirm('Đóng xem trước?', 'Bạn muốn đóng popup xem trước?', () => setShowPreviewPopup(false));
     };
     return (
-      <div className="article-mgmt-preview-overlay" onClick={handleOverlayClick}>
-        <div className="article-mgmt-preview-modal" onClick={e => e.stopPropagation()}>
+      <Portal>
+        <div className="article-mgmt-preview-overlay" onClick={handleOverlayClick}>
+          <div className="article-mgmt-preview-modal" onClick={e => e.stopPropagation()}>
           <div className="article-mgmt-preview-header">
             <h2><FaEye /> Xem trước bài viết</h2>
             <button className="article-mgmt-btn-close-modal" onClick={handleOverlayClick}><FaTimes /></button>
@@ -848,8 +889,9 @@ const ArticleManagementPage = () => {
             </div>
             <div className="preview-content" dangerouslySetInnerHTML={{ __html: formData.content || '<p style="color:var(--n400)">(Chưa có nội dung)</p>' }} />
           </div>
+          </div>
         </div>
-      </div>
+      </Portal>
     );
   };
 
@@ -867,8 +909,9 @@ const ArticleManagementPage = () => {
     };
 
     return (
-      <div className="article-mgmt-form-overlay" onClick={handleOverlayClick}>
-        <div className="article-mgmt-form-container article-mgmt-form-container--wide">
+      <Portal>
+        <div className="article-mgmt-form-overlay" onClick={handleOverlayClick}>
+          <div className="article-mgmt-form-container article-mgmt-form-container--wide">
 
           {/* ── Header ── */}
           <div className="article-mgmt-form-header">
@@ -888,6 +931,9 @@ const ArticleManagementPage = () => {
 
           {/* ── Tiêu đề full-width ── */}
           <div className="article-mgmt-form-title-bar">
+            <label className="article-mgmt-title-label required">
+              <FaEdit /> Tiêu đề bài viết
+            </label>
             <input
               type="text" name="title" value={formData.title}
               onChange={handleFormChange}
@@ -980,18 +1026,48 @@ const ArticleManagementPage = () => {
                           {specialties.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                       </div>
-                      {assignedDoctor ? (
-                        <div className="article-mgmt-doctor-card">
-                          <img src={assignedDoctor.user?.avatar_url || '/placeholder.jpg'} alt="Doctor"
-                            className="doctor-avatar" onError={e => e.target.src = '/placeholder.jpg'} />
-                          <div>
-                            <span className="doctor-title">Phân công:</span>
-                            <strong className="doctor-name">BS. {assignedDoctor.user?.full_name}</strong>
-                            <span className="doctor-pending">Chờ: {assignedDoctor.pending_count} bài</span>
-                          </div>
-                        </div>
-                      ) : formData.specialty_id ? (
-                        <p className="medical-warning-text">Chưa có bác sĩ thuộc chuyên khoa này.</p>
+                      {formData.specialty_id ? (
+                        <>
+                          <button
+                            type="button"
+                            className="article-mgmt-btn-submit"
+                            style={{ width: 'fit-content' }}
+                            onClick={() => setShowDoctorSelectionModal(true)}
+                          >
+                            Chọn BS ({availableDoctors.length})
+                          </button>
+                          {selectedMedicalReviewer && (
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: '8px',
+                              padding: '8px 10px', background: 'var(--g50)', 
+                              borderRadius: '8px', border: '1px solid var(--g200)',
+                              marginTop: '6px'
+                            }}>
+                              <img 
+                                src={selectedMedicalReviewer.user?.avatar_url || '/placeholder.jpg'} 
+                                alt="Selected Doctor"
+                                onError={e => e.target.src = '/placeholder.jpg'}
+                                style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} 
+                              />
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: 1 }}>
+                                <span style={{ fontSize: '12px', color: 'var(--n700)', fontWeight: '600' }}>
+                                  BS. {selectedMedicalReviewer.user?.full_name}
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--n400)' }}>
+                                  ({selectedMedicalReviewer.specialty?.name})
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => { setAssignedDoctor(null); setFormData(prev => ({ ...prev, medical_reviewer_id: null })); }}
+                                style={{ background: 'none', border: 'none', color: 'var(--g600)', cursor: 'pointer', fontSize: '16px' }}
+                                title="Bỏ chọn"
+                              >
+                                <FaTimes />
+                              </button>
+                            </div>
+                          )}
+                        </>
                       ) : null}
                     </div>
                   )}
@@ -1008,9 +1084,9 @@ const ArticleManagementPage = () => {
                   <label className="article-mgmt-form-label required"><FaLayerGroup /> Loại bài viết</label>
                   <select value={selectedCategoryType} onChange={handleCategoryTypeChange} className="article-mgmt-form-select">
                     <option value="">-- Chọn loại --</option>
-                    <option value="tin_tuc">📰 Tin tức</option>
-                    <option value="thuoc">💊 Thuốc</option>
-                    <option value="benh_ly">🦠 Bệnh lý</option>
+                    <option value="tin_tuc">Tin tức</option>
+                    <option value="thuoc">Thuốc</option>
+                    <option value="benh_ly">Bệnh lý</option>
                   </select>
                 </div>
 
@@ -1081,9 +1157,7 @@ const ArticleManagementPage = () => {
                 <span className="article-mgmt-import-label"><FaFileImport /> Import:</span>
                 <input type="file" accept=".doc,.docx,.xls,.xlsx" onChange={handleFileImport} className="article-mgmt-file-input" />
                 <span style={{ fontSize: 10, color: 'var(--n400)', whiteSpace: 'nowrap' }}>Word / Excel</span>
-                <button type="button" className="article-mgmt-btn-preview-inline" onClick={() => setShowPreviewPopup(true)} style={{ marginLeft: 'auto' }}>
-                  <FaEye /> Xem trước
-                </button>
+                {/* Inline preview button removed per UX request (preview remains available in footer) */}
               </div>
 
               {/* CKEditor */}
@@ -1149,8 +1223,9 @@ const ArticleManagementPage = () => {
             </button>
           </div>
 
+          </div>
         </div>
-      </div>
+      </Portal>
     );
   };
 
@@ -1351,8 +1426,9 @@ const ArticleManagementPage = () => {
         {renderModal()}
 
         {showReportsPopup && articleToReport && (
-          <div className="article-mgmt-modal-overlay" onClick={() => setShowReportsPopup(false)}>
-            <div className="article-mgmt-confirm-submit-modal article-mgmt-report-modal" onClick={e => e.stopPropagation()}>
+          <Portal>
+            <div className="article-mgmt-modal-overlay" onClick={() => setShowReportsPopup(false)}>
+              <div className="article-mgmt-confirm-submit-modal article-mgmt-report-modal" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-modal-header">
                 <h2><FaExclamationTriangle style={{ color: '#dc2626' }} /> Danh sách báo cáo</h2>
                 <button className="article-mgmt-modal-close" onClick={() => setShowReportsPopup(false)}><FaTimes /></button>
@@ -1377,8 +1453,9 @@ const ArticleManagementPage = () => {
                   </div>
                 )}
               </div>
+              </div>
             </div>
-          </div>
+          </Portal>
         )}
 
         {/* PREVIEW POPUP */}
@@ -1402,8 +1479,9 @@ const ArticleManagementPage = () => {
 
         {/* CONFIRM DIALOG */}
         {showConfirmDialog && confirmAction && (
-          <div className="article-mgmt-confirm-overlay">
-            <div className={`article-mgmt-confirm-dialog ${confirmAction.type}`}>
+          <Portal>
+            <div className="article-mgmt-confirm-overlay">
+              <div className={`article-mgmt-confirm-dialog ${confirmAction.type}`}>
               <div className="article-mgmt-confirm-icon">
                 {confirmAction.type === 'danger' && <FaExclamationTriangle />}
                 {confirmAction.type === 'warning' && <FaExclamationTriangle />}
@@ -1424,18 +1502,20 @@ const ArticleManagementPage = () => {
                 </button>
                 <button className="btn-confirm article-mgmt-btn-cancel" onClick={closeConfirmDialog}>Quay lại</button>
               </div>
+              </div>
             </div>
-          </div>
+          </Portal>
         )}
 
         {/* HIDE POPUP */}
         {showHidePopup && articleToHide && (
-          <div className="article-mgmt-popup-overlay" onClick={() => {
-            askCloseConfirm('Đóng form?', 'Bạn có muốn đóng form ẩn/hiện bài viết không?', () => {
-              setShowHidePopup(false); setCountdownSeconds(0);
-            });
-          }}>
-            <div className="article-mgmt-popup" onClick={e => e.stopPropagation()}>
+          <Portal>
+            <div className="article-mgmt-popup-overlay" onClick={() => {
+              askCloseConfirm('Đóng form?', 'Bạn có muốn đóng form ẩn/hiện bài viết không?', () => {
+                setShowHidePopup(false); setCountdownSeconds(0);
+              });
+            }}>
+              <div className="article-mgmt-popup" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-popup-header">
                 <div className="article-mgmt-popup-header-content">
                   {articleToHide.status === 'hidden' ? <FaEye className="article-mgmt-popup-icon" /> : <FaEyeSlash className="article-mgmt-popup-icon" />}
@@ -1494,18 +1574,20 @@ const ArticleManagementPage = () => {
                   </button>
                 </div>
               </form>
+              </div>
             </div>
-          </div>
+          </Portal>
         )}
 
         {/* POPUP TỪ CHỐI */}
         {showRejectPopup && articleToReject && (
-          <div className="article-mgmt-popup-overlay" onClick={() => {
-            askCloseConfirm('Đóng form?', 'Bạn có muốn đóng form từ chối yêu cầu không?', () => {
-              setShowRejectPopup(false); setRejectReason('');
-            });
-          }}>
-            <div className="article-mgmt-popup" onClick={e => e.stopPropagation()}>
+          <Portal>
+            <div className="article-mgmt-popup-overlay" onClick={() => {
+              askCloseConfirm('Đóng form?', 'Bạn có muốn đóng form từ chối yêu cầu không?', () => {
+                setShowRejectPopup(false); setRejectReason('');
+              });
+            }}>
+              <div className="article-mgmt-popup" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-popup-header">
                 <div className="article-mgmt-popup-header-content">
                   <FaBan className="article-mgmt-popup-icon" />
@@ -1556,16 +1638,18 @@ const ArticleManagementPage = () => {
                   </button>
                 </div>
               </form>
+              </div>
             </div>
-          </div>
+          </Portal>
         )}
 
         {/* DOCTOR SELECTION MODAL */}
         {showDoctorSelectionModal && (
-          <div className="article-mgmt-modal-overlay" onClick={() => {
-            askCloseConfirm('Đóng?', 'Bạn có muốn đóng danh sách chọn bác sĩ không?', () => setShowDoctorSelectionModal(false));
-          }}>
-            <div className="article-mgmt-confirm-submit-modal" onClick={e => e.stopPropagation()}>
+          <Portal>
+            <div className="article-mgmt-modal-overlay" onClick={() => {
+              askCloseConfirm('Đóng?', 'Bạn có muốn đóng danh sách chọn bác sĩ không?', () => setShowDoctorSelectionModal(false));
+            }}>
+              <div className="article-mgmt-confirm-submit-modal" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-modal-header">
                 <h2><FaUser style={{ color: '#3b82f6' }} /> Chọn Bác Sĩ Phê Duyệt</h2>
                 <button className="article-mgmt-modal-close" onClick={() => {
@@ -1588,8 +1672,9 @@ const ArticleManagementPage = () => {
                       }}
                         onClick={() => {
                           setFormData(prev => ({ ...prev, medical_reviewer_id: doctor.id }));
-                          setAssignedDoctor(doctor); setShowDoctorSelectionModal(false);
-                          setTimeout(() => handleSubmit(null, false, false), 100);
+                          setAssignedDoctor(doctor); 
+                          setShowDoctorSelectionModal(false);
+                          setHasUnsavedChanges(true);
                         }}>
                         <img src={doctor.user?.avatar_url || '/placeholder.jpg'} alt="Doctor"
                           onError={e => e.target.src = '/placeholder.jpg'}
@@ -1609,16 +1694,18 @@ const ArticleManagementPage = () => {
                     askCloseConfirm('Đóng?', 'Bạn có muốn đóng danh sách chọn bác sĩ không?', () => setShowDoctorSelectionModal(false));
                   }}>Hủy</button>
               </div>
+              </div>
             </div>
-          </div>
+          </Portal>
         )}
 
         {/* ADMIN EDIT WARNING */}
         {showAdminEditWarning && (
-          <div className="article-mgmt-modal-overlay" onClick={() => {
-            askCloseConfirm('Đóng?', 'Bạn có muốn đóng cảnh báo này không?', () => setShowAdminEditWarning(false));
-          }}>
-            <div className="article-mgmt-warning-modal" onClick={e => e.stopPropagation()}>
+          <Portal>
+            <div className="article-mgmt-modal-overlay" onClick={() => {
+              askCloseConfirm('Đóng?', 'Bạn có muốn đóng cảnh báo này không?', () => setShowAdminEditWarning(false));
+            }}>
+              <div className="article-mgmt-warning-modal" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-modal-header">
                 <h2><FaExclamationTriangle style={{ color: '#f59e0b' }} /> Cảnh báo: Sửa bài đã duyệt</h2>
                 <button className="article-mgmt-modal-close" onClick={() => {
@@ -1641,16 +1728,18 @@ const ArticleManagementPage = () => {
               <div className="article-mgmt-modal-footer">
                 <button className="btn article-mgmt-btn-secondary" onClick={() => setShowAdminEditWarning(false)}><FaTimes /> Hủy</button>
               </div>
+              </div>
             </div>
-          </div>
+          </Portal>
         )}
 
         {/* SUBMIT CONFIRM */}
         {showSubmitConfirm && (
-          <div className="article-mgmt-modal-overlay" onClick={() => {
-            askCloseConfirm('Hủy gửi?', 'Bạn có muốn hủy việc gửi phê duyệt không?', () => setShowSubmitConfirm(false));
-          }}>
-            <div className="article-mgmt-confirm-submit-modal" onClick={e => e.stopPropagation()}>
+          <Portal>
+            <div className="article-mgmt-modal-overlay" onClick={() => {
+              askCloseConfirm('Hủy gửi?', 'Bạn có muốn hủy việc gửi phê duyệt không?', () => setShowSubmitConfirm(false));
+            }}>
+              <div className="article-mgmt-confirm-submit-modal" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-modal-header">
                 <h2><FaCheckCircle style={{ color: '#10b981' }} /> Xác nhận gửi phê duyệt</h2>
                 <button className="article-mgmt-modal-close" onClick={() => {
@@ -1667,20 +1756,22 @@ const ArticleManagementPage = () => {
                   <FaPaperPlane /> Xác nhận gửi
                 </button>
               </div>
+              </div>
             </div>
-          </div>
+          </Portal>
         )}
 
         {/* AI SUPPORT MENU */}
         {showAISupportMenu && (
-          <div className="article-mgmt-modal-overlay" onClick={() => {
-            if (!analyzingAI) {
-              askCloseConfirm('Đóng AI?', 'Bạn có muốn đóng bảng AI hỗ trợ không?', () => {
-                setShowAISupportMenu(false); setSelectedAIOption(null);
-              });
-            }
-          }}>
-            <div className="article-mgmt-ai-modal" onClick={e => e.stopPropagation()}>
+          <Portal>
+            <div className="article-mgmt-modal-overlay" onClick={() => {
+              if (!analyzingAI) {
+                askCloseConfirm('Đóng AI?', 'Bạn có muốn đóng bảng AI hỗ trợ không?', () => {
+                  setShowAISupportMenu(false); setSelectedAIOption(null);
+                });
+              }
+            }}>
+              <div className="article-mgmt-ai-modal" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-modal-header">
                 <h2><MdAutoAwesome style={{ color: '#8b5cf6', fontSize: 18 }} /> Chọn chức năng AI hỗ trợ</h2>
                 <button className="article-mgmt-modal-close" onClick={() => {
@@ -1774,16 +1865,18 @@ const ArticleManagementPage = () => {
                   </button>
                 )}
               </div>
+              </div>
             </div>
-          </div>
+          </Portal>
         )}
 
         {/* AI WARNING POPUP */}
         {showAIWarning && aiPreviewData && (
-          <div className="article-mgmt-modal-overlay" onClick={() => {
-            askCloseConfirm('Đóng?', 'Bạn có muốn bỏ qua gợi ý AI không?', () => setShowAIWarning(false));
-          }}>
-            <div className="article-mgmt-confirm-submit-modal" onClick={e => e.stopPropagation()}>
+          <Portal>
+            <div className="article-mgmt-modal-overlay" onClick={() => {
+              askCloseConfirm('Đóng?', 'Bạn có muốn bỏ qua gợi ý AI không?', () => setShowAIWarning(false));
+            }}>
+              <div className="article-mgmt-confirm-submit-modal" onClick={e => e.stopPropagation()}>
               <div className="article-mgmt-modal-header">
                 <h2><FaExclamationTriangle style={{ color: '#f59e0b' }} /> Xác nhận áp dụng gợi ý AI</h2>
                 <button className="article-mgmt-modal-close" onClick={() => {
@@ -1826,23 +1919,26 @@ const ArticleManagementPage = () => {
                   <FaCheck /> Áp dụng thay đổi
                 </button>
               </div>
+              </div>
             </div>
-          </div>
+          </Portal>
         )}
 
         {/* ══ CLOSE CONFIRM POPUP — layer cao nhất ══ */}
         {closeConfirm.visible && (
-          <div className="article-mgmt-close-confirm-overlay">
-            <div className="article-mgmt-close-confirm-box">
-              <FaQuestionCircle className="article-mgmt-close-confirm-icon" />
-              <h3 className="article-mgmt-close-confirm-title">{closeConfirm.title}</h3>
-              <p className="article-mgmt-close-confirm-msg">{closeConfirm.message}</p>
-              <div className="article-mgmt-close-confirm-actions">
-                <button className="btn-close-confirm-cancel" onClick={handleCloseConfirmCancel}>Không, ở lại</button>
-                <button className="btn-close-confirm-ok" onClick={handleCloseConfirmOk}>Đóng</button>
+          <Portal>
+            <div className="article-mgmt-close-confirm-overlay">
+              <div className="article-mgmt-close-confirm-box">
+                <FaQuestionCircle className="article-mgmt-close-confirm-icon" />
+                <h3 className="article-mgmt-close-confirm-title">{closeConfirm.title}</h3>
+                <p className="article-mgmt-close-confirm-msg">{closeConfirm.message}</p>
+                <div className="article-mgmt-close-confirm-actions">
+                  <button className="btn-close-confirm-cancel" onClick={handleCloseConfirmCancel}>Không, ở lại</button>
+                  <button className="btn-close-confirm-ok" onClick={handleCloseConfirmOk}>Đóng</button>
+                </div>
               </div>
             </div>
-          </div>
+          </Portal>
         )}
 
       </div>

@@ -130,12 +130,16 @@ const appointmentService = {
     return api.put(`/appointments/${code}/call-number`, {}, { timeout: 30000 });
   },
 
+  callAgain: (code) => {
+    return api.post(`/appointments/${code}/call-again`);
+  },
+
   getCallLogs: (date) => {
     return api.get('/appointments/call-logs', { params: { date } });
   },
 
-  getSlotsStatsToday: (serviceId) => {
-    return api.get(`/appointments/service/${serviceId}/slots-stats-today`);
+  getSlotsStatsToday: (serviceId, params = {}) => {
+    return api.get(`/appointments/service/${serviceId}/slots-stats-today`, { params });
   },
 
   // ===== [MỚI] APPOINTMENT OPTIMIZATION: Service Indications & Edge Cases =====

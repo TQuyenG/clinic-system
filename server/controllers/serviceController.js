@@ -2,7 +2,7 @@
 const { models, sequelize } = require('../config/db');
 const { Op } = require('sequelize');
 
-const { Service, ServiceCategory, Specialty, Doctor, User } = models;
+const { Service, ServiceCategory, Specialty, Doctor, User, Appointment } = models;
 
 /**
  * @route   GET /api/services/admin/all
@@ -57,10 +57,48 @@ exports.getServicesForAdmin = async (req, res) => {
       distinct: true
     });
 
+    const serviceIds = services.map(service => service.id);
+    let appointmentStatsMap = {};
+
+    if (serviceIds.length > 0) {
+      const appointmentStats = await Appointment.findAll({
+        attributes: [
+          'service_id',
+          'status',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+        ],
+        where: {
+          service_id: { [Op.in]: serviceIds },
+          appointment_type: 'offline'
+        },
+        group: ['service_id', 'status'],
+        raw: true
+      });
+
+      appointmentStatsMap = appointmentStats.reduce((acc, row) => {
+        const serviceId = Number(row.service_id);
+        const status = row.status;
+        const rowCount = Number(row.count || 0);
+
+        if (!acc[serviceId]) {
+          acc[serviceId] = { active: 0, completed: 0 };
+        }
+
+        if (status === 'completed') {
+          acc[serviceId].completed += rowCount;
+        } else if (status !== 'cancelled') {
+          acc[serviceId].active += rowCount;
+        }
+
+        return acc;
+      }, {});
+    }
+
     // ✅ MỚI: Populate doctors từ doctor_codes cho từng service
     const servicesWithDoctors = await Promise.all(
       services.map(async (service) => {
         const serviceData = service.toJSON();
+        const stats = appointmentStatsMap[serviceData.id] || { active: 0, completed: 0 };
         let doctors = [];
         if (serviceData.doctor_codes && Array.isArray(serviceData.doctor_codes) && serviceData.doctor_codes.length > 0) {
           doctors = await Doctor.findAll({
@@ -76,6 +114,8 @@ exports.getServicesForAdmin = async (req, res) => {
           });
         }
         serviceData.doctors = doctors;
+        serviceData.active_appointments = stats.active;
+        serviceData.completed_appointments = stats.completed;
         return serviceData;
       })
     );
