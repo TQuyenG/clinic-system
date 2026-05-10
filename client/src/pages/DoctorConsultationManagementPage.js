@@ -7,9 +7,35 @@ import consultationService from '../services/consultationService';
 import { 
   FaCalendarAlt, FaFilter, FaCheckCircle, FaTimesCircle,
   FaComments, FaEye, FaCalendarTimes, FaHistory, FaVideo,
-  FaStar, FaUserInjured, FaStethoscope, FaSync
+  FaStar, FaUserInjured, FaStethoscope, FaSync, FaHourglassHalf, FaCheck,
+  FaBan, FaSearch, FaMoneyBillWave
 } from 'react-icons/fa';
 import './DoctorConsultationManagementPage.css';
+
+const STATUS_META = {
+  pending: { text: 'Chờ xác nhận', className: 'warning', icon: <FaHourglassHalf /> },
+  confirmed: { text: 'Đã xác nhận', className: 'info', icon: <FaCheckCircle /> },
+  in_progress: { text: 'Đang diễn ra', className: 'success', icon: <FaCheck /> },
+  completed: { text: 'Hoàn thành', className: 'success', icon: <FaCheckCircle /> },
+  cancelled: { text: 'Đã hủy', className: 'danger', icon: <FaBan /> },
+  rejected: { text: 'Từ chối', className: 'danger', icon: <FaTimesCircle /> },
+};
+
+const PAYMENT_META = {
+  unpaid: { text: 'Chưa thanh toán', className: 'unpaid' },
+  paid_online: { text: 'Đã thanh toán', className: 'paid' },
+  paid_at_clinic: { text: 'Thanh toán tại quầy', className: 'paid' },
+  not_required: { text: 'Miễn phí', className: 'free' },
+  refunded: { text: 'Đã hoàn tiền', className: 'refunded' },
+};
+
+const getPatientName = (consultation) => consultation?.patient?.full_name || consultation?.Patient?.User?.full_name || consultation?.patient_name || 'N/A';
+const getPatientEmail = (consultation) => consultation?.patient?.email || consultation?.Patient?.User?.email || consultation?.patient_email || 'N/A';
+const getDoctorName = (consultation) => consultation?.doctor?.full_name || consultation?.Doctor?.user?.full_name || consultation?.doctor_name || 'N/A';
+const getDoctorEmail = (consultation) => consultation?.doctor?.email || consultation?.Doctor?.user?.email || consultation?.doctor_email || 'N/A';
+const getPaymentStatus = (consultation) => consultation?.payment_status || 'unpaid';
+const getPaymentMeta = (consultation) => PAYMENT_META[getPaymentStatus(consultation)] || PAYMENT_META.unpaid;
+const getStatusMeta = (consultation) => STATUS_META[consultation?.status] || { text: consultation?.status || 'Không rõ', className: 'warning', icon: <FaHourglassHalf /> };
 
 const DoctorConsultationManagementPage = ({ isAdminView = false }) => {
   const navigate = useNavigate();
@@ -21,6 +47,9 @@ const DoctorConsultationManagementPage = ({ isAdminView = false }) => {
     status: 'all',
     type: 'all',
     date: '',
+    paymentStatus: 'all',
+    search: '',
+    sortBy: 'newest',
     page: 1,
     limit: 20
   });
@@ -55,30 +84,30 @@ const DoctorConsultationManagementPage = ({ isAdminView = false }) => {
     } finally {
       setLoading(false);
     }
-  }, [filters, isAdminView]);
+                <th>Bệnh nhân</th>
+                <th>Bác sĩ</th>
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+                <th>Thanh toán</th>
 
   const handleFilterChange = (field, value) => {
     setFilters(prev => ({ ...prev, [field]: value, page: 1 }));
   };
-
+              {filteredConsultations.map(item => (
   const handleConfirm = async (consultationId) => {
     if (!window.confirm('Xác nhận chấp nhận buổi tư vấn này?')) return;
     try {
-      await consultationService.confirmConsultation(consultationId);
-      fetchData();
-    } catch (error) {
-      alert('Lỗi xác nhận tư vấn');
-    }
-  };
-
-  const handleReject = async (consultationId) => {
-    const reason = prompt('Vui lòng nhập lý do từ chối:');
-    if (!reason) return;
-    try {
+                    <div className="dcm-info-cell">
+                      <strong>{getPatientName(item)}</strong>
+                      <span>{getPatientEmail(item)}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="dcm-info-cell">
+                      <strong>{getDoctorName(item)}</strong>
+                      <span>{getDoctorEmail(item)}</span>
+                    </div>
       await consultationService.cancelConsultation(consultationId, { reason, cancelled_by: 'doctor' });
       fetchData();
     } catch (error) {
@@ -86,9 +115,16 @@ const DoctorConsultationManagementPage = ({ isAdminView = false }) => {
     }
   };
 
-  const handleStartConsultation = async (consultationId, consultationType) => {
-    try {
-      await consultationService.startConsultation(consultationId);
+                  <td>{formatDateTime(item.appointment_time)}</td>
+                  <td>
+                    <span className={`dcm-badge ${getStatusMeta(item).className}`}>
+                      {getStatusMeta(item).icon} {getStatusMeta(item).text}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`dcm-payment-badge ${getPaymentMeta(item).className}`}>
+                      <FaMoneyBillWave /> {getPaymentMeta(item).text}
+                    </span>
       if (consultationType === 'video') {
         navigate(`/tu-van/video/${consultationId}`);
       } else {
@@ -117,6 +153,55 @@ const DoctorConsultationManagementPage = ({ isAdminView = false }) => {
       alert(error.response?.data?.message || 'Lỗi hủy lịch');
     }
   };
+
+  const formatDateTime = (value) => {
+    if (!value) return 'N/A';
+    return new Date(value).toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const filteredConsultations = consultations
+    .filter((consultation) => {
+      if (filters.status !== 'all' && consultation.status !== filters.status) return false;
+      if (filters.type !== 'all' && consultation.consultation_type !== filters.type) return false;
+      if (filters.date && consultation.appointment_time) {
+        const appointmentDate = new Date(consultation.appointment_time).toISOString().slice(0, 10);
+        if (appointmentDate !== filters.date) return false;
+      }
+      if (filters.paymentStatus !== 'all' && getPaymentStatus(consultation) !== filters.paymentStatus) return false;
+      if (filters.search) {
+        const keyword = filters.search.toLowerCase();
+        const haystack = [
+          consultation?.consultation_code,
+          getPatientName(consultation),
+          getPatientEmail(consultation),
+          getDoctorName(consultation),
+          getDoctorEmail(consultation),
+          consultation?.chief_complaint,
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(keyword)) return false;
+      }
+      return true;
+    })
+    .sort((left, right) => {
+      if (filters.sortBy === 'oldest') {
+        return new Date(left.appointment_time) - new Date(right.appointment_time);
+      }
+      if (filters.sortBy === 'code') {
+        return String(left.consultation_code || '').localeCompare(String(right.consultation_code || ''));
+      }
+      return new Date(right.created_at || right.appointment_time) - new Date(left.created_at || left.appointment_time);
+    });
+
+  const statusStats = filteredConsultations.reduce((acc, item) => {
+    acc[item.status || 'pending'] = (acc[item.status || 'pending'] || 0) + 1;
+    return acc;
+  }, {});
 
   // Render Action Buttons
   const getActionButtons = (consultation) => {
@@ -194,48 +279,71 @@ const DoctorConsultationManagementPage = ({ isAdminView = false }) => {
         <h1 className="dcm-title">
           <FaStethoscope /> {isAdminView ? 'Quản lý Tư vấn (Admin)' : 'Lịch Tư vấn của tôi'}
         </h1>
-        <button className="dcm-btn dcm-btn-secondary" onClick={fetchData}><FaSync/> Làm mới</button>
+        <div className="dcm-header-actions">
+          <button className="dcm-btn dcm-btn-secondary" onClick={fetchData}><FaSync/> Làm mới</button>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      {stats && (
+      {(stats || filteredConsultations.length > 0) && (
         <div className="dcm-stats-grid">
           <div className="dcm-stat-card">
             <div className="dcm-stat-icon blue"><FaCalendarAlt /></div>
             <div className="dcm-stat-info">
-              <h3>{stats.total_consultations || 0}</h3>
+              <h3>{filteredConsultations.length}</h3>
               <p>Tổng lịch</p>
             </div>
           </div>
           <div className="dcm-stat-card">
-            <div className="dcm-stat-icon green"><FaCheckCircle /></div>
+            <div className="dcm-stat-icon green"><FaHourglassHalf /></div>
             <div className="dcm-stat-info">
-              <h3>{stats.completed || 0}</h3>
+              <h3>{statusStats.pending || 0}</h3>
+              <p>Chờ xác nhận</p>
+            </div>
+          </div>
+          <div className="dcm-stat-card">
+            <div className="dcm-stat-icon yellow"><FaCheckCircle /></div>
+            <div className="dcm-stat-info">
+              <h3>{statusStats.confirmed || 0}</h3>
+              <p>Đã xác nhận</p>
+            </div>
+          </div>
+          <div className="dcm-stat-card">
+            <div className="dcm-stat-icon purple"><FaVideo /></div>
+            <div className="dcm-stat-info">
+              <h3>{statusStats.in_progress || 0}</h3>
+              <p>Đang diễn ra</p>
+            </div>
+          </div>
+          <div className="dcm-stat-card">
+            <div className="dcm-stat-icon blue"><FaCheck /></div>
+            <div className="dcm-stat-info">
+              <h3>{statusStats.completed || 0}</h3>
               <p>Hoàn thành</p>
             </div>
           </div>
           <div className="dcm-stat-card">
-            <div className="dcm-stat-icon yellow"><FaStar /></div>
+            <div className="dcm-stat-icon yellow"><FaBan /></div>
             <div className="dcm-stat-info">
-              <h3>{parseFloat(stats.avg_rating || 0).toFixed(1)}</h3>
-              <p>Đánh giá</p>
+              <h3>{statusStats.cancelled || 0}</h3>
+              <p>Đã hủy</p>
             </div>
           </div>
-          {!isAdminView && stats.total_patients !== undefined && (
-            <div className="dcm-stat-card">
-              <div className="dcm-stat-icon purple"><FaUserInjured /></div>
-              <div className="dcm-stat-info">
-                <h3>{stats.total_patients || 0}</h3>
-                <p>Bệnh nhân</p>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
       {/* Filters */}
       <div className="dcm-filters">
         <div className="dcm-filter-group">
+          <div className="dcm-search-box">
+            <FaSearch className="dcm-search-icon" />
+            <input
+              className="dcm-input dcm-search-input"
+              placeholder="Tìm mã, bệnh nhân, bác sĩ, email..."
+              value={filters.search}
+              onChange={e => handleFilterChange('search', e.target.value)}
+            />
+          </div>
           <select className="dcm-select" value={filters.status} onChange={e => handleFilterChange('status', e.target.value)}>
             <option value="all">Tất cả trạng thái</option>
             <option value="pending">Chờ xác nhận</option>
@@ -256,7 +364,7 @@ const DoctorConsultationManagementPage = ({ isAdminView = false }) => {
           
           <button 
             className="dcm-btn dcm-btn-secondary"
-            onClick={() => setFilters({ status: 'all', type: 'all', date: '', page: 1, limit: 20 })}
+            onClick={() => setFilters({ status: 'all', type: 'all', date: '', paymentStatus: 'all', search: '', sortBy: 'newest', page: 1, limit: 20 })}
           >
             Xóa lọc
           </button>
@@ -267,37 +375,37 @@ const DoctorConsultationManagementPage = ({ isAdminView = false }) => {
       <div className="dcm-table-wrapper">
         {loading ? (
           <div className="dcm-loading">Đang tải...</div>
-        ) : consultations.length === 0 ? (
+        ) : filteredConsultations.length === 0 ? (
           <div className="dcm-empty"><FaCalendarAlt /> Chưa có lịch tư vấn nào</div>
         ) : (
           <table className="dcm-table">
             <thead>
               <tr>
                 <th>Mã</th>
-                <th>{isAdminView ? 'Bác sĩ / Bệnh nhân' : 'Bệnh nhân'}</th>
+                <th>Bệnh nhân</th>
+                <th>Bác sĩ</th>
                 <th>Loại hình</th>
                 <th>Thời gian</th>
                 <th>Trạng thái</th>
-                <th>Triệu chứng</th>
+                <th>Thanh toán</th>
                 <th className="text-right">Hành động</th>
               </tr>
             </thead>
             <tbody>
-              {consultations.map(item => (
+              {filteredConsultations.map(item => (
                 <tr key={item.id}>
                   <td><span className="dcm-code">{item.consultation_code}</span></td>
                   <td>
-                    {isAdminView ? (
-                      <div className="dcm-info-cell">
-                        <strong>BS: {item.doctor?.full_name}</strong>
-                        <span>BN: {item.patient?.full_name}</span>
-                      </div>
-                    ) : (
-                      <div className="dcm-info-cell">
-                        <strong>{item.patient?.full_name}</strong>
-                        <span>{item.patient?.phone}</span>
-                      </div>
-                    )}
+                    <div className="dcm-info-cell">
+                      <strong>{getPatientName(item)}</strong>
+                      <span>{getPatientEmail(item)}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="dcm-info-cell">
+                      <strong>{getDoctorName(item)}</strong>
+                      <span>{getDoctorEmail(item)}</span>
+                    </div>
                   </td>
                   <td>
                     <span className={`dcm-type ${item.consultation_type}`}>
@@ -305,9 +413,17 @@ const DoctorConsultationManagementPage = ({ isAdminView = false }) => {
                       {item.consultation_type === 'chat' ? ' Chat' : ' Video'}
                     </span>
                   </td>
-                  <td>{consultationService.formatDateTime(item.appointment_time)}</td>
-                  <td>{getStatusBadge(item)}</td>
-                  <td><div className="dcm-complaint" title={item.chief_complaint}>{item.chief_complaint}</div></td>
+                  <td>{formatDateTime(item.appointment_time)}</td>
+                  <td>
+                    <span className={`dcm-badge ${getStatusMeta(item).className}`}>
+                      {getStatusMeta(item).icon} {getStatusMeta(item).text}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`dcm-payment-badge ${getPaymentMeta(item).className}`}>
+                      <FaMoneyBillWave /> {getPaymentMeta(item).text}
+                    </span>
+                  </td>
                   <td className="text-right">{getActionButtons(item)}</td>
                 </tr>
               ))}

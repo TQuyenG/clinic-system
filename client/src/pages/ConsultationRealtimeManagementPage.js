@@ -8,17 +8,20 @@ import chatService from '../services/chatService';
 import consultationService from '../services/consultationService';
 import axios from 'axios';
 import { 
-  FaCalendarAlt, FaChartBar, FaComments, FaDollarSign, 
-  FaStar, FaEye, FaSync, FaVideo, FaUserMd, FaExclamationTriangle 
-} from 'react-icons/fa';
+  FaCalendarAlt, FaChartBar, FaComments,
+  FaEye, FaSync, FaVideo, FaUserMd, FaExclamationTriangle,
+  FaHourglassHalf, FaCheckCircle, FaCheck, FaBan, FaTimesCircle, FaStar
+} from 'react-icons/fa'; // ✂️ Xóa FaDollarSign (Bước 1)
 import './ConsultationRealtimeManagementPage.css';
 
 // Import components
 import { ConsultationRealtimeList } from '../components/consultation/ConsultationRealtimeList';
 import { ConsultationRealtimeMonitor } from '../components/consultation/ConsultationRealtimeMonitor';
-import { RefundManagement } from '../components/consultation/RefundManagement';
-import { ConsultationFeedbackManagement } from '../components/consultation/ConsultationFeedbackManagement';
+// ✂️ Xóa RefundManagement import (Bước 1: moved to Financial Management Page)
+import { RatingConsultationManagement } from '../components/consultation/RatingConsultationManagement';
 import { ConsultationStatistics } from '../components/consultation/ConsultationStatistics';
+// ===== [BƯỚC 3] IMPORT APPOINTMENT FEEDBACK MANAGEMENT (2024-05-09) =====
+// Appointment feedback is managed in Appointment Management page; removed from realtime view
 
 const ConsultationRealtimeManagementPage = () => {
   const { user } = useAuth();
@@ -50,6 +53,18 @@ const ConsultationRealtimeManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboardStats, setDashboardStats] = useState(null);
+
+  const statusCards = React.useMemo(() => {
+    const base = { pending: 0, confirmed: 0, in_progress: 0, completed: 0, cancelled: 0 };
+    const rows = dashboardStats?.by_status || [];
+    rows.forEach((row) => {
+      const key = row.status || row.consultation_status || row.label;
+      if (key in base) {
+        base[key] = Number(row.count || row.total || 0);
+      }
+    });
+    return base;
+  }, [dashboardStats]);
 
   // --- Lấy danh sách bác sĩ (Cho Staff) ---
   useEffect(() => {
@@ -212,32 +227,52 @@ const ConsultationRealtimeManagementPage = () => {
           </div>
 
           <div className="crm-stat-card">
-            <div className="crm-stat-icon-box crm-bg-success">
-              <FaComments />
-            </div>
-            <div className="crm-stat-content">
-              <h3>{dashboardStats.active_consultations || 0}</h3>
-              <p>Đang hoạt động</p>
-            </div>
-          </div>
-
-          <div className="crm-stat-card">
             <div className="crm-stat-icon-box crm-bg-warning">
-              <FaDollarSign />
+              <FaHourglassHalf />
             </div>
             <div className="crm-stat-content">
-              <h3>{dashboardStats.total_revenue?.toLocaleString() || 0}đ</h3>
-              <p>Doanh thu</p>
+              <h3>{statusCards.pending || 0}</h3>
+              <p>Chờ xác nhận</p>
             </div>
           </div>
 
           <div className="crm-stat-card">
             <div className="crm-stat-icon-box crm-bg-info">
-              <FaStar />
+              <FaCheckCircle />
             </div>
             <div className="crm-stat-content">
-              <h3>{dashboardStats.avg_rating || 0} / 5</h3>
-              <p>Đánh giá TB</p>
+              <h3>{statusCards.confirmed || 0}</h3>
+              <p>Đã xác nhận</p>
+            </div>
+          </div>
+
+          <div className="crm-stat-card">
+            <div className="crm-stat-icon-box crm-bg-success">
+              <FaComments />
+            </div>
+            <div className="crm-stat-content">
+              <h3>{statusCards.in_progress || 0}</h3>
+              <p>Đang diễn ra</p>
+            </div>
+          </div>
+
+          <div className="crm-stat-card">
+            <div className="crm-stat-icon-box crm-bg-success">
+              <FaCheck />
+            </div>
+            <div className="crm-stat-content">
+              <h3>{statusCards.completed || 0}</h3>
+              <p>Hoàn thành</p>
+            </div>
+          </div>
+
+          <div className="crm-stat-card">
+            <div className="crm-stat-icon-box crm-bg-warning">
+              <FaBan />
+            </div>
+            <div className="crm-stat-content">
+              <h3>{statusCards.cancelled || 0}</h3>
+              <p>Đã hủy</p>
             </div>
           </div>
         </div>
@@ -265,15 +300,10 @@ const ConsultationRealtimeManagementPage = () => {
             )}
           </button>
           {/* KẾT THÚC SỬA */}
-          
-          {isAdmin && (
-            <button
-              className={`crm-tab ${activeTab === 'refunds' ? 'active' : ''}`}
-              onClick={() => setActiveTab('refunds')}
-            >
-              <FaDollarSign /> Hoàn tiền
-            </button>
-          )}
+          {/* ❌ BƯỚC 1 (2024-05-09): XÓA TAB HOÀN TIỀN
+              Lý do: Hoàn tiền liên quan Tài chính, không phải realtime monitoring
+              Chuyển sang: Financial Management Page
+              Chi tiết: IMPLEMENTATION_LOG.md */}
 
           {!isSystemStaff && (
             <button
@@ -316,6 +346,7 @@ const ConsultationRealtimeManagementPage = () => {
           <ConsultationRealtimeList 
             initialType={currentType} 
             doctorId={selectedDoctorId} 
+            role={user?.role}
           />
         )}
         {/* KẾT THÚC SỬA */}
@@ -327,12 +358,14 @@ const ConsultationRealtimeManagementPage = () => {
           />
         )}
 
-        {activeTab === 'refunds' && (
-          <RefundManagement />
-        )}
+        {/* ❌ BƯỚC 1 (2024-05-09): XÓA RENDER REFUND CONTENT
+            Di chuyển sang: Financial Management Page
+            Chi tiết: IMPLEMENTATION_LOG.md */}
 
         {activeTab === 'feedbacks' && (
-          <ConsultationFeedbackManagement initialType={currentType} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <RatingConsultationManagement initialType={currentType} />
+          </div>
         )}
 
         {activeTab === 'statistics' && (

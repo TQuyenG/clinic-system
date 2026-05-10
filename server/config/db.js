@@ -137,6 +137,10 @@ Object.values(models).forEach(model => {
   }
 });
 
+if (models.Rating && !models.ConsultationFeedback) {
+  models.ConsultationFeedback = models.Rating;
+}
+
 // === DEBUG: Kiểm tra Topic model đã load chưa ===
 console.log('📋 Models đã load:', Object.keys(models).sort().join(', '));
 if (models.Topic) {

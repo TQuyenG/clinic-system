@@ -3473,3 +3473,1738 @@ module.exports = exports;
 
 
 
+
+
+
+// ===== [BÆ¯á»šC 2.4] RATING & FEEDBACK CONTROLLERS (2024-05-09) =====
+// Bá»‡nh nhÃ¢n Ä‘Ã¡nh giÃ¡ appointment + Admin duyá»‡t feedback
+
+/**
+ * BÆ¯á»šC 2.4.1: Bá»‡nh nhÃ¢n gá»­i rating/review lá»‹ch háº¹n
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * Route: PUT /api/appointments/:id/rate
+ * Auth: Patient only
+ * Body: { rating (1-5), review (text) }
+ * 
+ * Logic:
+ * 1. Kiá»ƒm tra appointment cÃ³ tá»“n táº¡i + patient_id = user.id
+ * 2. Kiá»ƒm tra appointment.status === 'completed'
+ * 3. Kiá»ƒm tra appointment chÆ°a Ä‘Æ°á»£c rate (rating IS NULL)
+ * 4. Validate rating: 1-5
+ * 5. Save: appointment.rating, appointment.review, appointment.reviewed_at = NOW()
+ * 6. Set: feedback_status = 'pending' (chá» admin duyá»‡t)
+ * 
+ * AC (Access Control):
+ * - Chá»‰ patient cá»§a appointment Ä‘Ã³ má»›i rating Ä‘Æ°á»£c
+ * - KhÃ´ng Ä‘Æ°á»£c rating láº¡i (reviewed_at IS NOT NULL â†’ error)
+ * - Appointment pháº£i completed
+ * 
+ * Response:
+ * { success: true, message: 'ÄÃ¡nh giÃ¡ thÃ nh cÃ´ng, chá» admin duyá»‡t' }
+ * 
+ * Error cases:
+ * - 400: Appointment chÆ°a hoÃ n thÃ nh / ÄÃ£ rated trÆ°á»›c Ä‘Ã³
+ * - 403: KhÃ´ng pháº£i patient cá»§a appointment
+ * - 404: Appointment khÃ´ng tá»“n táº¡i
+ */
+exports.rateAppointment = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params; // appointment ID hoáº·c CODE
+    const { rating, review } = req.body;
+    const patient = req.user;
+
+    // Validate input
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Rating pháº£i náº±m trong khoáº£ng 1-5 sao' 
+      });
+    }
+
+    if (review && review.length > 1000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Ná»™i dung review khÃ´ng vÆ°á»£t quÃ¡ 1000 kÃ½ tá»±' 
+      });
+    }
+
+    // 1. TÃ¬m appointment (báº±ng code hoáº·c id)
+    let appointment = await models.Appointment.findOne({
+      where: { code: id },
+      transaction: t
+    });
+
+    if (!appointment && !isNaN(id)) {
+      appointment = await models.Appointment.findByPk(id, { transaction: t });
+    }
+
+    if (!appointment) {
+      await t.rollback();
+      return res.status(404).json({ 
+        success: false, 
+        message: 'KhÃ´ng tÃ¬m tháº¥y lá»‹ch háº¹n' 
+      });
+    }
+
+    // 2. Kiá»ƒm tra appointment thuá»™c patient nÃ y
+    if (appointment.patient_id !== patient.id) {
+      await t.rollback();
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Báº¡n khÃ´ng cÃ³ quyá»n Ä‘Ã¡nh giÃ¡ lá»‹ch háº¹n nÃ y' 
+      });
+    }
+
+    // 3. Kiá»ƒm tra status = completed
+    if (appointment.status !== 'completed') {
+      await t.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Chá»‰ cÃ³ thá»ƒ Ä‘Ã¡nh giÃ¡ lá»‹ch háº¹n Ä‘Ã£ hoÃ n thÃ nh' 
+      });
+    }
+
+    // 4. Kiá»ƒm tra appointment chÆ°a Ä‘Æ°á»£c rate
+    if (appointment.rating !== null) {
+      await t.rollback();
+      return res.status(409).json({ 
+        success: false, 
+        message: 'Báº¡n Ä‘Ã£ Ä‘Ã¡nh giÃ¡ lá»‹ch háº¹n nÃ y rá»“i' 
+      });
+    }
+
+    // 5. Update rating + review
+    await appointment.update({
+      rating: parseInt(rating),
+      review: review || null,
+      reviewed_at: new Date(),
+      feedback_status: 'pending'  // Chá» admin duyá»‡t
+    }, { transaction: t });
+
+    // 6. Audit log
+    await createAuditLog({
+      user_id: patient.id,
+      action: 'APPOINTMENT_RATED',
+      entity: 'Appointment',
+      entity_id: appointment.id,
+      changes: { rating, review: review ? 'text...' : null },
+      status: 'success'
+    }, t);
+
+    await t.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Cáº£m Æ¡n Ä‘Ã¡nh giÃ¡ cá»§a báº¡n! Feedback sáº½ Ä‘Æ°á»£c duyá»‡t thÃ nh cÃ´ng.',
+      data: {
+        appointment_id: appointment.id,
+        appointment_code: appointment.code,
+        rating: appointment.rating,
+        feedback_status: appointment.feedback_status
+      }
+    });
+
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR rateAppointment:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Lá»—i server khi gá»­i Ä‘Ã¡nh giÃ¡' 
+    });
+  }
+};
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// BÆ¯á»šC 2.4.2: Admin/Staff xem danh sÃ¡ch feedback táº¥t cáº£ appointment
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/**
+ * Route: GET /api/appointments/admin/feedbacks
+ * Auth: Admin/Staff
+ * Query: { doctor_id?, rating?, status?, page=1, limit=20 }
+ * 
+ * Logic:
+ * 1. Query Appointment WHERE rating IS NOT NULL
+ * 2. Filter theo: doctor_id, rating, feedback_status
+ * 3. Include: patient (full_name, avatar_url), doctor (full_name, specialty)
+ * 4. Order by: reviewed_at DESC (má»›i nháº¥t trÆ°á»›c)
+ * 5. Paginate: page, limit
+ * 
+ * AC:
+ * - Admin: tháº¥y táº¥t cáº£ appointment feedbacks
+ * - Staff: tháº¥y appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+ * 
+ * Response:
+ * {
+ *   success: true,
+ *   data: {
+ *     feedbacks: [{ id, code, patient, rating, review, feedback_status, ... }],
+ *     pagination: { total, page, limit, totalPages }
+ *   }
+ * }
+ */
+exports.getAllAppointmentFeedbacks = async (req, res) => {
+  try {
+    const {
+      doctor_id,
+      rating,
+      status = 'all',  // pending/approved/hidden/all
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const user = req.user;
+    const whereClause = {
+      rating: { [Op.ne]: null }  // Chá»‰ láº¥y appointment cÃ³ rating
+    };
+
+    // PhÃ¢n quyá»n Staff: chá»‰ xem appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+    if (user.role === 'staff') {
+      const staff = await models.Staff.findOne({ where: { user_id: user.id } });
+      if (staff && staff.managed_doctors && staff.managed_doctors.doctor_ids) {
+        const managedDoctorIds = staff.managed_doctors.doctor_ids;
+        const doctors = await models.Doctor.findAll({
+          where: { id: { [Op.in]: managedDoctorIds } },
+          attributes: ['user_id']
+        });
+        const doctorUserIds = doctors.map(d => d.user_id);
+        whereClause.doctor_id = { [Op.in]: doctorUserIds };
+      } else {
+        // Staff khÃ´ng quáº£n lÃ½ ai â†’ tráº£ rá»—ng
+        return res.json({
+          success: true,
+          data: {
+            feedbacks: [],
+            pagination: { total: 0, page: 1, limit, totalPages: 0 }
+          }
+        });
+      }
+    }
+
+    // Filter theo doctor_id (náº¿u cÃ³)
+    if (doctor_id) {
+      whereClause.doctor_id = parseInt(doctor_id);
+    }
+
+    // Filter theo rating
+    if (rating && rating !== 'all') {
+      whereClause.rating = parseInt(rating);
+    }
+
+    // Filter theo feedback_status
+    if (status && status !== 'all') {
+      whereClause.feedback_status = status;
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Query feedbacks
+    const { count, rows: feedbacks } = await models.Appointment.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: models.User,
+          as: 'Patient',
+          attributes: ['id', 'full_name', 'avatar_url', 'phone']
+        },
+        {
+          model: models.User,
+          as: 'Doctor',
+          attributes: ['id', 'full_name', 'avatar_url'],
+          include: [
+            {
+              model: models.Specialty,
+              as: 'specialty',
+              attributes: ['id', 'name']
+            }
+          ]
+        },
+        {
+          model: models.Service,
+          as: 'Service',
+          attributes: ['id', 'name']
+        }
+      ],
+      order: [['reviewed_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: offset
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        feedbacks,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(count / parseInt(limit))
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('ERROR getAllAppointmentFeedbacks:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lá»—i server khi láº¥y danh sÃ¡ch feedback'
+    });
+  }
+};
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// BÆ¯á»šC 2.4.3: Admin/Staff duyá»‡t/áº©n feedback appointment
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/**
+ * Route: PUT /api/appointments/admin/feedbacks/:id/toggle-status
+ * Auth: Admin/Staff
+ * Body: { status ('approved'|'hidden'), admin_note? }
+ * 
+ * Logic:
+ * 1. Kiá»ƒm tra appointment tá»“n táº¡i + cÃ³ rating
+ * 2. Validate status âˆˆ ['approved', 'hidden']
+ * 3. Update: feedback_status = status, admin_note, reviewer_id = req.user.id
+ * 4. Audit log
+ * 
+ * AC:
+ * - Chá»‰ admin/staff vá»›i permission 'appointment_feedback:manage'
+ * - Staff chá»‰ duyá»‡t feedback appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+ * 
+ * Response:
+ * { success: true, message: 'Cáº­p nháº­t tráº¡ng thÃ¡i thÃ nh cÃ´ng' }
+ */
+exports.toggleFeedbackStatus = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;  // appointment ID
+    const { status, admin_note } = req.body;
+    const reviewer = req.user;
+
+    // Validate status
+    if (!['approved', 'hidden'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tráº¡ng thÃ¡i pháº£i lÃ  "approved" hoáº·c "hidden"'
+      });
+    }
+
+    // TÃ¬m appointment
+    let appointment = await models.Appointment.findOne({
+      where: { code: id },
+      transaction: t
+    });
+
+    if (!appointment && !isNaN(id)) {
+      appointment = await models.Appointment.findByPk(id, { transaction: t });
+    }
+
+    if (!appointment) {
+      await t.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'KhÃ´ng tÃ¬m tháº¥y lá»‹ch háº¹n'
+      });
+    }
+
+    // Kiá»ƒm tra appointment cÃ³ rating
+    if (appointment.rating === null) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Lá»‹ch háº¹n nÃ y chÆ°a Ä‘Æ°á»£c Ä‘Ã¡nh giÃ¡'
+      });
+    }
+
+    // PhÃ¢n quyá»n Staff: chá»‰ xem/duyá»‡t appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+    if (reviewer.role === 'staff') {
+      const staff = await models.Staff.findOne({ where: { user_id: reviewer.id } });
+      if (staff && staff.managed_doctors && staff.managed_doctors.doctor_ids) {
+        const managedDoctorIds = staff.managed_doctors.doctor_ids;
+        const doctors = await models.Doctor.findAll({
+          where: { id: { [Op.in]: managedDoctorIds } },
+          attributes: ['user_id']
+        });
+        const doctorUserIds = doctors.map(d => d.user_id);
+        if (!doctorUserIds.includes(appointment.doctor_id)) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: 'Báº¡n khÃ´ng cÃ³ quyá»n duyá»‡t feedback cá»§a bÃ¡c sÄ© nÃ y'
+          });
+        }
+      }
+    }
+
+    // Update appointment
+    await appointment.update({
+      feedback_status: status,
+      admin_note: admin_note || null,
+      reviewer_id: reviewer.id
+    }, { transaction: t });
+
+    // Audit log
+    await createAuditLog({
+      user_id: reviewer.id,
+      action: 'APPOINTMENT_FEEDBACK_REVIEWED',
+      entity: 'Appointment',
+      entity_id: appointment.id,
+      changes: { feedback_status: status, admin_note },
+      status: 'success'
+    }, t);
+
+    await t.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: `Feedback Ä‘Æ°á»£c ${status === 'approved' ? 'duyá»‡t' : 'áº©n'} thÃ nh cÃ´ng`,
+      data: {
+        appointment_id: appointment.id,
+        feedback_status: appointment.feedback_status
+      }
+    });
+
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR toggleFeedbackStatus:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lá»—i server khi cáº­p nháº­t tráº¡ng thÃ¡i feedback'
+    });
+  }
+};
+
+// ===== Káº¾T THÃšC RATING & FEEDBACK CONTROLLERS =====
+
+
+
+
+// ===== [BÆ¯á»šC 2.4] RATING & FEEDBACK CONTROLLERS (2024-05-09) =====
+// Bá»‡nh nhÃ¢n Ä‘Ã¡nh giÃ¡ appointment + Admin duyá»‡t feedback
+
+/**
+ * BÆ¯á»šC 2.4.1: Bá»‡nh nhÃ¢n gá»­i rating/review lá»‹ch háº¹n
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * Route: PUT /api/appointments/:id/rate
+ * Auth: Patient only
+ * Body: { rating (1-5), review (text) }
+ * 
+ * Logic:
+ * 1. Kiá»ƒm tra appointment cÃ³ tá»“n táº¡i + patient_id = user.id
+ * 2. Kiá»ƒm tra appointment.status === 'completed'
+ * 3. Kiá»ƒm tra appointment chÆ°a Ä‘Æ°á»£c rate (rating IS NULL)
+ * 4. Validate rating: 1-5
+ * 5. Save: appointment.rating, appointment.review, appointment.reviewed_at = NOW()
+ * 6. Set: feedback_status = 'pending' (chá» admin duyá»‡t)
+ * 
+ * AC (Access Control):
+ * - Chá»‰ patient cá»§a appointment Ä‘Ã³ má»›i rating Ä‘Æ°á»£c
+ * - KhÃ´ng Ä‘Æ°á»£c rating láº¡i (reviewed_at IS NOT NULL â†’ error)
+ * - Appointment pháº£i completed
+ * 
+ * Response:
+ * { success: true, message: 'ÄÃ¡nh giÃ¡ thÃ nh cÃ´ng, chá» admin duyá»‡t' }
+ * 
+ * Error cases:
+ * - 400: Appointment chÆ°a hoÃ n thÃ nh / ÄÃ£ rated trÆ°á»›c Ä‘Ã³
+ * - 403: KhÃ´ng pháº£i patient cá»§a appointment
+ * - 404: Appointment khÃ´ng tá»“n táº¡i
+ */
+exports.rateAppointment = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params; // appointment ID hoáº·c CODE
+    const { rating, review } = req.body;
+    const patient = req.user;
+
+    // Validate input
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Rating pháº£i náº±m trong khoáº£ng 1-5 sao' 
+      });
+    }
+
+    if (review && review.length > 1000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Ná»™i dung review khÃ´ng vÆ°á»£t quÃ¡ 1000 kÃ½ tá»±' 
+      });
+    }
+
+    // 1. TÃ¬m appointment (báº±ng code hoáº·c id)
+    let appointment = await models.Appointment.findOne({
+      where: { code: id },
+      transaction: t
+    });
+
+    if (!appointment && !isNaN(id)) {
+      appointment = await models.Appointment.findByPk(id, { transaction: t });
+    }
+
+    if (!appointment) {
+      await t.rollback();
+      return res.status(404).json({ 
+        success: false, 
+        message: 'KhÃ´ng tÃ¬m tháº¥y lá»‹ch háº¹n' 
+      });
+    }
+
+    // 2. Kiá»ƒm tra appointment thuá»™c patient nÃ y
+    if (appointment.patient_id !== patient.id) {
+      await t.rollback();
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Báº¡n khÃ´ng cÃ³ quyá»n Ä‘Ã¡nh giÃ¡ lá»‹ch háº¹n nÃ y' 
+      });
+    }
+
+    // 3. Kiá»ƒm tra status = completed
+    if (appointment.status !== 'completed') {
+      await t.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Chá»‰ cÃ³ thá»ƒ Ä‘Ã¡nh giÃ¡ lá»‹ch háº¹n Ä‘Ã£ hoÃ n thÃ nh' 
+      });
+    }
+
+    // 4. Kiá»ƒm tra appointment chÆ°a Ä‘Æ°á»£c rate
+    if (appointment.rating !== null) {
+      await t.rollback();
+      return res.status(409).json({ 
+        success: false, 
+        message: 'Báº¡n Ä‘Ã£ Ä‘Ã¡nh giÃ¡ lá»‹ch háº¹n nÃ y rá»“i' 
+      });
+    }
+
+    // 5. Update rating + review
+    await appointment.update({
+      rating: parseInt(rating),
+      review: review || null,
+      reviewed_at: new Date(),
+      feedback_status: 'pending'  // Chá» admin duyá»‡t
+    }, { transaction: t });
+
+    // 6. Audit log
+    await createAuditLog({
+      user_id: patient.id,
+      action: 'APPOINTMENT_RATED',
+      entity: 'Appointment',
+      entity_id: appointment.id,
+      changes: { rating, review: review ? 'text...' : null },
+      status: 'success'
+    }, t);
+
+    await t.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Cáº£m Æ¡n Ä‘Ã¡nh giÃ¡ cá»§a báº¡n! Feedback sáº½ Ä‘Æ°á»£c duyá»‡t thÃ nh cÃ´ng.',
+      data: {
+        appointment_id: appointment.id,
+        appointment_code: appointment.code,
+        rating: appointment.rating,
+        feedback_status: appointment.feedback_status
+      }
+    });
+
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR rateAppointment:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Lá»—i server khi gá»­i Ä‘Ã¡nh giÃ¡' 
+    });
+  }
+};
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// BÆ¯á»šC 2.4.2: Admin/Staff xem danh sÃ¡ch feedback táº¥t cáº£ appointment
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/**
+ * Route: GET /api/appointments/admin/feedbacks
+ * Auth: Admin/Staff
+ * Query: { doctor_id?, rating?, status?, page=1, limit=20 }
+ * 
+ * Logic:
+ * 1. Query Appointment WHERE rating IS NOT NULL
+ * 2. Filter theo: doctor_id, rating, feedback_status
+ * 3. Include: patient (full_name, avatar_url), doctor (full_name, specialty)
+ * 4. Order by: reviewed_at DESC (má»›i nháº¥t trÆ°á»›c)
+ * 5. Paginate: page, limit
+ * 
+ * AC:
+ * - Admin: tháº¥y táº¥t cáº£ appointment feedbacks
+ * - Staff: tháº¥y appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+ * 
+ * Response:
+ * {
+ *   success: true,
+ *   data: {
+ *     feedbacks: [{ id, code, patient, rating, review, feedback_status, ... }],
+ *     pagination: { total, page, limit, totalPages }
+ *   }
+ * }
+ */
+exports.getAllAppointmentFeedbacks = async (req, res) => {
+  try {
+    const {
+      doctor_id,
+      rating,
+      status = 'all',  // pending/approved/hidden/all
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const user = req.user;
+    const whereClause = {
+      rating: { [Op.ne]: null }  // Chá»‰ láº¥y appointment cÃ³ rating
+    };
+
+    // PhÃ¢n quyá»n Staff: chá»‰ xem appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+    if (user.role === 'staff') {
+      const staff = await models.Staff.findOne({ where: { user_id: user.id } });
+      if (staff && staff.managed_doctors && staff.managed_doctors.doctor_ids) {
+        const managedDoctorIds = staff.managed_doctors.doctor_ids;
+        const doctors = await models.Doctor.findAll({
+          where: { id: { [Op.in]: managedDoctorIds } },
+          attributes: ['user_id']
+        });
+        const doctorUserIds = doctors.map(d => d.user_id);
+        whereClause.doctor_id = { [Op.in]: doctorUserIds };
+      } else {
+        // Staff khÃ´ng quáº£n lÃ½ ai â†’ tráº£ rá»—ng
+        return res.json({
+          success: true,
+          data: {
+            feedbacks: [],
+            pagination: { total: 0, page: 1, limit, totalPages: 0 }
+          }
+        });
+      }
+    }
+
+    // Filter theo doctor_id (náº¿u cÃ³)
+    if (doctor_id) {
+      whereClause.doctor_id = parseInt(doctor_id);
+    }
+
+    // Filter theo rating
+    if (rating && rating !== 'all') {
+      whereClause.rating = parseInt(rating);
+    }
+
+    // Filter theo feedback_status
+    if (status && status !== 'all') {
+      whereClause.feedback_status = status;
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Query feedbacks
+    const { count, rows: feedbacks } = await models.Appointment.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: models.User,
+          as: 'Patient',
+          attributes: ['id', 'full_name', 'avatar_url', 'phone']
+        },
+        {
+          model: models.User,
+          as: 'Doctor',
+          attributes: ['id', 'full_name', 'avatar_url'],
+          include: [
+            {
+              model: models.Specialty,
+              as: 'specialty',
+              attributes: ['id', 'name']
+            }
+          ]
+        },
+        {
+          model: models.Service,
+          as: 'Service',
+          attributes: ['id', 'name']
+        }
+      ],
+      order: [['reviewed_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: offset
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        feedbacks,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(count / parseInt(limit))
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('ERROR getAllAppointmentFeedbacks:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lá»—i server khi láº¥y danh sÃ¡ch feedback'
+    });
+  }
+};
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// BÆ¯á»šC 2.4.3: Admin/Staff duyá»‡t/áº©n feedback appointment
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/**
+ * Route: PUT /api/appointments/admin/feedbacks/:id/toggle-status
+ * Auth: Admin/Staff
+ * Body: { status ('approved'|'hidden'), admin_note? }
+ * 
+ * Logic:
+ * 1. Kiá»ƒm tra appointment tá»“n táº¡i + cÃ³ rating
+ * 2. Validate status âˆˆ ['approved', 'hidden']
+ * 3. Update: feedback_status = status, admin_note, reviewer_id = req.user.id
+ * 4. Audit log
+ * 
+ * AC:
+ * - Chá»‰ admin/staff vá»›i permission 'appointment_feedback:manage'
+ * - Staff chá»‰ duyá»‡t feedback appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+ * 
+ * Response:
+ * { success: true, message: 'Cáº­p nháº­t tráº¡ng thÃ¡i thÃ nh cÃ´ng' }
+ */
+exports.toggleFeedbackStatus = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;  // appointment ID
+    const { status, admin_note } = req.body;
+    const reviewer = req.user;
+
+    // Validate status
+    if (!['approved', 'hidden'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tráº¡ng thÃ¡i pháº£i lÃ  "approved" hoáº·c "hidden"'
+      });
+    }
+
+    // TÃ¬m appointment
+    let appointment = await models.Appointment.findOne({
+      where: { code: id },
+      transaction: t
+    });
+
+    if (!appointment && !isNaN(id)) {
+      appointment = await models.Appointment.findByPk(id, { transaction: t });
+    }
+
+    if (!appointment) {
+      await t.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'KhÃ´ng tÃ¬m tháº¥y lá»‹ch háº¹n'
+      });
+    }
+
+    // Kiá»ƒm tra appointment cÃ³ rating
+    if (appointment.rating === null) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Lá»‹ch háº¹n nÃ y chÆ°a Ä‘Æ°á»£c Ä‘Ã¡nh giÃ¡'
+      });
+    }
+
+    // PhÃ¢n quyá»n Staff: chá»‰ xem/duyá»‡t appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+    if (reviewer.role === 'staff') {
+      const staff = await models.Staff.findOne({ where: { user_id: reviewer.id } });
+      if (staff && staff.managed_doctors && staff.managed_doctors.doctor_ids) {
+        const managedDoctorIds = staff.managed_doctors.doctor_ids;
+        const doctors = await models.Doctor.findAll({
+          where: { id: { [Op.in]: managedDoctorIds } },
+          attributes: ['user_id']
+        });
+        const doctorUserIds = doctors.map(d => d.user_id);
+        if (!doctorUserIds.includes(appointment.doctor_id)) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: 'Báº¡n khÃ´ng cÃ³ quyá»n duyá»‡t feedback cá»§a bÃ¡c sÄ© nÃ y'
+          });
+        }
+      }
+    }
+
+    // Update appointment
+    await appointment.update({
+      feedback_status: status,
+      admin_note: admin_note || null,
+      reviewer_id: reviewer.id
+    }, { transaction: t });
+
+    // Audit log
+    await createAuditLog({
+      user_id: reviewer.id,
+      action: 'APPOINTMENT_FEEDBACK_REVIEWED',
+      entity: 'Appointment',
+      entity_id: appointment.id,
+      changes: { feedback_status: status, admin_note },
+      status: 'success'
+    }, t);
+
+    await t.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: `Feedback Ä‘Æ°á»£c ${status === 'approved' ? 'duyá»‡t' : 'áº©n'} thÃ nh cÃ´ng`,
+      data: {
+        appointment_id: appointment.id,
+        feedback_status: appointment.feedback_status
+      }
+    });
+
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR toggleFeedbackStatus:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lá»—i server khi cáº­p nháº­t tráº¡ng thÃ¡i feedback'
+    });
+  }
+};
+
+// ===== Káº¾T THÃšC RATING & FEEDBACK CONTROLLERS =====
+
+
+
+
+// ===== [BÆ¯á»šC 2.4] RATING & FEEDBACK CONTROLLERS (2024-05-09) =====
+// Bá»‡nh nhÃ¢n Ä‘Ã¡nh giÃ¡ appointment + Admin duyá»‡t feedback
+
+/**
+ * BÆ¯á»šC 2.4.1: Bá»‡nh nhÃ¢n gá»­i rating/review lá»‹ch háº¹n
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * Route: PUT /api/appointments/:id/rate
+ * Auth: Patient only
+ * Body: { rating (1-5), review (text) }
+ * 
+ * Logic:
+ * 1. Kiá»ƒm tra appointment cÃ³ tá»“n táº¡i + patient_id = user.id
+ * 2. Kiá»ƒm tra appointment.status === 'completed'
+ * 3. Kiá»ƒm tra appointment chÆ°a Ä‘Æ°á»£c rate (rating IS NULL)
+ * 4. Validate rating: 1-5
+ * 5. Save: appointment.rating, appointment.review, appointment.reviewed_at = NOW()
+ * 6. Set: feedback_status = 'pending' (chá» admin duyá»‡t)
+ * 
+ * AC (Access Control):
+ * - Chá»‰ patient cá»§a appointment Ä‘Ã³ má»›i rating Ä‘Æ°á»£c
+ * - KhÃ´ng Ä‘Æ°á»£c rating láº¡i (reviewed_at IS NOT NULL â†’ error)
+ * - Appointment pháº£i completed
+ * 
+ * Response:
+ * { success: true, message: 'ÄÃ¡nh giÃ¡ thÃ nh cÃ´ng, chá» admin duyá»‡t' }
+ * 
+ * Error cases:
+ * - 400: Appointment chÆ°a hoÃ n thÃ nh / ÄÃ£ rated trÆ°á»›c Ä‘Ã³
+ * - 403: KhÃ´ng pháº£i patient cá»§a appointment
+ * - 404: Appointment khÃ´ng tá»“n táº¡i
+ */
+exports.rateAppointment = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params; // appointment ID hoáº·c CODE
+    const { rating, review } = req.body;
+    const patient = req.user;
+
+    // Validate input
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Rating pháº£i náº±m trong khoáº£ng 1-5 sao' 
+      });
+    }
+
+    if (review && review.length > 1000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Ná»™i dung review khÃ´ng vÆ°á»£t quÃ¡ 1000 kÃ½ tá»±' 
+      });
+    }
+
+    // 1. TÃ¬m appointment (báº±ng code hoáº·c id)
+    let appointment = await models.Appointment.findOne({
+      where: { code: id },
+      transaction: t
+    });
+
+    if (!appointment && !isNaN(id)) {
+      appointment = await models.Appointment.findByPk(id, { transaction: t });
+    }
+
+    if (!appointment) {
+      await t.rollback();
+      return res.status(404).json({ 
+        success: false, 
+        message: 'KhÃ´ng tÃ¬m tháº¥y lá»‹ch háº¹n' 
+      });
+    }
+
+    // 2. Kiá»ƒm tra appointment thuá»™c patient nÃ y
+    if (appointment.patient_id !== patient.id) {
+      await t.rollback();
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Báº¡n khÃ´ng cÃ³ quyá»n Ä‘Ã¡nh giÃ¡ lá»‹ch háº¹n nÃ y' 
+      });
+    }
+
+    // 3. Kiá»ƒm tra status = completed
+    if (appointment.status !== 'completed') {
+      await t.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Chá»‰ cÃ³ thá»ƒ Ä‘Ã¡nh giÃ¡ lá»‹ch háº¹n Ä‘Ã£ hoÃ n thÃ nh' 
+      });
+    }
+
+    // 4. Kiá»ƒm tra appointment chÆ°a Ä‘Æ°á»£c rate
+    if (appointment.rating !== null) {
+      await t.rollback();
+      return res.status(409).json({ 
+        success: false, 
+        message: 'Báº¡n Ä‘Ã£ Ä‘Ã¡nh giÃ¡ lá»‹ch háº¹n nÃ y rá»“i' 
+      });
+    }
+
+    // 5. Update rating + review
+    await appointment.update({
+      rating: parseInt(rating),
+      review: review || null,
+      reviewed_at: new Date(),
+      feedback_status: 'pending'  // Chá» admin duyá»‡t
+    }, { transaction: t });
+
+    // 6. Audit log
+    await createAuditLog({
+      user_id: patient.id,
+      action: 'APPOINTMENT_RATED',
+      entity: 'Appointment',
+      entity_id: appointment.id,
+      changes: { rating, review: review ? 'text...' : null },
+      status: 'success'
+    }, t);
+
+    await t.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Cáº£m Æ¡n Ä‘Ã¡nh giÃ¡ cá»§a báº¡n! Feedback sáº½ Ä‘Æ°á»£c duyá»‡t thÃ nh cÃ´ng.',
+      data: {
+        appointment_id: appointment.id,
+        appointment_code: appointment.code,
+        rating: appointment.rating,
+        feedback_status: appointment.feedback_status
+      }
+    });
+
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR rateAppointment:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Lá»—i server khi gá»­i Ä‘Ã¡nh giÃ¡' 
+    });
+  }
+};
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// BÆ¯á»šC 2.4.2: Admin/Staff xem danh sÃ¡ch feedback táº¥t cáº£ appointment
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/**
+ * Route: GET /api/appointments/admin/feedbacks
+ * Auth: Admin/Staff
+ * Query: { doctor_id?, rating?, status?, page=1, limit=20 }
+ * 
+ * Logic:
+ * 1. Query Appointment WHERE rating IS NOT NULL
+ * 2. Filter theo: doctor_id, rating, feedback_status
+ * 3. Include: patient (full_name, avatar_url), doctor (full_name, specialty)
+ * 4. Order by: reviewed_at DESC (má»›i nháº¥t trÆ°á»›c)
+ * 5. Paginate: page, limit
+ * 
+ * AC:
+ * - Admin: tháº¥y táº¥t cáº£ appointment feedbacks
+ * - Staff: tháº¥y appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+ * 
+ * Response:
+ * {
+ *   success: true,
+ *   data: {
+ *     feedbacks: [{ id, code, patient, rating, review, feedback_status, ... }],
+ *     pagination: { total, page, limit, totalPages }
+ *   }
+ * }
+ */
+exports.getAllAppointmentFeedbacks = async (req, res) => {
+  try {
+    const {
+      doctor_id,
+      rating,
+      status = 'all',  // pending/approved/hidden/all
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const user = req.user;
+    const whereClause = {
+      rating: { [Op.ne]: null }  // Chá»‰ láº¥y appointment cÃ³ rating
+    };
+
+    // PhÃ¢n quyá»n Staff: chá»‰ xem appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+    if (user.role === 'staff') {
+      const staff = await models.Staff.findOne({ where: { user_id: user.id } });
+      if (staff && staff.managed_doctors && staff.managed_doctors.doctor_ids) {
+        const managedDoctorIds = staff.managed_doctors.doctor_ids;
+        const doctors = await models.Doctor.findAll({
+          where: { id: { [Op.in]: managedDoctorIds } },
+          attributes: ['user_id']
+        });
+        const doctorUserIds = doctors.map(d => d.user_id);
+        whereClause.doctor_id = { [Op.in]: doctorUserIds };
+      } else {
+        // Staff khÃ´ng quáº£n lÃ½ ai â†’ tráº£ rá»—ng
+        return res.json({
+          success: true,
+          data: {
+            feedbacks: [],
+            pagination: { total: 0, page: 1, limit, totalPages: 0 }
+          }
+        });
+      }
+    }
+
+    // Filter theo doctor_id (náº¿u cÃ³)
+    if (doctor_id) {
+      whereClause.doctor_id = parseInt(doctor_id);
+    }
+
+    // Filter theo rating
+    if (rating && rating !== 'all') {
+      whereClause.rating = parseInt(rating);
+    }
+
+    // Filter theo feedback_status
+    if (status && status !== 'all') {
+      whereClause.feedback_status = status;
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Query feedbacks
+    const { count, rows: feedbacks } = await models.Appointment.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: models.User,
+          as: 'Patient',
+          attributes: ['id', 'full_name', 'avatar_url', 'phone']
+        },
+        {
+          model: models.User,
+          as: 'Doctor',
+          attributes: ['id', 'full_name', 'avatar_url'],
+          include: [
+            {
+              model: models.Specialty,
+              as: 'specialty',
+              attributes: ['id', 'name']
+            }
+          ]
+        },
+        {
+          model: models.Service,
+          as: 'Service',
+          attributes: ['id', 'name']
+        }
+      ],
+      order: [['reviewed_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: offset
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        feedbacks,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(count / parseInt(limit))
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('ERROR getAllAppointmentFeedbacks:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lá»—i server khi láº¥y danh sÃ¡ch feedback'
+    });
+  }
+};
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// BÆ¯á»šC 2.4.3: Admin/Staff duyá»‡t/áº©n feedback appointment
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/**
+ * Route: PUT /api/appointments/admin/feedbacks/:id/toggle-status
+ * Auth: Admin/Staff
+ * Body: { status ('approved'|'hidden'), admin_note? }
+ * 
+ * Logic:
+ * 1. Kiá»ƒm tra appointment tá»“n táº¡i + cÃ³ rating
+ * 2. Validate status âˆˆ ['approved', 'hidden']
+ * 3. Update: feedback_status = status, admin_note, reviewer_id = req.user.id
+ * 4. Audit log
+ * 
+ * AC:
+ * - Chá»‰ admin/staff vá»›i permission 'appointment_feedback:manage'
+ * - Staff chá»‰ duyá»‡t feedback appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+ * 
+ * Response:
+ * { success: true, message: 'Cáº­p nháº­t tráº¡ng thÃ¡i thÃ nh cÃ´ng' }
+ */
+exports.toggleFeedbackStatus = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;  // appointment ID
+    const { status, admin_note } = req.body;
+    const reviewer = req.user;
+
+    // Validate status
+    if (!['approved', 'hidden'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tráº¡ng thÃ¡i pháº£i lÃ  "approved" hoáº·c "hidden"'
+      });
+    }
+
+    // TÃ¬m appointment
+    let appointment = await models.Appointment.findOne({
+      where: { code: id },
+      transaction: t
+    });
+
+    if (!appointment && !isNaN(id)) {
+      appointment = await models.Appointment.findByPk(id, { transaction: t });
+    }
+
+    if (!appointment) {
+      await t.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'KhÃ´ng tÃ¬m tháº¥y lá»‹ch háº¹n'
+      });
+    }
+
+    // Kiá»ƒm tra appointment cÃ³ rating
+    if (appointment.rating === null) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Lá»‹ch háº¹n nÃ y chÆ°a Ä‘Æ°á»£c Ä‘Ã¡nh giÃ¡'
+      });
+    }
+
+    // PhÃ¢n quyá»n Staff: chá»‰ xem/duyá»‡t appointment cá»§a bÃ¡c sÄ© mÃ¬nh quáº£n lÃ½
+    if (reviewer.role === 'staff') {
+      const staff = await models.Staff.findOne({ where: { user_id: reviewer.id } });
+      if (staff && staff.managed_doctors && staff.managed_doctors.doctor_ids) {
+        const managedDoctorIds = staff.managed_doctors.doctor_ids;
+        const doctors = await models.Doctor.findAll({
+          where: { id: { [Op.in]: managedDoctorIds } },
+          attributes: ['user_id']
+        });
+        const doctorUserIds = doctors.map(d => d.user_id);
+        if (!doctorUserIds.includes(appointment.doctor_id)) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: 'Báº¡n khÃ´ng cÃ³ quyá»n duyá»‡t feedback cá»§a bÃ¡c sÄ© nÃ y'
+          });
+        }
+      }
+    }
+
+    // Update appointment
+    await appointment.update({
+      feedback_status: status,
+      admin_note: admin_note || null,
+      reviewer_id: reviewer.id
+    }, { transaction: t });
+
+    // Audit log
+    await createAuditLog({
+      user_id: reviewer.id,
+      action: 'APPOINTMENT_FEEDBACK_REVIEWED',
+      entity: 'Appointment',
+      entity_id: appointment.id,
+      changes: { feedback_status: status, admin_note },
+      status: 'success'
+    }, t);
+
+    await t.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: `Feedback Ä‘Æ°á»£c ${status === 'approved' ? 'duyá»‡t' : 'áº©n'} thÃ nh cÃ´ng`,
+      data: {
+        appointment_id: appointment.id,
+        feedback_status: appointment.feedback_status
+      }
+    });
+
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR toggleFeedbackStatus:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lá»—i server khi cáº­p nháº­t tráº¡ng thÃ¡i feedback'
+    });
+  }
+};
+
+// ===== Káº¾T THÃšC RATING & FEEDBACK CONTROLLERS =====
+
+// ===== [BƯỚC 2: OPTIMIZE] APPOINTMENT RATING HANDLERS - Reuse Rating =====
+// File chứa 3 handlers tối ưu: Sử dụng bảng ConsultationFeedback chung cho cả Consultation & Appointment
+// Ngày: 2024-05-09
+// Chi tiết implementation: /IMPLEMENTATION_LOG.md → BƯỚC 2 (OPTIMIZED)
+// ==================================================================================
+
+/**
+ * BƯỚC 2 (OPTIMIZE): Bệnh nhân submit rating/review appointment
+ * ────────────────────────────────────────────────────────────
+ * Route: PUT /api/appointments/:id/submit-rating
+ * Auth: Patient only
+ * Body: { rating (1-5), review (text ≤1000 chars) }
+ * 
+ * Logic:
+ * 1. Kiểm tra appointment tồn tại + patient_id = user.id
+ * 2. Kiểm tra appointment.status === 'completed'
+ * 3. Kiểm tra chưa có feedback (query ConsultationFeedback where appointment_id = id AND service_type = 'appointment')
+ * 4. Validate rating 1-5
+ * 5. Create ConsultationFeedback record:
+ *    - appointment_id = appointment.id
+ *    - consultation_id = NULL
+ *    - service_type = 'appointment'
+ *    - rating, review, patient_id, doctor_id
+ *    - status = 'pending' (chờ admin duyệt)
+ *    - reviewed_at = NULL (chưa duyệt)
+ * 6. Audit log
+ * 
+ * AC (Access Control):
+ * - Chỉ patient của appointment đó
+ * - Appointment phải completed
+ * - Chỉ 1 feedback per appointment
+ * 
+ * Response:
+ * {
+ *   success: true,
+ *   message: 'Cảm ơn đánh giá! Sẽ được duyệt sớm.',
+ *   data: { feedback_id, rating, status: 'pending' }
+ * }
+ * 
+ * Errors:
+ * - 400: Rating invalid / Appointment chưa complete / Đã feedback
+ * - 403: Không phải patient
+ * - 404: Appointment not found
+ */
+exports.submitAppointmentRating = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;  // appointment ID hoặc CODE
+    const { rating, review } = req.body;
+    const patient = req.user;
+
+    // Validate input
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating phải nằm trong khoảng 1-5 sao'
+      });
+    }
+
+    if (review && review.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nội dung review không vượt quá 1000 ký tự'
+      });
+    }
+
+    // 1. Tìm appointment (bằng code hoặc id)
+    let appointment = await models.Appointment.findOne({
+      where: { code: id },
+      transaction: t
+    });
+
+    if (!appointment && !isNaN(id)) {
+      appointment = await models.Appointment.findByPk(id, { transaction: t });
+    }
+
+    if (!appointment) {
+      await t.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy lịch hẹn'
+      });
+    }
+
+    // 2. Kiểm tra appointment thuộc patient này
+    if (appointment.patient_id !== patient.id) {
+      await t.rollback();
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền đánh giá lịch hẹn này'
+      });
+    }
+
+    // 3. Kiểm tra status = completed
+    if (appointment.status !== 'completed') {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Chỉ có thể đánh giá lịch hẹn đã hoàn thành'
+      });
+    }
+
+    // 4. Kiểm tra chưa có feedback (query ConsultationFeedback)
+    const existingFeedback = await models.Rating.findOne({
+      where: {
+        appointment_id: appointment.id,
+        service_type: 'appointment'
+      },
+      transaction: t
+    });
+
+    if (existingFeedback) {
+      await t.rollback();
+      return res.status(409).json({
+        success: false,
+        message: 'Bạn đã đánh giá lịch hẹn này rồi'
+      });
+    }
+
+    // 5. Create ConsultationFeedback record (reuse bảng chung)
+    // NOTE: immediate publish (approved) per product decision: patients' reviews are public without admin approval
+    const feedback = await models.Rating.create({
+      appointment_id: appointment.id,
+      consultation_id: null,
+      service_type: 'appointment',
+      patient_id: patient.id,
+      doctor_id: appointment.doctor_id,
+      rating: parseInt(rating),
+      review: review || null,
+      status: 'approved',  // direct publish
+      reviewed_at: new Date(),
+      reviewed_by: patient.id
+    }, { transaction: t });
+
+    // 6. Audit log
+    await createAuditLog({
+      user_id: patient.id,
+      action: 'APPOINTMENT_RATING_SUBMITTED',
+      entity: 'ConsultationFeedback',
+      entity_id: feedback.id,
+      changes: { rating, review: review ? 'text...' : null, service_type: 'appointment' },
+      status: 'success'
+    }, t);
+
+    await t.commit();
+
+    return res.status(201).json({
+      success: true,
+      message: 'Cảm ơn đánh giá của bạn! Đánh giá đã được công khai.',
+      data: {
+        feedback_id: feedback.id,
+        appointment_id: appointment.id,
+        rating: feedback.rating,
+        status: feedback.status
+      }
+    });
+
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR submitAppointmentRating:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi gửi đánh giá'
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────
+// BƯỚC 2 (OPTIMIZE): Xem danh sách feedbacks (appointment + consultation?)
+// ─────────────────────────────────────────────────────────────────
+/**
+ * Route: GET /api/appointments/admin/feedbacks
+ * Auth: Admin/Staff
+ * Query: { doctor_id?, rating?, status?, service_type?, page=1, limit=20 }
+ * 
+ * Logic:
+ * 1. Query ConsultationFeedback WHERE appointment_id IS NOT NULL (hoặc service_type='appointment')
+ * 2. Filter: doctor_id, rating, status (pending/approved/hidden)
+ * 3. Optional: service_type để filter chỉ appointment hoặc cả 2
+ * 4. Include: Patient (full_name), Doctor (full_name, specialty), Appointment (code, service)
+ * 5. Order: created_at DESC (mới nhất)
+ * 6. Pagination
+ * 
+ * AC:
+ * - Admin: xem tất cả
+ * - Staff: xem feedback appointment của bác sĩ mình quản lý
+ * 
+ * Response:
+ * {
+ *   success: true,
+ *   data: {
+ *     feedbacks: [...],
+ *     pagination: { total, page, limit, totalPages }
+ *   }
+ * }
+ */
+exports.listAppointmentFeedbacks = async (req, res) => {
+  try {
+    const {
+      doctor_id,
+      rating,
+      status = 'all',
+      service_type = 'appointment',  // Default: chỉ appointment
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const user = req.user;
+    const whereClause = {
+      appointment_id: { [Op.ne]: null },  // Chỉ lấy appointment feedbacks
+      service_type: service_type || 'appointment'
+    };
+
+    // AC: Staff chỉ xem feedback của bác sĩ mình quản lý
+    if (user.role === 'staff') {
+      const staff = await models.Staff.findOne({ where: { user_id: user.id } });
+      if (staff && staff.managed_doctors && staff.managed_doctors.doctor_ids) {
+        const managedDoctorIds = staff.managed_doctors.doctor_ids;
+        const doctors = await models.Doctor.findAll({
+          where: { id: { [Op.in]: managedDoctorIds } },
+          attributes: ['user_id']
+        });
+        const doctorUserIds = doctors.map(d => d.user_id);
+        whereClause.doctor_id = { [Op.in]: doctorUserIds };
+      } else {
+        return res.json({
+          success: true,
+          data: { feedbacks: [], pagination: { total: 0, page: 1, limit, totalPages: 0 } }
+        });
+      }
+    }
+
+    // Filter by doctor_id
+    if (doctor_id) {
+      whereClause.doctor_id = parseInt(doctor_id);
+    }
+
+    // Filter by rating
+    if (rating && rating !== 'all') {
+      whereClause.rating = parseInt(rating);
+    }
+
+    // Filter by status
+    if (status && status !== 'all') {
+      whereClause.status = status;
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Query feedbacks with includes
+    const { count, rows: feedbacks } = await models.Rating.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: models.User,
+          as: 'patient',
+          attributes: ['id', 'full_name', 'avatar_url', 'phone']
+        },
+        {
+          model: models.User,
+          as: 'doctor',
+          attributes: ['id', 'full_name', 'avatar_url', 'username']
+        },
+        {
+          model: models.Appointment,
+          as: 'appointment',
+          attributes: ['id', 'code', 'appointment_date', 'status'],
+          include: [
+            {
+              model: models.Service,
+              as: 'Service',
+              attributes: ['id', 'name']
+            }
+          ]
+        }
+      ],
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: offset
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        feedbacks,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(count / parseInt(limit))
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('ERROR listAppointmentFeedbacks:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy danh sách feedback'
+    });
+  }
+};
+
+// Patient: update own feedback (rating + review)
+exports.updatePatientFeedback = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { feedback_id } = req.params;
+    const { rating, review } = req.body;
+    const user = req.user;
+
+    const feedback = await models.ConsultationFeedback.findByPk(feedback_id, { transaction: t });
+    if (!feedback) {
+      await t.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đánh giá' });
+    }
+
+    if (feedback.patient_id !== user.id) {
+      await t.rollback();
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền sửa đánh giá này' });
+    }
+
+    if (rating && (rating < 1 || rating > 5)) {
+      await t.rollback();
+      return res.status(400).json({ success: false, message: 'Rating phải nằm trong 1-5' });
+    }
+
+    await feedback.update({
+      rating: rating ? parseInt(rating) : feedback.rating,
+      review: typeof review !== 'undefined' ? review : feedback.review,
+      status: 'approved',
+      reviewed_at: new Date(),
+      reviewed_by: user.id
+    }, { transaction: t });
+
+    await createAuditLog({ user_id: user.id, action: 'FEEDBACK_UPDATED', entity: 'Rating', entity_id: feedback.id, changes: { rating, review }, status: 'success' }, t);
+
+    await t.commit();
+    return res.status(200).json({ success: true, message: 'Cập nhật đánh giá thành công', data: feedback });
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR updatePatientFeedback:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi cập nhật đánh giá' });
+  }
+};
+
+// Patient: delete own feedback
+exports.deletePatientFeedback = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { feedback_id } = req.params;
+    const user = req.user;
+
+    const feedback = await models.Rating.findByPk(feedback_id, { transaction: t });
+    if (!feedback) {
+      await t.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đánh giá' });
+    }
+
+    if (feedback.patient_id !== user.id) {
+      await t.rollback();
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền xóa đánh giá này' });
+    }
+
+    await feedback.destroy({ transaction: t });
+
+    await createAuditLog({ user_id: user.id, action: 'FEEDBACK_DELETED', entity: 'Rating', entity_id: feedback.id, status: 'success' }, t);
+
+    await t.commit();
+    return res.status(200).json({ success: true, message: 'Xóa đánh giá thành công' });
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR deletePatientFeedback:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi xóa đánh giá' });
+  }
+};
+
+// Admin/Staff/Doctor: reply to a feedback (store in admin_note)
+exports.replyAppointmentFeedback = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { feedback_id } = req.params;
+    const { reply } = req.body;
+    const user = req.user;
+
+    const feedback = await models.Rating.findByPk(feedback_id, { transaction: t });
+    if (!feedback) {
+      await t.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy feedback' });
+    }
+
+    // Allow admin/staff/doctor to write a reply (store in admin_note)
+    if (!['admin', 'staff', 'doctor'].includes(user.role)) {
+      await t.rollback();
+      return res.status(403).json({ success: false, message: 'Không có quyền trả lời' });
+    }
+
+    const note = reply || '';
+    await feedback.update({ admin_note: note, reviewed_by: user.id, reviewed_at: new Date() }, { transaction: t });
+
+    await createAuditLog({ user_id: user.id, action: 'FEEDBACK_REPLIED', entity: 'Rating', entity_id: feedback.id, changes: { reply: note }, status: 'success' }, t);
+
+    await t.commit();
+    return res.status(200).json({ success: true, message: 'Đã thêm phản hồi', data: feedback });
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR replyAppointmentFeedback:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi trả lời feedback' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────
+// BƯỚC 2 (OPTIMIZE): Admin duyệt/ẩn feedback appointment
+// ─────────────────────────────────────────────────────────────────
+/**
+ * Route: PUT /api/appointments/admin/feedbacks/:feedback_id/toggle-status
+ * Auth: Admin/Staff
+ * Body: { status ('approved'|'hidden'), admin_note? }
+ * 
+ * Logic:
+ * 1. Tìm ConsultationFeedback record
+ * 2. Kiểm tra feedback.appointment_id != NULL (là appointment feedback)
+ * 3. Kiểm tra phân quyền Staff
+ * 4. Validate status (approved/hidden)
+ * 5. Update: status, admin_note, reviewed_by, reviewed_at
+ * 6. Audit log
+ * 
+ * AC:
+ * - Admin: approve/hide bất kỳ
+ * - Staff: approve/hide chỉ feedback của bác sĩ mình quản lý
+ * 
+ * Response:
+ * { success: true, message: 'Feedback được phê duyệt' }
+ */
+exports.toggleAppointmentFeedbackStatus = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { feedback_id } = req.params;
+    const { status, admin_note } = req.body;
+    const reviewer = req.user;
+
+    // Validate status
+    if (!['approved', 'hidden'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Trạng thái phải là "approved" hoặc "hidden"'
+      });
+    }
+
+    // Tìm feedback
+    const feedback = await models.Rating.findByPk(feedback_id, { transaction: t });
+
+    if (!feedback) {
+      await t.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy feedback'
+      });
+    }
+
+    // Kiểm tra là appointment feedback
+    if (!feedback.appointment_id || feedback.service_type !== 'appointment') {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback này không phải từ appointment'
+      });
+    }
+
+    // AC: Staff chỉ duyệt feedback của bác sĩ mình quản lý
+    if (reviewer.role === 'staff') {
+      const staff = await models.Staff.findOne({ where: { user_id: reviewer.id } });
+      if (staff && staff.managed_doctors && staff.managed_doctors.doctor_ids) {
+        const managedDoctorIds = staff.managed_doctors.doctor_ids;
+        const doctors = await models.Doctor.findAll({
+          where: { id: { [Op.in]: managedDoctorIds } },
+          attributes: ['user_id']
+        });
+        const doctorUserIds = doctors.map(d => d.user_id);
+        if (!doctorUserIds.includes(feedback.doctor_id)) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: 'Bạn không có quyền duyệt feedback của bác sĩ này'
+          });
+        }
+      }
+    }
+
+    // Update feedback
+    await feedback.update({
+      status: status,
+      admin_note: admin_note || null,
+      reviewed_by: reviewer.id,
+      reviewed_at: new Date()
+    }, { transaction: t });
+
+    // Audit log
+    await createAuditLog({
+      user_id: reviewer.id,
+      action: 'APPOINTMENT_FEEDBACK_REVIEWED',
+      entity: 'ConsultationFeedback',
+      entity_id: feedback.id,
+      changes: { status, admin_note },
+      status: 'success'
+    }, t);
+
+    await t.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: `Feedback được ${status === 'approved' ? 'phê duyệt' : 'ẩn'} thành công`,
+      data: {
+        feedback_id: feedback.id,
+        status: feedback.status
+      }
+    });
+
+  } catch (error) {
+    await t.rollback();
+    console.error('ERROR toggleAppointmentFeedbackStatus:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi cập nhật status feedback'
+    });
+  }
+};
+
+// ===== KẾT THÚC APPOINTMENT RATING HANDLERS - OPTIMIZED =====

@@ -1315,7 +1315,7 @@ exports.getDoctorStatistics = async (req, res) => {
             group: ['status'],
             raw: true
           }),
-          models.ConsultationFeedback.getDoctorStats(doctor.id)
+          models.Rating.getDoctorStats(doctor.id)
         ]);
 
         const totalConsultations = consultations.reduce((sum, item) => sum + parseInt(item.count), 0);

@@ -1,0 +1,42 @@
+.inroom-result-panel-root {
+  position: fixed;
+  right: 0;
+  top: 0;
+  height: 100vh;
+  width: 420px;
+  max-width: 90vw;
+  background: #ffffff;
+  box-shadow: -8px 0 24px rgba(2,6,23,0.12);
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+}
+.inroom-result-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #eef2f7;
+  font-weight: 600;
+}
+.inroom-result-panel-close {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.inroom-result-panel-body {
+  overflow: auto;
+  padding: 12px;
+  flex: 1 1 auto;
+}
+
+/* Responsive: collapse to full overlay on narrow screens */
+@media (max-width: 900px) {
+  .inroom-result-panel-root {
+    width: 100%;
+    left: 0;
+    right: 0;
+  }
+}

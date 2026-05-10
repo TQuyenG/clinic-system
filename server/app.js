@@ -42,6 +42,8 @@ const pharmacyRoutes = require('./routes/pharmacyRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const corporateBookingRoutes = require('./routes/corporateBookingRoutes');
 const permissionRoutes = require('./routes/permissionRoutes');
+// ===== [BƯỚC 4] IMPORT STATISTICS ROUTES (2024-05-09) =====
+const statisticRoutes = require('./routes/statisticRoutes');
 
 // Khởi tạo ứng dụng Express
 const app = express();
@@ -115,6 +117,8 @@ app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/corporate', corporateBookingRoutes);
 app.use('/api/permissions', permissionRoutes);
+// ===== [BƯỚC 4] MOUNT STATISTICS ROUTES (2024-05-09) =====
+app.use('/api/statistics', statisticRoutes);
 
 // ========== HEALTH CHECK ENDPOINT ==========
 app.get('/api/health', (req, res) => {

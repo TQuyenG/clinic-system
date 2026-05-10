@@ -2,16 +2,21 @@
 // ✅ TRANG CHI TIẾT TƯ VẤN - COMPACT MEDICAL THEME
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import consultationService from '../services/consultationService';
 import paymentService from '../services/paymentService';
+import axios from 'axios';
+import AppointmentRatingModal from '../components/appointments/AppointmentRatingModal';
 import { 
   FaUserMd, FaUser, FaClock, FaMoneyBillWave, FaComments, FaStar,
   FaCheckCircle, FaTimesCircle, FaFileAlt, FaPaperclip, FaArrowLeft,
-  FaVideo, FaCalendarCheck, FaExclamationTriangle
+  FaVideo, FaCalendarCheck, FaExclamationTriangle, FaChevronDown, FaNotesMedical,
+  FaInfoCircle, FaCreditCard, FaHospital
 } from 'react-icons/fa';
 import './ConsultationDetailPage.css';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 const ConsultationDetailPage = () => {
   const { id } = useParams();
@@ -21,8 +26,13 @@ const ConsultationDetailPage = () => {
   const [consultation, setConsultation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showRatingModal, setShowRatingModal] = useState(false);
-  const [rating, setRating] = useState(5);
-  const [review, setReview] = useState('');
+  const [showRatingMenu, setShowRatingMenu] = useState(false);
+  const [ratingTarget, setRatingTarget] = useState('consultation');
+  const [ratingMode, setRatingMode] = useState('submit');
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [hasConsultationRating, setHasConsultationRating] = useState(false);
+  const [hasDoctorRating, setHasDoctorRating] = useState(false);
+  const [doctorRating, setDoctorRating] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
 
@@ -35,7 +45,29 @@ const ConsultationDetailPage = () => {
       setLoading(true);
       const response = await consultationService.getConsultationById(id);
       if (response.data.success) {
-        setConsultation(response.data.data);
+        const consultationData = response.data.data;
+        setConsultation(consultationData);
+
+        const existingConsultationRating = Boolean(consultationData.rating);
+        setHasConsultationRating(existingConsultationRating);
+
+        const doctorId = consultationData.doctor_id || consultationData.doctor?.id || consultationData.doctor?.user_id;
+        if (user?.role === 'patient' && doctorId) {
+          try {
+            const doctorReviewRes = await axios.get(`${API_URL}/statistics/doctor/${doctorId}/my-review`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            const existingDoctorReview = doctorReviewRes.data?.data?.review || null;
+            setDoctorRating(existingDoctorReview);
+            setHasDoctorRating(Boolean(existingDoctorReview));
+          } catch (doctorReviewError) {
+            setDoctorRating(null);
+            setHasDoctorRating(false);
+          }
+        } else {
+          setDoctorRating(null);
+          setHasDoctorRating(false);
+        }
       }
     } catch (error) {
       console.error('Error:', error);
@@ -47,24 +79,65 @@ const ConsultationDetailPage = () => {
   const handleStartChat = async () => {
     try {
       await consultationService.startConsultation(id);
-      if (consultation.consultation_type === 'video') {
-        navigate(`/tu-van/video/${id}`);
-      } else {
-        navigate(`/tu-van/${id}/chat`);
-      }
+      // If doctor entering and can write results, include flag to open result editor from room
+      const isDoctorEntering = user?.role === 'doctor' && (user?.id === consultation.doctor_id || user?.id === consultation.doctor?.id || user?.id === consultation.doctor?.user_id);
+      const roomPath = consultation.consultation_type === 'video' ? `/tu-van/video/${id}` : `/tu-van/${id}/chat`;
+      const suffix = isDoctorEntering && (['confirmed', 'in_progress'].includes(consultation.status)) ? '?openResult=1' : '';
+      navigate(roomPath + suffix);
     } catch (error) {
       alert('Lỗi bắt đầu: ' + (error.response?.data?.message || error.message));
     }
   };
 
-  const handleSubmitRating = async () => {
+  const handleSubmitRating = async (ratingData) => {
+    if (!consultation) return;
+
     try {
-      await consultationService.rateConsultation(id, { rating, review });
-      alert('Đánh giá thành công!');
+      setIsSubmittingRating(true);
+      if (ratingTarget === 'doctor') {
+        const doctorId = consultation.doctor_id || consultation.doctor?.id || consultation.doctor?.user_id;
+        if (!doctorId) {
+          alert('Không tìm thấy bác sĩ để đánh giá.');
+          return;
+        }
+
+        const token = localStorage.getItem('token');
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const response = hasDoctorRating
+          ? await axios.put(`${API_URL}/statistics/doctor/${doctorId}/reviews`, ratingData, { headers })
+          : await axios.post(`${API_URL}/statistics/doctor/${doctorId}/reviews`, ratingData, { headers });
+
+        if (response.data?.success) {
+          alert('Đánh giá bác sĩ thành công!');
+          setHasDoctorRating(true);
+          setDoctorRating(response.data?.data?.review || { ...ratingData, doctor_id: doctorId });
+        } else {
+          alert(response.data?.message || 'Lỗi gửi đánh giá bác sĩ');
+          return;
+        }
+      } else {
+        const response = await consultationService.submitConsultationFeedback({
+          consultation_id: consultation.id,
+          rating: ratingData.rating,
+          review: ratingData.review
+        });
+
+        if (response.data?.success) {
+          alert('Đánh giá tư vấn thành công!');
+          setHasConsultationRating(true);
+        } else {
+          alert(response.data?.message || 'Lỗi gửi đánh giá tư vấn');
+          return;
+        }
+      }
+
       setShowRatingModal(false);
-      fetchConsultationDetail();
+      await fetchConsultationDetail();
     } catch (error) {
-      alert('Lỗi gửi đánh giá');
+      alert(error.response?.data?.message || 'Lỗi gửi đánh giá');
+    } finally {
+      setIsSubmittingRating(false);
     }
   };
 
@@ -97,7 +170,72 @@ const ConsultationDetailPage = () => {
   if (loading) return <div className="cdp-loading"><div className="cdp-spinner"></div><p>Đang tải dữ liệu...</p></div>;
   if (!consultation) return <div className="cdp-error"><p>Không tìm thấy buổi tư vấn</p><button className="cdp-btn" onClick={() => navigate(-1)}>Quay lại</button></div>;
 
-  const isPatient = user.role === 'patient' && user.id === consultation.patient_id;
+  const isPatientOwner = user?.role === 'patient' && (
+    user?.id === consultation.patient_id ||
+    user?.id === consultation.patient?.id ||
+    user?.id === consultation.patient?.user_id
+  );
+  const isDoctorOwner = user?.role === 'doctor' && (
+    user?.id === consultation.doctor_id ||
+    user?.id === consultation.doctor?.id ||
+    user?.id === consultation.doctor?.user_id
+  );
+  const canJoinRoom = consultation.status === 'confirmed' && consultationService.canStartConsultation(consultation.appointment_time);
+  const canWriteResult = isDoctorOwner && ['confirmed', 'in_progress'].includes(consultation.status);
+
+  const statusMeta = (() => {
+    switch (consultation.status) {
+      case 'pending':
+        return { className: 'pending', label: 'Chờ duyệt' };
+      case 'pending_payment':
+        return { className: 'pending', label: 'Chờ thanh toán' };
+      case 'confirmed':
+        return { className: 'confirmed', label: 'Đã xác nhận' };
+      case 'in_progress':
+        return { className: 'in-progress', label: 'Đang tư vấn' };
+      case 'completed':
+        return { className: 'completed', label: 'Hoàn thành' };
+      case 'cancelled':
+        return { className: 'cancelled', label: 'Đã hủy' };
+      case 'rejected':
+        return { className: 'cancelled', label: 'Từ chối' };
+      default:
+        return { className: 'pending', label: consultation.status || 'Không rõ' };
+    }
+  })();
+
+  const paymentMeta = (() => {
+    if ((consultation.Payment && consultation.Payment.status === 'paid') || consultation.payment_status === 'paid_online') {
+      return { className: 'payment-paid', text: 'Đã thanh toán online', icon: <FaCreditCard /> };
+    }
+    if (consultation.payment_status === 'paid_at_clinic') {
+      return { className: 'payment-at-clinic', text: 'Đã thanh toán tại quầy', icon: <FaHospital /> };
+    }
+    if (consultation.payment_status === 'not_required') {
+      return { className: 'payment-free', text: 'Miễn phí', icon: <FaCheckCircle /> };
+    }
+    if (consultation.payment_status === 'refunded') {
+      return { className: 'payment-refunded', text: 'Đã hoàn tiền', icon: <FaMoneyBillWave /> };
+    }
+    return { className: 'payment-pending', text: 'Chưa thanh toán', icon: <FaExclamationTriangle /> };
+  })();
+
+  const serviceLabel = consultation?.package?.name || consultation?.consultation_pricing?.name || consultation?.specialty_name || 'Tư vấn trực tuyến';
+  const serviceCode = consultation?.consultation_code || consultation?.id;
+
+  const ratingModalPayload = ratingTarget === 'doctor' && doctorRating
+    ? {
+        ...consultation,
+        code: serviceCode,
+        rating: doctorRating.rating,
+        review: doctorRating.review
+      }
+    : {
+        ...consultation,
+        code: serviceCode,
+        service_name: serviceLabel
+      };
+
   // Normalize attachments which may be stored as JSON string or array from backend
   const attachments = (() => {
     const a = consultation.attachments;
@@ -127,34 +265,37 @@ const ConsultationDetailPage = () => {
   
   return (
     <div className="cdp-page">
-      {/* Header */}
-      <div className="cdp-header">
-        <button className="cdp-btn-back" onClick={() => navigate(-1)}>
-          <FaArrowLeft />
-        </button>
-        <div className="cdp-header-title">
-          <h1>Chi tiết tư vấn</h1>
-          <span className="cdp-code-badge">{consultation.consultation_code}</span>
+      <div className="cdp-wrapper">
+        {/* Header */}
+        <div className="cdp-header">
+          <button className="cdp-btn-back" onClick={() => navigate(-1)}>
+            <FaArrowLeft />
+            Quay lại
+          </button>
+          <div className="cdp-header-title">
+            <h1>Chi tiết tư vấn</h1>
+            <span className="cdp-code-badge">{consultation.consultation_code}</span>
+          </div>
         </div>
-      </div>
 
-      <div className="cdp-container">
-        {/* Left Column: Main Info */}
-        <div className="cdp-col-main">
+        <div className="cdp-container">
+          {/* Left Column: Main Info */}
+          <div className="cdp-col-main">
           
           {/* Status Card */}
-          <div className="cdp-card">
+            <div className="cdp-card">
             <div className="cdp-card-header">
-              <h3><FaCalendarCheck /> Thông tin chung</h3>
-              <span className={`cdp-status-badge ${consultation.status}`}>
-                 {consultation.status === 'completed' ? 'Hoàn thành' : 
-                  consultation.status === 'pending' ? 'Chờ duyệt' :
-                  consultation.status === 'confirmed' ? 'Đã xác nhận' :
-                  consultation.status === 'cancelled' ? 'Đã hủy' : consultation.status}
+              <h3><FaCalendarCheck /> Thông tin lịch hẹn</h3>
+              <span className={`cdp-status-badge ${statusMeta.className}`}>
+                {statusMeta.label}
               </span>
             </div>
             <div className="cdp-card-body">
               <div className="cdp-info-grid">
+                  <div className="cdp-info-item">
+                    <label>Dịch vụ</label>
+                    <strong>{serviceLabel}</strong>
+                  </div>
                  <div className="cdp-info-item">
                     <label>Loại hình</label>
                     <span className={`cdp-type-badge ${consultation.consultation_type}`}>
@@ -195,12 +336,24 @@ const ConsultationDetailPage = () => {
             </div>
             <div className="cdp-card">
               <div className="cdp-card-header sm"><h4><FaUser /> Bệnh nhân</h4></div>
-              <div className="cdp-user-row">
-                <img src={consultation.patient?.avatar_url || '/default-avatar.png'} alt="Patient" className="cdp-avatar"/>
-                <div className="cdp-user-info">
-                  <strong>{consultation.patient?.full_name}</strong>
-                  <span>{consultation.patient?.email}</span>
-                  <small>{consultation.patient?.phone}</small>
+              <div className="cdp-card-body">
+                <div className="cdp-info-grid">
+                  <div className="cdp-info-item">
+                    <label>Họ và tên</label>
+                    <strong>{consultation.patient?.full_name || 'N/A'}</strong>
+                  </div>
+                  <div className="cdp-info-item">
+                    <label>Email</label>
+                    <span>{consultation.patient?.email || 'N/A'}</span>
+                  </div>
+                  <div className="cdp-info-item">
+                    <label>Điện thoại</label>
+                    <span>{consultation.patient?.phone || 'N/A'}</span>
+                  </div>
+                  <div className="cdp-info-item">
+                    <label>Sinh nhật</label>
+                    <span>{consultation.patient?.dob ? new Date(consultation.patient.dob).toLocaleDateString('vi-VN') : 'N/A'}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -267,10 +420,10 @@ const ConsultationDetailPage = () => {
               )}
             </div>
           </div>
-        </div>
+          </div>
 
-        {/* Right Column: Payment & Actions */}
-        <div className="cdp-col-side">
+          {/* Right Column: Payment & Actions */}
+          <div className="cdp-col-side">
           {/* Payment */}
           <div className="cdp-card">
             <div className="cdp-card-header">
@@ -285,30 +438,20 @@ const ConsultationDetailPage = () => {
                     <span>Tổng cộng:</span>
                     <strong className="cdp-text-primary">{parseFloat(consultation.total_fee || 0).toLocaleString()}đ</strong>
                   </div>
+                  <div className="cdp-payment-row">
+                    <span>Phương thức:</span>
+                    <strong>{(consultation.Payment?.method || consultation.payment_method || 'N/A').toUpperCase()}</strong>
+                  </div>
                   <div className="cdp-payment-status">
-                    {/* Hỗ trợ cả dạng cũ (payment_status) hoặc record Payment */}
-                    {(() => {
-                      const isPaid = (consultation.Payment && consultation.Payment.status === 'paid') || 
-                                     consultation.payment_status === 'paid_online' || 
-                                     consultation.payment_status === 'paid_at_clinic';
-                      const method = consultation.Payment?.method || consultation.payment_method || '';
-                      return (
-                        <>
-                          <span className={`cdp-pay-badge ${isPaid ? 'paid' : 'unpaid'}`}>
-                            {consultation.payment_status === 'paid_online' ? 'Đã TT Online' : 
-                             consultation.payment_status === 'paid_at_clinic' ? 'Đã TT tại PK' : 
-                             consultation.payment_status === 'not_required' ? 'Miễn phí' :
-                             isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
-                          </span>
-                          <small>{method?.toUpperCase()}</small>
-                          {!isPaid && consultation.status !== 'cancelled' && consultation.status !== 'completed' && (
-                            <div style={{marginTop:10}}>
-                              <button className="cdp-btn cdp-btn-primary" onClick={() => setShowPaymentModal(true)}>Thanh toán</button>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
+                    <span className={`cdp-pay-badge ${paymentMeta.className}`}>
+                      {paymentMeta.icon}
+                      {paymentMeta.text}
+                    </span>
+                    {paymentMeta.className === 'payment-pending' && consultation.status !== 'cancelled' && consultation.status !== 'completed' && (
+                      <div style={{ marginTop: 10 }}>
+                        <button className="cdp-btn cdp-btn-primary" onClick={() => setShowPaymentModal(true)}>Thanh toán</button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Nếu backend cung cấp payment_due_at, hiển thị countdown */}
@@ -332,57 +475,114 @@ const ConsultationDetailPage = () => {
           </div>
 
           {/* Rating */}
-          {consultation.status === 'completed' && (
+          {consultation.status === 'completed' && isPatientOwner && (
             <div className="cdp-card">
               <div className="cdp-card-header">
-                <h3><FaStar /> Đánh giá</h3>
+                <h3><FaStar /> {hasConsultationRating || hasDoctorRating ? 'Xem đánh giá' : 'Đánh giá'}</h3>
               </div>
-              <div className="cdp-card-body centered">
-                {consultation.rating ? (
-                  <>
-                    <div className="cdp-stars-display">
-                      {[...Array(5)].map((_, i) => (
-                        <FaStar key={i} className={i < consultation.rating ? 'star filled' : 'star'} />
-                      ))}
+              <div className="cdp-card-body">
+                <p className="cdp-rating-text">
+                  {hasConsultationRating || hasDoctorRating
+                    ? 'Bạn có thể xem đánh giá buổi tư vấn hoặc đánh giá bác sĩ.'
+                    : 'Vui lòng chia sẻ cảm nhận của bạn để giúp chúng tôi cải thiện dịch vụ.'}
+                </p>
+
+                <div className="cdp-rating-menu-wrap">
+                  <button
+                    className="cdp-btn cdp-btn-warning full"
+                    onClick={() => setShowRatingMenu(prev => !prev)}
+                  >
+                    <FaStar /> {hasConsultationRating || hasDoctorRating ? 'Xem đánh giá' : 'Viết đánh giá'} <FaChevronDown />
+                  </button>
+
+                  {showRatingMenu && (
+                    <div className="cdp-rating-dropdown">
+                      <button
+                        className="cdp-rating-menu-item"
+                        onClick={() => {
+                          setShowRatingMenu(false);
+                          setRatingTarget('consultation');
+                          setRatingMode(hasConsultationRating ? 'view' : 'submit');
+                          setShowRatingModal(true);
+                        }}
+                      >
+                        <FaStar /> {hasConsultationRating ? 'Xem đánh giá Tư vấn' : 'Đánh giá Tư vấn'}
+                      </button>
+                      <button
+                        className="cdp-rating-menu-item"
+                        onClick={() => {
+                          setShowRatingMenu(false);
+                          setRatingTarget('doctor');
+                          setRatingMode(hasDoctorRating ? 'view' : 'submit');
+                          setShowRatingModal(true);
+                        }}
+                      >
+                        <FaUserMd /> {hasDoctorRating ? 'Xem đánh giá Bác sĩ' : 'Đánh giá Bác sĩ'}
+                      </button>
                     </div>
-                    <p className="cdp-review-text">"{consultation.review}"</p>
-                  </>
-                ) : (
-                  isPatient && (
-                    <button className="cdp-btn cdp-btn-warning" onClick={() => setShowRatingModal(true)}>
-                      Viết đánh giá
-                    </button>
-                  )
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Doctor Specific Actions */}
+          {(isDoctorOwner || user?.role === 'admin') && (
+            <div className="cdp-card">
+              <div className="cdp-card-header">
+                <h3><FaNotesMedical /> Kết quả khám</h3>
+              </div>
+              <div className="cdp-card-body">
+                <Link
+                  to={`/nhap-ket-qua/${consultation.consultation_code || consultation.id}`}
+                  className="cdp-btn cdp-btn-primary full"
+                  style={{ display: 'inline-flex', justifyContent: 'center' }}
+                >
+                  <FaNotesMedical /> {consultation.diagnosis ? 'Nhập / cập nhật kết quả khám' : 'Nhập kết quả khám'}
+                </Link>
+
+                {!canWriteResult && (
+                  <p className="cdp-note-muted"><FaInfoCircle /> Có thể nhập kết quả khi ca tư vấn ở trạng thái đã xác nhận hoặc đang diễn ra.</p>
                 )}
               </div>
             </div>
           )}
 
           {/* Action Buttons */}
-          <div className="cdp-actions">
-            {consultation.status === 'confirmed' && 
-             consultationService.canStartConsultation(consultation.appointment_time) && (
-              <button className="cdp-btn cdp-btn-primary full" onClick={handleStartChat}>
-                 {consultation.consultation_type === 'video' ? <FaVideo /> : <FaComments />} Vào phòng
-              </button>
-            )}
+          <div className="cdp-card">
+            <div className="cdp-card-header">
+              <h3><FaCalendarCheck /> Thao tác</h3>
+            </div>
+            <div className="cdp-card-body">
+              <div className="cdp-actions">
+                {(user?.role === 'patient' || user?.role === 'doctor' || user?.role === 'admin') && canJoinRoom && (
+                  <button className="cdp-btn cdp-btn-primary full" onClick={handleStartChat}>
+                     {consultation.consultation_type === 'video' ? <FaVideo /> : <FaComments />} Vào phòng
+                  </button>
+                )}
 
-            {consultationService.canCancel(consultation.status) && (
-              <button className="cdp-btn cdp-btn-danger full" onClick={async () => {
-                  const r = prompt('Lý do hủy:');
-                  if (r) {
-                    try { await consultationService.cancelConsultation(id, { reason: r }); fetchConsultationDetail(); }
-                    catch { alert('Lỗi hủy'); }
-                  }
-                }}>
-                <FaTimesCircle /> Hủy tư vấn
-              </button>
-            )}
+                {consultationService.canCancel(consultation.status) && (isPatientOwner || isDoctorOwner || user?.role === 'admin' || user?.role === 'staff') && (
+                  <button className="cdp-btn cdp-btn-danger full" onClick={async () => {
+                      const r = prompt('Lý do hủy:');
+                      if (r) {
+                        try { await consultationService.cancelConsultation(id, { reason: r }); fetchConsultationDetail(); }
+                        catch { alert('Lỗi hủy'); }
+                      }
+                    }}>
+                    <FaTimesCircle /> Hủy tư vấn
+                  </button>
+                )}
+              </div>
+              <div className="cdp-action-notes">
+                <p><FaInfoCircle /> Chỉ vào phòng khi tư vấn đã xác nhận và đến giờ hẹn.</p>
+                <p><FaInfoCircle /> Hủy tư vấn cần nhập lý do để hệ thống xử lý hoàn tiền nếu có.</p>
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       </div>
 
-      {/* RATING MODAL */}
       {/* PAYMENT MODAL */}
       {showPaymentModal && (
         <div className="cdp-modal-overlay" onClick={() => setShowPaymentModal(false)}>
@@ -401,38 +601,16 @@ const ConsultationDetailPage = () => {
           </div>
         </div>
       )}
-      {showRatingModal && (
-        <div className="cdp-modal-overlay" onClick={() => setShowRatingModal(false)}>
-          <div className="cdp-modal" onClick={e => e.stopPropagation()}>
-            <div className="cdp-modal-header">
-              <h3>Đánh giá dịch vụ</h3>
-              <button onClick={() => setShowRatingModal(false)}><FaTimesCircle/></button>
-            </div>
-            <div className="cdp-modal-body">
-              <div className="cdp-star-input">
-                {[1, 2, 3, 4, 5].map(s => (
-                  <FaStar 
-                    key={s} 
-                    className={`star-lg ${s <= rating ? 'active' : ''}`}
-                    onClick={() => setRating(s)}
-                  />
-                ))}
-              </div>
-              <textarea 
-                className="cdp-textarea" 
-                placeholder="Nhập nhận xét của bạn..." 
-                value={review}
-                onChange={e => setReview(e.target.value)}
-                rows="4"
-              />
-            </div>
-            <div className="cdp-modal-footer">
-              <button className="cdp-btn cdp-btn-secondary" onClick={() => setShowRatingModal(false)}>Hủy</button>
-              <button className="cdp-btn cdp-btn-primary" onClick={handleSubmitRating}>Gửi đánh giá</button>
-            </div>
-          </div>
-        </div>
-      )}
+
+      <AppointmentRatingModal
+        show={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        onSubmit={handleSubmitRating}
+        mode={ratingMode}
+        appointment={ratingModalPayload}
+        isSubmitting={isSubmittingRating}
+        contextType={ratingTarget === 'doctor' ? 'doctor' : 'consultation'}
+      />
     </div>
   );
 };

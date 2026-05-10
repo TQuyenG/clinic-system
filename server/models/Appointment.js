@@ -167,6 +167,7 @@ module.exports = (sequelize) => {
     Appointment.hasOne(models.Payment, { foreignKey: 'appointment_id', as: 'Payment' });
     Appointment.hasOne(models.MedicalRecord, { foreignKey: 'appointment_id', as: 'MedicalRecord' });
     Appointment.hasOne(models.Review, { foreignKey: 'appointment_id', as: 'Review' });
+    // ❌ BƯỚC 2: OPTIMIZE - Dùng ConsultationFeedback chung (xóa FK reviewer)
   };
 
   return Appointment;

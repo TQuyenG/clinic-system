@@ -10,6 +10,7 @@ import {
   FaUserMd,
   FaTimesCircle,
   FaMoneyBillWave,
+  FaStar,
 } from 'react-icons/fa';
 
 const AppointmentActionButtons = ({ role = 'patient', appointment, detailPath, onAction, showMinimalActions = false }) => {
@@ -31,6 +32,18 @@ const AppointmentActionButtons = ({ role = 'patient', appointment, detailPath, o
         <Link to={detailPath} className="admin-appt-page-btn-action btn-view" title="Chi tiết">
           <FaEye />
           <span className="amp-btn-label">Chi tiết</span>
+        </Link>
+      )}
+
+      {/* Rating actions for patients: only show when a review already exists */}
+      {role === 'patient' && status === 'completed' && appointment?.payment_status && ['paid_online', 'paid_at_clinic'].includes(appointment.payment_status) && appointment?.rating && (
+        <Link 
+          to={`/quan-ly-lich-hen?tab=feedbacks${appointment.id ? `&feedbackId=${appointment.id}` : ''}`}
+          className="admin-appt-page-btn-action btn-view"
+          title="Xem đánh giá"
+        >
+          <FaStar />
+          <span className="amp-btn-label">Xem đánh giá</span>
         </Link>
       )}
 
@@ -111,6 +124,18 @@ const AppointmentActionButtons = ({ role = 'patient', appointment, detailPath, o
               <FaTimesCircle />
               <span className="amp-btn-label">Vắng mặt</span>
             </button>
+          )}
+
+          {/* Doctor: see feedbacks if patient has rated */}
+          {status === 'completed' && appointment?.rating && (
+            <Link 
+              to={`/quan-ly-lich-hen?tab=feedbacks${appointment.id ? `&feedbackId=${appointment.id}` : ''}`}
+              className="admin-appt-page-btn-action btn-view"
+              title="Xem feedback"
+            >
+              <FaStar />
+              <span className="amp-btn-label">Feedback</span>
+            </Link>
           )}
         </>
       ) : (

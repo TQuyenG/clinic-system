@@ -40,6 +40,7 @@ import {
   FaEnvelope   // <-- THÊM ICON NÀY CHO TRANG LIÊN HỆ
 } from 'react-icons/fa';
 import usePermissions from '../../hooks/usePermissions';
+import { useAuth } from '../../contexts/AuthContext';
 import './Sidebar.css';
 
 const Sidebar = ({ onToggle }) => {
@@ -50,11 +51,21 @@ const Sidebar = ({ onToggle }) => {
   
   //  THÊM: Hook kiểm tra permissions
   const { canAccessModule, isAdmin, hasPermission, refreshPermissions } = usePermissions(); // <--- THÊM refreshPermissions VÀO ĐÂY
-  const currentRole = String(user?.role || user?.role_info?.role || user?.roleData?.role || '').toLowerCase();
-  const isAdminUser = currentRole === 'admin';
-  const isDoctorUser = currentRole === 'doctor';
+  const currentRole = String((user?.role || user?.role_info?.role || user?.roleData?.role) || '').toLowerCase();
+  const isAdminUser = currentRole === 'admin' || user?.is_admin === true || user?.role === 'admin';
+  const isDoctorUser = currentRole === 'doctor' || user?.is_doctor === true || Boolean(user?.doctor) || Boolean(user?.doctor_id) || String(user?.role || '').toLowerCase() === 'doctor' || String(user?.role_info?.role || '').toLowerCase() === 'doctor';
   const isStaffUser = currentRole === 'staff';
   const staffRank = user?.role_info?.rank || user?.staff?.rank;
+  const staffDepartment = String(user?.department || user?.staff?.department || user?.role_info?.department || '').toLowerCase();
+  const isClinicStaff = isStaffUser && ['clinical', 'clinic', 'reception'].includes(staffDepartment);
+  const isSupportStaffWithAccess = isStaffUser && (
+    isClinicStaff ||
+    hasPermission('reception', 'checkin') ||
+    canAccessModule('doctors') ||
+    canAccessModule('patients')
+  );
+  const canSeeConsultationMenu = isAdminUser || isDoctorUser || isSupportStaffWithAccess;
+  const canSeeServiceMenu = isAdminUser || isDoctorUser || isSupportStaffWithAccess || canAccessModule('appointments');
   
   // Dropdown states
   const [isServiceMenuOpen, setServiceMenuOpen] = useState(false);
@@ -65,6 +76,8 @@ const Sidebar = ({ onToggle }) => {
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   
   const location = useLocation();
+  const { refetchUser } = useAuth();
+  const triedProfileRefresh = useRef(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -125,12 +138,31 @@ const Sidebar = ({ onToggle }) => {
     }
   }, [user, canAccessModule]);
 
+  // If menus are hidden but the account might be doctor/staff, attempt one-time profile refresh
+  useEffect(() => {
+    if (!user) return;
+    if (triedProfileRefresh.current) return;
+    const shouldTryRefresh = !canSeeConsultationMenu && !canAccessModule('consultations');
+    if (shouldTryRefresh) {
+      triedProfileRefresh.current = true;
+      console.log('Sidebar: attempting one-time profile refresh to update permissions');
+      refetchUser().then((updated) => {
+        try {
+          const u = JSON.parse(localStorage.getItem('user'));
+          if (u) setUser(u);
+        } catch (e) { /* ignore */ }
+      }).catch(err => {
+        console.warn('Sidebar: profile refresh failed', err);
+      });
+    }
+  }, [user, canSeeConsultationMenu, canAccessModule, refetchUser]);
+
   // Auto-open menu nếu đang ở trang con
   useEffect(() => {
     if (location.pathname.startsWith('/quan-ly-tu-van') || location.pathname.startsWith('/admin/tu-van')) {
       setConsultationMenuOpen(true);
     }
-    if (location.pathname.startsWith('/quan-ly-dich-vu') || location.pathname.startsWith('/quan-ly-lich-hen')) {
+    if (location.pathname.startsWith('/quan-ly-dich-vu') || location.pathname.startsWith('/quan-ly-lich-hen') || location.pathname.startsWith('/lich-hen-cua-toi')) {
       setServiceMenuOpen(true);
     }
     if (location.pathname.startsWith('/quan-ly-nhan-vien')) {
@@ -297,16 +329,16 @@ const Sidebar = ({ onToggle }) => {
     if (isAdminUser || isStaffUser || isDoctorUser) {
       // Doctors go to personal appointments; admin/staff keep the management page
       addIf(isAdminUser || canAccessModule('appointments') || hasPermission('payments', 'pos'), { id: 'manage_reception', type: 'item', to: '/quay-tiep-don', icon: FaHeadset, label: 'Tiếp đón / Check-in' });
-      // Allow doctors to access medical records menu even if module flag is off
-      addIf(canAccessModule('medical_records') || isDoctorUser, { id: 'manage_medical_records', type: 'item', to: '/ho-so-benh-an', icon: FaFileMedicalAlt, label: 'Hồ sơ bệnh án' });
+      // Doctors are not allowed this menu
+      addIf(canAccessModule('medical_records') && !isDoctorUser, { id: 'manage_medical_records', type: 'item', to: '/ho-so-benh-an', icon: FaFileMedicalAlt, label: 'Hồ sơ bệnh án' });
       addIf(canAccessModule('doctors') || canAccessModule('patients') || canAccessModule('staff_management') || isAdminUser, { id: 'manage_users', type: 'dropdown', icon: FaUsers, label: 'Quản lý người dùng' });
       // Doctors go to personal schedule, admin and users with work_shift permission go to management page
       const canManageWorkSchedule = isAdminUser || canAccessModule('work_shift');
       const schedulePagePath = isDoctorUser ? '/lich-cua-toi' : (canManageWorkSchedule ? '/quan-ly-lich-lam-viec' : '/lich-cua-toi');
       const schedulePageLabel = isDoctorUser ? 'Lịch làm việc của tôi' : (canManageWorkSchedule ? 'Quản lý lịch làm việc' : 'Lịch làm việc của tôi');
       addIf(isDoctorUser || isStaffUser || isAdminUser, { id: 'work_schedule', type: 'item', to: schedulePagePath, icon: FaCalendarCheck, label: schedulePageLabel });
-      addIf(canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call'), { id: 'manage_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
-      addIf(canAccessModule('services') || canAccessModule('service_categories') || canAccessModule('appointments'), { id: 'manage_services', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý dịch vụ' });
+      addIf(canSeeConsultationMenu || canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call'), { id: 'manage_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
+      addIf(canSeeServiceMenu || canAccessModule('services') || canAccessModule('service_categories') || canAccessModule('appointments'), { id: 'manage_services', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý dịch vụ' });
       addIf(canAccessModule('articles'), { id: 'manage_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
         { to: '/quan-ly-bai-viet', label: 'Bài viết' },
         { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
@@ -522,7 +554,7 @@ const Sidebar = ({ onToggle }) => {
               {item.type === 'dropdown' && (
                 // Render specific dropdowns by id so we preserve the permission-based children
                 <>
-                  {item.id === 'manage_consultations' && (canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call')) && (
+                  {item.id === 'manage_consultations' && (canSeeConsultationMenu || canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call')) && (
                     <MenuDropdown
                       icon={FaRegComments}
                       label={item.label}
@@ -534,12 +566,12 @@ const Sidebar = ({ onToggle }) => {
                           <span className="sidebar-submenu-dot">•</span> Quản lý gói tư vấn
                         </Link>
                       )}
-                      {(canAccessModule('consultations') || canAccessModule('consultation_realtime')) && (
+                      {(canSeeConsultationMenu || canAccessModule('consultations') || canAccessModule('consultation_realtime')) && (
                         <Link to="/quan-ly-tu-van/realtime" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && !location.search.includes('video') ? 'sidebar-active' : ''}`}>
                           <span className="sidebar-submenu-dot">•</span> Quản lý Realtime
                         </Link>
                       )}
-                      {(canAccessModule('consultations') || canAccessModule('video_call')) && (
+                      {(canSeeConsultationMenu || canAccessModule('consultations') || canAccessModule('video_call')) && (
                         <Link to="/quan-ly-tu-van/realtime?type=video" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-tu-van/realtime' && location.search.includes('video') ? 'sidebar-active' : ''}`}>
                           <span className="sidebar-submenu-dot">•</span> Quản lý tư vấn video call
                         </Link>
@@ -547,7 +579,7 @@ const Sidebar = ({ onToggle }) => {
                     </MenuDropdown>
                   )}
 
-                  {item.id === 'manage_services' && (canAccessModule('services') || canAccessModule('service_categories') || canAccessModule('appointments') || isAdmin) && (
+                  {item.id === 'manage_services' && (canSeeServiceMenu || canAccessModule('services') || canAccessModule('service_categories') || canAccessModule('appointments') || isAdmin) && (
                     <MenuDropdown
                       icon={FaBriefcaseMedical}
                       label={item.label}
@@ -555,7 +587,7 @@ const Sidebar = ({ onToggle }) => {
                       onToggle={() => setServiceMenuOpen(!isServiceMenuOpen)}
                     >
                       {(canAccessModule('services') || canAccessModule('service_categories') || isAdmin) && <Link to="/quan-ly-dich-vu" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-dich-vu') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý gói dịch vụ</Link>}
-                      {(canAccessModule('appointments') || isAdmin) && <Link to="/quan-ly-lich-hen" className={`sidebar-submenu-link ${location.pathname.startsWith('/quan-ly-lich-hen') ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý lịch hẹn</Link>}
+                      {(canSeeServiceMenu || canAccessModule('appointments') || isAdmin) && <Link to={isDoctorUser ? '/lich-hen-cua-toi' : '/quan-ly-lich-hen'} className={`sidebar-submenu-link ${(isDoctorUser ? location.pathname.startsWith('/lich-hen-cua-toi') : location.pathname.startsWith('/quan-ly-lich-hen')) ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Quản lý lịch hẹn</Link>}
                     </MenuDropdown>
                   )}
 

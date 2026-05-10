@@ -59,6 +59,7 @@ import SpecialtiesListPage from './pages/SpecialtiesListPage';
 import SpecialtyDetailPage from './pages/SpecialtyDetailPage';
 import DoctorsListPage from './pages/DoctorsListPage';
 import DoctorProfilePage from './pages/DoctorProfilePage';
+// [DoctorReviewsPage removed — using modal integration instead]
 
 // Common Protected
 import DashboardPage from './pages/DashboardPage';
@@ -235,6 +236,12 @@ const ConsultationRealtimeRoute = ({ children }) => {
     return children;
   }
 
+  // Allow doctors to access realtime consultation UI even if module flags are missing
+  const isDoctorRole = String(user?.role || user?.role_info?.role || '').toLowerCase() === 'doctor' || user?.is_doctor === true || Boolean(user?.doctor) || Boolean(user?.doctor_id);
+  if (isDoctorRole) {
+    return children;
+  }
+
   if (!(canAccessModule('consultations') || canAccessModule('consultation_realtime') || canAccessModule('video_call'))) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -343,6 +350,7 @@ function App() {
             <Route path="/bac-si" element={<DoctorsListPage />} />
             <Route path="/doctors" element={<DoctorsListPage />} />
             <Route path="/bac-si/:code" element={<DoctorProfilePage />} />
+            {/* DoctorReviewsPage route removed — reviews will be shown via popup/modal integrated into detail pages */}
             
             {/* ========== 7. COMMON PROTECTED ========== */}
             <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />

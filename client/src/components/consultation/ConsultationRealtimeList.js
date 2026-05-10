@@ -6,8 +6,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import consultationService from '../../services/consultationService';
 import { 
   FaSearch, FaCheckCircle, FaTimesCircle, FaEye, FaMoneyBillWave,
-  FaEdit, FaFileExport, FaSpinner, FaCalendarTimes, 
-  FaClock, FaBan, FaCheck
+  FaFileExport, FaSpinner, FaCalendarTimes, 
+  FaClock, FaBan, FaCheck, FaHourglassHalf, FaStar
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import './ConsultationRealtimeList.css'; // Đảm bảo import file CSS mới
@@ -15,18 +15,19 @@ import './ConsultationRealtimeList.css'; // Đảm bảo import file CSS mới
 export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { // ✅ Đã thêm prop role
   const { user } = useAuth();
   const isSystemStaff = user?.department === 'system' || user?.staff?.department === 'system';
+  const isStaff = ['staff', 'admin'].includes(user?.role);
   
   const [consultations, setConsultations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [filters, setFilters] = useState({
     status: 'all',
-    type: initialType || 'chat',
     doctor_id: '',
-    specialty_id: '',
-    date_from: '',
-    date_to: '',
+    service: '',
+    paymentStatus: 'all',
+    date: '',
     search: '',
+    sortBy: 'newest',
     page: 1,
     limit: 20
   });
@@ -37,6 +38,62 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [selectedConsultation, setSelectedConsultation] = useState(null);
+
+  const getPatientName = (item) =>
+    item?.patient?.full_name ||
+    item?.Patient?.full_name ||
+    item?.Patient?.User?.full_name ||
+    item?.appointment?.patient?.full_name ||
+    item?.appointment?.Patient?.full_name ||
+    item?.appointment?.Patient?.User?.full_name ||
+    item?.patient_name ||
+    'N/A';
+
+  const getPatientEmail = (item) =>
+    item?.patient?.email ||
+    item?.Patient?.email ||
+    item?.Patient?.User?.email ||
+    item?.appointment?.patient?.email ||
+    item?.appointment?.Patient?.email ||
+    item?.appointment?.Patient?.User?.email ||
+    item?.patient_email ||
+    'N/A';
+
+  const getDoctorName = (item) =>
+    item?.doctor?.full_name ||
+    item?.Doctor?.full_name ||
+    item?.Doctor?.user?.full_name ||
+    item?.Doctor?.User?.full_name ||
+    item?.appointment?.doctor?.full_name ||
+    item?.appointment?.Doctor?.full_name ||
+    item?.appointment?.Doctor?.user?.full_name ||
+    item?.appointment?.Doctor?.User?.full_name ||
+    item?.doctor_name ||
+    user?.full_name ||
+    user?.username ||
+    'N/A';
+
+  const getDoctorEmail = (item) =>
+    item?.doctor?.email ||
+    item?.Doctor?.email ||
+    item?.Doctor?.user?.email ||
+    item?.Doctor?.User?.email ||
+    item?.appointment?.doctor?.email ||
+    item?.appointment?.Doctor?.email ||
+    item?.appointment?.Doctor?.user?.email ||
+    item?.appointment?.Doctor?.User?.email ||
+    item?.doctor_email ||
+    user?.email ||
+    'N/A';
+  const getPaymentStatus = (item) => item?.payment_status || 'unpaid';
+  const getServiceName = (item) =>
+    item?.package?.name ||
+    item?.consultation_pricing?.name ||
+    item?.ConsultationPricing?.name ||
+    item?.appointment?.Service?.name ||
+    item?.service_name ||
+    'Tư vấn trực tuyến';
+  const getTypeLabel = (item) => consultationService.formatConsultationType(item?.consultation_type);
 
   const fetchConsultations = useCallback(async () => {
     try {
@@ -104,7 +161,7 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
 
   useEffect(() => {
     if (initialType) {
-      setFilters(prev => ({ ...prev, type: initialType, page: 1 }));
+      setFilters(prev => ({ ...prev, page: 1 }));
     }
   }, [initialType]);
 
@@ -125,20 +182,32 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
   const getStatusBadge = (sOrObj) => {
     const status = (sOrObj && typeof sOrObj === 'object') ? sOrObj.status : sOrObj;
     const config = {
-      'pending': { class: 'crl-badge-warn', icon: <FaClock/>, text: 'Chờ duyệt' },
-      'confirmed': { class: 'crl-badge-info', icon: <FaCheckCircle/>, text: 'Đã xác nhận' },
-      'in_progress': { class: 'crl-badge-success', icon: <FaSpinner className="spin"/>, text: 'Đang diễn ra' },
-      'completed': { class: 'crl-badge-success', icon: <FaCheck/>, text: 'Hoàn thành' },
-      'cancelled': { class: 'crl-badge-danger', icon: <FaTimesCircle/>, text: 'Đã hủy' },
-      'rejected': { class: 'crl-badge-danger', icon: <FaBan/>, text: 'Từ chối' },
-      'expired': { class: 'crl-badge-muted', icon: <FaClock/>, text: 'Hết hạn' }
+      pending: { class: 'crl-badge-warn', icon: <FaHourglassHalf />, text: 'Chờ xác nhận' },
+      confirmed: { class: 'crl-badge-info', icon: <FaCheckCircle />, text: 'Đã xác nhận' },
+      in_progress: { class: 'crl-badge-success', icon: <FaSpinner className="spin" />, text: 'Đang diễn ra' },
+      completed: { class: 'crl-badge-success', icon: <FaCheck />, text: 'Hoàn thành' },
+      cancelled: { class: 'crl-badge-danger', icon: <FaTimesCircle />, text: 'Đã hủy' },
+      rejected: { class: 'crl-badge-danger', icon: <FaBan />, text: 'Từ chối' },
+      expired: { class: 'crl-badge-muted', icon: <FaClock />, text: 'Hết hạn' },
     };
-    const item = config[status] || config['pending'];
+    const item = config[status] || config.pending;
     return (
       <span className={`crl-status-badge ${item.class}`}>
         {item.icon} {item.text}
       </span>
     );
+  };
+
+  const getPaymentBadge = (item) => {
+    const map = {
+      unpaid: { text: 'Chưa thanh toán', className: 'unpaid' },
+      paid_online: { text: 'Đã thanh toán', className: 'paid' },
+      paid_at_clinic: { text: 'Thanh toán tại quầy', className: 'paid' },
+      not_required: { text: 'Miễn phí', className: 'free' },
+      refunded: { text: 'Đã hoàn tiền', className: 'refunded' },
+    };
+    const info = map[getPaymentStatus(item)] || map.unpaid;
+    return <span className={`crl-payment-badge ${info.className}`}>{info.text}</span>;
   };
 
   // Actions
@@ -183,7 +252,7 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
     const now = new Date();
     const appt = new Date(consultation.appointment_time);
     if ((appt - now) / 36e5 < 24) {
-      alert('Không thể hủy lịch hẹn còn dưới 24h.');
+      alert('Không thể hủy tư vấn còn dưới 24h.');
       return;
     }
     setSelectedConsultation(consultation);
@@ -195,7 +264,7 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
     if (!selectedConsultation) return;
     const isPaid = parseFloat(selectedConsultation.total_fee) > 0;
     if (isPaid && !cancelReason.trim()) {
-      alert('Cần nhập lý do cho lịch có phí.');
+      alert('Cần nhập lý do cho tư vấn có phí.');
       return;
     }
     
@@ -214,6 +283,63 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
     }
   };
 
+  const isPatientRole = role === 'patient' || user?.role === 'patient';
+  const isAdminOrStaffRole = ['admin', 'staff'].includes(user?.role);
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleDateString('vi-VN');
+  };
+
+  const formatTime = (datetime) => {
+    if (!datetime) return 'N/A';
+    return new Date(datetime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  };
+  const canJoinRoom = (item) => consultationService.canStartConsultation(item?.appointment_time);
+  const canCancelByPatient = (item) => ['pending', 'pending_payment'].includes(item?.status);
+  const canPayNow = (item) => item?.status === 'pending_payment';
+  const isCompleted = (item) => item?.status === 'completed';
+
+  const filteredConsultations = consultations
+    .filter((item) => {
+      if (filters.status !== 'all' && item.status !== filters.status) return false;
+      if (initialType && item.consultation_type && item.consultation_type !== initialType) return false;
+      if (filters.paymentStatus !== 'all' && getPaymentStatus(item) !== filters.paymentStatus) return false;
+      if (filters.date && item.appointment_time) {
+        const selected = new Date(filters.date).toLocaleDateString('en-CA');
+        const actual = new Date(item.appointment_time).toLocaleDateString('en-CA');
+        if (selected !== actual) return false;
+      }
+      if (filters.doctor_id && String(item.doctor_id || item.doctor?.id || '') !== String(filters.doctor_id)) return false;
+      if (filters.service) {
+        const serviceText = getServiceName(item).toLowerCase();
+        if (!serviceText.includes(filters.service.toLowerCase())) return false;
+      }
+      if (filters.search) {
+        const keyword = filters.search.toLowerCase();
+        const haystack = [
+          item.consultation_code,
+          getPatientName(item),
+          getPatientEmail(item),
+          getDoctorName(item),
+          getDoctorEmail(item),
+          getServiceName(item),
+          item.chief_complaint,
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(keyword)) return false;
+      }
+      return true;
+    })
+    .sort((left, right) => {
+      if (filters.sortBy === 'oldest') {
+        return new Date(left.created_at || left.appointment_time) - new Date(right.created_at || right.appointment_time);
+      }
+      if (filters.sortBy === 'code') {
+        return String(left.consultation_code || '').localeCompare(String(right.consultation_code || ''));
+      }
+      return new Date(right.created_at || right.appointment_time) - new Date(left.created_at || left.appointment_time);
+    });
+
   return (
     <div className="crl-container">
       {/* Filters - Compact Grid */}
@@ -221,24 +347,31 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
         <div className="crl-filter-group">
           <select className="crl-select" value={filters.status} onChange={e => handleFilterChange('status', e.target.value)}>
             <option value="all">Tất cả trạng thái</option>
-            <option value="pending">Chờ duyệt</option>
-            <option value="confirmed">Đã duyệt</option>
+            <option value="pending">Chờ xác nhận</option>
+            <option value="confirmed">Đã xác nhận</option>
             <option value="in_progress">Đang diễn ra</option>
             <option value="completed">Hoàn thành</option>
             <option value="cancelled">Đã hủy</option>
           </select>
-          <select className="crl-select" value={filters.type} onChange={e => handleFilterChange('type', e.target.value)}>
-            <option value="all">Tất cả loại</option>
-            <option value="chat">Chat</option>
-            <option value="video">Video</option>
+          <select className="crl-select" value={filters.paymentStatus} onChange={e => handleFilterChange('paymentStatus', e.target.value)}>
+            <option value="all">Tất cả thanh toán</option>
+            <option value="unpaid">Chưa thanh toán</option>
+            <option value="paid_online">Đã thanh toán</option>
+            <option value="paid_at_clinic">Thanh toán tại quầy</option>
+            <option value="not_required">Miễn phí</option>
+            <option value="refunded">Đã hoàn tiền</option>
           </select>
-          <input type="date" className="crl-input" value={filters.date_from} onChange={e => handleFilterChange('date_from', e.target.value)} />
-          <input type="date" className="crl-input" value={filters.date_to} onChange={e => handleFilterChange('date_to', e.target.value)} />
+          <input type="date" className="crl-input" value={filters.date} onChange={e => handleFilterChange('date', e.target.value)} />
+          <select className="crl-select" value={filters.sortBy} onChange={e => handleFilterChange('sortBy', e.target.value)}>
+            <option value="newest">Mới nhất</option>
+            <option value="oldest">Cũ nhất</option>
+            <option value="code">Theo mã</option>
+          </select>
         </div>
         <div className="crl-search-group">
           <div className="crl-search-box">
             <FaSearch className="crl-search-icon" />
-            <input type="text" className="crl-search-input" placeholder="Tìm kiếm..." value={filters.search} onChange={e => handleFilterChange('search', e.target.value)} />
+            <input type="text" className="crl-search-input" placeholder="Tìm mã, bệnh nhân, bác sĩ, email..." value={filters.search} onChange={e => handleFilterChange('search', e.target.value)} />
           </div>
           <button className="crl-btn-export"><FaFileExport /></button>
         </div>
@@ -253,48 +386,56 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
             <table className="crl-table">
               <thead>
                 <tr>
+                  <th>STT</th>
                   <th>Mã</th>
                   <th>Bệnh nhân</th>
                   <th>Bác sĩ</th>
-                  <th>Loại</th>
-                  <th>Thời gian</th>
+                  <th>Dịch vụ</th>
+                  <th>Ngày &amp; Giờ</th>
                   <th>Trạng thái</th>
-                  <th>Phí</th>
-                  {!isSystemStaff && <th className="text-right">Hành động</th>}
+                  <th>Thanh toán</th>
+                  {!isSystemStaff && <th className="text-right">Thao tác</th>}
                 </tr>
               </thead>
               <tbody>
-                {consultations.length === 0 ? (
-                  <tr><td colSpan="8" className="text-center">Không có dữ liệu</td></tr>
+                {filteredConsultations.length === 0 ? (
+                  <tr><td colSpan={isSystemStaff ? 8 : 9} className="text-center">Không có dữ liệu</td></tr>
                 ) : (
-                  consultations.map((item) => (
+                  filteredConsultations.map((item, index) => (
                     <tr key={item.id}>
+                      <td><span className="crl-stt">{index + 1}</span></td>
                       <td><span className="crl-code">{item.consultation_code}</span></td>
                       <td>
                         <div className="crl-info-cell">
-                          <strong>{item.patient?.full_name}</strong>
-                          <span>{item.patient?.phone}</span>
+                          <strong>{getPatientName(item)}</strong>
+                          <span>{getPatientEmail(item)}</span>
                         </div>
                       </td>
                       <td>
                         <div className="crl-info-cell">
-                          <strong>{item.doctor?.full_name}</strong>
-                          <span>{item.doctor?.Doctor?.specialty?.name}</span>
+                          <strong>{getDoctorName(item)}</strong>
+                          <span>{getDoctorEmail(item)}</span>
                         </div>
                       </td>
                       <td>
-                         <span className={`crl-type ${item.consultation_type}`}>
-                           {item.consultation_type === 'chat' && 'Chat'}
-                           {item.consultation_type === 'video' && 'Video'}
-                           {item.consultation_type === 'offline' && 'Offline'}
-                         </span>
+                        <div className="crl-info-cell">
+                          <strong>{getServiceName(item)}</strong>
+                          <span className={`crl-mini-badge ${item.consultation_type}`}>{item.consultation_type === 'video' ? 'Video call' : 'Chat realtime'}</span>
+                        </div>
                       </td>
-                      <td>{new Date(item.appointment_time).toLocaleString('vi-VN')}</td>
+                      <td>
+                        <div className="crl-date-cell">
+                          <strong>{formatDate(item.appointment_time)}</strong>
+                          <span>{formatTime(item.appointment_time)}</span>
+                        </div>
+                      </td>
                       <td>{getStatusBadge(item.status)}</td>
-                      <td className="crl-fee">
-                        {item.total_fee ? parseFloat(item.total_fee).toLocaleString() : 0}đ
+                      <td>
+                        <div className="crl-payment-cell">
+                          {getPaymentBadge(item)}
+                          <small>{item.payment_method ? item.payment_method.toUpperCase() : ''}</small>
+                        </div>
                       </td>
-                      
                       {!isSystemStaff && (
                         <td className="text-right">
                           <div className="crl-actions">
@@ -302,58 +443,53 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
                               <FaSpinner className="spin" />
                             ) : (
                               <>
-                                {/* Nút Xem chi tiết (Ai cũng thấy) */}
-                                <button className="crl-btn-icon info" onClick={() => navigate(`/tu-van/${item.id}`)} title="Xem chi tiết"><FaEye /></button>
+                                <button className="crl-btn-action view" onClick={() => navigate(`/tu-van/${item.id}`)} title="Xem chi tiết"><FaEye /> <span>Chi tiết</span></button>
 
-                                {/* ================= LOGIC CHO BỆNH NHÂN ================= */}
-                                {role === 'patient' ? (
+                                {isPatientRole ? (
                                   <>
-                                    {/* 1. Chờ duyệt hoặc Chờ thanh toán -> Nút HỦY */}
-                                    {(item.status === 'pending' || item.status === 'pending_payment') && (
-                                      <button className="crl-btn-icon danger" onClick={() => handleCancelConfirmed(item)} title="Hủy lịch"><FaCalendarTimes /></button>
-                                    )}
-
-                                    {/* 2. Chờ thanh toán -> Nút THANH TOÁN */}
-                                    {item.status === 'pending_payment' && (
-                                      <button className="crl-btn-icon warning" onClick={() => navigate(`/thanh-toan/${item.id}`)} title="Thanh toán ngay"><FaMoneyBillWave /></button>
-                                    )}
-
-                                    {/* 3. Sắp diễn ra hoặc Đang diễn ra -> Nút VÀO PHÒNG */}
-                                    {(item.isUpcoming || item.status === 'in_progress') && (
-                                      <button 
-                                        className="crl-btn-icon success" 
-                                        style={{ width: 'auto', padding: '0 10px', fontSize: '12px' }}
-                                        onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)}
-                                      >
-                                        <FaCheck /> Vào phòng
+                                    {canJoinRoom(item) && (
+                                      <button className="crl-btn-action success" onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)} title="Vào phòng">
+                                        <FaCheck /> <span>Vào phòng</span>
                                       </button>
                                     )}
 
-                                    {/* 4. Hoàn thành -> Nút ĐÁNH GIÁ (Review) */}
-                                    {item.status === 'completed' && !item.rating && (
-                                       <button className="crl-btn-icon info" onClick={() => navigate(`/tu-van/${item.id}?tab=review`)} title="Đánh giá"><FaCheckCircle /></button>
+                                    {canPayNow(item) && (
+                                      <button className="crl-btn-action warning" onClick={() => navigate(`/thanh-toan/${item.id}`)} title="Thanh toán ngay">
+                                        <FaMoneyBillWave /> <span>Thanh toán</span>
+                                      </button>
+                                    )}
+
+                                    {canCancelByPatient(item) && (
+                                      <button className="crl-btn-action danger" onClick={() => handleCancelConfirmed(item)} title="Hủy lịch">
+                                        <FaCalendarTimes /> <span>Hủy</span>
+                                      </button>
+                                    )}
+
+                                    {isCompleted(item) && (
+                                      <button className="crl-btn-action info" onClick={() => navigate(`/tu-van/${item.id}`)} title={item.rating ? 'Xem đánh giá' : 'Đánh giá'}>
+                                        <FaStar /> <span>{item.rating ? 'Xem đánh giá' : 'Đánh giá'}</span>
+                                      </button>
                                     )}
                                   </>
                                 ) : (
-                                  /* ================= LOGIC CHO BÁC SĨ / STAFF ================= */
                                   <>
-                                    {/* Bác sĩ duyệt/từ chối lịch PENDING */}
-                                    {item.status === 'pending' && (
+                                    {item.status === 'pending' && isAdminOrStaffRole && (
                                       <>
-                                        <button className="crl-btn-icon success" onClick={() => handleApprove(item.consultation_code)} title="Duyệt"><FaCheckCircle /></button>
-                                        <button className="crl-btn-icon danger" onClick={() => handleReject(item.consultation_code)} title="Từ chối"><FaTimesCircle /></button>
+                                        <button className="crl-btn-action success" onClick={() => handleApprove(item.consultation_code)} title="Duyệt">
+                                          <FaCheckCircle /> <span>Duyệt</span>
+                                        </button>
+                                        <button className="crl-btn-action danger" onClick={() => handleReject(item.consultation_code)} title="Từ chối">
+                                          <FaTimesCircle /> <span>Từ chối</span>
+                                        </button>
                                       </>
                                     )}
                                     
-                                    {/* Bác sĩ vào phòng */}
-                                    {(item.isUpcoming || item.status === 'in_progress') && (
-                                       <button className="crl-btn-icon success" onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)} title="Vào phòng"><FaCheck /></button>
+                                    {canJoinRoom(item) && (
+                                       <button className="crl-btn-action success" onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)} title="Vào phòng">
+                                          <FaCheck /> <span>Vào phòng</span>
+                                       </button>
                                     )}
-                                    
-                                    {/* Staff hoàn tiền */}
-                                    {(item.status === 'cancelled' || item.status === 'rejected') && parseFloat(item.total_fee) > 0 && item.payment_status === 'paid_online' && (
-                                      <button className="crl-btn-icon warning" onClick={() => handleRefund(item)} title="Hoàn tiền"><FaMoneyBillWave /></button>
-                                    )}
+
                                   </>
                                 )}
                               </>
@@ -384,10 +520,10 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
         <div className="crl-modal-overlay">
           <div className="crl-modal">
             <div className="crl-modal-header danger">
-              <FaCalendarTimes /> Hủy Lịch Hẹn
+              <FaCalendarTimes /> Hủy Tư Vấn
             </div>
             <div className="crl-modal-body">
-              <p>Bạn muốn hủy lịch <strong>{selectedConsultation.consultation_code}</strong>?</p>
+              <p>Bạn muốn hủy tư vấn <strong>{selectedConsultation.consultation_code}</strong>?</p>
               {parseFloat(selectedConsultation.total_fee) > 0 && (
                 <div className="crl-alert-warning">⚠️ Lịch có phí. Bắt buộc nhập lý do.</div>
               )}

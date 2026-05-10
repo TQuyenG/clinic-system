@@ -1,8 +1,8 @@
-// client/src/components/consultation/ConsultationFeedbackManagement.js
+// client/src/components/consultation/RatingConsultationManagement.js
 import React, { useState, useEffect, useCallback } from 'react';
 import consultationService from '../../services/consultationService';
 import { FaStar, FaUserCircle, FaUserMd, FaFilter, FaToggleOn, FaToggleOff, FaExclamationTriangle } from 'react-icons/fa';
-import './ConsultationFeedbackManagement.css'; // File CSS mới
+import './RatingConsultationManagement.css'; // File CSS mới
 
 // Component render sao
 const StarRating = ({ rating }) => {
@@ -18,7 +18,7 @@ const StarRating = ({ rating }) => {
   return <div className="consultation-feedback-management-star-rating">{stars}</div>;
 };
 
-export const ConsultationFeedbackManagement = ({ initialType }) => { 
+export const RatingConsultationManagement = ({ initialType }) => { 
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -163,3 +163,5 @@ export const ConsultationFeedbackManagement = ({ initialType }) => {
     </div>
   );
 };
+
+export default RatingConsultationManagement;

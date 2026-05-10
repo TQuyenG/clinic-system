@@ -531,6 +531,134 @@ a.doctor-profile-page-value:hover {
 .res-authors { margin-top: 2px !important; font-style: italic; color: #999; }
 
 .doctor-profile-page-research-link {
+
+.doctor-profile-page-card-header-rating {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.doctor-profile-page-rating-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+}
+
+.doctor-profile-page-rating-score {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #f59e0b;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.doctor-profile-page-rating-total {
+  color: var(--doc-text-sub);
+  font-size: 0.85rem;
+}
+
+.doctor-profile-page-rating-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.doctor-profile-page-rating-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.doctor-profile-page-rating-btn.primary {
+  background: var(--doc-primary);
+  color: #fff;
+}
+
+.doctor-profile-page-rating-btn.primary:hover {
+  background: var(--doc-primary-dark);
+}
+
+.doctor-profile-page-rating-btn.danger {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+
+.doctor-profile-page-rating-btn.danger:hover:not(:disabled) {
+  background: #ffe4e6;
+}
+
+.doctor-profile-page-my-review {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.doctor-profile-page-my-review-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.doctor-profile-page-review-stars {
+  display: inline-flex;
+  gap: 0.2rem;
+  color: #f59e0b;
+}
+
+.doctor-profile-page-review-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.doctor-profile-page-review-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.doctor-profile-page-review-date {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+.doctor-profile-page-review-text {
+  margin: 0;
+  color: var(--doc-text-sub);
+  line-height: 1.6;
+}
+
+.doctor-profile-page-reviews-loading,
+.doctor-profile-page-reviews-empty {
+  padding: 1rem;
+  color: var(--doc-text-sub);
+  text-align: center;
+}
+
+.spin {
+  animation: doc-spin 1s linear infinite;
+}
   font-size: 0.8rem;
   color: var(--doc-primary);
   text-decoration: none;
@@ -571,6 +699,17 @@ a.doctor-profile-page-value:hover {
   }
   .doctor-profile-page-grid-two-cols {
     grid-template-columns: 1fr;
+  }
+
+  .doctor-profile-page-card-header-rating,
+  .doctor-profile-page-my-review-head,
+  .doctor-profile-page-review-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .doctor-profile-page-rating-summary {
+    align-items: flex-start;
   }
   
   .doctor-profile-page-booking-actions {

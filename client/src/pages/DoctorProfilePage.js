@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 import Breadcrumb from '../components/Breadcrumb';
+import AppointmentRatingModal from '../components/appointments/AppointmentRatingModal';
 import { 
   FaPhone, FaEnvelope, FaArrowLeft, FaComments, FaVideo,
   FaGraduationCap, FaBriefcase, FaAward, FaFlask, FaCertificate, FaLink,
-  FaMapMarkerAlt, FaUserMd
+  FaMapMarkerAlt, FaUserMd, FaStar, FaRegStar, FaSpinner, FaEdit, FaTrash, FaChartBar
 } from 'react-icons/fa';
 import * as Icons from 'react-icons/fa'; // IMPORT TẤT CẢ ICON
 import './DoctorProfilePage.css';
@@ -14,14 +16,29 @@ const DoctorProfilePage = () => {
   const { code } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const [doctor, setDoctor] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [reviewLoading, setReviewLoading] = useState(true);
+  const [reviewActionLoading, setReviewActionLoading] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [doctorStats, setDoctorStats] = useState({ avg_rating: 0, total_reviews: 0, breakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } });
+  const [doctorReviews, setDoctorReviews] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [myReview, setMyReview] = useState(null);
+  const [modalReview, setModalReview] = useState({ rating: 0, review: '' });
   
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
   useEffect(() => {
     fetchDoctorProfile();
   }, [code]);
+
+  useEffect(() => {
+    if (doctor?.id) {
+      loadDoctorReviews();
+    }
+  }, [doctor?.id, user?.id]);
 
   const fetchDoctorProfile = async () => {
     try {
@@ -38,6 +55,110 @@ const DoctorProfilePage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadDoctorReviews = async () => {
+    try {
+      setReviewLoading(true);
+
+      const [statsRes, reviewsRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/statistics/doctor/${doctor.id}/unified?service_type=doctor`),
+        axios.get(`${API_BASE_URL}/statistics/doctor/${doctor.id}/reviews?service_type=doctor&page=1&limit=6`),
+      ]);
+
+      if (statsRes.data?.success) {
+        setDoctorStats(statsRes.data.data || {});
+      }
+
+      if (reviewsRes.data?.success) {
+        setDoctorReviews(reviewsRes.data.data?.reviews || []);
+        setPagination(reviewsRes.data.data?.pagination || null);
+      }
+
+      if (user?.id) {
+        try {
+          const myReviewRes = await axios.get(`${API_BASE_URL}/statistics/doctor/${doctor.id}/my-review`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          setMyReview(myReviewRes.data?.data?.review || null);
+          if (myReviewRes.data?.data?.review) {
+            setModalReview({
+              rating: myReviewRes.data.data.review.rating || 0,
+              review: myReviewRes.data.data.review.review || ''
+            });
+          }
+        } catch (error) {
+          setMyReview(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading doctor reviews:', error);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const openReviewModal = () => {
+    if (myReview) {
+      setModalReview({
+        rating: myReview.rating || 0,
+        review: myReview.review || ''
+      });
+    } else {
+      setModalReview({ rating: 0, review: '' });
+    }
+    setShowReviewModal(true);
+  };
+
+  const handleSubmitDoctorReview = async ({ rating, review }) => {
+    try {
+      setReviewActionLoading(true);
+      const token = localStorage.getItem('token');
+      const payload = { rating, review };
+      const headers = { Authorization: `Bearer ${token}` };
+
+      if (myReview) {
+        await axios.put(`${API_BASE_URL}/statistics/doctor/${doctor.id}/reviews`, payload, { headers });
+      } else {
+        await axios.post(`${API_BASE_URL}/statistics/doctor/${doctor.id}/reviews`, payload, { headers });
+      }
+
+      setShowReviewModal(false);
+      await loadDoctorReviews();
+    } catch (error) {
+      console.error('Error submitting doctor review:', error);
+      alert(error.response?.data?.message || 'Không thể gửi đánh giá');
+    } finally {
+      setReviewActionLoading(false);
+    }
+  };
+
+  const handleDeleteDoctorReview = async () => {
+    if (!window.confirm('Bạn muốn xóa đánh giá của mình?')) return;
+    try {
+      setReviewActionLoading(true);
+      await axios.delete(`${API_BASE_URL}/statistics/doctor/${doctor.id}/reviews`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setMyReview(null);
+      await loadDoctorReviews();
+    } catch (error) {
+      console.error('Error deleting doctor review:', error);
+      alert(error.response?.data?.message || 'Không thể xóa đánh giá');
+    } finally {
+      setReviewActionLoading(false);
+    }
+  };
+
+  const renderStars = (rating) => {
+    const value = Number(rating) || 0;
+    return (
+      <div className="doctor-profile-page-review-stars">
+        {[1, 2, 3, 4, 5].map((star) => (
+          star <= value ? <FaStar key={star} /> : <FaRegStar key={star} />
+        ))}
+      </div>
+    );
   };
 
   const renderIcon = (iconName) => {
@@ -199,6 +320,65 @@ const DoctorProfilePage = () => {
               </div>
             </section>
 
+            <section className="doctor-profile-page-content-card">
+              <div className="doctor-profile-page-card-header doctor-profile-page-card-header-rating">
+                <h2 className="doctor-profile-page-card-title"><FaChartBar /> Đánh giá bác sĩ</h2>
+                <div className="doctor-profile-page-rating-summary">
+                  <div className="doctor-profile-page-rating-score">
+                    <FaStar /> {Number(doctorStats.avg_rating || 0).toFixed(1)}
+                  </div>
+                  <div className="doctor-profile-page-rating-total">{doctorStats.total_reviews || 0} lượt đánh giá</div>
+                </div>
+              </div>
+              <div className="doctor-profile-page-card-body">
+                <div className="doctor-profile-page-rating-actions">
+                  {user?.role === 'patient' && (
+                    <button className="doctor-profile-page-rating-btn primary" onClick={openReviewModal}>
+                      <FaStar /> {myReview ? 'Sửa đánh giá của bạn' : 'Đánh giá bác sĩ'}
+                    </button>
+                  )}
+                  {myReview && (
+                    <button className="doctor-profile-page-rating-btn danger" onClick={handleDeleteDoctorReview} disabled={reviewActionLoading}>
+                      {reviewActionLoading ? <FaSpinner className="spin" /> : <FaTrash />} Xóa đánh giá của tôi
+                    </button>
+                  )}
+                </div>
+
+                {myReview && (
+                  <div className="doctor-profile-page-my-review">
+                    <div className="doctor-profile-page-my-review-head">
+                      <strong>Đánh giá của bạn</strong>
+                      {renderStars(myReview.rating)}
+                    </div>
+                    {myReview.review && <p>{myReview.review}</p>}
+                  </div>
+                )}
+
+                {reviewLoading ? (
+                  <div className="doctor-profile-page-reviews-loading"><FaSpinner className="spin" /> Đang tải đánh giá...</div>
+                ) : (
+                  <div className="doctor-profile-page-reviews-list">
+                    {doctorReviews.length === 0 ? (
+                      <div className="doctor-profile-page-reviews-empty">Chưa có đánh giá nào cho bác sĩ này.</div>
+                    ) : (
+                      doctorReviews.map((reviewItem) => (
+                        <article key={reviewItem.id} className="doctor-profile-page-review-card">
+                          <div className="doctor-profile-page-review-head">
+                            <div>
+                              <strong>{reviewItem.patient?.full_name || 'Bệnh nhân'}</strong>
+                              <div className="doctor-profile-page-review-date">{new Date(reviewItem.created_at).toLocaleDateString('vi-VN')}</div>
+                            </div>
+                            {renderStars(reviewItem.rating)}
+                          </div>
+                          {reviewItem.review && <p className="doctor-profile-page-review-text">{reviewItem.review}</p>}
+                        </article>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+
             {doctor.education && doctor.education.length > 0 && (
               <section className="doctor-profile-page-content-card">
                 <div className="doctor-profile-page-card-header">
@@ -319,6 +499,16 @@ const DoctorProfilePage = () => {
 
           </main>
         </div>
+
+        <AppointmentRatingModal
+          show={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          onSubmit={handleSubmitDoctorReview}
+          mode={myReview ? 'submit' : 'submit'}
+          appointment={doctor}
+          isSubmitting={reviewActionLoading}
+          contextType="doctor"
+        />
       </div>
     </div>
   );

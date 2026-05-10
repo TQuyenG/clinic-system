@@ -17,7 +17,9 @@ import appointmentService from '../services/appointmentService';
 import paymentService from '../services/paymentService';
 import medicalRecordService from '../services/medicalRecordService';
 import { useAuth } from '../contexts/AuthContext';
-import PasswordConfirmModal from '../components/auth/PasswordConfirmModal'; 
+import PasswordConfirmModal from '../components/auth/PasswordConfirmModal';
+// ===== [BƯỚC 3] IMPORT RATING MODAL (2024-05-09) =====
+import AppointmentRatingModal from '../components/appointments/AppointmentRatingModal'; 
 
 // Import Icons từ React-Icons
 import {
@@ -144,6 +146,16 @@ const AppointmentDetailPage = () => {
   // Payment reminder
   const [showPaymentReminder, setShowPaymentReminder] = useState(false);
 
+  // ===== [BƯỚC 3] RATING MODAL STATE (2024-05-09) =====
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [hasRating, setHasRating] = useState(false);
+  const [hasDoctorRating, setHasDoctorRating] = useState(false);
+  const [doctorRating, setDoctorRating] = useState(null);
+  const [ratingTarget, setRatingTarget] = useState('appointment');
+  const [ratingMode, setRatingMode] = useState('submit');
+  const [showRatingMenu, setShowRatingMenu] = useState(false);
+
   // Thêm useEffect này để lấy cấu hình khi mở Modal
   useEffect(() => {
     if (showRefundModal) {
@@ -233,6 +245,35 @@ const AppointmentDetailPage = () => {
         // Cập nhật state cho form admin
         setAdminStatus(apptData.status);
         setAdminAddress(apptData.appointment_address || '');
+        
+        // ===== [BƯỚC 3] CHECK IF APPOINTMENT HAS RATING (2024-05-09) =====
+        // If appointment completed and patient is owner or guest, check if has rating
+        // Rating would come from ConsultationFeedback where appointment_id = id and service_type = 'appointment'
+        // For now, check if apptData has rating field or ConsultationFeedback
+        const hasExistingRating = apptData.rating || (apptData.ConsultationFeedback && apptData.ConsultationFeedback.length > 0);
+        setHasRating(!!hasExistingRating);
+
+        const doctorId = apptData.doctor_id || apptData.Doctor?.user?.id || apptData.Doctor?.User?.id;
+        if (!guestToken && user && user.role === 'patient' && doctorId) {
+          try {
+            const doctorReviewRes = await axios.get(`${API_URL}/statistics/doctor/${doctorId}/my-review`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            const existingDoctorReview = doctorReviewRes.data?.data?.review || null;
+            setDoctorRating(existingDoctorReview);
+            setHasDoctorRating(Boolean(existingDoctorReview));
+          } catch (doctorReviewError) {
+            setDoctorRating(null);
+            setHasDoctorRating(false);
+          }
+        }
+        
+        // Auto-open rating modal if: completed, no rating yet, and patient is viewing
+        const isPatientViewing = !guestToken && user && user.role === 'patient';
+        if (apptData.status === 'completed' && !hasExistingRating && isPatientViewing) {
+          // Don't auto-open immediately, just set state; user can click button
+          // setShowRatingModal(true);
+        }
       }
     } catch (error) {
       console.error('Load appointment error:', error);
@@ -243,6 +284,41 @@ const AppointmentDetailPage = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ===== [BƯỚC 3] RATING SUBMISSION HANDLER (2024-05-09) =====
+  const handleSubmitRating = async (ratingData) => {
+    if (!appointment) return toast.error('Không tìm thấy lịch hẹn');
+    
+    try {
+      setIsSubmittingRating(true);
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const doctorId = appointment.doctor_id || appointment.Doctor?.user?.id || appointment.Doctor?.User?.id;
+
+      const response = ratingTarget === 'doctor'
+        ? await axios.post(`${API_URL}/statistics/doctor/${doctorId}/reviews`, ratingData, { headers })
+        : await axios.put(`${API_URL}/appointments/${appointment.code}/submit-rating`, ratingData, { headers });
+
+      if (response.data.success) {
+        toast.success(ratingTarget === 'doctor' ? 'Cảm ơn bạn đã đánh giá bác sĩ!' : 'Cảm ơn đánh giá của bạn! Sẽ được duyệt sớm.');
+        setShowRatingModal(false);
+        if (ratingTarget === 'doctor') {
+          setHasDoctorRating(true);
+          setDoctorRating(response.data.data?.review || { ...ratingData, doctor_id: doctorId });
+        } else {
+          setHasRating(true);
+        }
+        await loadAppointment(); // Reload để cập nhật UI
+      } else {
+        toast.error(response.data.message || 'Lỗi khi gửi đánh giá');
+      }
+    } catch (error) {
+      console.error('Rating submission error:', error);
+      toast.error(error.response?.data?.message || 'Lỗi server khi gửi đánh giá');
+    } finally {
+      setIsSubmittingRating(false);
     }
   };
 
@@ -1047,7 +1123,7 @@ const AppointmentDetailPage = () => {
                 )}
               </div>
             )}
-            
+
           </div>
           
           {/* CỘT BÊN PHẢI (Thanh toán & Thao tác) */}
@@ -1295,18 +1371,65 @@ const AppointmentDetailPage = () => {
               <div className="appointment-detail-page-card">
                  <h2 className="appointment-detail-page-card-title">
                   <FaStar />
-                  Đánh giá
+                  {hasRating || hasDoctorRating ? 'Xem đánh giá' : 'Đánh giá'}
                 </h2>
                 <p className="appointment-detail-page-rating-text">
-                  Vui lòng chia sẻ cảm nhận của bạn để giúp chúng tôi cải thiện dịch vụ.
+                  {hasRating || hasDoctorRating
+                    ? 'Bạn có thể xem đánh giá của lịch hẹn hoặc bác sĩ ở đây.'
+                    : 'Vui lòng chia sẻ cảm nhận của bạn để giúp chúng tôi cải thiện dịch vụ.'}
                 </p>
-                <button
+                <div style={{ position: 'relative' }}>
+                  <button
                     className="appointment-detail-page-btn-action btn-rating"
-                    onClick={() => toast.info('Chức năng đánh giá đang phát triển!')}
+                    onClick={() => setShowRatingMenu(prev => !prev)}
+                    aria-haspopup="true"
+                    aria-expanded={showRatingMenu}
                   >
                     <FaStar />
-                    Viết đánh giá
-                </button>
+                    {hasRating || hasDoctorRating ? 'Xem đánh giá' : 'Viết đánh giá'}
+                  </button>
+
+                  {showRatingMenu && (
+                    <div style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '100%',
+                      background: '#fff',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: 8,
+                      boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
+                      padding: 8,
+                      zIndex: 40,
+                      minWidth: 200
+                    }}>
+                      <button
+                        className="appointment-detail-page-btn-action"
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', marginBottom: 6 }}
+                        onClick={() => {
+                          setShowRatingMenu(false);
+                          setRatingTarget('appointment');
+                          setRatingMode(hasRating ? 'view' : 'submit');
+                          setShowRatingModal(true);
+                        }}
+                      >
+                        <FaStar /> {hasRating ? 'Xem đánh giá Lịch hẹn' : 'Đánh giá Lịch hẹn'}
+                      </button>
+
+                      <button
+                        className="appointment-detail-page-btn-action"
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}
+                        onClick={() => {
+                          setShowRatingMenu(false);
+                          setRatingTarget('doctor');
+                          setRatingMode(hasDoctorRating ? 'view' : 'submit');
+                          setShowRatingModal(true);
+                        }}
+                      >
+                        <FaUserMd /> {hasDoctorRating ? 'Xem đánh giá Bác sĩ' : 'Đánh giá Bác sĩ'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1477,6 +1600,17 @@ const AppointmentDetailPage = () => {
         isOpen={showPasswordModal}
         onClose={() => setShowPasswordModal(false)}
         onConfirm={handlePasswordConfirm}
+      />
+
+      {/* ===== [BƯỚC 3] APPOINTMENT RATING MODAL (2024-05-09) ===== */}
+      <AppointmentRatingModal
+        show={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        onSubmit={handleSubmitRating}
+        mode={ratingMode}
+        appointment={ratingTarget === 'doctor' && doctorRating ? { ...appointment, rating: doctorRating.rating, review: doctorRating.review } : appointment}
+        isSubmitting={isSubmittingRating}
+        contextType={ratingTarget}
       />
 
       {/* MODAL HOÀN TIỀN */}

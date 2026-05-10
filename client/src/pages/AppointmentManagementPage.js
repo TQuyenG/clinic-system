@@ -13,16 +13,16 @@ import { toast } from 'react-toastify';
 import CheckinTab from '../components/appointments/CheckinTab';
 import './AppointmentManagementPage.css';
 
-import { 
+import {
   FaCalendarAlt, FaClock, FaUserMd, FaCheckCircle, FaTimesCircle, 
   FaHourglassHalf, FaEye, FaBan, FaFilter, FaSearch, FaDownload, 
   FaPhone, FaEnvelope, FaSpinner, FaTimes,
   FaChevronDown, FaChevronUp, FaChevronRight, FaLock, FaSyncAlt, FaCheck,
   FaHospital, FaPlay, FaNotesMedical, FaMoneyBillWave, FaClipboardCheck,
   FaStethoscope, FaFileAlt, FaList, FaCreditCard, FaUniversity, FaGlobe,
-  FaFileExcel,
-  FaLink
+  FaFileExcel, FaLink, FaStar
 } from 'react-icons/fa';
+import RatingPublic from '../components/appointments/RatingPublic';
 // StatusBadge inline component
 const StatusBadge = ({ status, appointment }) => {
   const s = String(status || '').toLowerCase();
@@ -815,11 +815,30 @@ const AppointmentManagementPage = () => {
               <FaClipboardCheck style={{ marginRight: '8px' }} /> Tiếp đón / Check-in
             </button>
             )}
+            {(user && (user.role === 'admin' || user.role === 'staff')) && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('feedbacks')}
+              style={{
+                padding: '12px 20px',
+                border: 'none',
+                background: activeTab === 'feedbacks' ? '#4caf50' : 'transparent',
+                color: activeTab === 'feedbacks' ? '#fff' : '#6b7280',
+                fontWeight: activeTab === 'feedbacks' ? '600' : '500',
+                cursor: 'pointer',
+                fontSize: '14px',
+                borderBottom: activeTab === 'feedbacks' ? '3px solid #4caf50' : 'none',
+                transition: 'all 0.2s'
+              }}
+            >
+              <FaStar style={{ marginRight: '8px', fontSize: '14px' }} /> Đánh giá
+            </button>
+            )}
           </div>
 
-          {/* Tab Content */}
-          {activeTab === 'appointments' ? (
-          <>
+            {/* Tab Content */}
+            {activeTab === 'appointments' && (
+            <>
               {/* APPOINTMENTS TAB */}
               <div className="appointment-management-filter-panel"> 
             {/* Hàng 1: Tìm kiếm + Nút Đặt lại */}
@@ -1152,8 +1171,16 @@ const AppointmentManagementPage = () => {
             </table>
               </div>
           </>
-          ) : (
+          )}
+
+          {activeTab === 'checkin' && (
             <CheckinTab />
+          )}
+
+          {activeTab === 'feedbacks' && (
+            <div>
+              <RatingPublic />
+            </div>
           )}
         </div>
         

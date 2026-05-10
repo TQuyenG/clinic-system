@@ -2,7 +2,7 @@
 // ✅ GIAO DIỆN MỚI - Theme Y Tế Xanh Pastel
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import consultationService from '../services/consultationService';
 import videoService from '../services/videoService';
 import chatService from '../services/chatService';
@@ -32,6 +32,7 @@ import {
   FaNotesMedical
 } from 'react-icons/fa';
 import './VideoCallRoomPage.css';
+import InRoomResultPanel from '../components/medical/InRoomResultPanel';
 
 // ============================================
 // ✅ COMPONENT MỚI: FORM GHI CHÚ BẮT BUỘC
@@ -202,6 +203,9 @@ const VideoCallRoomPage = () => {
   // Video Refs
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoOpenResult = searchParams.get('openResult') === '1';
+  const [showInRoomPanel, setShowInRoomPanel] = useState(autoOpenResult);
 
   // THÊM MỚI: State xác thực OTP
   // Bác sĩ được vào thẳng, bệnh nhân phải chờ
@@ -370,6 +374,18 @@ const VideoCallRoomPage = () => {
       }
     };
   }, [consultationId, user.id, user.role, navigate, isVerified]); // SỬA: Thêm isVerified
+
+  // sync search param -> panel state
+  useEffect(() => {
+    setShowInRoomPanel(searchParams.get('openResult') === '1');
+  }, [searchParams]);
+
+  const closeInRoomPanel = () => {
+    setShowInRoomPanel(false);
+    const p = new URLSearchParams(searchParams);
+    p.delete('openResult');
+    setSearchParams(p);
+  };
 
   // THÊM MỚI: Hàm xử lý gửi lại OTP
   const handleResendOtp = async () => {
@@ -1314,6 +1330,11 @@ if (loading) {
           ref={canvasRef}
           className="video-call-room-page-beauty-canvas"
         />
+      )}
+
+      {/* In-room result panel (embedded medical form) */}
+      {showInRoomPanel && (
+        <InRoomResultPanel appointmentCode={consultation?.appointment?.code || consultation?.Appointment?.code || consultation?.appointment_code || consultation?.code} onClose={closeInRoomPanel} />
       )}
 
     </div>

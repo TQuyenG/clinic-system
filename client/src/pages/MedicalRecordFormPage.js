@@ -578,13 +578,15 @@ const SubServiceInline = ({ parentAppointment, rows: externalRows = null, onChan
   );
 };
 
-const MedicalRecordFormPage = () => {
-  const { code } = useParams(); // Mã lịch hẹn (AP-1234)
+const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = null, onClose = null } = {}) => {
+  const params = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const code = embeddedCode || params.code; // Mã lịch hẹn (AP-1234)
   const { user } = useAuth();
 
-  const recordId = searchParams.get('record_id');
+  const recordIdFromQuery = searchParams.get('record_id');
+  const recordId = embeddedActiveRecordId || recordIdFromQuery;
   const [activeRecordId, setActiveRecordId] = useState(recordId);
   const isUpdateMode = useMemo(() => !!activeRecordId, [activeRecordId]);
 
@@ -1048,9 +1050,13 @@ const MedicalRecordFormPage = () => {
         setActiveRecordId(String(nextRecordId));
       }
 
-      // 6. Điều hướng
+      // 6. Điều hướng: nếu được nhúng (onClose) gọi callback, ngược lại điều hướng
       setShowPreviewModal(false);
-      navigate(`/lich-hen/${code}`);
+      if (typeof onClose === 'function') {
+        try { onClose(); } catch (e) { /* noop */ }
+      } else {
+        navigate(`/lich-hen/${code}`);
+      }
 
     } catch (error) {
       console.error('Submit error:', error);

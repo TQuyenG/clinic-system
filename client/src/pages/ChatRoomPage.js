@@ -1,12 +1,13 @@
 // client/src/pages/ChatRoomPage.js
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import chatService from '../services/chatService';
 import consultationService from '../services/consultationService';
 import MessageItem from '../components/MessageItem';
 import ChatInput from '../components/ChatInput';
 import './ChatRoomPage.css'; // Sẽ import file CSS mới ở dưới
+import InRoomResultPanel from '../components/medical/InRoomResultPanel';
 
 const ChatRoomPage = ({ isAIChatbot = false }) => {
   const { id: consultationId } = useParams();
@@ -48,6 +49,20 @@ const ChatRoomPage = ({ isAIChatbot = false }) => {
 
   const [warning10MinShown, setWarning10MinShown] = useState(false);
   const [timeUpModalShown, setTimeUpModalShown] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showInRoomPanel, setShowInRoomPanel] = useState(searchParams.get('openResult') === '1');
+
+  useEffect(() => {
+    setShowInRoomPanel(searchParams.get('openResult') === '1');
+  }, [searchParams]);
+
+  const closeInRoomPanel = () => {
+    setShowInRoomPanel(false);
+    const p = new URLSearchParams(searchParams);
+    p.delete('openResult');
+    setSearchParams(p);
+  };
 
   // ========== BẮT ĐẦU ĐOẠN SỬA LỖI no-use-before-define ==========
 
@@ -710,6 +725,10 @@ const ChatRoomPage = ({ isAIChatbot = false }) => {
       </div>
 
       {/* Report Modal */}
+      {/* In-room result panel (embedded medical form) */}
+      {showInRoomPanel && (
+        <InRoomResultPanel appointmentCode={consultation?.appointment?.code || consultation?.Appointment?.code || consultation?.appointment_code || consultation?.code} onClose={closeInRoomPanel} />
+      )}
       {showReportModal && (
         <div className="chatroompage-modal-overlay">
           <div className="chatroompage-modal-content">

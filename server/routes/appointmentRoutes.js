@@ -206,6 +206,93 @@ router.put('/:id/cancel',
   appointmentController.cancelAppointment
 );
 
+// ===== [BƯỚC 2: OPTIMIZE] RATING & FEEDBACK - REUSE ConsultationFeedback Table =====
+// Thay vì tạo 6 columns mới trong appointments
+// → Reuse bảng consultation_feedback (rating, review, status, admin_note)
+// → Thêm appointment_id + service_type để phân loại
+//
+// Routes:
+// 1. Patient gửi rating (1-5 sao + review)
+// 2. Admin xem danh sách feedbacks (cả consultation + appointment)
+// 3. Admin approve/hide feedback
+
+/**
+ * BƯỚC 2: Bệnh nhân gửi rating/review lịch hẹn (1-5 sao + text)
+ * PUT /api/appointments/:id/submit-rating
+ * Auth: Patient only
+ * Body: { rating (1-5), review (text) }
+ * 
+ * Logic:
+ * - Kiểm tra appointment completed + patient_id match
+ * - Tạo record vào ConsultationFeedback (appointment_id != NULL, service_type='appointment')
+ * - feedback_status = 'pending' (chờ admin duyệt)
+ * 
+ * BƯỚC 2: Rating submission for appointment
+ */
+router.put('/:id/submit-rating',
+  authenticateToken,
+  authorize('patient'),
+  appointmentController.submitAppointmentRating
+);
+
+/**
+ * BƯỚC 2: Admin/Staff xem danh sách feedbacks (appointment + consultation)
+ * GET /api/appointments/admin/feedbacks
+ * Auth: Admin/Staff
+ * Query: { doctor_id?, rating?, status?, service_type?, page, limit }
+ * 
+ * Logic:
+ * - Query ConsultationFeedback WHERE appointment_id IS NOT NULL
+ * - Có thể filter theo service_type nếu muốn cả 2 loại
+ * 
+ * BƯỚC 2: List appointment feedbacks
+ */
+router.get('/admin/feedbacks',
+  authenticateToken,
+  authorize('admin', 'staff', 'doctor'),
+  appointmentController.listAppointmentFeedbacks
+);
+
+/**
+ * BƯỚC 2: Admin/Staff duyệt/ẩn feedback
+ * PUT /api/appointments/admin/feedbacks/:feedback_id/toggle-status
+ * Auth: Admin/Staff
+ * Body: { status ('approved'|'hidden'), admin_note? }
+ * 
+ * Logic:
+ * - Update ConsultationFeedback record (appointment)
+ * - Set: status, admin_note, reviewed_by = req.user.id
+ * 
+ * BƯỚC 2: Toggle feedback status
+ */
+router.put('/admin/feedbacks/:feedback_id/toggle-status',
+  authenticateToken,
+  authorize('admin', 'staff'),
+  appointmentController.toggleAppointmentFeedbackStatus  
+);
+
+// Patient can edit/delete their own feedback
+router.put('/feedbacks/:feedback_id',
+  authenticateToken,
+  authorize('patient'),
+  appointmentController.updatePatientFeedback
+);
+
+router.delete('/feedbacks/:feedback_id',
+  authenticateToken,
+  authorize('patient'),
+  appointmentController.deletePatientFeedback
+);
+
+// Reply to feedback (admin/staff/doctor)
+router.put('/admin/feedbacks/:feedback_id/reply',
+  authenticateToken,
+  authorize('admin', 'staff', 'doctor'),
+  appointmentController.replyAppointmentFeedback
+);
+
+// ===== KẾT THÚC RATING & FEEDBACK - OPTIMIZED =====
+
 /**
  * Review lịch hẹn
  * POST /api/appointments/:id/review
