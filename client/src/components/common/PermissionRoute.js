@@ -44,8 +44,9 @@ const PermissionRoute = ({
     }
   }
 
-  // 4. THÊM MỚI: Kiểm tra quyền theo Module (Nếu có truyền vào)
-  if (module && user.role !== 'admin') {
+  // 4. Kiểm tra quyền theo module: CHỈ áp dụng cho Staff.
+  // Admin luôn có toàn quyền, Doctor dùng rule riêng ở route/controller.
+  if (module && user.role === 'staff') {
     if (!canAccessModule(module)) {
       console.warn(`❌ [PermissionRoute] User bị chặn vì không có quyền module: ${module}`);
       return (

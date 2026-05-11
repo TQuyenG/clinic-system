@@ -1,0 +1,541 @@
+/* client/src/pages/MyGroupsManagementPage.css */
+
+.mygroupspage {
+  background: linear-gradient(180deg, #f5f5f5 0%, #ffffff 100%);
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+
+.mygroupspage-banner {
+  position: relative;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+  color: white;
+  margin-bottom: 40px;
+}
+
+.mygroupspage-banner-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400"><defs><pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M 80 0 L 0 0 0 80" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="1200" height="400" fill="url(%23grid)"/></svg>') repeat;
+  opacity: 0.5;
+}
+
+.mygroupspage-banner-inner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.mygroupspage-banner-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.mygroupspage-banner-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.mygroupspage-banner-desc {
+  font-size: 1.1rem;
+  opacity: 0.95;
+  margin: 0;
+  color: #f0f0f0;
+}
+
+.mygroupspage-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.mygroupspage-content {
+  display: flex;
+  flex-direction: column;
+  gap: 50px;
+}
+
+/* Loading State */
+.mygroupspage-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 20px;
+  text-align: center;
+  color: #666;
+}
+
+.mygroupspage-spinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e0e0e0;
+  border-top-color: #4CAF50;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Section */
+.mygroupspage-section {
+  margin-bottom: 30px;
+}
+
+.mygroupspage-section-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #2E7D32;
+  margin-bottom: 25px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 2px solid #e8f5e9;
+  padding-bottom: 15px;
+}
+
+.mygroupspage-section-title svg {
+  font-size: 1.5rem;
+}
+
+/* Empty State */
+.mygroupspage-empty-state,
+.mygroupspage-empty-state-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  background: #f9f9f9;
+  border-radius: 12px;
+  border: 2px dashed #e0e0e0;
+}
+
+.mygroupspage-empty-state-section {
+  padding: 40px 20px;
+}
+
+.mygroupspage-empty-state svg,
+.mygroupspage-empty-state-section svg {
+  color: #ccc;
+  margin-bottom: 15px;
+  font-size: 2rem;
+}
+
+.mygroupspage-empty-state h3,
+.mygroupspage-empty-state-section h3 {
+  font-size: 1.3rem;
+  color: #555;
+  margin: 10px 0;
+}
+
+.mygroupspage-empty-state p,
+.mygroupspage-empty-state-section p {
+  color: #999;
+  font-size: 0.95rem;
+  margin: 5px 0 20px;
+}
+
+/* Groups Grid */
+.mygroupspage-groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.mygroupspage-group-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  border: 1px solid #e8f5e9;
+}
+
+.mygroupspage-group-card:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.mygroupspage-group-cover {
+  height: 160px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mygroupspage-group-icon {
+  font-size: 3rem;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mygroupspage-group-body {
+  padding: 16px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mygroupspage-group-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+  line-height: 1.3;
+  max-height: 2.6em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.mygroupspage-group-status {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mygroupspage-status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mygroupspage-status-active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.mygroupspage-status-pending {
+  background: #fff8e1;
+  color: #f57c00;
+}
+
+.mygroupspage-status-rejected {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.mygroupspage-group-rejection {
+  color: #c62828;
+  font-size: 0.9rem;
+  margin: 5px 0;
+  padding: 8px;
+  background: #ffebee;
+  border-radius: 6px;
+  border-left: 3px solid #c62828;
+}
+
+.mygroupspage-group-description {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.4;
+  max-height: 2.8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  flex-grow: 1;
+}
+
+.mygroupspage-group-meta {
+  display: flex;
+  gap: 15px;
+  font-size: 0.85rem;
+  color: #999;
+  padding: 10px 0;
+  border-top: 1px solid #e8f5e9;
+  border-bottom: 1px solid #e8f5e9;
+}
+
+.mygroupspage-group-meta span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mygroupspage-group-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+/* Buttons */
+.mygroupspage-btn-primary,
+.mygroupspage-btn-outline,
+.mygroupspage-btn-danger,
+.mygroupspage-btn-muted {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex: 1;
+  justify-content: center;
+}
+
+.mygroupspage-btn-primary {
+  background: #4CAF50;
+  color: white;
+}
+
+.mygroupspage-btn-primary:hover:not(:disabled) {
+  background: #45a049;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.mygroupspage-btn-outline {
+  background: transparent;
+  color: #4CAF50;
+  border: 1px solid #4CAF50;
+}
+
+.mygroupspage-btn-outline:hover:not(:disabled) {
+  background: #f1f8f6;
+}
+
+.mygroupspage-btn-danger {
+  background: transparent;
+  color: #f44336;
+  border: 1px solid #f44336;
+}
+
+.mygroupspage-btn-danger:hover:not(:disabled) {
+  background: #ffebee;
+}
+
+.mygroupspage-btn-muted {
+  background: #e8e8e8;
+  color: #999;
+  cursor: not-allowed;
+}
+
+/* Alert */
+.mygroupspage-alert-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.mygroupspage-alert {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mygroupspage-alert--success {
+  border-left: 4px solid #4CAF50;
+}
+
+.mygroupspage-alert--error {
+  border-left: 4px solid #f44336;
+}
+
+.mygroupspage-alert--warning {
+  border-left: 4px solid #ff9800;
+}
+
+.mygroupspage-alert--info {
+  border-left: 4px solid #2196f3;
+}
+
+.mygroupspage-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.mygroupspage-alert-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.mygroupspage-alert-message {
+  color: #666;
+  font-size: 0.95rem;
+  margin: 10px 0;
+  line-height: 1.5;
+}
+
+.mygroupspage-alert-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+.mygroupspage-alert-btn--success {
+  background: #4CAF50;
+  color: white;
+}
+
+.mygroupspage-alert-btn--error {
+  background: #f44336;
+  color: white;
+}
+
+.mygroupspage-alert-btn--warning {
+  background: #ff9800;
+  color: white;
+}
+
+.mygroupspage-alert-btn--info {
+  background: #2196f3;
+  color: white;
+}
+
+.mygroupspage-alert-btn--success:hover,
+.mygroupspage-alert-btn--error:hover,
+.mygroupspage-alert-btn--warning:hover,
+.mygroupspage-alert-btn--info:hover {
+  opacity: 0.9;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .mygroupspage-banner-title {
+    font-size: 2rem;
+  }
+
+  .mygroupspage-banner-desc {
+    font-size: 1rem;
+  }
+
+  .mygroupspage-section-title {
+    font-size: 1.5rem;
+  }
+
+  .mygroupspage-groups-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+  }
+
+  .mygroupspage-group-cover {
+    height: 140px;
+  }
+
+  .mygroupspage-group-actions {
+    flex-direction: column;
+  }
+
+  .mygroupspage-group-actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .mygroupspage-banner {
+    height: 150px;
+    margin-bottom: 30px;
+  }
+
+  .mygroupspage-banner-title {
+    font-size: 1.5rem;
+  }
+
+  .mygroupspage-container {
+    padding: 0 15px;
+  }
+
+  .mygroupspage-content {
+    gap: 30px;
+  }
+
+  .mygroupspage-groups-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mygroupspage-group-card {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .mygroupspage-group-cover {
+    width: 100px;
+    height: 100px;
+    min-width: 100px;
+    border-radius: 8px 0 0 8px;
+  }
+
+  .mygroupspage-group-body {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .mygroupspage-group-icon {
+    font-size: 2rem;
+  }
+
+  .mygroupspage-btn-primary,
+  .mygroupspage-btn-outline,
+  .mygroupspage-btn-danger {
+    flex: 0 1 auto;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+}

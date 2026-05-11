@@ -225,6 +225,62 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Thông tin đơn thuốc dạng JSON'
     },
+
+    // Triệu chứng bác sĩ ghi nhận trong buổi tư vấn / kết quả tư vấn
+    symptoms: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Triệu chứng / mô tả vấn đề của buổi tư vấn'
+    },
+
+    // Lời khuyên / dặn dò cho bệnh nhân
+    advice: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Dặn dò, lời khuyên sau tư vấn'
+    },
+
+    // Chỉ số ghi nhận trong buổi tư vấn (nếu có)
+    vitals_json: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Dữ liệu chỉ số / sinh hiệu dạng JSON'
+    },
+
+    // Ghi chú lâm sàng
+    clinical_note: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Ghi chú lâm sàng của bác sĩ'
+    },
+
+    // Chỉ định dịch vụ phụ trong buổi tư vấn
+    service_indications: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Danh sách dịch vụ phụ / chỉ định'
+    },
+
+    // Ảnh xét nghiệm / file minh chứng
+    test_images_json: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Danh sách ảnh xét nghiệm'
+    },
+
+    // File báo cáo / tài liệu đính kèm
+    report_files_json: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Danh sách file báo cáo/tài liệu'
+    },
+
+    // Snapshot toàn bộ kết quả tư vấn để bệnh nhân xem lại đầy đủ
+    result_snapshot: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Toàn bộ dữ liệu kết quả tư vấn dạng JSON'
+    },
     
     // Mức độ nghiêm trọng
     severity_level: {

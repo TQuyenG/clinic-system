@@ -10,6 +10,7 @@ import serviceService from '../services/serviceService';
 import medicalRecordService from '../services/medicalRecordService';
 import api from '../services/api'; // [MỚI] Import API instance
 import MedicalRecordSummarySections from '../components/medical/MedicalRecordSummarySections';
+import consultationService from '../services/consultationService';
 
 // Import CSS
 import './MedicalRecordFormPage.css';
@@ -578,17 +579,21 @@ const SubServiceInline = ({ parentAppointment, rows: externalRows = null, onChan
   );
 };
 
-const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = null, onClose = null } = {}) => {
+const MedicalRecordFormPage = ({ embeddedCode = null, embeddedConsultationId = null, embeddedActiveRecordId = null, onClose = null } = {}) => {
   const params = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const code = embeddedCode || params.code; // Mã lịch hẹn (AP-1234)
   const { user } = useAuth();
+  const returnTo = searchParams.get('returnTo');
+  const isConsultationMode = Boolean(embeddedConsultationId);
 
   const recordIdFromQuery = searchParams.get('record_id');
   const recordId = embeddedActiveRecordId || recordIdFromQuery;
   const [activeRecordId, setActiveRecordId] = useState(recordId);
   const isUpdateMode = useMemo(() => !!activeRecordId, [activeRecordId]);
+
+  const getFallbackReturnPath = () => returnTo || (isConsultationMode ? `/tu-van/${code}` : `/lich-hen/${code}`);
 
   const [appointment, setAppointment] = useState(null);
   const [subServiceRows, setSubServiceRows] = useState([]);
@@ -709,25 +714,123 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
 
   const canViewSharedHealthProfile = Boolean(sharedHealthHistory?.share_with_doctors);
 
+  const emptyVitals = {
+    blood_pressure: '',
+    pulse: '',
+    temperature: '',
+    weight: '',
+    height: '',
+    respiratory_rate: ''
+  };
+
+  const mapConsultationToAppointmentLike = (consultation) => ({
+    id: consultation.id,
+    code: consultation.consultation_code,
+    appointment_code: consultation.consultation_code,
+    patient_id: consultation.patient_id,
+    doctor_id: consultation.doctor_id,
+    appointment_time: consultation.appointment_time || null,
+    status: consultation.status,
+    patient_name: consultation.patient_name || consultation.Patient?.User?.full_name || consultation.patient?.full_name || '--',
+    patient_phone: consultation.patient_phone || consultation.Patient?.User?.phone || consultation.patient?.phone || '--',
+    patient_email: consultation.patient_email || consultation.Patient?.User?.email || consultation.patient?.email || '--',
+    doctor_name: consultation.doctor_name || consultation.Doctor?.user?.full_name || consultation.doctor?.full_name || '--',
+    doctor_phone: consultation.doctor_phone || consultation.Doctor?.user?.phone || consultation.doctor?.phone || '--',
+    doctor_email: consultation.doctor_email || consultation.Doctor?.user?.email || consultation.doctor?.email || '--',
+    patient: consultation.patient || null,
+    doctor: consultation.doctor || null,
+    Patient: consultation.Patient || (consultation.patient ? { User: { full_name: consultation.patient.full_name || consultation.patient_name, phone: consultation.patient.phone, email: consultation.patient.email }, medical_history: consultation.patient.medical_history } : { User: { full_name: consultation.patient_name || '--' } }),
+    Doctor: consultation.Doctor || (consultation.doctor ? { user: { full_name: consultation.doctor.full_name || consultation.doctor_name, phone: consultation.doctor.phone, email: consultation.doctor.email } } : (consultation.doctor_name ? { user: { full_name: consultation.doctor_name } } : null)),
+    service_indications: consultation.service_indications || [],
+    appointment_date: consultation.appointment_date || consultation.appointment_time || null,
+    service_name: consultation.service_name || consultation.package?.package_name || consultation.package?.package_name || '',
+    appointment_start_time: consultation.appointment_start_time || null,
+    MedicalRecord: consultation.MedicalRecord || null,
+  });
+
   // === Tải dữ liệu ===
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        // 1. Luôn tải thông tin lịch hẹn
-        const apptResponse = await appointmentService.getAppointmentByCode(code);
-        if (!apptResponse.data.success) {
-          toast.error('Không tìm thấy lịch hẹn.');
-          navigate('/quan-ly-lich-hen');
+        if (isConsultationMode) {
+          const consultationKey = embeddedConsultationId || code;
+          const consultResponse = await consultationService.getConsultationById(consultationKey);
+          const consultation = consultResponse?.data?.data;
+
+          if (!consultation) {
+            toast.error('Không tìm thấy buổi tư vấn.');
+            navigate(getFallbackReturnPath(), { replace: true });
+            return;
+          }
+
+          const consultationDraft = consultation?.metadata?.result_draft || {};
+          const appt = mapConsultationToAppointmentLike(consultation);
+          setAppointment(appt);
+          setSubServiceRows(Array.isArray(consultationDraft.service_indications)
+            ? consultationDraft.service_indications
+            : Array.isArray(consultation.service_indications)
+              ? consultation.service_indications
+              : []);
+          setFormData({
+            diagnosis: consultation.diagnosis || consultationDraft.diagnosis || '',
+            symptoms: consultationDraft.symptoms || consultation.chief_complaint || '',
+            treatment_plan: consultation.treatment_plan || consultationDraft.treatment_plan || '',
+            advice: consultation.notes || consultationDraft.advice || '',
+            follow_up_date: consultation.followup_date || consultationDraft.follow_up_date || '',
+            clinical_note: consultation.followup_notes || consultationDraft.clinical_note || '',
+            vitals: consultationDraft.vitals || emptyVitals
+          });
+          const draftPrescription = consultation.prescription_data || consultationDraft.prescription || [];
+          setPrescriptionList((Array.isArray(draftPrescription) && draftPrescription.length > 0 ? draftPrescription : [{ name: '', dosage: '', quantity: '', instructions: '', unit: '' }]).map((p) => ({
+            name: p.name || '',
+            dosage: p.dosage || '',
+            quantity: p.quantity || '',
+            instructions: p.instructions || '',
+            unit: p.unit || ''
+          })));
+          setKeptTestImages([]);
+          setKeptReportFiles([]);
+          setLoading(false);
           return;
         }
-        const appt = apptResponse.data.data;
+
+        // Appointment mode giữ nguyên luồng cũ
+        let appt = null;
+
+        try {
+          const apptResponse = await appointmentService.getAppointmentByCode(code);
+          if (apptResponse.data.success) {
+            appt = apptResponse.data.data;
+          }
+        } catch (err) {
+          console.warn('Appointment lookup failed, trying consultation:', err.message);
+        }
+
+        if (!appt) {
+          try {
+            const consultResponse = await consultationService.getConsultationById(code);
+            if (consultResponse.data.success) {
+              const consultation = consultResponse.data.data;
+              appt = mapConsultationToAppointmentLike(consultation);
+              console.log('✅ Loaded as consultation:', consultation.consultation_code);
+            }
+          } catch (consultErr) {
+            console.error('Consultation lookup also failed:', consultErr.message);
+          }
+        }
+
+        if (!appt) {
+          toast.error('Không tìm thấy lịch hẹn hoặc buổi tư vấn.');
+          navigate(getFallbackReturnPath(), { replace: true });
+          return;
+        }
+
         setAppointment(appt);
         const currentRecordId = recordId || appt?.MedicalRecord?.id || null;
         if (currentRecordId) {
           setActiveRecordId(String(currentRecordId));
         }
-        // initialize sub-service rows from appointment if present
         const initialSvc = Array.isArray(appt?.service_indications) ? appt.service_indications
           : Array.isArray(appt?.Appointment?.service_indications) ? appt.Appointment.service_indications
           : Array.isArray(appt?.MedicalRecord?.service_indications) ? appt.MedicalRecord.service_indications
@@ -748,16 +851,14 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
           appointment_id: item.linked_appointment_id || item.appointment_id || null,
         })));
 
-        // 2. Nếu đã có hồ sơ y tế nháp/cũ thì vẫn dùng chung form này để tiếp tục chỉnh sửa
         if (currentRecordId) {
           const recordResponse = await medicalRecordService.getMedicalRecordById(currentRecordId);
           if (!recordResponse.data.success) {
             toast.error('Không tìm thấy hồ sơ y tế.');
-            navigate(`/lich-hen/${code}`);
+            navigate(getFallbackReturnPath(), { replace: true });
             return;
           }
           const record = recordResponse.data.data;
-          // Điền dữ liệu cũ vào form
           setFormData({
             diagnosis: record.diagnosis || '',
             symptoms: record.symptoms || '',
@@ -765,10 +866,7 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
             advice: record.advice || '',
             follow_up_date: record.follow_up_date || '',
             clinical_note: record.clinical_note || '',
-            vitals: record.vitals_json || {
-              blood_pressure: '', pulse: '', temperature: '', 
-              weight: '', height: '', respiratory_rate: ''
-            }
+            vitals: record.vitals_json || emptyVitals
           });
           setPrescriptionList((record.prescription_json || [{ name: '', dosage: '', quantity: '', instructions: '', unit: '' }]).map((p) => ({
             name: p.name || '',
@@ -785,14 +883,14 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
       } catch (error) {
         console.error('Error loading data:', error);
         toast.error('Lỗi khi tải dữ liệu. Vui lòng thử lại.');
-        navigate('/quan-ly-lich-hen');
+        navigate(getFallbackReturnPath(), { replace: true });
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, [code, recordId, isUpdateMode, navigate]);
+  }, [code, recordId, isUpdateMode, navigate, isConsultationMode, embeddedConsultationId]);
 
   // === Xử lý Form (Text) ===
   const handleFormChange = (e) => {
@@ -992,7 +1090,55 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
     setShowPreviewModal(true);
   };
 
+  const buildConsultationResultPayload = () => ({
+    diagnosis: formData.diagnosis,
+    symptoms: formData.symptoms,
+    treatment_plan: formData.treatment_plan,
+    advice: formData.advice,
+    prescription: JSON.stringify(prescriptionList || []),
+    notes: formData.advice || formData.clinical_note || '',
+    severity_level: 'normal',
+    need_followup: Boolean(formData.follow_up_date),
+    followup_date: formData.follow_up_date || null,
+    followup_notes: formData.clinical_note || formData.advice || '',
+    vitals_json: formData.vitals,
+    clinical_note: formData.clinical_note,
+    service_indications: subServiceRows,
+    test_images_json: previewTestImages,
+    report_files_json: previewReportFiles,
+    draft_data: {
+      diagnosis: formData.diagnosis,
+      symptoms: formData.symptoms,
+      treatment_plan: formData.treatment_plan,
+      advice: formData.advice,
+      follow_up_date: formData.follow_up_date,
+      clinical_note: formData.clinical_note,
+      vitals: formData.vitals,
+      prescription_json: prescriptionList,
+      service_indications: subServiceRows,
+      test_images_json: previewTestImages,
+      report_files_json: previewReportFiles,
+    }
+  });
+
   const saveDraftMedicalRecord = async () => {
+    if (isConsultationMode) {
+      const consultationTargetId = embeddedConsultationId || appointment?.id;
+      if (!consultationTargetId) return toast.error('Không tìm thấy buổi tư vấn');
+
+      try {
+        setIsSavingDraft(true);
+        const response = await consultationService.saveConsultationDraft(consultationTargetId, buildConsultationResultPayload());
+        toast.success('Lưu nháp thành công');
+      } catch (error) {
+        console.error('Save consultation draft error:', error);
+        toast.error(error.response?.data?.message || 'Lỗi khi lưu nháp tư vấn');
+      } finally {
+        setIsSavingDraft(false);
+      }
+      return;
+    }
+
     if (!appointment || !appointment.id) return toast.error('Không tìm thấy lịch hẹn');
 
     try {
@@ -1008,11 +1154,23 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
       const nextRecordId = response?.data?.data?.id;
       if (nextRecordId) {
         setActiveRecordId(String(nextRecordId));
+        const nextSearchParams = new URLSearchParams(searchParams);
+        nextSearchParams.set('record_id', String(nextRecordId));
+        navigate({ pathname: window.location.pathname, search: nextSearchParams.toString() }, { replace: true });
       }
       toast.success('Lưu nháp thành công');
     } catch (error) {
-      console.error('Save draft error:', error);
-      toast.error(error.response?.data?.message || 'Lỗi khi lưu nháp');
+        // Improved error diagnostics: log response body/status if available
+        console.error('Save draft error:', error);
+        const serverMessage = error?.response?.data?.message || error?.response?.data || null;
+        const status = error?.response?.status;
+        if (serverMessage) {
+          toast.error(`Lưu nháp thất bại${status ? ` (Mã ${status})` : ''}: ${typeof serverMessage === 'string' ? serverMessage : JSON.stringify(serverMessage)}`);
+        } else if (error?.message) {
+          toast.error(`Lưu nháp thất bại: ${error.message}`);
+        } else {
+          toast.error('Lưu nháp thất bại. Vui lòng thử lại.');
+        }
     } finally {
       setIsSavingDraft(false);
     }
@@ -1021,6 +1179,38 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
   const executeFinalSubmit = async () => {
     // Check quyền nhân viên lâm sàng (Chỉ lưu sinh hiệu, không cần chẩn đoán)
     const isClinicalStaff = user?.role === 'staff' && (user?.department === 'clinical' || user?.staff?.department === 'clinical');
+
+    if (isConsultationMode) {
+      const consultationTargetId = embeddedConsultationId || appointment?.id;
+
+      if (!isClinicalStaff && !formData.diagnosis.trim()) {
+        toast.error('Chẩn đoán là trường bắt buộc đối với Bác sĩ.');
+        return;
+      }
+
+      if (!consultationTargetId) {
+        toast.error('Không tìm thấy buổi tư vấn');
+        return;
+      }
+
+      try {
+        setSubmitting(true);
+        const response = await consultationService.completeConsultation(consultationTargetId, buildConsultationResultPayload());
+        toast.success('Hoàn thành tư vấn thành công!');
+        setShowPreviewModal(false);
+        if (typeof onClose === 'function') {
+          try { onClose(); } catch (e) { /* noop */ }
+        } else {
+          navigate(getFallbackReturnPath(), { replace: true });
+        }
+      } catch (error) {
+        console.error('Submit consultation error:', error);
+        toast.error(error.response?.data?.message || 'Đã xảy ra lỗi, vui lòng thử lại.');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
 
     // Validation: Nếu là bác sĩ thì bắt buộc có chẩn đoán. Staff thì không cần.
     if (!isClinicalStaff && !formData.diagnosis.trim()) {
@@ -1048,6 +1238,9 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
       const nextRecordId = response?.data?.data?.id;
       if (nextRecordId) {
         setActiveRecordId(String(nextRecordId));
+        const nextSearchParams = new URLSearchParams(searchParams);
+        nextSearchParams.set('record_id', String(nextRecordId));
+        navigate({ pathname: window.location.pathname, search: nextSearchParams.toString() }, { replace: true });
       }
 
       // 6. Điều hướng: nếu được nhúng (onClose) gọi callback, ngược lại điều hướng
@@ -1055,7 +1248,7 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
       if (typeof onClose === 'function') {
         try { onClose(); } catch (e) { /* noop */ }
       } else {
-        navigate(`/lich-hen/${code}`);
+        navigate(getFallbackReturnPath(), { replace: true });
       }
 
     } catch (error) {
@@ -1083,6 +1276,45 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
       </div>
     );
   }
+
+  // Vitals card JSX extracted so we can render it before results in embedded mode
+  const VitalsCard = (
+    <div className="medical-record-form-page-card medical-record-form-page-vitals-card" style={{ backgroundColor: '#fff5f8', borderColor: '#ffb6c1' }}>
+      <h2 className="medical-record-form-page-card-title" style={{ color: '#d81b60' }}>
+        <FaNotesMedical /> Chỉ số cơ bản
+      </h2>
+      <div className="medical-record-form-page-vitals-grid">
+        <div className="medical-record-form-page-form-group">
+          <label>Huyết áp (mmHg)</label>
+          <input type="text" name="vitals.blood_pressure" className="medical-record-form-page-input" value={formData.vitals.blood_pressure} onChange={handleFormChange} placeholder="Ví dụ: 120/80" />
+        </div>
+        <div className="medical-record-form-page-form-group">
+          <label>Mạch (l/p)</label>
+          <input type="number" name="vitals.pulse" className="medical-record-form-page-input" value={formData.vitals.pulse} onChange={handleFormChange} />
+        </div>
+        <div className="medical-record-form-page-form-group">
+          <label>Nhiệt độ (°C)</label>
+          <input type="number" step="0.1" name="vitals.temperature" className="medical-record-form-page-input" value={formData.vitals.temperature} onChange={handleFormChange} />
+        </div>
+        <div className="medical-record-form-page-form-group">
+          <label>Cân nặng (kg)</label>
+          <input type="number" step="0.1" name="vitals.weight" className="medical-record-form-page-input" value={formData.vitals.weight} onChange={handleFormChange} />
+        </div>
+        <div className="medical-record-form-page-form-group">
+          <label>Chiều cao (cm)</label>
+          <input type="number" name="vitals.height" className="medical-record-form-page-input" value={formData.vitals.height} onChange={handleFormChange} />
+        </div>
+        <div className="medical-record-form-page-form-group">
+          <label>Nhịp thở (l/p)</label>
+          <input type="number" name="vitals.respiratory_rate" className="medical-record-form-page-input" value={formData.vitals.respiratory_rate} onChange={handleFormChange} />
+        </div>
+        <div className="medical-record-form-page-form-group full-span">
+          <label>Ghi chú lâm sàng ban đầu</label>
+          <textarea name="clinical_note" className="medical-record-form-page-textarea" rows="2" value={formData.clinical_note} onChange={handleFormChange} placeholder="Triệu chứng hiện tại, lý do khám..." />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="medical-record-form-page-container">
@@ -1164,6 +1396,7 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
 
         {/* Cột chính */}
         <div className="medical-record-form-page-main-grid">
+          {embeddedCode && VitalsCard}
           
           {/* Cột trái (Form chính) */}
           <div className="medical-record-form-page-left-col">
@@ -1382,46 +1615,10 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
               <SubServiceInline parentAppointment={appointment} rows={subServiceRows} onChange={setSubServiceRows} />
             </div>
           </div>
-          
+
           {/* Cột phải (Tái khám & Upload) */}
           <div className="medical-record-form-page-right-col">
-
-            {/* 0. Chỉ số sinh tồn (Dành cho Điều dưỡng / Vận hành lâm sàng) */}
-            <div className="medical-record-form-page-card" style={{ backgroundColor: '#fff5f8', borderColor: '#ffb6c1' }}>
-              <h2 className="medical-record-form-page-card-title" style={{ color: '#d81b60' }}>
-                <FaNotesMedical /> Chỉ số sinh tồn (Sinh hiệu)
-              </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
-                <div className="medical-record-form-page-form-group">
-                  <label>Huyết áp (mmHg)</label>
-                  <input type="text" name="vitals.blood_pressure" className="medical-record-form-page-input" value={formData.vitals.blood_pressure} onChange={handleFormChange} placeholder="Ví dụ: 120/80" />
-                </div>
-                <div className="medical-record-form-page-form-group">
-                  <label>Mạch (l/p)</label>
-                  <input type="number" name="vitals.pulse" className="medical-record-form-page-input" value={formData.vitals.pulse} onChange={handleFormChange} />
-                </div>
-                <div className="medical-record-form-page-form-group">
-                  <label>Nhiệt độ (°C)</label>
-                  <input type="number" step="0.1" name="vitals.temperature" className="medical-record-form-page-input" value={formData.vitals.temperature} onChange={handleFormChange} />
-                </div>
-                <div className="medical-record-form-page-form-group">
-                  <label>Cân nặng (kg)</label>
-                  <input type="number" step="0.1" name="vitals.weight" className="medical-record-form-page-input" value={formData.vitals.weight} onChange={handleFormChange} />
-                </div>
-                <div className="medical-record-form-page-form-group">
-                  <label>Chiều cao (cm)</label>
-                  <input type="number" name="vitals.height" className="medical-record-form-page-input" value={formData.vitals.height} onChange={handleFormChange} />
-                </div>
-                <div className="medical-record-form-page-form-group">
-                  <label>Nhịp thở (l/p)</label>
-                  <input type="number" name="vitals.respiratory_rate" className="medical-record-form-page-input" value={formData.vitals.respiratory_rate} onChange={handleFormChange} />
-                </div>
-                <div className="medical-record-form-page-form-group full-span">
-                  <label>Ghi chú lâm sàng ban đầu</label>
-                  <textarea name="clinical_note" className="medical-record-form-page-textarea" rows="2" value={formData.clinical_note} onChange={handleFormChange} placeholder="Triệu chứng hiện tại, lý do khám..." />
-                </div>
-              </div>
-            </div>
+            {!embeddedCode && VitalsCard}
 
             {/* 3. Tái khám */}
             <div className="medical-record-form-page-card">
@@ -1549,7 +1746,7 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedActiveRecordId = n
                 </div>
               </div>
             </div>
-              </div>
+          </div>
         </div>
 
         {showPreviewModal && (

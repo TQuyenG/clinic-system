@@ -1,8 +1,8 @@
 // client/src/pages/ConsultationDetailPage.js
 // ✅ TRANG CHI TIẾT TƯ VẤN - COMPACT MEDICAL THEME
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import consultationService from '../services/consultationService';
 import paymentService from '../services/paymentService';
@@ -22,6 +22,8 @@ const ConsultationDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const autoOpenResultRef = useRef(false);
   
   const [consultation, setConsultation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,24 @@ const ConsultationDetailPage = () => {
   useEffect(() => {
     fetchConsultationDetail();
   }, [id]);
+
+  // Auto-open result panel if coming from consultation detail with ?openResult=1
+  useEffect(() => {
+    if (!consultation || autoOpenResultRef.current) return;
+    if (searchParams.get('openResult') !== '1') return;
+    
+    // Compute canWriteResult here to avoid hook dependency issues
+    const isDoctorOwner = user?.role === 'doctor' && (
+      user?.id === consultation.doctor_id ||
+      user?.id === consultation.doctor?.id ||
+      user?.id === consultation.doctor?.user_id
+    );
+    const canWrite = isDoctorOwner && ['confirmed', 'in_progress'].includes(consultation.status);
+    if (!canWrite) return;
+
+    autoOpenResultRef.current = true;
+    handleStartChat();
+  }, [consultation, searchParams, user?.id, user?.role]);
 
   const fetchConsultationDetail = async () => {
     try {
@@ -533,13 +553,14 @@ const ConsultationDetailPage = () => {
                 <h3><FaNotesMedical /> Kết quả khám</h3>
               </div>
               <div className="cdp-card-body">
-                <Link
-                  to={`/nhap-ket-qua/${consultation.consultation_code || consultation.id}`}
+                <button
+                  type="button"
+                  onClick={handleStartChat}
                   className="cdp-btn cdp-btn-primary full"
                   style={{ display: 'inline-flex', justifyContent: 'center' }}
                 >
-                  <FaNotesMedical /> {consultation.diagnosis ? 'Nhập / cập nhật kết quả khám' : 'Nhập kết quả khám'}
-                </Link>
+                  <FaNotesMedical /> {consultation.diagnosis ? 'Mở phòng để cập nhật kết quả' : 'Mở phòng để nhập kết quả'}
+                </button>
 
                 {!canWriteResult && (
                   <p className="cdp-note-muted"><FaInfoCircle /> Có thể nhập kết quả khi ca tư vấn ở trạng thái đã xác nhận hoặc đang diễn ra.</p>

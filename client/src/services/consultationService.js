@@ -63,6 +63,10 @@ const consultationService = {
   completeConsultation: async (id, data) => {
     return await api.put(`/consultations/${id}/complete`, data);
   },
+
+  saveConsultationDraft: async (id, data) => {
+    return await api.put(`/consultations/${id}/draft`, data);
+  },
   
   getDoctorStats: async () => {
     return await api.get('/consultations/doctor/stats');

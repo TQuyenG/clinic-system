@@ -91,6 +91,11 @@ module.exports = (sequelize) => {
       defaultValue: 'draft',
       comment: 'Trạng thái hiện tại của bài viết'
     },
+    hidden_reason: { 
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Lý do bài viết bị ẩn (dành cho tác giả xem)'
+    },
     entity_type: { 
       type: DataTypes.ENUM('medicine', 'disease'),
       comment: 'Loại thực thể liên kết (nếu có)'

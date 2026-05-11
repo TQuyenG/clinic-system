@@ -48,7 +48,6 @@
   box-shadow: var(--entity-mgmt-shadow-md);
   padding: 1.25rem 1.5rem;
   margin-bottom: 1.5rem;
-  border-top: 4px solid var(--entity-mgmt-primary);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -294,7 +293,6 @@
   box-shadow: var(--entity-mgmt-shadow);
   padding: 1.25rem;
   margin-bottom: 1.5rem;
-  border-left: 3px solid var(--entity-mgmt-primary);
 }
 
 .entity-mgmt-filters-row {

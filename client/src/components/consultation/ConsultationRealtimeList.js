@@ -1,5 +1,5 @@
 // Path: client/src/components/consultation/ConsultationRealtimeList.js
-// ✅ REALTIME LIST - COMPACT THEME & FIXED MODAL
+// ✅ REALTIME LIST - COMPACT THEME & FIXED MODAL - NO EMOJI ICONS
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,12 +7,12 @@ import consultationService from '../../services/consultationService';
 import { 
   FaSearch, FaCheckCircle, FaTimesCircle, FaEye, FaMoneyBillWave,
   FaFileExport, FaSpinner, FaCalendarTimes, 
-  FaClock, FaBan, FaCheck, FaHourglassHalf, FaStar
+  FaClock, FaBan, FaCheck, FaHourglassHalf, FaStar, FaExclamationTriangle
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import './ConsultationRealtimeList.css'; // Đảm bảo import file CSS mới
+import './ConsultationRealtimeList.css';
 
-export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { // ✅ Đã thêm prop role
+export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => {
   const { user } = useAuth();
   const isSystemStaff = user?.department === 'system' || user?.staff?.department === 'system';
   const isStaff = ['staff', 'admin'].includes(user?.role);
@@ -85,7 +85,9 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
     item?.doctor_email ||
     user?.email ||
     'N/A';
+
   const getPaymentStatus = (item) => item?.payment_status || 'unpaid';
+
   const getServiceName = (item) =>
     item?.package?.name ||
     item?.consultation_pricing?.name ||
@@ -93,7 +95,6 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
     item?.appointment?.Service?.name ||
     item?.service_name ||
     'Tư vấn trực tuyến';
-  const getTypeLabel = (item) => consultationService.formatConsultationType(item?.consultation_type);
 
   const fetchConsultations = useCallback(async () => {
     try {
@@ -103,61 +104,45 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
         doctor_id: doctorId || filters.doctor_id 
       };
 
-      console.log('🔍 Fetching data for role:', user?.role);
-
       let response;
       let dataList = [];
       let paginationData = null;
 
-      // 1️⃣ TRƯỜNG HỢP: BỆNH NHÂN (Patient)
       if (role === 'patient' || user?.role === 'patient') {
         response = await consultationService.getMyConsultations(params);
         if (response.data.success) {
-          // API Patient trả về mảng trực tiếp trong data.data
           dataList = response.data.data;
           paginationData = response.data.pagination;
         }
-      } 
-      // 2️⃣ TRƯỜNG HỢP: BÁC SĨ (Doctor)
-      else if (user?.role === 'doctor') {
+      } else if (user?.role === 'doctor') {
         response = await consultationService.getDoctorConsultations(params);
         if (response.data.success) {
-          // API Doctor trả về mảng trực tiếp trong data.data
           dataList = response.data.data;
           paginationData = response.data.pagination;
         }
-      }
-      // 3️⃣ TRƯỜNG HỢP: NHÂN VIÊN (Staff) - Có thể dùng API quản lý riêng hoặc Admin
-      else if (user?.role === 'staff') {
-        // Staff thường dùng chung API Admin để quản lý realtime
+      } else if (user?.role === 'staff') {
         response = await consultationService.getAllConsultationsRealtime(params);
         if (response.data.success) {
-          // API Admin/Staff trả về mảng trong data.data.consultations
           dataList = response.data.data.consultations;
           paginationData = response.data.data.pagination;
         }
-      }
-      // 4️⃣ TRƯỜNG HỢP: QUẢN TRỊ VIÊN (Admin)
-      else {
+      } else {
         response = await consultationService.getAllConsultationsRealtime(params);
         if (response.data.success) {
-          // API Admin trả về mảng trong data.data.consultations
           dataList = response.data.data.consultations;
           paginationData = response.data.data.pagination;
         }
       }
 
-      // Cập nhật State an toàn (tránh lỗi undefined)
       setConsultations(Array.isArray(dataList) ? dataList : []);
       if (paginationData) setPagination(paginationData);
 
     } catch (error) {
       console.error('Error fetching consultations:', error);
-      // Không alert lỗi để tránh làm phiền người dùng
     } finally {
       setLoading(false);
     }
-  }, [filters, doctorId, role, user]); // ✅ Đầy đủ dependency
+  }, [filters, doctorId, role, user]);
 
   useEffect(() => {
     if (initialType) {
@@ -165,7 +150,6 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
     }
   }, [initialType]);
 
-  // ✅ THÊM ĐOẠN NÀY ĐỂ GỌI API KHI COMPONENT LOAD HOẶC FILTER THAY ĐỔI
   useEffect(() => {
     fetchConsultations();
   }, [fetchConsultations]);
@@ -178,17 +162,16 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
     setFilters(prev => ({ ...prev, page: newPage }));
   };
 
-  // ✅ NO EMOJI - USE ICONS
   const getStatusBadge = (sOrObj) => {
     const status = (sOrObj && typeof sOrObj === 'object') ? sOrObj.status : sOrObj;
     const config = {
-      pending: { class: 'crl-badge-warn', icon: <FaHourglassHalf />, text: 'Chờ xác nhận' },
-      confirmed: { class: 'crl-badge-info', icon: <FaCheckCircle />, text: 'Đã xác nhận' },
+      pending:     { class: 'crl-badge-warn',    icon: <FaHourglassHalf />, text: 'Chờ xác nhận' },
+      confirmed:   { class: 'crl-badge-info',    icon: <FaCheckCircle />,   text: 'Đã xác nhận' },
       in_progress: { class: 'crl-badge-success', icon: <FaSpinner className="spin" />, text: 'Đang diễn ra' },
-      completed: { class: 'crl-badge-success', icon: <FaCheck />, text: 'Hoàn thành' },
-      cancelled: { class: 'crl-badge-danger', icon: <FaTimesCircle />, text: 'Đã hủy' },
-      rejected: { class: 'crl-badge-danger', icon: <FaBan />, text: 'Từ chối' },
-      expired: { class: 'crl-badge-muted', icon: <FaClock />, text: 'Hết hạn' },
+      completed:   { class: 'crl-badge-success', icon: <FaCheck />,         text: 'Hoàn thành' },
+      cancelled:   { class: 'crl-badge-danger',  icon: <FaTimesCircle />,   text: 'Đã hủy' },
+      rejected:    { class: 'crl-badge-danger',  icon: <FaBan />,           text: 'Từ chối' },
+      expired:     { class: 'crl-badge-muted',   icon: <FaClock />,         text: 'Hết hạn' },
     };
     const item = config[status] || config.pending;
     return (
@@ -200,11 +183,11 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
 
   const getPaymentBadge = (item) => {
     const map = {
-      unpaid: { text: 'Chưa thanh toán', className: 'unpaid' },
-      paid_online: { text: 'Đã thanh toán', className: 'paid' },
-      paid_at_clinic: { text: 'Thanh toán tại quầy', className: 'paid' },
-      not_required: { text: 'Miễn phí', className: 'free' },
-      refunded: { text: 'Đã hoàn tiền', className: 'refunded' },
+      unpaid:        { text: 'Chưa thanh toán',     className: 'unpaid' },
+      paid_online:   { text: 'Đã thanh toán',        className: 'paid' },
+      paid_at_clinic:{ text: 'Thanh toán tại quầy', className: 'paid' },
+      not_required:  { text: 'Miễn phí',             className: 'free' },
+      refunded:      { text: 'Đã hoàn tiền',         className: 'refunded' },
     };
     const info = map[getPaymentStatus(item)] || map.unpaid;
     return <span className={`crl-payment-badge ${info.className}`}>{info.text}</span>;
@@ -236,7 +219,6 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
     if (!window.confirm(`Hoàn tiền ${consultation.total_fee.toLocaleString()}đ?`)) return;
     const reason = window.prompt('Lý do hoàn tiền:');
     if (!reason) return;
-
     setActionLoading(consultation.consultation_code);
     try {
       await consultationService.processRefundAdmin(consultation.consultation_code, {
@@ -267,10 +249,8 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
       alert('Cần nhập lý do cho tư vấn có phí.');
       return;
     }
-    
     setActionLoading(selectedConsultation.consultation_code);
     setIsCancelModalOpen(false);
-
     try {
       await consultationService.adminCancelConfirmedConsultation(selectedConsultation.consultation_code, { 
         reason: cancelReason.trim() || 'Admin hủy' 
@@ -295,7 +275,9 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
     if (!datetime) return 'N/A';
     return new Date(datetime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
+
   const canJoinRoom = (item) => consultationService.canStartConsultation(item?.appointment_time);
+  const canDoctorJoinRoom = (item) => item?.status === 'in_progress' || (item?.status === 'confirmed' && consultationService.canStartConsultation(item?.appointment_time));
   const canCancelByPatient = (item) => ['pending', 'pending_payment'].includes(item?.status);
   const canPayNow = (item) => item?.status === 'pending_payment';
   const isCompleted = (item) => item?.status === 'completed';
@@ -342,7 +324,7 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
 
   return (
     <div className="crl-container">
-      {/* Filters - Compact Grid */}
+      {/* Filters */}
       <div className="crl-filters">
         <div className="crl-filter-group">
           <select className="crl-select" value={filters.status} onChange={e => handleFilterChange('status', e.target.value)}>
@@ -357,7 +339,7 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
             <option value="all">Tất cả thanh toán</option>
             <option value="unpaid">Chưa thanh toán</option>
             <option value="paid_online">Đã thanh toán</option>
-            <option value="paid_at_clinic">Thanh toán tại quầy</option>
+            <option value="paid_at_clinic">Tại quầy</option>
             <option value="not_required">Miễn phí</option>
             <option value="refunded">Đã hoàn tiền</option>
           </select>
@@ -371,15 +353,25 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
         <div className="crl-search-group">
           <div className="crl-search-box">
             <FaSearch className="crl-search-icon" />
-            <input type="text" className="crl-search-input" placeholder="Tìm mã, bệnh nhân, bác sĩ, email..." value={filters.search} onChange={e => handleFilterChange('search', e.target.value)} />
+            <input
+              type="text"
+              className="crl-search-input"
+              placeholder="Tìm mã, bệnh nhân, bác sĩ..."
+              value={filters.search}
+              onChange={e => handleFilterChange('search', e.target.value)}
+            />
           </div>
-          <button className="crl-btn-export"><FaFileExport /></button>
+          <button className="crl-btn-export" title="Xuất dữ liệu">
+            <FaFileExport />
+          </button>
         </div>
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="crl-loading">Đang tải...</div>
+        <div className="crl-loading">
+          <FaSpinner className="spin" style={{ marginRight: 6 }} /> Đang tải...
+        </div>
       ) : (
         <>
           <div className="crl-table-wrapper">
@@ -399,7 +391,11 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
               </thead>
               <tbody>
                 {filteredConsultations.length === 0 ? (
-                  <tr><td colSpan={isSystemStaff ? 8 : 9} className="text-center">Không có dữ liệu</td></tr>
+                  <tr>
+                    <td colSpan={isSystemStaff ? 8 : 9} className="text-center">
+                      Không có dữ liệu
+                    </td>
+                  </tr>
                 ) : (
                   filteredConsultations.map((item, index) => (
                     <tr key={item.id}>
@@ -420,7 +416,9 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
                       <td>
                         <div className="crl-info-cell">
                           <strong>{getServiceName(item)}</strong>
-                          <span className={`crl-mini-badge ${item.consultation_type}`}>{item.consultation_type === 'video' ? 'Video call' : 'Chat realtime'}</span>
+                          <span className={`crl-mini-badge ${item.consultation_type}`}>
+                            {item.consultation_type === 'video' ? 'Video call' : 'Chat realtime'}
+                          </span>
                         </div>
                       </td>
                       <td>
@@ -433,7 +431,11 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
                       <td>
                         <div className="crl-payment-cell">
                           {getPaymentBadge(item)}
-                          <small>{item.payment_method ? item.payment_method.toUpperCase() : ''}</small>
+                          {item.payment_method && (
+                            <small style={{ fontSize: '10px', color: '#999' }}>
+                              {item.payment_method.toUpperCase()}
+                            </small>
+                          )}
                         </div>
                       </td>
                       {!isSystemStaff && (
@@ -443,30 +445,49 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
                               <FaSpinner className="spin" />
                             ) : (
                               <>
-                                <button className="crl-btn-action view" onClick={() => navigate(`/tu-van/${item.id}`)} title="Xem chi tiết"><FaEye /> <span>Chi tiết</span></button>
+                                <button
+                                  className="crl-btn-action view"
+                                  onClick={() => navigate(`/tu-van/${item.id}`)}
+                                  title="Xem chi tiết"
+                                >
+                                  <FaEye /> <span>Chi tiết</span>
+                                </button>
 
                                 {isPatientRole ? (
                                   <>
                                     {canJoinRoom(item) && (
-                                      <button className="crl-btn-action success" onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)} title="Vào phòng">
+                                      <button
+                                        className="crl-btn-action success"
+                                        onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)}
+                                        title="Vào phòng"
+                                      >
                                         <FaCheck /> <span>Vào phòng</span>
                                       </button>
                                     )}
-
                                     {canPayNow(item) && (
-                                      <button className="crl-btn-action warning" onClick={() => navigate(`/thanh-toan/${item.id}`)} title="Thanh toán ngay">
+                                      <button
+                                        className="crl-btn-action warning"
+                                        onClick={() => navigate(`/thanh-toan/${item.id}`)}
+                                        title="Thanh toán ngay"
+                                      >
                                         <FaMoneyBillWave /> <span>Thanh toán</span>
                                       </button>
                                     )}
-
                                     {canCancelByPatient(item) && (
-                                      <button className="crl-btn-action danger" onClick={() => handleCancelConfirmed(item)} title="Hủy lịch">
+                                      <button
+                                        className="crl-btn-action danger"
+                                        onClick={() => handleCancelConfirmed(item)}
+                                        title="Hủy lịch"
+                                      >
                                         <FaCalendarTimes /> <span>Hủy</span>
                                       </button>
                                     )}
-
                                     {isCompleted(item) && (
-                                      <button className="crl-btn-action info" onClick={() => navigate(`/tu-van/${item.id}`)} title={item.rating ? 'Xem đánh giá' : 'Đánh giá'}>
+                                      <button
+                                        className="crl-btn-action info"
+                                        onClick={() => navigate(`/tu-van/${item.id}`)}
+                                        title={item.rating ? 'Xem đánh giá' : 'Đánh giá'}
+                                      >
                                         <FaStar /> <span>{item.rating ? 'Xem đánh giá' : 'Đánh giá'}</span>
                                       </button>
                                     )}
@@ -475,21 +496,31 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
                                   <>
                                     {item.status === 'pending' && isAdminOrStaffRole && (
                                       <>
-                                        <button className="crl-btn-action success" onClick={() => handleApprove(item.consultation_code)} title="Duyệt">
+                                        <button
+                                          className="crl-btn-action success"
+                                          onClick={() => handleApprove(item.consultation_code)}
+                                          title="Duyệt"
+                                        >
                                           <FaCheckCircle /> <span>Duyệt</span>
                                         </button>
-                                        <button className="crl-btn-action danger" onClick={() => handleReject(item.consultation_code)} title="Từ chối">
+                                        <button
+                                          className="crl-btn-action danger"
+                                          onClick={() => handleReject(item.consultation_code)}
+                                          title="Từ chối"
+                                        >
                                           <FaTimesCircle /> <span>Từ chối</span>
                                         </button>
                                       </>
                                     )}
-                                    
-                                    {canJoinRoom(item) && (
-                                       <button className="crl-btn-action success" onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)} title="Vào phòng">
-                                          <FaCheck /> <span>Vào phòng</span>
-                                       </button>
+                                    {canDoctorJoinRoom(item) && (
+                                      <button
+                                        className="crl-btn-action success"
+                                        onClick={() => navigate(item.consultation_type === 'video' ? `/tu-van/video/${item.id}` : `/tu-van/${item.id}/chat`)}
+                                        title="Vào phòng"
+                                      >
+                                        <FaCheck /> <span>Vào phòng</span>
+                                      </button>
                                     )}
-
                                   </>
                                 )}
                               </>
@@ -507,9 +538,19 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
           {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (
             <div className="crl-pagination">
-              <button onClick={() => handlePageChange(pagination.page - 1)} disabled={pagination.page === 1}>Trước</button>
+              <button
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={pagination.page === 1}
+              >
+                Trước
+              </button>
               <span>{pagination.page} / {pagination.totalPages}</span>
-              <button onClick={() => handlePageChange(pagination.page + 1)} disabled={pagination.page === pagination.totalPages}>Sau</button>
+              <button
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={pagination.page === pagination.totalPages}
+              >
+                Sau
+              </button>
             </div>
           )}
         </>
@@ -523,23 +564,33 @@ export const ConsultationRealtimeList = ({ initialType, doctorId, role }) => { /
               <FaCalendarTimes /> Hủy Tư Vấn
             </div>
             <div className="crl-modal-body">
-              <p>Bạn muốn hủy tư vấn <strong>{selectedConsultation.consultation_code}</strong>?</p>
+              <p>
+                Bạn muốn hủy tư vấn{' '}
+                <strong>{selectedConsultation.consultation_code}</strong>?
+              </p>
               {parseFloat(selectedConsultation.total_fee) > 0 && (
-                <div className="crl-alert-warning">⚠️ Lịch có phí. Bắt buộc nhập lý do.</div>
+                <div className="crl-alert-warning">
+                  <FaExclamationTriangle /> Lịch có phí. Bắt buộc nhập lý do.
+                </div>
               )}
               <label className="crl-label">Lý do hủy:</label>
-              <textarea 
-                className="crl-textarea" 
-                rows="3" 
-                value={cancelReason} 
+              <textarea
+                className="crl-textarea"
+                rows="3"
+                value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 placeholder="Nhập lý do..."
               />
             </div>
             <div className="crl-modal-footer">
-              <button className="crl-btn-modal sec" onClick={() => setIsCancelModalOpen(false)}>Đóng</button>
-              <button 
-                className="crl-btn-modal danger" 
+              <button
+                className="crl-btn-modal sec"
+                onClick={() => setIsCancelModalOpen(false)}
+              >
+                Đóng
+              </button>
+              <button
+                className="crl-btn-modal danger"
                 onClick={handleSubmitCancel}
                 disabled={parseFloat(selectedConsultation.total_fee) > 0 && !cancelReason.trim()}
               >

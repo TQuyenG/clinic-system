@@ -573,9 +573,35 @@ const DashboardPage = () => {
   const getEventsForDate = (day) => {
     if (!calendarEvents) return { schedules: [], appointments: [], leaves: [] };
     const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    // Normalize appointments array to include consultations (server may mark them with `is_consultation`)
+    const rawAppointments = calendarEvents.appointments || [];
+    const normalizedAppointments = rawAppointments.map(e => {
+      // If server marked as consultation, adapt fields to appointment-like shape
+      if (e.is_consultation) {
+        const appointment_date = e.date || (e.appointment_time ? String(e.appointment_time).split('T')[0] : null);
+        const appointment_start_time = e.start_time || e.appointment_start_time || (e.appointment_time ? String(e.appointment_time).split('T')[1]?.substring(0,5) : null);
+        const appointment_end_time = e.end_time || e.appointment_end_time || (e.ended_at ? String(e.ended_at).split('T')[1]?.substring(0,5) : null);
+        const patient_name = e.Patient?.full_name || e.Patient?.User?.full_name || e.guest_name || 'Bệnh nhân';
+        return {
+          ...e,
+          appointment_date,
+          appointment_start_time,
+          appointment_end_time,
+          patient_name,
+          service_name: e.Service?.name || 'Tư vấn',
+        };
+      }
+      // For regular appointments, try to ensure patient_name/service_name exist for tooltip rendering
+      return {
+        ...e,
+        patient_name: e.Patient?.User?.full_name || e.guest_name || e.Patient?.full_name || e.patient_name,
+        service_name: e.Service?.name || e.service_name || null
+      };
+    });
+
     return {
       schedules: calendarEvents.schedules?.filter(e => e.date === dateStr) || [],
-      appointments: calendarEvents.appointments?.filter(e => e.appointment_date?.startsWith(dateStr)) || [],
+      appointments: normalizedAppointments.filter(a => a.appointment_date?.startsWith(dateStr)) || [],
       leaves: calendarEvents.leaves?.filter(e => {
         const dateFrom = e.date_from?.split('T')[0];
         const dateTo = e.date_to?.split('T')[0];

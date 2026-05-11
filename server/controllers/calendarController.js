@@ -446,6 +446,69 @@ exports.getCalendarData = async (req, res) => {
       });
     }
 
+    // --- E. Include Consultations that look like appointments (so dashboard/calendar shows them) ---
+    if (typesToFetch.includes('appointments')) {
+      try {
+        const consultationData = await models.Consultation.findAll({
+          where: {
+            appointment_time: dateRange,
+            status: { [Op.notIn]: ['cancelled', 'passed'] }
+          },
+          include: [
+            {
+              model: models.User,
+              as: 'doctor',
+              required: true,
+              attributes: ['id', 'full_name', 'avatar_url'],
+              where: { id: { [Op.in]: targetUserIds } }
+            },
+            {
+              model: models.User,
+              as: 'patient',
+              required: false,
+              attributes: ['id', 'full_name', 'email', 'phone']
+            }
+          ],
+          attributes: [
+            'id', 'patient_id', 'doctor_id', 'consultation_code', 'status', 'appointment_time', 'started_at', 'ended_at', 'duration_minutes'
+          ]
+        });
+
+        console.log('[DEBUG-CONSULT] Consultation records found:', consultationData.length);
+
+        const mappedConsultations = consultationData.map(c => {
+          const cJSON = c.toJSON();
+          const userId = c.doctor?.id;
+          // appointment_date and times adapted from appointment_time / started_at
+          const appointmentDate = cJSON.appointment_time ? String(cJSON.appointment_time).split('T')[0] : null;
+          const appointmentTime = cJSON.appointment_time ? String(cJSON.appointment_time).split('T')[1]?.substring(0,5) : (cJSON.started_at ? String(cJSON.started_at).split('T')[1]?.substring(0,5) : null);
+          const endTime = cJSON.ended_at ? String(cJSON.ended_at).split('T')[1]?.substring(0,5) : null;
+
+          // patient is included directly as User on Consultation model
+          if (cJSON.patient) {
+            cJSON.patient.full_name = cJSON.patient.full_name || cJSON.patient.name;
+          }
+
+          return {
+            ...cJSON,
+            id: `consult-${cJSON.id}`,
+            code: cJSON.consultation_code,
+            date: appointmentDate,
+            start_time: appointmentTime,
+            end_time: endTime,
+            user_id: userId,
+            user: userMap.get(userId) || null,
+            is_consultation: true
+          };
+        });
+
+        // Append consultations to appointments array so frontend calendar shows them
+        appointments = [...appointments, ...mappedConsultations];
+      } catch (err) {
+        console.error('Error fetching consultations for calendar:', err);
+      }
+    }
+
     // DEBUG: Log final response
     console.log('[DEBUG-FINAL] Final Response Counts:', {
       schedules: schedules.length,

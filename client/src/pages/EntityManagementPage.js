@@ -21,6 +21,7 @@ const EntityManagementPage = ({ entityType }) => {
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user'));
   const userRole = user?.role;
+  const isDoctor = userRole === 'doctor';
   
   // 🔐 PERMISSION HOOKS
   const { hasPermission } = usePermissions();
@@ -480,7 +481,7 @@ const EntityManagementPage = ({ entityType }) => {
   
   const canCreate = isAdmin || hasPermission('articles', createPermKey);
   const canApprove = isAdmin || hasPermission('articles', approvePermKey);
-  const canSuggest = hasPermission('articles', suggestPermKey);
+  const canSuggest = isDoctor || hasPermission('articles', suggestPermKey);
   
   // ⚠️ Thuốc/Bệnh lý: Chỉ admin hoặc manager mới được sửa trực tiếp
   // Nhân viên thường chỉ có quyền đề xuất chỉnh sửa

@@ -5,7 +5,7 @@ import axios from 'axios';
 import { 
   FaArrowLeft, FaUser, FaCalendar, FaTag, FaLink, FaNewspaper,
   FaCheck, FaBan, FaHistory, FaCheckCircle, FaExclamationTriangle, 
-  FaPaperPlane, FaCommentDots, FaSpinner, FaEyeSlash, FaEye, FaStethoscope
+  FaPaperPlane, FaCommentDots, FaSpinner, FaEyeSlash, FaEye, FaStethoscope, FaLock
 } from 'react-icons/fa';
 import usePermissions from '../hooks/usePermissions';
 import './ArticleReviewPage.css';
@@ -138,8 +138,11 @@ const ArticleReviewPage = () => {
   if (!article) return <div style={{padding: '3rem', textAlign: 'center'}}>Không tìm thấy bài viết</div>;
 
   // PHÂN QUYỀN GIAO DIỆN NÚT BẤM
-  const isDoctorReviewer = user.role === 'doctor' && article.medical_reviewer_id === user.id;
-  const isManagerOrAdmin = isAdmin || (user.role === 'staff' && hasPermission('articles', 'approve'));
+  const currentRole = String(user?.role || '').toLowerCase();
+  const currentDoctorId = Number(user?.doctor?.id || user?.doctor_id || user?.role_info?.doctor_id || 0);
+  const articleReviewerId = Number(article?.medical_reviewer_id || 0);
+  const isDoctorReviewer = currentRole === 'doctor' && currentDoctorId > 0 && articleReviewerId > 0 && currentDoctorId === articleReviewerId;
+  const isManagerOrAdmin = isAdmin || (currentRole === 'staff' && hasPermission('articles', 'approve'));
   const canReviewMedical = isAdmin || isDoctorReviewer;
 
   return (
@@ -159,6 +162,25 @@ const ArticleReviewPage = () => {
           {/* CỘT TRÁI: NỘI DUNG BÀI VIẾT */}
           <div className="review-article-content-card">
             {article.cover_image_url && <img src={article.cover_image_url} alt="Cover" className="review-article-preview-cover" />}
+            
+            {/* Warning for author: cannot edit while pending */}
+            {(['pending', 'pending_medical'].includes(article.status)) && user?.id === article.author_id && (
+              <div style={{
+                background: '#dbeafe',
+                borderLeft: '4px solid #3b82f6',
+                padding: '12px',
+                borderRadius: '6px',
+                marginBottom: '16px',
+                fontSize: '13px'
+              }}>
+                <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '4px' }}>
+                  <FaLock style={{marginRight: '6px'}} /> Bài viết đang được phê duyệt
+                </div>
+                <p style={{ margin: 0, color: '#1e3a8a', lineHeight: '1.4' }}>
+                  Bạn không thể chỉnh sửa bài viết trong lúc nó đang được phê duyệt. Hãy chờ phản hồi từ người duyệt.
+                </p>
+              </div>
+            )}
             
             <h1 className="review-article-article-title">{article.title}</h1>
             
@@ -192,6 +214,26 @@ const ArticleReviewPage = () => {
                   article.status === 'hidden' ? 'Đang Ẩn' : article.status
                 }
               </div>
+
+              {/* Thông báo lý do ẩn (cho tác giả) */}
+              {article.status === 'hidden' && article.hidden_reason && user?.id === article.author_id && (
+                <div style={{
+                  background: '#fef3c7',
+                  borderLeft: '4px solid #f59e0b',
+                  padding: '12px',
+                  borderRadius: '6px',
+                  marginTop: '10px',
+                  fontSize: '14px'
+                }}>
+                  <div style={{ fontWeight: '600', color: '#d97706', marginBottom: '6px' }}>
+                    <FaExclamationTriangle style={{marginRight: '6px'}} /> Lý do bài bị ẩn:
+                  </div>
+                  <p style={{ margin: 0, color: '#92400e', lineHeight: '1.5' }}>{article.hidden_reason}</p>
+                  <small style={{ display: 'block', marginTop: '8px', color: '#b45309' }}>
+                    Bạn có thể chỉnh sửa bài viết và gửi lại để phê duyệt
+                  </small>
+                </div>
+              )}
 
               {/* Thông tin Bác sĩ tham vấn */}
               {article.is_medical_review_required && article.medical_reviewer && (
@@ -238,8 +280,8 @@ const ArticleReviewPage = () => {
                   </>
                 )}
 
-                {/* Nút Ẩn/Hiện bài dành cho Admin */}
-                {isAdmin && (article.status === 'approved' || article.status === 'hidden') && (
+                {/* Nút Ẩn/Hiện bài dành cho Admin hoặc Content Manager */}
+                {(isAdmin || (user?.role === 'staff' && user?.staff?.department === 'content' && user?.staff?.rank === 'manager') || hasPermission('articles', 'hide')) && (article.status === 'approved' || article.status === 'hidden') && (
                   <button className="btn-review-action btn-hide" onClick={() => setShowHidePopup(true)}>
                     {article.status === 'hidden' ? <><FaEye /> Hiện lại bài viết</> : <><FaEyeSlash /> Ẩn bài viết này</>}
                   </button>

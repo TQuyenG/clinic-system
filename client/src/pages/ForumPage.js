@@ -818,21 +818,18 @@ const ForumPage = () => {
   // ĐỒNG BỘ ACTIVE TAB VỚI URL ROUTER
   const currentPath = location.pathname;
   let initialTab = 'forum';
-  if (currentPath.includes('/cong-dong/cua-toi')) initialTab = 'my_groups';
-  else if (currentPath.includes('/cong-dong')) initialTab = 'community';
+  if (currentPath.includes('/cong-dong')) initialTab = 'community';
   
   const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
-    if (currentPath.includes('/cong-dong/cua-toi')) setActiveTab('my_groups');
-    else if (currentPath.includes('/cong-dong')) setActiveTab('community');
+    if (currentPath.includes('/cong-dong')) setActiveTab('community');
     else setActiveTab('forum');
   }, [currentPath]);
 
   const handleTabChange = (tabName) => {
     if (tabName === 'forum') navigate('/dien-dan-suc-khoe');
     else if (tabName === 'community') navigate('/cong-dong');
-    else if (tabName === 'my_groups') navigate('/cong-dong/cua-toi');
   };
 
   useEffect(() => {
@@ -843,8 +840,6 @@ const ForumPage = () => {
   }, [location.state]);
 
   const [groups, setGroups] = useState([]);
-  const [myCreatedGroups, setMyCreatedGroups] = useState([]);
-  const [myJoinedGroups, setMyJoinedGroups] = useState([]);
 
   const [groupSearch, setGroupSearch] = useState('');
   const [groupLoading, setGroupLoading] = useState(false);
@@ -1029,21 +1024,6 @@ const ForumPage = () => {
     if (activeTab === 'community') fetchGroupsData();
   }, [activeTab, fetchGroupsData]);
 
-  // Gọi API lấy nhóm của tôi
-  useEffect(() => {
-    if (activeTab !== 'my_groups' || !user) return;
-    const fetchMyGroups = async () => {
-      setGroupLoading(true);
-      try {
-        const res = await communityService.getMyGroups();
-        if(res.data.success) {
-          setMyCreatedGroups(res.data.data.createdGroups || []);
-          setMyJoinedGroups(res.data.data.joinedGroups || []);
-        }
-      } catch (e) {} finally { setGroupLoading(false); }
-    };
-    fetchMyGroups();
-  }, [activeTab, user]);
 
   useEffect(() => {
     if(activeTab === 'forum') {
@@ -1258,11 +1238,6 @@ const ForumPage = () => {
         <button className={`forumpage-main-tab ${activeTab === 'community' ? 'active' : ''}`} onClick={() => handleTabChange('community')}>
           <FaUsers /> Nhóm cộng đồng
         </button>
-        {user && (
-          <button className={`forumpage-main-tab ${activeTab === 'my_groups' ? 'active' : ''}`} onClick={() => handleTabChange('my_groups')}>
-            <FaUsers /> Nhóm của tôi
-          </button>
-        )}
       </div>
 
       {/* NỘI DUNG THAY ĐỔI THEO TAB */}
@@ -1314,78 +1289,6 @@ const ForumPage = () => {
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 2. TAB: NHÓM CỦA TÔI */}
-      {activeTab === 'my_groups' && user && (
-        <div className="forumpage-community-tab forumpage-container">
-          {groupLoading ? (
-            <div className="forumpage-panel--loading"><div className="forumpage-spinner"></div>Đang tải...</div>
-          ) : (
-            <div className="forumpage-my-groups-wrapper">
-              
-              <h3 style={{ borderBottom: '2px solid #e8f5e9', paddingBottom: '10px', marginBottom: '16px', color: '#2E7D32', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FaCrown /> Nhóm do tôi tạo
-              </h3>
-              {myCreatedGroups.length === 0 ? (
-                <p style={{ color: '#888', marginBottom: '32px' }}>Bạn chưa tạo nhóm nào.</p>
-              ) : (
-                <div className="forumpage-groups-grid" style={{ marginBottom: '40px' }}>
-                  {myCreatedGroups.map(g => (
-                    <div key={g.id} className="forumpage-group-card">
-                      <div className="forumpage-group-cover" style={{ background: g.cover_image ? `url(${g.cover_image.startsWith('http') ? g.cover_image : `http://localhost:3001${g.cover_image}`}) center/cover` : 'linear-gradient(135deg,#4CAF50,#2E7D32)' }}>
-                        <span className="forumpage-group-icon">{!g.cover_image && (GROUP_ICONS_MAP[g.icon] || <FaUsers />)}</span>
-                      </div>
-                      <div className="forumpage-group-body">
-                        <h4>{g.name}</h4>
-                        {/* Trạng thái duyệt */}
-                        <div style={{ margin: '6px 0' }}>
-                          {g.status === 'active' && <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>✓ Đang hoạt động</span>}
-                          {g.status === 'pending' && <span style={{ background: '#fff8e1', color: '#f57c00', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>Đang chờ duyệt</span>}
-                          {(g.status === 'suspended' || g.status === 'rejected') && <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>❌ Bị từ chối/Đình chỉ</span>}
-                        </div>
-                        {g.rejection_reason && <p style={{ color: '#c62828', fontSize: '12px', margin: '4px 0 0' }}>Lý do: {g.rejection_reason}</p>}
-                        
-                        <div className="forumpage-group-actions" style={{ marginTop: 'auto', paddingTop: '10px' }}>
-                           {g.status === 'active' ? (
-                             <button className="forumpage-btn-primary" style={{ width: '100%' }} onClick={() => navigate(`/cong-dong/nhom/${g.slug}`)}>Quản lý nhóm</button>
-                           ) : (
-                             <button className="forumpage-btn-muted" disabled style={{ width: '100%' }}>Chưa thể truy cập</button>
-                           )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <h3 style={{ borderBottom: '2px solid #e8f5e9', paddingBottom: '10px', marginBottom: '16px', color: '#2E7D32', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FaUsers /> Nhóm tôi tham gia
-              </h3>
-              {myJoinedGroups.length === 0 ? (
-                <p style={{ color: '#888' }}>Bạn chưa tham gia nhóm nào.</p>
-              ) : (
-                <div className="forumpage-groups-grid">
-                  {myJoinedGroups.map(g => (
-                    <div key={g.id} className="forumpage-group-card">
-                      <div className="forumpage-group-cover" style={{ background: g.cover_image ? `url(${g.cover_image.startsWith('http') ? g.cover_image : `http://localhost:3001${g.cover_image}`}) center/cover` : 'linear-gradient(135deg,#4CAF50,#2E7D32)' }}>
-                        <span className="forumpage-group-icon">{!g.cover_image && (GROUP_ICONS_MAP[g.icon] || <FaUsers />)}</span>
-                      </div>
-                      <div className="forumpage-group-body">
-                        <h4>{g.name}</h4><p>{g.description || 'Nhóm cộng đồng sức khỏe'}</p>
-                        <div className="forumpage-group-meta"><span><FaUsers /> {g.members_count || 0} thành viên</span></div>
-                        <div className="forumpage-group-actions">
-                          <button className="forumpage-btn-primary" style={{ width: '100%' }} onClick={() => navigate(`/cong-dong/nhom/${g.slug}`)}>Vào nhóm</button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
             </div>
           )}
         </div>

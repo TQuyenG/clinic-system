@@ -64,6 +64,13 @@ const ChatRoomPage = ({ isAIChatbot = false }) => {
     setSearchParams(p);
   };
 
+  const openInRoomPanel = () => {
+    const p = new URLSearchParams(searchParams);
+    p.set('openResult', '1');
+    setSearchParams(p);
+    setShowInRoomPanel(true);
+  };
+
   // ========== BẮT ĐẦU ĐOẠN SỬA LỖI no-use-before-define ==========
 
   // DI CHUYỂN CÁC HÀM XỬ LÝ LÊN TRÊN (TRƯỚC KHI useEffect GỌI)
@@ -91,6 +98,10 @@ const ChatRoomPage = ({ isAIChatbot = false }) => {
       console.log('🔍 Full response:', response);
       console.log('🔍 Consultation data:', data);
       console.log('🔍 Data keys:', Object.keys(data));
+      console.log('🔍 Data.appointment:', data.appointment);
+      console.log('🔍 Data.Appointment:', data.Appointment);
+      console.log('🔍 Data.appointment_code:', data.appointment_code);
+      console.log('🔍 Data.code:', data.code);
       setConsultation(data);
 
       // KIỂM TRA OTP
@@ -519,6 +530,17 @@ const ChatRoomPage = ({ isAIChatbot = false }) => {
             </div>
           )}
 
+          {user.role === 'doctor' && consultation?.status === 'in_progress' && (
+            <button
+              className="chatroompage-header-end-button"
+              onClick={openInRoomPanel}
+              title="Mở nhập kết quả"
+            >
+              <i className="fas fa-notes-medical"></i>
+              <span>Nhập kết quả</span>
+            </button>
+          )}
+
           <button 
             className="chatroompage-header-info-button"
             onClick={() => setShowInfoPanel(!showInfoPanel)}
@@ -727,7 +749,12 @@ const ChatRoomPage = ({ isAIChatbot = false }) => {
       {/* Report Modal */}
       {/* In-room result panel (embedded medical form) */}
       {showInRoomPanel && (
-        <InRoomResultPanel appointmentCode={consultation?.appointment?.code || consultation?.Appointment?.code || consultation?.appointment_code || consultation?.code} onClose={closeInRoomPanel} />
+        <InRoomResultPanel
+          consultationId={consultation?.id}
+          consultationCode={consultation?.consultation_code}
+          appointmentCode={consultation?.appointment_code}
+          onClose={closeInRoomPanel}
+        />
       )}
       {showReportModal && (
         <div className="chatroompage-modal-overlay">

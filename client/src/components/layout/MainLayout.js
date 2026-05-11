@@ -13,6 +13,17 @@ const MainLayout = ({ children }) => {
   const token = localStorage.getItem('token');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const isConsultationRoom = location.pathname.startsWith('/tu-van/') && (
+    location.pathname.endsWith('/chat') ||
+    location.pathname.endsWith('/video') ||
+    location.pathname.includes('/tu-van/video/') ||
+    location.pathname.includes('/tu-van/chat/')
+  );
+  const isInRoomResultMode = isConsultationRoom && new URLSearchParams(location.search).get('openResult') === '1';
+
+  // Detect standalone medical record page and treat it as navbar-only (hide header/footer)
+  const isMedicalRecordPage = location.pathname.startsWith('/nhap-ket-qua');
+
   const dashboardPaths = [
   '/dashboard', '/ho-so-nguoi-dung', '/quan-ly-nguoi-dung', '/quan-ly-chuyen-khoa', '/dien-dan-cua-toi',
   '/quan-ly-danh-muc', '/quan-ly-bai-viet', '/quan-ly-lich-lam-viec', '/quan-ly-lich-hen',
@@ -29,7 +40,10 @@ const MainLayout = ({ children }) => {
 ];
 
   const showSidebar = !!token && dashboardPaths.some(path => location.pathname.startsWith(path));
-  const showCommonChrome = !showSidebar;
+  // Keep navbar visible on dashboard and management pages even when sidebar is shown.
+  const showNavbar = !isMedicalRecordPage;
+  // When the sidebar is visible we want only the Navbar shown (no Header/Footer).
+  const showHeaderFooter = !isConsultationRoom && !isMedicalRecordPage && !showSidebar;
 
   useEffect(() => {
     const handleResize = () => {
@@ -47,9 +61,9 @@ const MainLayout = ({ children }) => {
   }, []);
 
   return (
-    <div className="main-layout">
-      {showCommonChrome && <Header />}
-      <Navbar />
+    <div className={`main-layout ${isInRoomResultMode ? 'inroom-panel-open' : ''} ${isMedicalRecordPage ? 'navbar-only' : ''}`}>
+      {showHeaderFooter && <Header />}
+      {showNavbar && <Navbar />}
       {showSidebar ? (
         <div className="layout-body">
           <Sidebar onToggle={setSidebarCollapsed} />
@@ -62,7 +76,7 @@ const MainLayout = ({ children }) => {
           {children}
         </main>
       )}
-      {showCommonChrome && <Footer />}
+      {showHeaderFooter && <Footer />}
       <Chatbot />
     </div>
   );

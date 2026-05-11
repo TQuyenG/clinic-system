@@ -41,12 +41,34 @@ router.get('/me', authenticateToken, async (req, res) => {
       return res.json({ success: true, data: { permissions: {} } });
     }
 
+    // For doctors, permissions may come from an associated Staff record
+    // (either a Staff row with the same user_id, or the Staff referenced
+    // by doctor.assigned_staff_id). Prefer explicit Staff.permissions when present.
+    let permissionsResult = staffOrDoctor.permissions || {};
+    if (userRole === 'doctor') {
+      try {
+        // 1) check if a Staff record exists for this user
+        const staffByUser = await models.Staff.findOne({ where: { user_id: userId } });
+        if (staffByUser && staffByUser.permissions && Object.keys(staffByUser.permissions || {}).length) {
+          permissionsResult = staffByUser.permissions;
+        } else if (staffOrDoctor.assigned_staff_id) {
+          // 2) fallback: check assigned_staff_id on Doctor
+          const assignedStaff = await models.Staff.findByPk(staffOrDoctor.assigned_staff_id);
+          if (assignedStaff && assignedStaff.permissions && Object.keys(assignedStaff.permissions || {}).length) {
+            permissionsResult = assignedStaff.permissions;
+          }
+        }
+      } catch (innerErr) {
+        console.warn('Warning while resolving doctor permissions via Staff:', innerErr);
+      }
+    }
+
     res.json({
       success: true,
       data: {
         userId,
         role: userRole,
-        permissions: staffOrDoctor.permissions || {}
+        permissions: permissionsResult || {}
       }
     });
   } catch (error) {

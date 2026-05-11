@@ -59,7 +59,8 @@ else if (userData.role === 'admin') {
     if (userStr) {
       try {
         const userData = JSON.parse(userStr);
-        if (userData?.role === 'staff') {
+        // Refresh permissions for staff and doctors on mount to avoid stale/empty permissions
+        if (userData?.role === 'staff' || userData?.role === 'doctor') {
           refreshPermissions();
         }
       } catch (e) {}

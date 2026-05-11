@@ -164,6 +164,17 @@ router.put(
 );
 
 /**
+ * Lưu nháp kết quả tư vấn
+ * PUT /api/consultations/:id/draft
+ */
+router.put(
+  '/:id/draft',
+  authMiddleware,
+  authorize('doctor'),
+  consultationController.saveConsultationDraft
+);
+
+/**
  * Thống kê tư vấn của bác sĩ
  * GET /api/consultations/doctor/stats
  * Auth: Required

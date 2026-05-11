@@ -789,7 +789,7 @@ exports.confirmConsultation = async (req, res) => {
 exports.completeConsultation = async (req, res) => {
   try {
     const { id } = req.params;
-    const { diagnosis, prescription, notes } = req.body;
+    const { diagnosis, prescription, notes, treatment_plan, severity_level, need_followup, followup_date, followup_notes, advice, symptoms, vitals_json, clinical_note, service_indications, test_images_json, report_files_json, result_snapshot } = req.body;
     const doctor_id = req.user.id;
 
     if (!diagnosis) {
@@ -813,9 +813,23 @@ exports.completeConsultation = async (req, res) => {
     consultation.status = 'completed';
     consultation.diagnosis = diagnosis;
     consultation.prescription = prescription;
+    if (typeof symptoms !== 'undefined') consultation.symptoms = symptoms || null;
+    if (typeof advice !== 'undefined') consultation.advice = advice || null;
+    if (typeof treatment_plan !== 'undefined') consultation.treatment_plan = treatment_plan;
+    if (typeof severity_level !== 'undefined') consultation.severity_level = severity_level;
+    if (typeof need_followup !== 'undefined') consultation.need_followup = String(need_followup) === 'true' || need_followup === true;
+    if (typeof followup_date !== 'undefined') consultation.followup_date = followup_date || null;
+    if (typeof followup_notes !== 'undefined') consultation.followup_notes = followup_notes || null;
     consultation.notes = notes;
+    if (typeof vitals_json !== 'undefined') consultation.vitals_json = typeof vitals_json === 'string' ? JSON.parse(vitals_json || 'null') : vitals_json;
+    if (typeof clinical_note !== 'undefined') consultation.clinical_note = clinical_note || null;
+    if (typeof service_indications !== 'undefined') consultation.service_indications = typeof service_indications === 'string' ? JSON.parse(service_indications || 'null') : service_indications;
+    if (typeof test_images_json !== 'undefined') consultation.test_images_json = typeof test_images_json === 'string' ? JSON.parse(test_images_json || 'null') : test_images_json;
+    if (typeof report_files_json !== 'undefined') consultation.report_files_json = typeof report_files_json === 'string' ? JSON.parse(report_files_json || 'null') : report_files_json;
+    if (typeof result_snapshot !== 'undefined') consultation.result_snapshot = typeof result_snapshot === 'string' ? JSON.parse(result_snapshot || 'null') : result_snapshot;
     consultation.ended_at = new Date();
     consultation.completed_at = new Date();
+    consultation.medical_record_status = 'has_record';
     await consultation.save();
 
     //  FIX: Tạo thông báo cho bệnh nhân
@@ -838,6 +852,151 @@ exports.completeConsultation = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Lỗi hoàn thành tư vấn',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Lưu nháp kết quả tư vấn (không hoàn thành buổi tư vấn)
+ * PUT /api/consultations/:id/draft
+ */
+exports.saveConsultationDraft = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doctor_id = req.user.id;
+    const {
+      diagnosis,
+      treatment_plan,
+      prescription,
+      notes,
+      severity_level,
+      need_followup,
+      followup_date,
+      followup_notes,
+      advice,
+      symptoms,
+      vitals_json,
+      clinical_note,
+      service_indications,
+      test_images_json,
+      report_files_json,
+      draft_data
+    } = req.body;
+
+    const consultation = await models.Consultation.findOne({
+      where: { id, doctor_id }
+    });
+
+    if (!consultation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy buổi tư vấn hoặc bạn không có quyền chỉnh sửa'
+      });
+    }
+
+    let parsedPrescription = prescription;
+    if (typeof parsedPrescription === 'string' && parsedPrescription.trim()) {
+      try {
+        parsedPrescription = JSON.parse(parsedPrescription);
+      } catch (error) {
+        // giữ nguyên string nếu không parse được
+      }
+    }
+
+    let parsedDraftData = draft_data;
+    if (typeof parsedDraftData === 'string' && parsedDraftData.trim()) {
+      try {
+        parsedDraftData = JSON.parse(parsedDraftData);
+      } catch (error) {
+        parsedDraftData = null;
+      }
+    }
+
+    const currentMetadata = consultation.metadata && typeof consultation.metadata === 'object'
+      ? consultation.metadata
+      : {};
+
+    const nextDraftData = {
+      ...(currentMetadata.result_draft || {}),
+      ...(parsedDraftData || {}),
+      diagnosis: typeof diagnosis !== 'undefined' ? diagnosis : (currentMetadata.result_draft?.diagnosis || consultation.diagnosis || ''),
+      treatment_plan: typeof treatment_plan !== 'undefined' ? treatment_plan : (currentMetadata.result_draft?.treatment_plan || consultation.treatment_plan || ''),
+      prescription: typeof parsedPrescription !== 'undefined' ? parsedPrescription : (currentMetadata.result_draft?.prescription || consultation.prescription_data || null),
+      notes: typeof notes !== 'undefined' ? notes : (currentMetadata.result_draft?.notes || consultation.notes || ''),
+      severity_level: typeof severity_level !== 'undefined' ? severity_level : (currentMetadata.result_draft?.severity_level || consultation.severity_level || 'normal'),
+      need_followup: typeof need_followup !== 'undefined' ? String(need_followup) === 'true' || need_followup === true : (currentMetadata.result_draft?.need_followup ?? consultation.need_followup ?? false),
+      followup_date: typeof followup_date !== 'undefined' ? followup_date : (currentMetadata.result_draft?.followup_date || consultation.followup_date || null),
+      followup_notes: typeof followup_notes !== 'undefined' ? followup_notes : (currentMetadata.result_draft?.followup_notes || consultation.followup_notes || ''),
+      advice: typeof advice !== 'undefined' ? advice : (currentMetadata.result_draft?.advice || consultation.advice || ''),
+      symptoms: typeof symptoms !== 'undefined' ? symptoms : (currentMetadata.result_draft?.symptoms || consultation.symptoms || ''),
+      vitals_json: typeof vitals_json !== 'undefined'
+        ? (typeof vitals_json === 'string' ? JSON.parse(vitals_json || 'null') : vitals_json)
+        : (currentMetadata.result_draft?.vitals_json || consultation.vitals_json || null),
+      clinical_note: typeof clinical_note !== 'undefined' ? clinical_note : (currentMetadata.result_draft?.clinical_note || consultation.clinical_note || ''),
+      service_indications: typeof service_indications !== 'undefined'
+        ? (typeof service_indications === 'string' ? JSON.parse(service_indications || 'null') : service_indications)
+        : (currentMetadata.result_draft?.service_indications || consultation.service_indications || null),
+      test_images_json: typeof test_images_json !== 'undefined'
+        ? (typeof test_images_json === 'string' ? JSON.parse(test_images_json || 'null') : test_images_json)
+        : (currentMetadata.result_draft?.test_images_json || consultation.test_images_json || null),
+      report_files_json: typeof report_files_json !== 'undefined'
+        ? (typeof report_files_json === 'string' ? JSON.parse(report_files_json || 'null') : report_files_json)
+        : (currentMetadata.result_draft?.report_files_json || consultation.report_files_json || null),
+      updated_at: new Date().toISOString(),
+    };
+
+    consultation.diagnosis = nextDraftData.diagnosis || null;
+    consultation.treatment_plan = nextDraftData.treatment_plan || null;
+    consultation.prescription_data = nextDraftData.prescription || null;
+    consultation.notes = nextDraftData.notes || null;
+    consultation.symptoms = nextDraftData.symptoms || null;
+    consultation.advice = nextDraftData.advice || null;
+    consultation.severity_level = nextDraftData.severity_level || consultation.severity_level;
+    consultation.need_followup = !!nextDraftData.need_followup;
+    consultation.followup_date = nextDraftData.followup_date || null;
+    consultation.followup_notes = nextDraftData.followup_notes || null;
+    consultation.vitals_json = nextDraftData.vitals_json || null;
+    consultation.clinical_note = nextDraftData.clinical_note || null;
+    consultation.service_indications = nextDraftData.service_indications || null;
+    consultation.test_images_json = nextDraftData.test_images_json || null;
+    consultation.report_files_json = nextDraftData.report_files_json || null;
+    consultation.result_snapshot = {
+      diagnosis: nextDraftData.diagnosis,
+      treatment_plan: nextDraftData.treatment_plan,
+      prescription: nextDraftData.prescription,
+      notes: nextDraftData.notes,
+      symptoms: nextDraftData.symptoms,
+      advice: nextDraftData.advice,
+      severity_level: nextDraftData.severity_level,
+      need_followup: nextDraftData.need_followup,
+      followup_date: nextDraftData.followup_date,
+      followup_notes: nextDraftData.followup_notes,
+      vitals_json: nextDraftData.vitals_json,
+      clinical_note: nextDraftData.clinical_note,
+      service_indications: nextDraftData.service_indications,
+      test_images_json: nextDraftData.test_images_json,
+      report_files_json: nextDraftData.report_files_json,
+      updated_at: nextDraftData.updated_at,
+    };
+    consultation.metadata = {
+      ...currentMetadata,
+      result_draft: nextDraftData
+    };
+    consultation.medical_record_status = 'no_record';
+
+    await consultation.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lưu nháp kết quả tư vấn thành công',
+      data: consultation
+    });
+  } catch (error) {
+    console.error('Error saving consultation draft:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi lưu nháp kết quả tư vấn',
       error: error.message
     });
   }

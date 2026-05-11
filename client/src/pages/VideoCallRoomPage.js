@@ -387,6 +387,13 @@ const VideoCallRoomPage = () => {
     setSearchParams(p);
   };
 
+  const openInRoomPanel = () => {
+    const p = new URLSearchParams(searchParams);
+    p.set('openResult', '1');
+    setSearchParams(p);
+    setShowInRoomPanel(true);
+  };
+
   // THÊM MỚI: Hàm xử lý gửi lại OTP
   const handleResendOtp = async () => {
     if (resendCooldown > 0) return; // Ngăn spam
@@ -885,6 +892,17 @@ if (loading) {
             {callStatus === 'Đang diễn ra' && <FaCheckCircle />}
             {callStatus}
           </span>
+
+          {isDoctorOrAdmin && consultation?.status === 'in_progress' && (
+            <button
+              className="video-call-room-page-control-btn video-call-room-page-control-btn-secondary"
+              onClick={openInRoomPanel}
+              title="Mở nhập kết quả"
+            >
+              <FaNotesMedical />
+              <span>Nhập kết quả</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1334,7 +1352,12 @@ if (loading) {
 
       {/* In-room result panel (embedded medical form) */}
       {showInRoomPanel && (
-        <InRoomResultPanel appointmentCode={consultation?.appointment?.code || consultation?.Appointment?.code || consultation?.appointment_code || consultation?.code} onClose={closeInRoomPanel} />
+        <InRoomResultPanel
+          consultationId={consultation?.id}
+          consultationCode={consultation?.consultation_code}
+          appointmentCode={consultation?.appointment_code}
+          onClose={closeInRoomPanel}
+        />
       )}
 
     </div>

@@ -741,9 +741,10 @@ const ArticleManagementPage = () => {
     const isAuthor = article.author_id === user.id, isAdm = user.role === 'admin', status = article.status;
     const isMgr = user.role === 'staff' && user.staff?.department === 'content' && user.staff?.rank === 'manager';
     switch (action) {
-      case 'edit': return isAdm || isAuthor || hasPermission('articles', 'edit') || (isMgr && hasPermission('articles', 'edit'));
+      // Chỉ tác giả được chỉnh sửa bài của mình (và không phải lúc pending/pending_medical)
+      case 'edit': return isAdm || (isAuthor && !['pending','pending_medical'].includes(status));
       case 'delete': return isAdm || (hasPermission('articles', 'delete') && (isMgr || (isAuthor && status === 'draft')));
-      case 'hide': return isAdm || hasPermission('articles', 'hide');
+      case 'hide': return isAdm || hasPermission('articles', 'hide') || isMgr;
       case 'history': case 'duplicate': return true;
       default: return false;
     }

@@ -322,6 +322,22 @@ const AppointmentDetailPage = () => {
     }
   };
 
+  const handleOpenResultEntry = () => {
+    const consultationEntryId = appointment?.consultation_id
+      || appointment?.consultation_code
+      || appointment?.Consultation?.id
+      || appointment?.Consultation?.consultation_code
+      || appointment?.consultation?.id
+      || appointment?.consultation?.consultation_code;
+
+    if (appointment?.appointment_type === 'online' && consultationEntryId) {
+      navigate(`/tu-van/${consultationEntryId}?openResult=1`);
+      return;
+    }
+
+    navigate(`/nhap-ket-qua/${appointment.code}?returnTo=${encodeURIComponent(location.pathname + location.search)}`);
+  };
+
   const loadAvailableSlotsForReschedule = async (date) => {
     if (!appointment) return;
     try {
@@ -1114,12 +1130,13 @@ const AppointmentDetailPage = () => {
                 )}
 
                 {isAdminOrDoctor && appointment.MedicalRecord && (
-                  <Link 
-                    to={`/nhap-ket-qua/${appointment.code}?record_id=${appointment.MedicalRecord.id}`} 
+                  <button 
+                    type="button"
+                    onClick={handleOpenResultEntry}
                     className="appointment-detail-page-btn-action btn-primary"
                   >
                     <FaEdit /> Xem & Chỉnh sửa kết quả
-                  </Link>
+                  </button>
                 )}
               </div>
             )}
@@ -1205,13 +1222,14 @@ const AppointmentDetailPage = () => {
                 
                 {isAdminOrDoctor && (
                   <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e0e0e0' }}>
-                    <Link
-                      to={`/nhap-ket-qua/${appointment.code}${appointment.MedicalRecord?.id ? `?record_id=${appointment.MedicalRecord.id}` : ''}`}
+                    <button
+                      type="button"
+                      onClick={handleOpenResultEntry}
                       className="appointment-detail-page-btn-action btn-primary"
                       style={{ width: '100%', display: 'inline-flex', justifyContent: 'center' }}
                     >
                       <FaNotesMedical /> {appointment.MedicalRecord ? 'Nhập / cập nhật kết quả khám' : 'Nhập kết quả khám'}
-                    </Link>
+                    </button>
                   </div>
                 )}
               </div>

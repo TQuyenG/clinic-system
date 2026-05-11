@@ -41,6 +41,7 @@ import ArticleReviewPage from './pages/ArticleReviewPage';
 import ForumPage from './pages/ForumPage';
 import QuestionDetailPage from './pages/QuestionDetailPage';
 import MyForumPage from './pages/MyForumPage';
+import MyGroupsManagementPage from './pages/MyGroupsManagementPage';
 import CommunityGroupPage from './pages/CommunityGroupPage';
 import CommunityGroupManagePage from './pages/CommunityGroupManagePage';
 import ForumManagementPage from './pages/ForumManagementPage';
@@ -209,6 +210,11 @@ const ForumRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // Admin always has access
+  if (user.role === 'admin') {
+    return children;
+  }
+
   if (!(canAccessModule('forum') || canAccessModule('community'))) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -327,6 +333,7 @@ function App() {
             <Route path="/cong-dong/nhom/:slug" element={<CommunityGroupPage />} />
             <Route path="/cong-dong/nhom/:groupSlug/posts/:postId" element={<GroupPostDetailPage />} /> 
             <Route path="/dien-dan-cua-toi" element={<ProtectedRoute><MyForumPage /></ProtectedRoute>} />
+            <Route path="/nhom-cua-toi" element={<ProtectedRoute><MyGroupsManagementPage /></ProtectedRoute>} />
 
             {/* Quản lý (Admin/Staff/Doctor) */}
             <Route path="/quan-ly-nhom-cong-dong" element={<ForumRoute><CommunityGroupManagePage mode="manage" /></ForumRoute>} />
@@ -402,7 +409,7 @@ function App() {
             <Route path="/quan-ly-danh-muc" element={<ProtectedRoute requiredRole="admin"><CategoryManagementPage /></ProtectedRoute>} />
             
             <Route path="/quan-ly-bai-viet" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="articles"><ArticleManagementPage /></PermissionRoute>} />
-            <Route path="/phe-duyet-bai-viet/:id" element={<PermissionRoute requiredRole={['admin', 'staff']} module="articles"><ArticleReviewPage /></PermissionRoute>} />
+            <Route path="/phe-duyet-bai-viet/:id" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="articles"><ArticleReviewPage /></PermissionRoute>} />
             <Route path="/quan-ly-he-thong" element={<PermissionRoute requiredRole={['admin', 'staff']} module="system_settings"><SystemSettingsPage /></PermissionRoute>} />
             <Route path="/quan-ly-dich-vu" element={<ProtectedRoute requiredRole={['admin', 'staff']}><ServiceManagementPage /></ProtectedRoute>} />
             <Route path="/quan-ly-danh-muc-dich-vu" element={<Navigate to="/quan-ly-dich-vu?tab=categories" replace />} />
@@ -434,8 +441,8 @@ function App() {
             
             <CustomToasts />
             <ToastContainer
-              position="top-right"
-              autoClose={12000}
+              position="bottom-right"
+              autoClose={15000}
               hideProgressBar={false}
               newestOnTop={true}
               closeOnClick
@@ -444,7 +451,8 @@ function App() {
               draggable
               pauseOnHover
               theme="light"
-              style={{ zIndex: 40000, top: '96px', right: '20px' }}
+              style={{ zIndex: 40000, right: '24px', bottom: '96px' }}
+              toastClassName="app-toastify-toast"
             />
           </ToastProvider>
         </AuthProvider>

@@ -72,6 +72,7 @@ const Sidebar = ({ onToggle }) => {
   const [isConsultationMenuOpen, setConsultationMenuOpen] = useState(false);
   const [isPaymentMenuOpen, setPaymentMenuOpen] = useState(false);
   const [isArticleMenuOpen, setArticleMenuOpen] = useState(false);
+  const [isForumMenuOpen, setForumMenuOpen] = useState(false);
   const [isStaffMenuOpen, setStaffMenuOpen] = useState(false);
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   
@@ -274,7 +275,7 @@ const Sidebar = ({ onToggle }) => {
 
   // IDs that should appear in the top "General/Chung" section (visual grouping)
   // include both patient and staff saved-articles IDs so "Bài viết đã lưu" shows in Chung
-  const topSectionIds = ['dashboard', 'profile', 'my_forum', 'saved_articles', 'saved_articles_staff'];
+  const topSectionIds = ['dashboard', 'profile', 'my_forum', 'my_groups', 'saved_articles', 'saved_articles_staff'];
   const firstManagementIndex = menuItems.findIndex(i => !topSectionIds.includes(i.id));
   const firstMgmtIndexSafe = firstManagementIndex === -1 ? menuItems.length : firstManagementIndex;
 
@@ -294,6 +295,7 @@ const Sidebar = ({ onToggle }) => {
     items.push({ id: 'dashboard', type: 'item', to: '/dashboard', icon: FaTachometerAlt, label: 'Tổng quan' });
     items.push({ id: 'profile', type: 'item', to: '/ho-so-nguoi-dung', icon: FaUserCircle, label: 'Tài khoản' });
     items.push({ id: 'my_forum', type: 'item', to: '/dien-dan-cua-toi', icon: FaRegComments, label: 'Diễn đàn của tôi' });
+    items.push({ id: 'my_groups', type: 'item', to: '/nhom-cua-toi', icon: FaUsers, label: 'Nhóm của tôi' });
     
 
     // Patient giữ menu cố định theo vai trò
@@ -344,7 +346,8 @@ const Sidebar = ({ onToggle }) => {
         { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
         { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
       ]});
-      addIf(canAccessModule('forum') || canAccessModule('community'), { id: 'manage_forum', type: 'dropdownItems', icon: FaCommentDots, label: 'Quản lý Diễn đàn & Cộng đồng', items: [
+      addIf(canAccessModule('forum') || canAccessModule('community'), { id: 'manage_forum', type: 'dropdownItems', icon: FaCommentDots, label: 'Nhóm và diễn đàn', items: [
+        { to: '/nhom-cua-toi', label: 'Nhóm của tôi' },
         ...(canAccessModule('forum') ? [{ to: '/quan-ly-dien-dan', label: 'Quản lý diễn đàn' }] : []),
         ...(canAccessModule('community') ? [{ to: '/quan-ly-nhom-cong-dong', label: 'Quản lý nhóm cộng đồng' }] : [])
       ]});
@@ -545,8 +548,11 @@ const Sidebar = ({ onToggle }) => {
                 <MenuDropdownItems
                   icon={item.icon}
                   label={item.label}
-                  isOpen={isArticleMenuOpen}
-                  onToggle={() => setArticleMenuOpen(!isArticleMenuOpen)}
+                  isOpen={item.id === 'manage_articles' ? isArticleMenuOpen : item.id === 'manage_forum' ? isForumMenuOpen : false}
+                  onToggle={() => {
+                    if (item.id === 'manage_articles') setArticleMenuOpen(!isArticleMenuOpen);
+                    else if (item.id === 'manage_forum') setForumMenuOpen(!isForumMenuOpen);
+                  }}
                   items={item.items}
                 />
               )}

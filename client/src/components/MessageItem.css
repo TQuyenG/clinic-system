@@ -31,7 +31,8 @@
   align-items: flex-end;
   gap: 0.4rem; /* Thu nhỏ */
   margin-bottom: 0.6rem; /* Thu nhỏ */
-  max-width: 80%;
+  width: 100%;
+  max-width: 100%;
   animation: messageitem-fadeInUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -48,11 +49,12 @@
 
 .messageitem-container.messageitem-my {
   margin-left: auto;
-  flex-direction: row-reverse;
+  justify-content: flex-end;
 }
 
 .messageitem-container.messageitem-other {
   margin-right: auto;
+  justify-content: flex-start;
 }
 
 /* ===== AVATAR ===== */
@@ -72,14 +74,31 @@
   border-color: var(--messageitem-primary);
 }
 
+.messageitem-my .messageitem-avatar {
+  order: 2;
+}
+
+.messageitem-other .messageitem-avatar {
+  order: 1;
+}
+
 /* ===== CONTENT WRAPPER ===== */
 .messageitem-content-wrapper {
-  flex: 1;
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
   gap: 0.1rem; /* Thu nhỏ */
   position: relative;
   min-width: 0;
+  max-width: calc(100% - 36px);
+}
+
+.messageitem-my .messageitem-content-wrapper {
+  align-items: flex-end;
+}
+
+.messageitem-other .messageitem-content-wrapper {
+  align-items: flex-start;
 }
 
 .messageitem-sender-name {

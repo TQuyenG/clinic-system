@@ -1056,6 +1056,11 @@ exports.updateArticle = async (req, res) => {
     const article = await Article.findByPk(id);
     if (!article) return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
 
+    // Prevent authors from editing after submission to review
+    if (req.user.role !== 'admin' && article.author_id === req.user.id && ['pending', 'pending_medical'].includes(article.status)) {
+      return res.status(403).json({ success: false, message: 'Bài viết đã gửi phê duyệt, không thể chỉnh sửa. Nếu cần thay đổi, vui lòng liên hệ người duyệt hoặc chờ phản hồi.' });
+    }
+
     // ALL ROLES FOLLOW SAME WORKFLOW - NO BYPASSES
     // When updating existing article, compute status based on isDraft flag
     let finalStatus = article.status; // Preserve current status by default
@@ -1377,6 +1382,13 @@ exports.hideArticle = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Vui lòng nhập lý do ẩn bài viết' });
     }
 
+    // Permission: only admin or Content Manager (trưởng phòng content) can hide
+    const allowed = await isContentManager(req.user);
+    if (!allowed) {
+      await transaction.rollback();
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền ẩn bài viết' });
+    }
+
     const article = await Article.findByPk(id, { transaction });
     if (!article) {
       await transaction.rollback();
@@ -1385,7 +1397,7 @@ exports.hideArticle = async (req, res) => {
 
     const prevStatus = article.status;
 
-    await article.update({ status: 'hidden' }, { transaction });
+    await article.update({ status: 'hidden', hidden_reason: reason }, { transaction });
 
     // Lưu lịch sử
     await createReviewHistory(
@@ -1431,6 +1443,13 @@ exports.unhideArticle = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Permission: only admin or Content Manager can unhide
+    const allowed = await isContentManager(req.user);
+    if (!allowed) {
+      await transaction.rollback();
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền thực hiện hành động này' });
+    }
+
     const article = await Article.findByPk(id, { transaction });
     if (!article) {
       await transaction.rollback();
@@ -1444,7 +1463,7 @@ exports.unhideArticle = async (req, res) => {
 
     const prevStatus = article.status;
 
-    await article.update({ status: 'approved' }, { transaction });
+    await article.update({ status: 'approved', hidden_reason: null }, { transaction });
 
     // Lưu lịch sử
     await createReviewHistory(
@@ -1452,7 +1471,7 @@ exports.unhideArticle = async (req, res) => {
       req.user.id,
       article.author_id,
       'unhide',
-      'Admin hiện lại bài viết',
+      'Hiện lại bài viết',
       prevStatus,
       'approved',
       null,
@@ -1907,15 +1926,20 @@ exports.getArticleComments = async (req, res) => {
     const isAdmin = req.user.role === 'admin';
     
     let hasApprovePermission = false;
+    let isAssignedDoctorReviewer = false;
+
     if (req.user.role === 'staff') {
       const staff = await Staff.findOne({ where: { user_id: req.user.id } });
       if (staff && staff.permissions && staff.permissions.articles) {
         hasApprovePermission = Array.isArray(staff.permissions.articles) && 
                               staff.permissions.articles.includes('approve');
       }
+    } else if (req.user.role === 'doctor') {
+      const doctor = await Doctor.findOne({ where: { user_id: req.user.id } });
+      isAssignedDoctorReviewer = !!doctor && Number(article.medical_reviewer_id) === Number(doctor.id);
     }
 
-    if (!isAdmin && !isAuthor && !hasApprovePermission) {
+    if (!isAdmin && !isAuthor && !hasApprovePermission && !isAssignedDoctorReviewer) {
       return res.status(403).json({ 
         success: false, 
         message: 'Bạn không có quyền xem comment nội bộ của bài viết này' 
@@ -1976,15 +2000,20 @@ exports.addCommentToArticle = async (req, res) => {
     const isAdmin = req.user.role === 'admin';
     
     let hasApprovePermission = false;
+    let isAssignedDoctorReviewer = false;
+
     if (req.user.role === 'staff') {
       const staff = await Staff.findOne({ where: { user_id: req.user.id } });
       if (staff && staff.permissions && staff.permissions.articles) {
         hasApprovePermission = Array.isArray(staff.permissions.articles) && 
                               staff.permissions.articles.includes('approve');
       }
+    } else if (req.user.role === 'doctor') {
+      const doctor = await Doctor.findOne({ where: { user_id: req.user.id } });
+      isAssignedDoctorReviewer = !!doctor && Number(article.medical_reviewer_id) === Number(doctor.id);
     }
 
-    if (!isAdmin && !isAuthor && !hasApprovePermission) {
+    if (!isAdmin && !isAuthor && !hasApprovePermission && !isAssignedDoctorReviewer) {
       return res.status(403).json({ 
         success: false, 
         message: 'Bạn không có quyền comment vào bài viết này. Cần là tác giả hoặc có quyền phê duyệt.' 
@@ -2180,15 +2209,20 @@ exports.getArticleReviewHistory = async (req, res) => {
     
     // Check if user has approve permission
     let hasApprovePermission = false;
+    let isAssignedDoctorReviewer = false;
+
     if (req.user.role === 'staff') {
       const staff = await Staff.findOne({ where: { user_id: req.user.id } });
       if (staff && staff.permissions && staff.permissions.articles) {
         hasApprovePermission = Array.isArray(staff.permissions.articles) && 
                               staff.permissions.articles.includes('approve');
       }
+    } else if (req.user.role === 'doctor') {
+      const doctor = await Doctor.findOne({ where: { user_id: req.user.id } });
+      isAssignedDoctorReviewer = !!doctor && Number(article.medical_reviewer_id) === Number(doctor.id);
     }
 
-    if (!isAdmin && !isAuthor && !hasApprovePermission) {
+    if (!isAdmin && !isAuthor && !hasApprovePermission && !isAssignedDoctorReviewer) {
       return res.status(403).json({ 
         success: false, 
         message: 'Bạn không có quyền xem lịch sử bài viết này' 

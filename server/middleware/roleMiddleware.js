@@ -289,13 +289,29 @@ const roleMiddleware = (requiredPermission = null, allowedRoles = []) => {
         return next();
       }
 
-      // 4.5. KIỂM TRA QUYỀN ĐẶC QUYỀN CỦA BÁC SĨ (Viết bài/Sửa bài/Đề xuất)
+      // 4.5. KIỂM TRA QUYỀN ĐẶC QUYỀN CỦA BÁC SĨ (Viết bài/Sửa bài/Duyệt bài/Đề xuất)
       if (user.role === 'doctor' && requiredPermission) {
+        // First: check if doctor has Staff record with explicit permissions
+        const doctorStaff = await models.Staff.findOne({ where: { user_id: user.id } });
+        if (doctorStaff && doctorStaff.permissions) {
+          const [module, action] = requiredPermission.split(':');
+          if (module === 'articles' && doctorStaff.permissions.articles) {
+            if (Array.isArray(doctorStaff.permissions.articles) && doctorStaff.permissions.articles.includes(action)) {
+              return next();
+            }
+          }
+        }
+
+        // Fallback: check hardcoded doctor permissions
         const doctorAllowedPermissions = [
+          'articles:view',         // Quyền xem danh sách bài viết
           'articles:create',       // Quyền gửi bài viết mới
           'articles:edit',         // Quyền sửa bài viết của mình
           'articles:delete',       // Quyền xóa bài nháp của mình
-          'articles:create_draft'  // Quyền tạo đề xuất nháp
+          'articles:create_draft', // Quyền tạo đề xuất nháp
+          'articles:approve',      // Quyền duyệt bài viết/đề xuất
+          'articles:approve_medicine',  // Quyền duyệt đề xuất thuốc
+          'articles:approve_disease'    // Quyền duyệt đề xuất bệnh lý
         ];
         
         if (doctorAllowedPermissions.includes(requiredPermission)) {

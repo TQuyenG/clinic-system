@@ -4,7 +4,8 @@ module.exports = (sequelize) => {
   const Notification = sequelize.define('Notification', {
     id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
     user_id: { type: DataTypes.BIGINT, allowNull: false },
-    type: { type: DataTypes.ENUM('otp', 'appointment', 'payment', 'article', 'system', 'other', 'leave_req', 'schedule', 'consultation', 'community'), allowNull: false },
+    // Changed to STRING to allow new reminder types without DB enum migration
+    type: { type: DataTypes.STRING(100), allowNull: false },
     message: { type: DataTypes.TEXT, allowNull: false },
     content: {
       type: DataTypes.VIRTUAL,

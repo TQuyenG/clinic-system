@@ -170,6 +170,11 @@
   grid-template-columns: 2fr 1fr;
   gap: 1.5rem;
 }
+.medical-record-form-page-vitals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
 .medical-record-form-page-left-col,
 .medical-record-form-page-right-col {
   display: flex;
@@ -445,6 +450,225 @@
 .medical-record-form-page-prescription-name-field .medical-record-form-page-input {
   min-width: 0;
   width: 100%;
+}
+
+/* Embedded in consultation room: force one column and compact sizing */
+.main-layout.inroom-panel-open .medical-record-form-page-container {
+  padding: 0.5rem !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-header {
+  position: sticky;
+  /* leave extra top so navbar doesn't cover sticky header */
+  top: calc(5px + 8px);
+  z-index: 20;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: #ffffff;
+  /* stronger shadow to separate from content */
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
+  /* no rounded corners in embedded/tab panel */
+  border-radius: 0;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-header-content h1 {
+  font-size: 1.15rem;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-header-content p,
+.main-layout.inroom-panel-open .medical-record-form-page-info-text label,
+.main-layout.inroom-panel-open .medical-record-form-page-info-text span,
+.main-layout.inroom-panel-open .medical-record-form-page-form-group label,
+.main-layout.inroom-panel-open .medical-record-form-page-card-title,
+.main-layout.inroom-panel-open .medical-record-form-page-file-group label,
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-field-label,
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-field-hint,
+.main-layout.inroom-panel-open .medical-record-form-page-alert-box,
+.main-layout.inroom-panel-open .medical-record-form-page-btn-add,
+.main-layout.inroom-panel-open .medical-record-form-page-btn-submit {
+  font-size: 0.78rem;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-main-grid,
+.main-layout.inroom-panel-open .medical-record-form-page-info-card,
+.main-layout.inroom-panel-open .medical-record-form-page-card .medical-record-form-page-form-group-grid-2,
+.main-layout.inroom-panel-open .medical-record-form-page-vitals-grid,
+.main-layout.inroom-panel-open .medical-record-form-page-left-col,
+.main-layout.inroom-panel-open .medical-record-form-page-right-col {
+  grid-template-columns: 1fr !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.75rem !important;
+}
+
+/* Put vitals card before results in embedded panel only (does not affect standalone page) */
+.main-layout.inroom-panel-open .medical-record-form-page-vitals-card {
+  order: -1;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-info-item,
+.main-layout.inroom-panel-open .medical-record-form-page-form-group,
+.main-layout.inroom-panel-open .medical-record-form-page-card,
+.main-layout.inroom-panel-open .medical-record-form-page-file-group,
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-root {
+  width: 100% !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-card-title {
+  padding: 0.65rem 0.8rem !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-input,
+.main-layout.inroom-panel-open .medical-record-form-page-textarea,
+.main-layout.inroom-panel-open .medical-record-form-page-file-uploader,
+.main-layout.inroom-panel-open .medical-record-form-page-btn-submit,
+.main-layout.inroom-panel-open .medical-record-form-page-btn-add {
+  width: 100% !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-card .medical-record-form-page-form-group-grid-2 {
+  padding: 0.8rem !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-right-col .medical-record-form-page-form-group,
+.main-layout.inroom-panel-open .medical-record-form-page-file-group,
+.main-layout.inroom-panel-open .medical-record-form-page-alert-box {
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-vitals-grid > .medical-record-form-page-form-group,
+.main-layout.inroom-panel-open .medical-record-form-page-main-grid > * {
+  min-width: 0 !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-vitals-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.55rem !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-vitals-grid .medical-record-form-page-form-group,
+.main-layout.inroom-panel-open .medical-record-form-page-vitals-grid .medical-record-form-page-form-group.full-span {
+  width: 100% !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-vitals-grid .medical-record-form-page-form-group label {
+  font-size: 0.72rem;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-vitals-grid .medical-record-form-page-input,
+.main-layout.inroom-panel-open .medical-record-form-page-vitals-grid .medical-record-form-page-textarea {
+  padding: 0.5rem 0.6rem !important;
+  font-size: 0.78rem !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-vitals-grid .medical-record-form-page-form-group.full-span {
+  grid-column: 1 / -1 !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-list {
+  padding: 0.75rem !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-row {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.5rem !important;
+  padding-top: 0 !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-row > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-row .medical-record-form-page-prescription-name-field,
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-row .medical-record-form-page-prescription-unit-field,
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-row .input-small,
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-row .input-large {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-row .medical-record-form-page-prescription-field-label {
+  font-size: 0.7rem !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-row .medical-record-form-page-input {
+  height: 38px !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-prescription-row .medical-record-form-page-btn-remove {
+  align-self: flex-end;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-root {
+  padding: 10px !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-header {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-header-actions {
+  justify-content: flex-start !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-summary {
+  grid-template-columns: 1fr !important;
+  padding: 0.5rem !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-row {
+  padding: 10px !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-row-line1,
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-row-line2,
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-row-line3 {
+  padding-left: 0 !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-row-line1 {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-row-line2 {
+  align-items: flex-start !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-row-line3-controls {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-row-actions,
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-btn-schedule,
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-btn-remove {
+  width: 100% !important;
+}
+
+.main-layout.inroom-panel-open .medical-record-form-page-subservice-service-field {
+  min-height: 42px !important;
+  padding: 8px 10px !important;
+}
+
+.mrfp-preview-overlay {
+  align-items: flex-start;
+  padding-top: 6.5rem;
+}
+
+@media (max-width: 768px) {
+  .mrfp-preview-overlay {
+    padding-top: 5.5rem;
+  }
+
+  .main-layout.inroom-panel-open .medical-record-form-page-vitals-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 .medical-record-form-page-btn-icon {
   display: inline-flex;
@@ -1385,6 +1609,13 @@
   padding: 1rem;
 }
 
+/* When embedded panel is open, make preview overlay sit above the panel and add top padding so navbar doesn't cover content */
+.main-layout.inroom-panel-open .mrfp-preview-overlay {
+  align-items: flex-start;
+  padding-top: 8rem;
+  z-index: 12000;
+}
+
 .mrfp-preview-modal {
   width: min(920px, 100%);
   max-height: 90vh;
@@ -1393,6 +1624,7 @@
   border-radius: 14px;
   padding: 1rem;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  padding-top: 50px;
 }
 
 .mrfp-preview-header {
