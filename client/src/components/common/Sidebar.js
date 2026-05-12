@@ -37,7 +37,11 @@ import {
   FaBullhorn,  // <--- THÊM MỚI (Icon sự kiện/loa)
   FaGamepad,
   FaWarehouse,  // <--- KHO THUỐC
-  FaEnvelope   // <-- THÊM ICON NÀY CHO TRANG LIÊN HỆ
+  FaEnvelope,   // <-- THÊM ICON NÀY CHO TRANG LIÊN HỆ
+  FaEdit,
+  FaSave,
+  FaTimes,
+  FaGripVertical
 } from 'react-icons/fa';
 import usePermissions from '../../hooks/usePermissions';
 import { useAuth } from '../../contexts/AuthContext';
@@ -73,6 +77,8 @@ const Sidebar = ({ onToggle }) => {
   const [isPaymentMenuOpen, setPaymentMenuOpen] = useState(false);
   const [isArticleMenuOpen, setArticleMenuOpen] = useState(false);
   const [isForumMenuOpen, setForumMenuOpen] = useState(false);
+  const [isMarketingMenuOpen, setMarketingMenuOpen] = useState(false);
+  const [isPromotionMenuOpen, setPromotionMenuOpen] = useState(false);
   const [isStaffMenuOpen, setStaffMenuOpen] = useState(false);
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   
@@ -272,6 +278,11 @@ const Sidebar = ({ onToggle }) => {
   const [draggingIndex, setDraggingIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('Đã cập nhật');
+  const [isReorderMode, setIsReorderMode] = useState(false);
+  const [hasOrderChanges, setHasOrderChanges] = useState(false);
+  const [reorderSnapshot, setReorderSnapshot] = useState([]);
+  const [dragHandleArmedIndex, setDragHandleArmedIndex] = useState(null);
 
   // IDs that should appear in the top "General/Chung" section (visual grouping)
   // include both patient and staff saved-articles IDs so "Bài viết đã lưu" shows in Chung
@@ -346,8 +357,7 @@ const Sidebar = ({ onToggle }) => {
         { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
         { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
       ]});
-      addIf(canAccessModule('forum') || canAccessModule('community'), { id: 'manage_forum', type: 'dropdownItems', icon: FaCommentDots, label: 'Nhóm và diễn đàn', items: [
-        { to: '/nhom-cua-toi', label: 'Nhóm của tôi' },
+      addIf(canAccessModule('forum') || canAccessModule('community'), { id: 'manage_forum', type: 'dropdownItems', icon: FaCommentDots, label: 'Quản lý Diễn đàn & Cộng đồng', items: [
         ...(canAccessModule('forum') ? [{ to: '/quan-ly-dien-dan', label: 'Quản lý diễn đàn' }] : []),
         ...(canAccessModule('community') ? [{ to: '/quan-ly-nhom-cong-dong', label: 'Quản lý nhóm cộng đồng' }] : [])
       ]});
@@ -407,7 +417,7 @@ const Sidebar = ({ onToggle }) => {
     const savedItems = items.filter(i => i.id === 'saved_articles');
     if (savedItems.length) {
       const filtered = items.filter(i => i.id !== 'saved_articles');
-      const insertAfterId = 'my_forum';
+      const insertAfterId = filtered.some(i => i.id === 'my_groups') ? 'my_groups' : 'my_forum';
       const idxAfter = filtered.findIndex(i => i.id === insertAfterId);
       const insertPos = idxAfter === -1 ? Math.min(3, filtered.length) : idxAfter + 1;
       filtered.splice(insertPos, 0, ...savedItems);
@@ -421,6 +431,42 @@ const Sidebar = ({ onToggle }) => {
   useEffect(() => {
     // only build when user/permissions are ready
     const built = buildMenu();
+    const enforceSidebarOrder = (list) => {
+      const preferredTop = ['dashboard', 'profile', 'my_forum', 'my_groups', 'saved_articles'];
+      const top = preferredTop.map(id => list.find(i => i.id === id)).filter(Boolean);
+      const rest = list.filter(i => !preferredTop.includes(i.id) && i.id !== 'saved_articles_staff');
+
+      // Admin: prioritize frequently used management menus in a fixed order
+      if (isAdmin) {
+        const preferredAdminManagement = [
+          'manage_reception',
+          'manage_services',
+          'manage_consultations',
+          'manage_users',
+          'manage_forum',
+          'manage_articles',
+          'admin_categories',
+          'admin_specialties',
+          'work_schedule',
+          'manage_finance',
+          'manage_medical_records',
+          'pharmacy_stock_admin',
+          'manage_marketing',
+          'manage_system',
+          'manage_contact',
+          'admin_stats'
+        ];
+
+        const prioritized = preferredAdminManagement
+          .map(id => rest.find(i => i.id === id))
+          .filter(Boolean);
+
+        const remaining = rest.filter(i => !preferredAdminManagement.includes(i.id));
+        return [...top, ...prioritized, ...remaining];
+      }
+
+      return [...top, ...rest];
+    };
     const saved = localStorage.getItem('sidebarOrder');
     if (saved) {
       try {
@@ -435,19 +481,20 @@ const Sidebar = ({ onToggle }) => {
         const savedItems = combined.filter(i => savedIds.includes(i.id));
         if (savedItems.length) {
           const filtered = combined.filter(i => !savedIds.includes(i.id));
-          const idxAfter = filtered.findIndex(i => i.id === 'my_forum');
+          const anchorId = filtered.some(i => i.id === 'my_groups') ? 'my_groups' : 'my_forum';
+          const idxAfter = filtered.findIndex(i => i.id === anchorId);
           const insertPos = idxAfter === -1 ? Math.min(3, filtered.length) : idxAfter + 1;
           filtered.splice(insertPos, 0, ...savedItems);
-          setMenuItems(filtered);
+          setMenuItems(enforceSidebarOrder(filtered));
         } else {
-          setMenuItems(combined);
+          setMenuItems(enforceSidebarOrder(combined));
         }
         return;
       } catch (e) {
         console.error('Unable to parse sidebarOrder', e);
       }
     }
-    setMenuItems(built);
+    setMenuItems(enforceSidebarOrder(built));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isAdmin, canAccessModule]);
 
@@ -460,25 +507,71 @@ const Sidebar = ({ onToggle }) => {
     }
   };
 
+  const startReorderMode = () => {
+    if (collapsed) {
+      setCollapsed(false);
+      onToggle(false);
+    }
+    setReorderSnapshot(menuItems);
+    setHasOrderChanges(false);
+    setIsReorderMode(true);
+  };
+
+  const cancelReorderMode = () => {
+    if (reorderSnapshot.length > 0) {
+      setMenuItems(reorderSnapshot);
+    }
+    setIsReorderMode(false);
+    setHasOrderChanges(false);
+    setDraggingIndex(null);
+    setDragOverIndex(null);
+    setDragHandleArmedIndex(null);
+    dragItemIndex.current = null;
+  };
+
+  const commitReorderMode = () => {
+    saveOrder(menuItems);
+    setIsReorderMode(false);
+    setHasOrderChanges(false);
+    setDragHandleArmedIndex(null);
+    setToastMessage('Đã lưu thứ tự menu');
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 1800);
+  };
+
   const onDragStart = (e, index) => {
+    if (!isReorderMode || dragHandleArmedIndex !== index) {
+      e.preventDefault();
+      return;
+    }
     dragItemIndex.current = index;
     setDraggingIndex(index);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', 'drag');
   };
 
+  const onDragEnd = () => {
+    setDraggingIndex(null);
+    setDragOverIndex(null);
+    setDragHandleArmedIndex(null);
+    dragItemIndex.current = null;
+  };
+
   const onDragOver = (e, index) => {
+    if (!isReorderMode) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverIndex(index);
   };
 
   const onDrop = (e, index) => {
+    if (!isReorderMode) return;
     e.preventDefault();
     const from = dragItemIndex.current;
     const to = index;
     setDraggingIndex(null);
     setDragOverIndex(null);
+    setDragHandleArmedIndex(null);
     if (from === null || from === undefined) return;
     if (from === to) {
       dragItemIndex.current = null;
@@ -489,9 +582,10 @@ const Sidebar = ({ onToggle }) => {
     updated.splice(to, 0, moved);
     dragItemIndex.current = null;
     setMenuItems(updated);
-    saveOrder(updated);
+    setHasOrderChanges(true);
+    setToastMessage('Đã thay đổi');
     setShowToast(true);
-    setTimeout(() => setShowToast(false), 1800);
+    setTimeout(() => setShowToast(false), 1600);
   };
 
   if (!user) {
@@ -499,7 +593,7 @@ const Sidebar = ({ onToggle }) => {
   }
 
   return (
-    <div className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} ${isMobile ? 'sidebar-mobile' : ''} ${isScrolled ? 'sidebar-scrolled' : ''} ${draggingIndex !== null ? 'sidebar-is-dragging' : ''}`}>
+    <div className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} ${isMobile ? 'sidebar-mobile' : ''} ${isScrolled ? 'sidebar-scrolled' : ''} ${draggingIndex !== null ? 'sidebar-is-dragging' : ''} ${isReorderMode ? 'sidebar-reorder-mode' : ''}`}>
       {/* Toggle button - nằm giữa cạnh phải */}
       <button 
         className="sidebar-toggle-btn" 
@@ -521,24 +615,56 @@ const Sidebar = ({ onToggle }) => {
             {/* Do not show role label for patients */}
             {user?.role && user.role !== 'patient' && <div className="sidebar-user-role">{user.role}</div>}
           </div>
+          {!collapsed && (
+            <div className="sidebar-user-actions">
+              {!isReorderMode && (
+                <button className="sidebar-action-btn" onClick={startReorderMode} title="Chỉnh sửa thứ tự menu">
+                  <FaEdit />
+                </button>
+              )}
+              {isReorderMode && (
+                <>
+                  <button className="sidebar-action-btn" onClick={cancelReorderMode} title="Hủy chỉnh sửa">
+                    <FaTimes />
+                  </button>
+                  <button className={`sidebar-action-btn sidebar-action-btn-save ${hasOrderChanges ? 'is-dirty' : ''}`} onClick={commitReorderMode} title="Lưu thứ tự menu" disabled={!hasOrderChanges}>
+                    <FaSave />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
         <div className="sidebar-section-label">Chung</div>
         <nav className="sidebar-nav">
           {menuItems.map((item, idx) => (
-            <div
-              key={item.id}
-              className={`sidebar-draggable ${draggingIndex === idx ? 'sidebar-dragging' : ''} ${dragOverIndex === idx ? 'sidebar-drop-target' : ''}`}
-              draggable
-              onDragStart={(e) => onDragStart(e, idx)}
-              onDragOver={(e) => onDragOver(e, idx)}
-              onDrop={(e) => onDrop(e, idx)}
-            >
-              {/* Insert a management section label + divider when we reach the first non-top item */}
+            <React.Fragment key={item.id}>
+              {/* Insert a management section label + divider before the first non-top item */}
               {idx === firstMgmtIndexSafe && idx !== 0 && (
                 <>
                   <div className="sidebar-divider" aria-hidden="true" />
                   <div className="sidebar-section-label sidebar-section-label-management">Quản lý</div>
                 </>
+              )}
+              <div
+                className={`sidebar-draggable ${draggingIndex === idx ? 'sidebar-dragging' : ''} ${dragOverIndex === idx ? 'sidebar-drop-target' : ''}`}
+                draggable={isReorderMode}
+                onDragStart={(e) => onDragStart(e, idx)}
+                onDragEnd={onDragEnd}
+                onDragOver={(e) => onDragOver(e, idx)}
+                onDrop={(e) => onDrop(e, idx)}
+              >
+              {isReorderMode && !collapsed && (
+                <button
+                  className="sidebar-drag-handle"
+                  type="button"
+                  title="Kéo để đổi vị trí"
+                  onMouseDown={() => setDragHandleArmedIndex(idx)}
+                  onTouchStart={() => setDragHandleArmedIndex(idx)}
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <FaGripVertical />
+                </button>
               )}
               {item.type === 'item' && (
                 <MenuItem to={item.to} icon={item.icon} label={item.label} isActive={location.pathname === item.to} />
@@ -548,10 +674,22 @@ const Sidebar = ({ onToggle }) => {
                 <MenuDropdownItems
                   icon={item.icon}
                   label={item.label}
-                  isOpen={item.id === 'manage_articles' ? isArticleMenuOpen : item.id === 'manage_forum' ? isForumMenuOpen : false}
+                  isOpen={
+                    item.id === 'manage_articles'
+                      ? isArticleMenuOpen
+                      : item.id === 'manage_forum'
+                      ? isForumMenuOpen
+                      : item.id === 'manage_marketing'
+                      ? isMarketingMenuOpen
+                      : item.id === 'patient_promotions'
+                      ? isPromotionMenuOpen
+                      : false
+                  }
                   onToggle={() => {
                     if (item.id === 'manage_articles') setArticleMenuOpen(!isArticleMenuOpen);
                     else if (item.id === 'manage_forum') setForumMenuOpen(!isForumMenuOpen);
+                    else if (item.id === 'manage_marketing') setMarketingMenuOpen(!isMarketingMenuOpen);
+                    else if (item.id === 'patient_promotions') setPromotionMenuOpen(!isPromotionMenuOpen);
                   }}
                   items={item.items}
                 />
@@ -678,10 +816,11 @@ const Sidebar = ({ onToggle }) => {
 
                 </>
               )}
-            </div>
+              </div>
+            </React.Fragment>
           ))}
           {showToast && (
-            <div className="sidebar-toast" role="status">Đã cập nhật</div>
+            <div className="sidebar-toast" role="status">{toastMessage}</div>
           )}
         </nav>
       </div>

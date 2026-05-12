@@ -25,7 +25,7 @@ const MainLayout = ({ children }) => {
   const isMedicalRecordPage = location.pathname.startsWith('/nhap-ket-qua');
 
   const dashboardPaths = [
-  '/dashboard', '/ho-so-nguoi-dung', '/quan-ly-nguoi-dung', '/quan-ly-chuyen-khoa', '/dien-dan-cua-toi',
+  '/dashboard', '/ho-so-nguoi-dung', '/quan-ly-nguoi-dung', '/quan-ly-chuyen-khoa', '/dien-dan-cua-toi', '/nhom-cua-toi',
   '/quan-ly-danh-muc', '/quan-ly-bai-viet', '/quan-ly-lich-lam-viec', '/quan-ly-lich-hen',
   '/bai-viet-da-luu', '/thong-ke', '/lich-hen-cua-toi', '/quan-ly-tu-van/goi-dich-vu', '/quan-ly-tu-van/realtime',
   '/ho-so-y-te', '/thong-bao', '/cai-dat-tai-khoan', '/quan-ly-he-thong', '/lich-cua-toi', '/staff/tu-van/realtime', '/staff/tu-van/video',

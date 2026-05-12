@@ -3,14 +3,17 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import communityService from '../services/communityService';
-import { FaUsers, FaCrown, FaComments, FaEllipsisV, FaEdit, FaTrash } from 'react-icons/fa';
+import {
+  FaUsers,
+  FaCrown,
+  FaEdit,
+  FaTrash,
+  FaClock,
+  FaSearch,
+  FaFilter
+} from 'react-icons/fa';
 import './MyGroupsManagementPage.css';
 
-const GROUP_ICONS_MAP = {
-  FaUsers: <FaUsers />, FaComments: <FaComments />, FaCrown: <FaCrown />
-};
-
-// Custom Alert Component
 const CustomAlert = ({ type = 'info', title = '', message = '', show = false, onClose = () => {}, autoCloseDuration = 5000 }) => {
   useEffect(() => {
     if (show && autoCloseDuration > 0) {
@@ -24,36 +27,29 @@ const CustomAlert = ({ type = 'info', title = '', message = '', show = false, on
   return (
     <div className="mygroupspage-alert-overlay" onClick={onClose}>
       <div className={`mygroupspage-alert mygroupspage-alert--${type}`} onClick={(e) => e.stopPropagation()}>
-        <div className="mygroupspage-alert-header">
-          <h3 className="mygroupspage-alert-title">{title}</h3>
-        </div>
+        <h3 className="mygroupspage-alert-title">{title}</h3>
         {message && <p className="mygroupspage-alert-message">{message}</p>}
-        <div className="mygroupspage-alert-actions">
-          <button className={`mygroupspage-btn-primary mygroupspage-alert-btn--${type}`} onClick={onClose}>Đóng</button>
-        </div>
+        <button className="mygroupspage-btn-primary" onClick={onClose}>Đóng</button>
       </div>
     </div>
   );
 };
 
-// ==========================================
-// COMPONENT: MyGroupsManagementPage
-// ==========================================
 const MyGroupsManagementPage = () => {
   const authContext = useContext(AuthContext);
-  const user = authContext?.user || null;
+  const user = authContext?.user || JSON.parse(localStorage.getItem('user') || 'null');
   const navigate = useNavigate();
 
-  // States
+  const [activeFilter, setActiveFilter] = useState('all'); // all | created | joined
+  const [searchTerm, setSearchTerm] = useState('');
   const [myCreatedGroups, setMyCreatedGroups] = useState([]);
   const [myJoinedGroups, setMyJoinedGroups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState({ show: false, type: 'info', title: '', message: '' });
 
-  // Fetch My Groups
   useEffect(() => {
     if (!user) return;
-    
+
     const fetchMyGroups = async () => {
       setLoading(true);
       try {
@@ -62,8 +58,8 @@ const MyGroupsManagementPage = () => {
           setMyCreatedGroups(res.data.data.createdGroups || []);
           setMyJoinedGroups(res.data.data.joinedGroups || []);
         }
-      } catch (e) {
-        console.error('Error fetching groups:', e);
+      } catch (error) {
+        console.error('Error fetching groups:', error);
         setAlert({
           show: true,
           type: 'error',
@@ -83,13 +79,11 @@ const MyGroupsManagementPage = () => {
   };
 
   const handleEditGroup = (group) => {
-    // Navigate to edit group page when ready
     navigate(`/cong-dong/nhom/${group.slug}/chinh-sua`);
   };
 
   const handleDeleteGroup = async (groupId) => {
     if (!window.confirm('Bạn có chắc muốn xóa nhóm này?')) return;
-    
     try {
       const res = await communityService.deleteGroup(groupId);
       if (res.data.success) {
@@ -101,7 +95,7 @@ const MyGroupsManagementPage = () => {
           message: 'Nhóm đã được xóa'
         });
       }
-    } catch (e) {
+    } catch (error) {
       setAlert({
         show: true,
         type: 'error',
@@ -113,7 +107,6 @@ const MyGroupsManagementPage = () => {
 
   const handleLeaveGroup = async (groupId) => {
     if (!window.confirm('Bạn có chắc muốn rời khỏi nhóm này?')) return;
-    
     try {
       const res = await communityService.leaveGroup(groupId);
       if (res.data.success) {
@@ -125,7 +118,7 @@ const MyGroupsManagementPage = () => {
           message: 'Bạn đã rời khỏi nhóm'
         });
       }
-    } catch (e) {
+    } catch (error) {
       setAlert({
         show: true,
         type: 'error',
@@ -149,11 +142,37 @@ const MyGroupsManagementPage = () => {
     }
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    if (diffMins < 60) return `${diffMins} phút trước`;
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    return date.toLocaleDateString('vi-VN');
+  };
+
+  const normalizeText = (value) => String(value || '').toLowerCase();
+
+  const filterGroup = (group) => {
+    const search = normalizeText(searchTerm);
+    if (!search) return true;
+    return [group.name, group.description, group.slug].some((field) => normalizeText(field).includes(search));
+  };
+
+  const filteredCreatedGroups = myCreatedGroups.filter(filterGroup);
+  const filteredJoinedGroups = myJoinedGroups.filter(filterGroup);
+
+  const visibleCreated = activeFilter === 'all' || activeFilter === 'created';
+  const visibleJoined = activeFilter === 'all' || activeFilter === 'joined';
+
   if (!user) {
     return (
-      <div className="mygroupspage-container">
-        <div className="mygroupspage-empty-state">
-          <FaUsers size={48} />
+      <div className="mygroupspage-page">
+        <div className="mygroupspage-container mygroupspage-page--empty">
+          <FaUsers className="mygroupspage-empty-icon" />
           <h3>Vui lòng đăng nhập</h3>
           <p>Bạn cần đăng nhập để xem nhóm của bạn</p>
           <button className="mygroupspage-btn-primary" onClick={() => navigate('/login')}>
@@ -165,207 +184,192 @@ const MyGroupsManagementPage = () => {
   }
 
   return (
-    <div className="mygroupspage">
-      {/* Header Banner */}
-      <header className="mygroupspage-banner">
-        <div className="mygroupspage-banner-bg"></div>
-        <div className="mygroupspage-banner-inner mygroupspage-container">
-          <div className="mygroupspage-banner-content">
-            <h1 className="mygroupspage-banner-title">Nhóm của tôi</h1>
-            <p className="mygroupspage-banner-desc">
-              Quản lý các nhóm bạn tạo và các nhóm mà bạn tham gia
-            </p>
+    <div className="mygroupspage-page">
+      <div className="mygroupspage-container">
+        <header className="mygroupspage-header">
+          <div className="mygroupspage-header-copy">
+            <h1>Nhóm của tôi</h1>
+            <p>Quản lý các nhóm bạn tạo và các nhóm mà bạn tham gia</p>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="mygroupspage-container mygroupspage-content">
-        {loading ? (
-          <div className="mygroupspage-loading">
-            <div className="mygroupspage-spinner"></div>
-            Đang tải dữ liệu...
+        <section className="mygroupspage-toolbar">
+          <div className="mygroupspage-search-box">
+            <FaSearch className="mygroupspage-search-icon" />
+            <input
+              type="text"
+              className="mygroupspage-search-input"
+              placeholder="Tìm kiếm nhóm..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-        ) : (
-          <>
-            {/* Created Groups Section */}
-            <section className="mygroupspage-section">
-              <h2 className="mygroupspage-section-title">
-                <FaCrown /> Nhóm do tôi tạo ({myCreatedGroups.length})
-              </h2>
+          <div className="mygroupspage-filter-group" role="tablist" aria-label="Bộ lọc nhóm">
+            <button
+              className={`mygroupspage-filter-btn ${activeFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('all')}
+            >
+              <FaFilter /> Tất cả
+            </button>
+            <button
+              className={`mygroupspage-filter-btn ${activeFilter === 'created' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('created')}
+            >
+              <FaCrown /> Nhóm tôi tạo
+            </button>
+            <button
+              className={`mygroupspage-filter-btn ${activeFilter === 'joined' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('joined')}
+            >
+              <FaUsers /> Nhóm tôi tham gia
+            </button>
+          </div>
+        </section>
 
-              {myCreatedGroups.length === 0 ? (
-                <div className="mygroupspage-empty-state-section">
-                  <FaCrown size={32} />
-                  <p>Bạn chưa tạo nhóm nào</p>
-                  <button 
-                    className="mygroupspage-btn-primary"
-                    onClick={() => navigate('/cong-dong', { state: { openCreateModal: true } })}
-                  >
-                    + Tạo nhóm mới
-                  </button>
-                </div>
-              ) : (
-                <div className="mygroupspage-groups-grid">
-                  {myCreatedGroups.map(group => (
-                    <div key={group.id} className="mygroupspage-group-card">
-                      {/* Group Cover */}
-                      <div 
-                        className="mygroupspage-group-cover"
-                        style={{
-                          background: group.cover_image 
-                            ? `url(${group.cover_image.startsWith('http') ? group.cover_image : `http://localhost:3001${group.cover_image}`}) center/cover`
-                            : 'linear-gradient(135deg, #4CAF50, #2E7D32)'
-                        }}
+        <main className="mygroupspage-content">
+          {loading ? (
+            <div className="mygroupspage-state">
+              <div className="mygroupspage-spinner"></div>
+              <p>Đang tải dữ liệu...</p>
+            </div>
+          ) : (
+            <>
+              {visibleCreated && (
+                <section className="mygroupspage-section">
+                  <div className="mygroupspage-section-head">
+                    <h2><FaCrown /> Nhóm do tôi tạo ({filteredCreatedGroups.length})</h2>
+                  </div>
+
+                  {filteredCreatedGroups.length === 0 ? (
+                    <div className="mygroupspage-empty-state-section">
+                      <FaCrown size={28} />
+                      <p>Bạn chưa tạo nhóm nào</p>
+                      <button
+                        className="mygroupspage-btn-primary"
+                        onClick={() => navigate('/cong-dong', { state: { openCreateModal: true } })}
                       >
-                        <span className="mygroupspage-group-icon">
-                          {!group.cover_image && (GROUP_ICONS_MAP[group.icon] || <FaUsers />)}
-                        </span>
-                      </div>
+                        + Tạo nhóm mới
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mygroupspage-list">
+                      {filteredCreatedGroups.map((group) => (
+                        <article key={group.id} className="mygroupspage-card" onClick={() => handleViewGroup(group)}>
+                          <div className="mygroupspage-card-stats">
+                            <div className="mygroupspage-stat-item highlight">
+                              <span className="mygroupspage-stat-val">{group.members_count || 0}</span>
+                              <span className="mygroupspage-stat-lbl">Thành viên</span>
+                            </div>
+                            <div className="mygroupspage-stat-item">
+                              <span className="mygroupspage-stat-val">{group.posts_count || 0}</span>
+                              <span className="mygroupspage-stat-lbl">Bài viết</span>
+                            </div>
+                          </div>
 
-                      {/* Group Body */}
-                      <div className="mygroupspage-group-body">
-                        <h3 className="mygroupspage-group-name">{group.name}</h3>
+                          <div className="mygroupspage-card-body">
+                            <h3 className="mygroupspage-card-title">{group.name}</h3>
+                            {group.description && (
+                              <p className="mygroupspage-card-excerpt">{group.description.replace(/<[^>]*>?/gm, '').substring(0, 120)}...</p>
+                            )}
 
-                        {/* Status Badge */}
-                        <div className="mygroupspage-group-status">
-                          {getStatusBadge(group.status)}
-                        </div>
+                            <div className="mygroupspage-meta">
+                              <div className="mygroupspage-meta-item"><FaClock /> {formatDate(group.created_at || group.createdAt)}</div>
+                              {group.status && getStatusBadge(group.status)}
+                              <span className="mygroupspage-badge">{group.privacy === 'public' ? 'Công khai' : 'Riêng tư'}</span>
+                            </div>
+                          </div>
 
-                        {/* Rejection Reason */}
-                        {group.rejection_reason && (
-                          <p className="mygroupspage-group-rejection">
-                            <strong>Lý do:</strong> {group.rejection_reason}
-                          </p>
-                        )}
-
-                        {/* Group Description */}
-                        <p className="mygroupspage-group-description">
-                          {group.description || 'Nhóm cộng đồng sức khỏe'}
-                        </p>
-
-                        {/* Group Meta Info */}
-                        <div className="mygroupspage-group-meta">
-                          <span><FaUsers /> {group.members_count || 0} thành viên</span>
-                          <span>{group.privacy === 'public' ? 'Công khai' : 'Riêng tư'}</span>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="mygroupspage-group-actions">
-                          {group.status === 'active' ? (
-                            <>
-                              <button 
-                                className="mygroupspage-btn-primary"
-                                onClick={() => handleViewGroup(group)}
-                              >
-                                Xem nhóm
+                          <div className="mygroupspage-actions">
+                            {group.status === 'active' ? (
+                              <>
+                                <button className="mygroupspage-btn-outline" onClick={(e) => { e.stopPropagation(); handleEditGroup(group); }} title="Chỉnh sửa nhóm">
+                                  <FaEdit />
+                                </button>
+                                <button className="mygroupspage-btn-danger" onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group.id); }} title="Xóa nhóm">
+                                  <FaTrash />
+                                </button>
+                              </>
+                            ) : (
+                              <button className="mygroupspage-btn-muted" disabled>
+                                Chưa thể truy cập
                               </button>
-                              <button 
-                                className="mygroupspage-btn-outline"
-                                onClick={() => handleEditGroup(group)}
-                              >
-                                <FaEdit /> Chỉnh sửa
-                              </button>
-                              <button 
-                                className="mygroupspage-btn-danger"
-                                onClick={() => handleDeleteGroup(group.id)}
-                              >
-                                <FaTrash /> Xóa
-                              </button>
-                            </>
-                          ) : (
-                            <button className="mygroupspage-btn-muted" disabled>
-                              Chưa thể truy cập
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {visibleJoined && (
+                <section className="mygroupspage-section">
+                  <div className="mygroupspage-section-head">
+                    <h2><FaUsers /> Nhóm tôi tham gia ({filteredJoinedGroups.length})</h2>
+                  </div>
+
+                  {filteredJoinedGroups.length === 0 ? (
+                    <div className="mygroupspage-empty-state-section">
+                      <FaUsers size={28} />
+                      <p>Bạn chưa tham gia nhóm nào</p>
+                      <button
+                        className="mygroupspage-btn-primary"
+                        onClick={() => navigate('/cong-dong')}
+                      >
+                        Khám phá nhóm
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mygroupspage-list">
+                      {filteredJoinedGroups.map((group) => (
+                        <article key={group.id} className="mygroupspage-card" onClick={() => handleViewGroup(group)}>
+                          <div className="mygroupspage-card-stats">
+                            <div className="mygroupspage-stat-item highlight">
+                              <span className="mygroupspage-stat-val">{group.members_count || 0}</span>
+                              <span className="mygroupspage-stat-lbl">Thành viên</span>
+                            </div>
+                            <div className="mygroupspage-stat-item">
+                              <span className="mygroupspage-stat-val">{group.posts_count || 0}</span>
+                              <span className="mygroupspage-stat-lbl">Bài viết</span>
+                            </div>
+                          </div>
+
+                          <div className="mygroupspage-card-body">
+                            <h3 className="mygroupspage-card-title">{group.name}</h3>
+                            {group.description && (
+                              <p className="mygroupspage-card-excerpt">{group.description.replace(/<[^>]*>?/gm, '').substring(0, 120)}...</p>
+                            )}
+
+                            <div className="mygroupspage-meta">
+                              <div className="mygroupspage-meta-item"><FaClock /> {formatDate(group.created_at || group.createdAt)}</div>
+                              {group.status && getStatusBadge(group.status)}
+                              <span className="mygroupspage-badge">{group.privacy === 'public' ? 'Công khai' : 'Riêng tư'}</span>
+                            </div>
+                          </div>
+
+                          <div className="mygroupspage-actions">
+                            <button className="mygroupspage-btn-danger" onClick={(e) => { e.stopPropagation(); handleLeaveGroup(group.id); }} title="Rời khỏi nhóm">
+                              <FaTrash />
                             </button>
-                          )}
-                        </div>
-                      </div>
+                          </div>
+                        </article>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </section>
               )}
-            </section>
+            </>
+          )}
+        </main>
+      </div>
 
-            {/* Joined Groups Section */}
-            <section className="mygroupspage-section">
-              <h2 className="mygroupspage-section-title">
-                <FaUsers /> Nhóm tôi tham gia ({myJoinedGroups.length})
-              </h2>
-
-              {myJoinedGroups.length === 0 ? (
-                <div className="mygroupspage-empty-state-section">
-                  <FaUsers size={32} />
-                  <p>Bạn chưa tham gia nhóm nào</p>
-                  <button 
-                    className="mygroupspage-btn-primary"
-                    onClick={() => navigate('/cong-dong')}
-                  >
-                    Khám phá nhóm
-                  </button>
-                </div>
-              ) : (
-                <div className="mygroupspage-groups-grid">
-                  {myJoinedGroups.map(group => (
-                    <div key={group.id} className="mygroupspage-group-card">
-                      {/* Group Cover */}
-                      <div 
-                        className="mygroupspage-group-cover"
-                        style={{
-                          background: group.cover_image 
-                            ? `url(${group.cover_image.startsWith('http') ? group.cover_image : `http://localhost:3001${group.cover_image}`}) center/cover`
-                            : 'linear-gradient(135deg, #4CAF50, #2E7D32)'
-                        }}
-                      >
-                        <span className="mygroupspage-group-icon">
-                          {!group.cover_image && (GROUP_ICONS_MAP[group.icon] || <FaUsers />)}
-                        </span>
-                      </div>
-
-                      {/* Group Body */}
-                      <div className="mygroupspage-group-body">
-                        <h3 className="mygroupspage-group-name">{group.name}</h3>
-                        <p className="mygroupspage-group-description">
-                          {group.description || 'Nhóm cộng đồng sức khỏe'}
-                        </p>
-
-                        {/* Group Meta Info */}
-                        <div className="mygroupspage-group-meta">
-                          <span><FaUsers /> {group.members_count || 0} thành viên</span>
-                          <span>{group.privacy === 'public' ? 'Công khai' : 'Riêng tư'}</span>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="mygroupspage-group-actions">
-                          <button 
-                            className="mygroupspage-btn-primary"
-                            onClick={() => handleViewGroup(group)}
-                          >
-                            Vào nhóm
-                          </button>
-                          <button 
-                            className="mygroupspage-btn-danger"
-                            onClick={() => handleLeaveGroup(group.id)}
-                          >
-                            Rời nhóm
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </>
-        )}
-      </main>
-
-      {/* Alert Component */}
       <CustomAlert
+        show={alert.show}
         type={alert.type}
         title={alert.title}
         message={alert.message}
-        show={alert.show}
         onClose={() => setAlert({ ...alert, show: false })}
+        autoCloseDuration={3000}
       />
     </div>
   );

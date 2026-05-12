@@ -98,6 +98,14 @@
   box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
 }
 
+.MyForum-tabs-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--mf-border);
+  margin: 0 4px;
+  align-self: center;
+}
+
 /* === CONTENT AREA === */
 .MyForum-content {
   flex: 1;
@@ -303,6 +311,28 @@
   display: flex;
   align-items: flex-start;
   padding-left: 8px;
+}
+
+.MyForum-btn-edit {
+  background: white;
+  border: 1px solid var(--mf-border);
+  color: #666;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.MyForum-btn-edit:hover {
+  background: #E3F2FD;
+  border-color: #BBDEFB;
+  color: #1565C0;
 }
 
 .MyForum-btn-delete {

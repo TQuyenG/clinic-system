@@ -6,12 +6,10 @@ import api from '../services/api';
 import CustomAlert from '../components/CustomAlert';
 import {
   FaBookmark,
-  FaHeart,
   FaEdit,
   FaQuestionCircle,
   FaClock,
   FaTrash,
-  FaEye,
   FaCommentDots
 } from 'react-icons/fa';
 import './MyForumPage.css';
@@ -73,12 +71,11 @@ const MyForumPage = () => {
   };
 
   const handleQuestionClick = (id) => {
-    console.log('Navigating to question:', id); // Debug log
     navigate(`/dien-dan-suc-khoe/cau-hoi/${id}`);
   };
 
   const handleDeleteQuestion = async (e, id) => {
-    e.stopPropagation(); // Ngăn chặn click vào card
+    e.stopPropagation();
     if (!window.confirm('Bạn có chắc muốn xóa câu hỏi này vĩnh viễn?')) return;
 
     try {
@@ -89,7 +86,7 @@ const MyForumPage = () => {
         title: 'Thành công',
         message: 'Đã xóa câu hỏi'
       });
-      fetchQuestions(); // Refresh list
+      fetchQuestions();
     } catch (error) {
       setAlert({
         show: true,
@@ -118,13 +115,11 @@ const MyForumPage = () => {
   return (
     <div className="MyForum-page">
       <div className="MyForum-container">
-        {/* Header */}
         <header className="MyForum-header">
           <h1><FaQuestionCircle /> Diễn đàn cá nhân</h1>
           <p>Quản lý câu hỏi, bài viết đã lưu và các hoạt động của bạn</p>
         </header>
 
-        {/* Tabs */}
         <div className="MyForum-tabs">
           <button
             className={`MyForum-tab-btn ${activeTab === 'my-questions' ? 'active' : ''}`}
@@ -146,7 +141,6 @@ const MyForumPage = () => {
           </button>
         </div>
 
-        {/* Content */}
         <div className="MyForum-content">
           {loading ? (
             <div className="MyForum-state">
@@ -180,7 +174,6 @@ const MyForumPage = () => {
                   className="MyForum-card"
                   onClick={() => handleQuestionClick(q.id)}
                 >
-                  {/* Stats (Left) */}
                   <div className="MyForum-stats">
                     <div className="MyForum-stat-item highlight">
                       <span className="MyForum-stat-val">{q.answersCount || 0}</span>
@@ -192,7 +185,6 @@ const MyForumPage = () => {
                     </div>
                   </div>
 
-                  {/* Body (Center) */}
                   <div className="MyForum-card-body">
                     <h3 className="MyForum-card-title">{q.title}</h3>
                     
@@ -232,7 +224,6 @@ const MyForumPage = () => {
                     )}
                   </div>
 
-                  {/* Actions (Right - Only for own questions) */}
                   {activeTab === 'my-questions' && (
                     <div className="MyForum-actions">
                       <button
