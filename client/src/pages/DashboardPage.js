@@ -9,12 +9,13 @@ import 'react-resizable/css/styles.css';
 import { useAuth } from '../contexts/AuthContext';
 import usePermissions from '../hooks/usePermissions';
 import appointmentService from '../services/appointmentService';
+import consultationService from '../services/consultationService';
 import paymentService from '../services/paymentService';
 import { 
   FaClinicMedical, FaSignOutAlt, FaCalendarAlt, FaChevronLeft, 
   FaChevronRight, FaNewspaper, FaExclamationTriangle, FaCheckCircle, 
   FaClock, FaEyeSlash, FaHourglassHalf, FaCoins, FaEdit, FaSave, FaUndoAlt,
-  FaUsers, FaComments, FaBusinessTime, FaUserCheck, FaEnvelope, FaChartLine
+  FaUsers, FaComments, FaBusinessTime, FaUserCheck, FaUserClock, FaEnvelope, FaChartLine
 } from 'react-icons/fa';
 import './DashboardPage.css';
 
@@ -88,6 +89,8 @@ const DashboardPage = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isBoardEditMode, setIsBoardEditMode] = useState(false);
+  const [consultations, setConsultations] = useState([]);
+  const [patientAppointments, setPatientAppointments] = useState([]);
   
   // Trạng thái layouts
   const [layouts, setLayouts] = useState(() => {
@@ -483,7 +486,7 @@ const DashboardPage = () => {
     fetchRegistrationStats();
   }, [canViewApprovalStats]);
 
-  // Fetch Calendar Events (Lịch Làm + Lịch Hẹn) - chỉ của chính user nếu là admin
+  // Fetch Calendar Events (Lịch Làm + Lịch Hẹn + Tư Vấn) - chỉ của chính user nếu là admin
   useEffect(() => {
     const fetchCalendarEvents = async () => {
       if (!canViewScheduleWorkload && !canViewAppointmentWorkload) return;
@@ -523,6 +526,67 @@ const DashboardPage = () => {
     };
     fetchCalendarEvents();
   }, [canViewScheduleWorkload, canViewAppointmentWorkload, currentMonth, isAdmin, user?.id]);
+
+  // Fetch Consultations for calendar widget
+  useEffect(() => {
+    const fetchConsultations = async () => {
+      if (!canViewAppointmentWorkload && user?.role !== 'patient') return;
+      try {
+        const formatDate = (date) => {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        };
+        const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+        const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+        const dateFrom = formatDate(monthStart);
+        const dateTo = formatDate(monthEnd);
+        let response;
+        if (user?.role === 'patient') {
+          response = await consultationService.getMyConsultations({ date_from: dateFrom, date_to: dateTo });
+        } else {
+          response = await consultationService.getAllConsultations({
+            date_from: dateFrom,
+            date_to: dateTo,
+            ...(isAdmin && user?.id ? { user_id: user.id } : {})
+          });
+        }
+        if (response.data?.data) {
+          setConsultations(response.data.data);
+        }
+      } catch (error) {
+        console.warn('Warning: Could not fetch consultations for calendar', error);
+        setConsultations([]);
+      }
+    };
+    fetchConsultations();
+  }, [canViewAppointmentWorkload, currentMonth, isAdmin, user?.id]);
+
+  // Fetch patient appointments for calendar (patient only)
+  useEffect(() => {
+    const fetchPatientAppointments = async () => {
+      if (user?.role !== 'patient') return;
+      try {
+        const formatDate = (date) => {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        };
+        const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+        const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+        const dateFrom = formatDate(monthStart);
+        const dateTo = formatDate(monthEnd);
+        const response = await appointmentService.getMyAppointments({ date_from: dateFrom, date_to: dateTo });
+        if (response.data?.data) setPatientAppointments(response.data.data);
+      } catch (err) {
+        console.warn('Could not fetch patient appointments for calendar', err);
+        setPatientAppointments([]);
+      }
+    };
+    fetchPatientAppointments();
+  }, [currentMonth, user?.role]);
 
   // Hàm xử lý lưu layout
   const handleLayoutChange = (currentLayout, allLayouts) => {
@@ -571,37 +635,58 @@ const DashboardPage = () => {
 
   // Helper: Lấy events của một ngày từ calendarEvents
   const getEventsForDate = (day) => {
-    if (!calendarEvents) return { schedules: [], appointments: [], leaves: [] };
     const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    // Normalize appointments array to include consultations (server may mark them with `is_consultation`)
-    const rawAppointments = calendarEvents.appointments || [];
-    const normalizedAppointments = rawAppointments.map(e => {
-      // If server marked as consultation, adapt fields to appointment-like shape
-      if (e.is_consultation) {
-        const appointment_date = e.date || (e.appointment_time ? String(e.appointment_time).split('T')[0] : null);
-        const appointment_start_time = e.start_time || e.appointment_start_time || (e.appointment_time ? String(e.appointment_time).split('T')[1]?.substring(0,5) : null);
-        const appointment_end_time = e.end_time || e.appointment_end_time || (e.ended_at ? String(e.ended_at).split('T')[1]?.substring(0,5) : null);
-        const patient_name = e.Patient?.full_name || e.Patient?.User?.full_name || e.guest_name || 'Bệnh nhân';
-        return {
-          ...e,
-          appointment_date,
-          appointment_start_time,
-          appointment_end_time,
-          patient_name,
-          service_name: e.Service?.name || 'Tư vấn',
-        };
-      }
-      // For regular appointments, try to ensure patient_name/service_name exist for tooltip rendering
+
+    // If patient, only show their appointments and consultations
+    if (user?.role === 'patient') {
+      const normalizedAppointments = (patientAppointments || []).map(a => ({
+        ...a,
+        appointment_date: a.appointment_date || (a.appointment_time ? String(a.appointment_time).split('T')[0] : null),
+        appointment_start_time: a.appointment_start_time || (a.appointment_time ? String(a.appointment_time).split('T')[1]?.substring(0,5) : null),
+        patient_name: a.Patient?.User?.full_name || a.guest_name || user?.full_name || a.patient_name,
+        service_name: a.Service?.name || a.service_name || null
+      }));
+
+      const normalizedConsultations = (consultations || []).map(c => ({
+        ...c,
+        appointment_date: c.appointment_date || (c.appointment_time ? String(c.appointment_time).split('T')[0] : null) || (c.appointment_time ? String(c.appointment_time).split('T')[0] : null),
+        appointment_start_time: c.appointment_start_time || (c.appointment_time ? String(c.appointment_time).split('T')[1]?.substring(0,5) : null),
+        patient_name: c.patient?.full_name || user?.full_name || 'Bệnh nhân',
+        service_name: `${c.consultation_type === 'video' ? 'Video' : c.consultation_type === 'offline' ? 'Offline' : 'Chat'}`,
+        is_consultation: true
+      }));
+
       return {
-        ...e,
-        patient_name: e.Patient?.User?.full_name || e.guest_name || e.Patient?.full_name || e.patient_name,
-        service_name: e.Service?.name || e.service_name || null
+        schedules: [],
+        appointments: normalizedAppointments.filter(a => a.appointment_date?.startsWith(dateStr)) || [],
+        consultations: normalizedConsultations.filter(c => c.appointment_date?.startsWith(dateStr)) || [],
+        leaves: []
       };
-    });
+    }
+
+    if (!calendarEvents) return { schedules: [], appointments: [], consultations: [], leaves: [] };
+
+    const rawAppointments = calendarEvents.appointments || [];
+    const normalizedAppointments = rawAppointments.map(e => ({
+      ...e,
+      patient_name: e.Patient?.User?.full_name || e.guest_name || e.Patient?.full_name || e.patient_name,
+      service_name: e.Service?.name || e.service_name || null
+    }));
+
+    // Normalize consultations
+    const normalizedConsultations = (consultations || []).map(c => ({
+      ...c,
+      appointment_date: c.appointment_time ? String(c.appointment_time).split('T')[0] : null,
+      appointment_start_time: c.appointment_time ? String(c.appointment_time).split('T')[1]?.substring(0,5) : null,
+      patient_name: c.patient?.full_name || 'Bệnh nhân',
+      service_name: `${c.consultation_type === 'video' ? 'Video' : c.consultation_type === 'offline' ? 'Offline' : 'Chat'}`,
+      is_consultation: true
+    }));
 
     return {
       schedules: calendarEvents.schedules?.filter(e => e.date === dateStr) || [],
       appointments: normalizedAppointments.filter(a => a.appointment_date?.startsWith(dateStr)) || [],
+      consultations: normalizedConsultations.filter(c => c.appointment_date?.startsWith(dateStr)) || [],
       leaves: calendarEvents.leaves?.filter(e => {
         const dateFrom = e.date_from?.split('T')[0];
         const dateTo = e.date_to?.split('T')[0];
@@ -617,17 +702,23 @@ const DashboardPage = () => {
       const tb = b.appointment_start_time || '00:00';
       return ta.localeCompare(tb);
     });
+    const sortedConsultations = [...events.consultations].sort((a, b) => {
+      const ta = a.appointment_start_time || '00:00';
+      const tb = b.appointment_start_time || '00:00';
+      return ta.localeCompare(tb);
+    });
     const sortedSchedules = [...events.schedules].sort((a, b) => {
       const ta = a.start_time || '00:00';
       const tb = b.start_time || '00:00';
       return ta.localeCompare(tb);
     });
 
-    // Ưu tiên hiển thị lịch hẹn: nếu có lịch hẹn thì ẩn danh sách lịch làm trong tooltip
-    if (sortedAppointments.length > 0) {
+    // Ưu tiên hiển thị lịch hẹn/tư vấn: nếu có thì ẩn danh sách lịch làm trong tooltip
+    if (sortedAppointments.length > 0 || sortedConsultations.length > 0) {
       return {
         schedules: [],
         appointments: sortedAppointments,
+        consultations: sortedConsultations,
         leaves: events.leaves
       };
     }
@@ -635,6 +726,7 @@ const DashboardPage = () => {
     return {
       schedules: sortedSchedules,
       appointments: [],
+      consultations: [],
       leaves: events.leaves
     };
   };
@@ -644,6 +736,11 @@ const DashboardPage = () => {
   const handleCalendarDayClick = (day) => {
     const date = getDateStringForDay(day);
     const rawEvents = getEventsForDate(day);
+    // Patients always go to their personal appointments page filtered by date
+    if (user?.role === 'patient') {
+      navigate(`/lich-cua-toi?date=${date}`);
+      return;
+    }
 
     if (rawEvents.appointments.length > 0) {
       navigate(`/quan-ly-lich-hen?date=${date}`);
@@ -662,7 +759,7 @@ const DashboardPage = () => {
   // Helper: Get class để highlight ngày có events
   const getDateEventClass = (day) => {
     const events = getDisplayEventsForDate(day);
-    if (events.appointments.length > 0) return 'has-appointment';
+    if (events.appointments.length > 0 || events.consultations.length > 0) return 'has-appointment';
     if (events.schedules.length > 0) return 'has-schedule';
     if (events.leaves.length > 0) return 'has-leave';
     return '';
@@ -1046,9 +1143,19 @@ const DashboardPage = () => {
                         <span className="dashboard-calendar-day-number">{day}</span>
                         {hasEvents && (
                           <div className="dashboard-calendar-day-indicators">
-                            {dayEvents.schedules.length > 0 && <span className="indicator indicator-schedule" title="Lịch làm">•</span>}
-                            {dayEvents.appointments.length > 0 && <span className="indicator indicator-appointment" title="Lịch hẹn">•</span>}
-                            {dayEvents.leaves.length > 0 && <span className="indicator indicator-leave" title="Nghỉ phép">•</span>}
+                            {user?.role === 'patient' ? (
+                              <>
+                                {dayEvents.appointments.length > 0 && <span className="indicator indicator-appointment" title="DV">•</span>}
+                                {dayEvents.consultations.length > 0 && <span className="indicator indicator-consultation" title="TV">•</span>}
+                              </>
+                            ) : (
+                              <>
+                                {dayEvents.schedules.length > 0 && <span className="indicator indicator-schedule" title="Lịch làm">•</span>}
+                                {dayEvents.appointments.length > 0 && <span className="indicator indicator-appointment" title="DV">•</span>}
+                                {dayEvents.consultations.length > 0 && <span className="indicator indicator-consultation" title="TV">•</span>}
+                                {dayEvents.leaves.length > 0 && <span className="indicator indicator-leave" title="Nghỉ phép">•</span>}
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1058,18 +1165,37 @@ const DashboardPage = () => {
 
                 {/* Calendar Legend */}
                 <div className="dashboard-calendar-legend">
-                  <div className="legend-item">
-                    <span className="legend-dot schedule-dot"></span>
-                    <span className="legend-label">Lịch làm</span>
-                  </div>
-                  <div className="legend-item">
-                    <span className="legend-dot appointment-dot"></span>
-                    <span className="legend-label">Lịch hẹn</span>
-                  </div>
-                  <div className="legend-item">
-                    <span className="legend-dot leave-dot"></span>
-                    <span className="legend-label">Nghỉ phép</span>
-                  </div>
+                  {user?.role === 'patient' ? (
+                    <>
+                      <div className="legend-item">
+                        <span className="legend-dot appointment-dot"></span>
+                        <span className="legend-label">DV (Dịch vụ)</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-dot consultation-dot"></span>
+                        <span className="legend-label">TV (Tư vấn)</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="legend-item">
+                        <span className="legend-dot schedule-dot"></span>
+                        <span className="legend-label">Lịch làm</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-dot appointment-dot"></span>
+                        <span className="legend-label">DV (Dịch vụ)</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-dot consultation-dot"></span>
+                        <span className="legend-label">TV (Tư vấn)</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-dot leave-dot"></span>
+                        <span className="legend-label">Nghỉ phép</span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Tooltip */}
@@ -1087,7 +1213,7 @@ const DashboardPage = () => {
                           <div className="tooltip-date">
                             {hoveredDay} {monthName}
                           </div>
-                          {dayEvents.schedules.length > 0 && (() => {
+                          {user?.role !== 'patient' && dayEvents.schedules.length > 0 && (() => {
                             // Lọc các ca làm duy nhất theo start_time + end_time
                             const uniqueShifts = [];
                             const seen = new Set();
@@ -1116,16 +1242,29 @@ const DashboardPage = () => {
                             <div className="tooltip-section">
                               <div className="tooltip-section-title">
                                 <span className="indicator-badge appointment-badge"><FaUserCheck /></span>
-                                Lịch hẹn ({dayEvents.appointments.length})
+                                DV ({dayEvents.appointments.length})
                               </div>
                               {dayEvents.appointments.map((apt, idx) => (
                                 <div key={idx} className="tooltip-item">
-                                  {apt.appointment_start_time?.substring(0, 5)} - {apt.patient_name} - {apt.service_name}
+                                  {apt.appointment_start_time?.substring(0, 5)} - {apt.patient_name?.substring(0, 15)} - {apt.service_name?.substring(0, 12)}
                                 </div>
                               ))}
                             </div>
                           )}
-                          {dayEvents.leaves.length > 0 && (
+                          {dayEvents.consultations.length > 0 && (
+                            <div className="tooltip-section">
+                              <div className="tooltip-section-title">
+                                <span className="indicator-badge consultation-badge"><FaUserClock /></span>
+                                TV ({dayEvents.consultations.length})
+                              </div>
+                              {dayEvents.consultations.map((con, idx) => (
+                                <div key={idx} className="tooltip-item">
+                                  {con.appointment_start_time?.substring(0, 5)} - {con.patient_name?.substring(0, 15)} - {con.service_name?.substring(0, 12)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {user?.role !== 'patient' && dayEvents.leaves.length > 0 && (
                             <div className="tooltip-section">
                               <div className="tooltip-section-title">
                                 <span className="indicator-badge leave-badge"><FaClock /></span>

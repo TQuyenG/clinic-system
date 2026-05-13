@@ -20,9 +20,9 @@ import {
   FaChevronDown, FaChevronUp, FaChevronRight, FaLock, FaSyncAlt, FaCheck,
   FaHospital, FaPlay, FaNotesMedical, FaMoneyBillWave, FaClipboardCheck,
   FaStethoscope, FaFileAlt, FaList, FaCreditCard, FaUniversity, FaGlobe,
-  FaFileExcel, FaLink, FaStar
+  FaFileExcel, FaLink
 } from 'react-icons/fa';
-import RatingPublic from '../components/appointments/RatingPublic';
+
 // StatusBadge inline component
 const StatusBadge = ({ status, appointment }) => {
   const s = String(status || '').toLowerCase();
@@ -152,7 +152,7 @@ const AppointmentManagementPage = () => {
     search: '',
     sortBy: 'newest', // newest, oldest, code
     service: '', // Lọc theo dịch vụ
-    appointmentType: 'all', // online, offline, all
+
     paymentStatus: 'all' // unpaid, paid_online, paid_at_clinic, all
   });
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
@@ -337,9 +337,7 @@ const AppointmentManagementPage = () => {
         apt.Service?.name?.toLowerCase().includes(filters.service.toLowerCase())
       );
     }
-    if (filters.appointmentType !== 'all') {
-      filtered = filtered.filter(apt => apt.appointment_type === filters.appointmentType);
-    }
+
     if (filters.paymentStatus !== 'all') {
       filtered = filtered.filter(apt => apt.payment_status === filters.paymentStatus);
     }
@@ -431,7 +429,7 @@ const AppointmentManagementPage = () => {
       search: '', 
       sortBy: 'newest',
       service: '',
-      appointmentType: 'all',
+
       paymentStatus: 'all'
     });
     setSortConfig({ key: 'created_at', direction: 'desc' });
@@ -815,25 +813,6 @@ const AppointmentManagementPage = () => {
               <FaClipboardCheck style={{ marginRight: '8px' }} /> Tiếp đón / Check-in
             </button>
             )}
-            {(user && (user.role === 'admin' || user.role === 'staff')) && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('feedbacks')}
-              style={{
-                padding: '12px 20px',
-                border: 'none',
-                background: activeTab === 'feedbacks' ? '#4caf50' : 'transparent',
-                color: activeTab === 'feedbacks' ? '#fff' : '#6b7280',
-                fontWeight: activeTab === 'feedbacks' ? '600' : '500',
-                cursor: 'pointer',
-                fontSize: '14px',
-                borderBottom: activeTab === 'feedbacks' ? '3px solid #4caf50' : 'none',
-                transition: 'all 0.2s'
-              }}
-            >
-              <FaStar style={{ marginRight: '8px', fontSize: '14px' }} /> Đánh giá
-            </button>
-            )}
           </div>
 
             {/* Tab Content */}
@@ -861,10 +840,13 @@ const AppointmentManagementPage = () => {
                 <label><FaHospital /> Dịch vụ</label>
                 <input type="text" placeholder="Tên dịch vụ..." value={filters.service} onChange={(e) => handleFilterChange('service', e.target.value)} style={{ width: '100%' }} />
               </div>
-              <div className="appointment-management-filter-group" style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '8px' }}>
-                <button className="appointment-management-btn appointment-management-btn-reset" onClick={resetFilters} style={{ width: '100%', justifyContent: 'center' }}>
+              <div className="appointment-management-filter-group" style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '8px', gap: '1rem', justifyContent: 'space-between' }}>
+                <button className="appointment-management-btn appointment-management-btn-reset" onClick={resetFilters}>
                   <FaSyncAlt /> Đặt lại
                 </button>
+                <div style={{ fontSize: '0.9rem', color: '#666', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                  Hiển thị <strong>{filteredAppointments.length}</strong> / {appointments.length} lịch hẹn
+                </div>
               </div>
             </div>
 
@@ -895,17 +877,6 @@ const AppointmentManagementPage = () => {
                 <label><FaCalendarAlt /> Ngày khám</label>
                 <input type="date" value={filters.date} onChange={(e) => handleFilterChange('date', e.target.value)} />
               </div>
-              <div className="appointment-management-filter-group">
-                <label><FaHospital /> Loại hình</label>
-                <select value={filters.appointmentType} onChange={(e) => handleFilterChange('appointmentType', e.target.value)}>
-                  <option value="all">Tất cả</option>
-                  <option value="online">Online</option>
-                  <option value="offline">Offline</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '12px', textAlign: 'right' }}>
-              Hiển thị <strong>{filteredAppointments.length}</strong> / {appointments.length} lịch hẹn
             </div>
           </div>
 
@@ -1175,12 +1146,6 @@ const AppointmentManagementPage = () => {
 
           {activeTab === 'checkin' && (
             <CheckinTab />
-          )}
-
-          {activeTab === 'feedbacks' && (
-            <div>
-              <RatingPublic />
-            </div>
           )}
         </div>
         

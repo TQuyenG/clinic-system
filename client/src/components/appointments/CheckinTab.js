@@ -750,6 +750,16 @@ const CheckinTab = () => {
   const handleCheckIn = async (appt) => {
     try {
       console.log('[CheckinTab] checkIn start', appt.code, appt.display_queue || appt.queue_number);
+      
+      // ========== [NEW] CHECK PAYMENT STATUS ==========
+      // Block check-in if payment not completed
+      if (appt.payment_status === 'unpaid' && appt.payment_method !== 'none') {
+        toast.error(`⚠️ Không thể check-in: ${appt.code} chưa thanh toán. Vui lòng hoàn tất thanh toán trước!`);
+        setCounterPaymentTarget(appt);
+        setShowCounterPaymentModal(true);
+        return;
+      }
+      
       // Check-in: Cấp số thứ tự (assign queue number)
       // Note: Backend automatically sets status to in_progress, so we revert it to confirmed
       // The status should only change to in_progress when doctor calls "Đã vào" (handleMarkEntered)

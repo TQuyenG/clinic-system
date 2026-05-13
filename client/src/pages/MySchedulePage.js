@@ -1,7 +1,7 @@
 // client/src/pages/MySchedulePage.js
 // CẬP NHẬT: Thêm view controls đầy đủ (Hôm nay/Tuần/Tháng, Lịch/Bảng, Bộ lọc sự kiện)
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import CalendarView from '../components/schedule/CalendarView';
@@ -46,6 +46,18 @@ const getMonthRange = (date) => {
 };
 const formatDateISO = (date) => date.toISOString().split('T')[0];
 
+const getAppointmentKind = (appointment = {}) => {
+  const rawType = String(appointment.appointment_type || appointment.type || '').toLowerCase();
+  if (appointment.is_consultation || rawType.includes('consult')) return 'consultation';
+  if (rawType.includes('service') || appointment.service_id || appointment.service_name) return 'service';
+  return 'service';
+};
+
+const normalizeAppointmentForFilter = (appointment = {}) => ({
+  ...appointment,
+  appointment_kind: getAppointmentKind(appointment)
+});
+
 const MySchedulePage = () => {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('schedule'); 
@@ -74,7 +86,8 @@ const MySchedulePage = () => {
     schedules: true,
     overtime: true,
     leaves: true,
-    appointments: true
+    appointmentService: true,
+    appointmentConsultation: true
   });
 
   // MỚI: State cho dropdown bác sĩ được quản lý
@@ -423,6 +436,11 @@ const MySchedulePage = () => {
     }
   };
 
+  const normalizedAppointments = useMemo(
+    () => (calendarData.appointments || []).map(normalizeAppointmentForFilter),
+    [calendarData.appointments]
+  );
+
   // Old handlers (for backward compatibility)
   const handleMonthChange = (direction) => {
     if (direction === 'prev') {
@@ -574,7 +592,16 @@ const MySchedulePage = () => {
     schedules: eventTypeFilters.schedules ? calendarData.schedules : [],
     overtime_schedules: eventTypeFilters.overtime ? calendarData.overtime_schedules : [],
     leaves: eventTypeFilters.leaves ? calendarData.leaves.filter(l => l.status === 'approved') : [],
-    appointments: eventTypeFilters.appointments ? calendarData.appointments : []
+    appointments: normalizedAppointments.filter(app => {
+      // Kiểm tra loại appointment (service hoặc consultation)
+      if (app.appointment_kind === 'service') {
+        return eventTypeFilters.appointmentService;
+      } else if (app.appointment_kind === 'consultation') {
+        return eventTypeFilters.appointmentConsultation;
+      }
+      // Default: hiển thị nếu bất kỳ filter nào được bật
+      return eventTypeFilters.appointmentService || eventTypeFilters.appointmentConsultation;
+    })
   };
 
   if (!user) {
@@ -783,10 +810,16 @@ const MySchedulePage = () => {
                 <FaBusinessTime /> Tăng ca
               </button>
               <button 
-                className={`my-schedule-page__filter-btn filter-appointments ${eventTypeFilters.appointments ? 'active' : ''}`}
-                onClick={() => handleEventTypeFilterToggle('appointments')}
+                className={`my-schedule-page__filter-btn filter-appointment-service ${eventTypeFilters.appointmentService ? 'active' : ''}`}
+                onClick={() => handleEventTypeFilterToggle('appointmentService')}
               >
-                Lịch hẹn
+                Lịch hẹn dịch vụ
+              </button>
+              <button 
+                className={`my-schedule-page__filter-btn filter-appointment-consultation ${eventTypeFilters.appointmentConsultation ? 'active' : ''}`}
+                onClick={() => handleEventTypeFilterToggle('appointmentConsultation')}
+              >
+                Lịch hẹn tư vấn
               </button>
               <button 
                 className={`my-schedule-page__filter-btn filter-leaves ${eventTypeFilters.leaves ? 'active' : ''}`}

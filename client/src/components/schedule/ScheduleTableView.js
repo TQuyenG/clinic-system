@@ -1,7 +1,80 @@
 // client/src/components/schedule/ScheduleTableView.js
 import React, { useMemo } from 'react';
-import { FaSpinner } from 'react-icons/fa';
+import { FaSpinner, FaClipboardList, FaStethoscope, FaUserClock } from 'react-icons/fa';
 import './ScheduleTableView.css';
+
+const getAppointmentKind = (appointment = {}) => {
+  const rawType = String(appointment.appointment_type || appointment.type || '').toLowerCase();
+  if (appointment.is_consultation || rawType.includes('consult')) return 'consultation';
+  if (rawType.includes('service') || appointment.service_id || appointment.service_name) return 'service';
+  return 'appointment';
+};
+
+const isValidDate = (date) => {
+  return date instanceof Date && !isNaN(date.getTime());
+};
+
+const parseDateOnlyLocal = (dateValue) => {
+  if (!dateValue) return null;
+  if (dateValue instanceof Date) {
+    const result = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate());
+    return isValidDate(result) ? result : null;
+  }
+  const match = String(dateValue).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) {
+    const result = new Date(dateValue);
+    return isValidDate(result) ? result : null;
+  }
+  const [, year, month, day] = match;
+  const result = new Date(Number(year), Number(month) - 1, Number(day));
+  return isValidDate(result) ? result : null;
+};
+
+const normalizeAppointment = (appointment = {}) => {
+  const appointmentDate = appointment.date
+    || appointment.appointment_date
+    || (appointment.appointment_time ? String(appointment.appointment_time).split('T')[0] : null)
+    || (appointment.started_at ? String(appointment.started_at).split('T')[0] : null);
+  const appointmentStartTime = appointment.start_time
+    || appointment.appointment_start_time
+    || (appointment.appointment_time ? String(appointment.appointment_time).split('T')[1]?.substring(0, 5) : null)
+    || (appointment.started_at ? String(appointment.started_at).split('T')[1]?.substring(0, 5) : null);
+  const appointmentEndTime = appointment.end_time
+    || appointment.appointment_end_time
+    || (appointment.ended_at ? String(appointment.ended_at).split('T')[1]?.substring(0, 5) : null);
+  const appointmentKind = getAppointmentKind(appointment);
+  let normalizedEndTime = appointmentEndTime;
+
+  if (!normalizedEndTime && appointmentStartTime) {
+    const durationMinutes = Number(appointment.duration_minutes || appointment.duration || 0);
+    if (durationMinutes > 0) {
+      const [hours, minutes] = appointmentStartTime.split(':').map(Number);
+      if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+        const totalMinutes = hours * 60 + minutes + durationMinutes;
+        const endHours = Math.floor((totalMinutes % (24 * 60)) / 60);
+        const endMinutes = totalMinutes % 60;
+        normalizedEndTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+      }
+    }
+  }
+
+  return {
+    ...appointment,
+    date: appointmentDate ? parseDateOnlyLocal(appointmentDate) : null,
+    appointment_date: appointmentDate,
+    appointment_start_time: appointmentStartTime,
+    appointment_end_time: normalizedEndTime,
+    appointment_kind: appointmentKind,
+    patient_name: appointment.Patient?.User?.full_name || appointment.Patient?.full_name || appointment.guest_name || appointment.patient_name || 'Bệnh nhân',
+    service_name: appointment.Service?.name || appointment.service_name || appointment.consultation_type || (appointmentKind === 'consultation' ? 'Tư vấn' : null)
+  };
+};
+
+const getAppointmentIcon = (appointmentKind) => {
+  if (appointmentKind === 'consultation') return <FaStethoscope />;
+  if (appointmentKind === 'service') return <FaClipboardList />;
+  return <FaUserClock />;
+};
 
 const ScheduleTableView = ({ 
   schedules = [], 
@@ -16,6 +89,10 @@ const ScheduleTableView = ({
   showWorkSchedules = true,
   loading = false 
 }) => {
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG-ScheduleTableView] received appointments:', appointments && appointments.length);
+  }
   
   // ✅ BƯỚC 1: Gọi TẤT CẢ Hooks Ở ĐẦU (trước mọi return)
   
@@ -62,10 +139,7 @@ const ScheduleTableView = ({
   const processedAppointments = useMemo(() => {
     if (!appointments || appointments.length === 0) return [];
 
-    return appointments.map(appointment => ({
-      ...appointment,
-      date: new Date(appointment.date || appointment.appointment_date)
-    }));
+    return appointments.map(normalizeAppointment).filter(appointment => appointment.date);
   }, [appointments]);
 
   // Xử lý dữ liệu lịch nghỉ
@@ -98,6 +172,7 @@ const ScheduleTableView = ({
     
     // Nhóm lịch thường
     processedSchedules.forEach(schedule => {
+      if (!isValidDate(schedule.date)) return;
       const dateKey = schedule.date.toISOString().split('T')[0];
       if (!grouped[dateKey]) {
         grouped[dateKey] = { schedules: [], overtimes: [] };
@@ -107,6 +182,7 @@ const ScheduleTableView = ({
     
     // Nhóm lịch tăng ca
     processedOvertimes.forEach(ot => {
+      if (!isValidDate(ot.date)) return;
       const dateKey = ot.date.toISOString().split('T')[0];
       if (!grouped[dateKey]) {
         grouped[dateKey] = { schedules: [], overtimes: [] };
@@ -115,6 +191,7 @@ const ScheduleTableView = ({
     });
 
     processedAppointments.forEach(app => {
+      if (!isValidDate(app.date)) return;
       const dateKey = app.date.toISOString().split('T')[0];
       if (!grouped[dateKey]) {
         grouped[dateKey] = { schedules: [], overtimes: [], appointments: [], leaves: [] };
@@ -124,6 +201,7 @@ const ScheduleTableView = ({
     });
 
     processedLeaves.forEach(leave => {
+      if (!isValidDate(leave.date)) return;
       const dateKey = leave.date.toISOString().split('T')[0];
       if (!grouped[dateKey]) {
         grouped[dateKey] = { schedules: [], overtimes: [], appointments: [], leaves: [] };
@@ -203,6 +281,22 @@ const ScheduleTableView = ({
     if (displayName) return displayName;
     if (timeRange) return timeRange;
     return 'Lịch làm việc';
+  };
+
+  const formatAppointmentLabel = (appointment) => {
+    if (appointment.appointment_kind === 'consultation') return 'TV';
+    if (appointment.appointment_kind === 'service') return 'DV';
+    return 'LH';
+  };
+
+  const formatAppointmentTooltipLabel = (appointment) => {
+    if (appointment.appointment_kind === 'consultation') {
+      return appointment.service_name || 'Lịch hẹn tư vấn';
+    }
+    if (appointment.appointment_kind === 'service') {
+      return appointment.service_name || 'Lịch hẹn dịch vụ';
+    }
+    return appointment.service_name || 'Lịch hẹn';
   };
   
   // ✅ BƯỚC 2: Early returns SAU khi đã gọi tất cả Hooks
@@ -305,13 +399,12 @@ const ScheduleTableView = ({
                         {row.appointments.slice(0, 3).map((appointment, idx) => (
                           <span
                             key={idx}
-                            className="schedule-table-view__shift-badge appointment"
-                            title={appointment.code || appointment.appointment_code || 'Lịch hẹn'}
+                            className={`schedule-table-view__shift-badge appointment schedule-table-view__shift-badge--${appointment.appointment_kind || 'appointment'}`}
+                            title={`${appointment.code || appointment.appointment_code || 'Lịch hẹn'}${formatAppointmentTooltipLabel(appointment) ? ` • ${formatAppointmentTooltipLabel(appointment)}` : ''}`}
                           >
-                            {appointment.appointment_start_time ? appointment.appointment_start_time.slice(0, 5) : '--:--'}
-                            {appointment.Patient?.User?.full_name || appointment.guest_name ? (
-                              <small>{' '}({appointment.Patient?.User?.full_name || appointment.guest_name})</small>
-                            ) : null}
+                            {getAppointmentIcon(appointment.appointment_kind)}
+                            {formatAppointmentLabel(appointment)}
+                            <small>{appointment.appointment_start_time ? appointment.appointment_start_time.slice(0, 5) : '--:--'}</small>
                           </span>
                         ))}
                         {row.appointments.length > 3 && (

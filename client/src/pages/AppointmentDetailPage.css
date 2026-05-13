@@ -689,6 +689,17 @@ textarea.appointment-detail-page-form-control {
   to { transform: translateY(0); opacity: 1; }
 }
 
+/* ===== [NEW] PAYMENT CRITICAL ALERTS ===== */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
 /* ===== UI OPTION A: STATUS STEPPER ===== */
 .appointment-detail-page-status-stepper {
   display: flex;

@@ -5,7 +5,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import consultationService from '../services/consultationService';
-import paymentService from '../services/paymentService';
 import axios from 'axios';
 import AppointmentRatingModal from '../components/appointments/AppointmentRatingModal';
 import { 
@@ -35,12 +34,16 @@ const ConsultationDetailPage = () => {
   const [hasConsultationRating, setHasConsultationRating] = useState(false);
   const [hasDoctorRating, setHasDoctorRating] = useState(false);
   const [doctorRating, setDoctorRating] = useState(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [nowTs, setNowTs] = useState(Date.now());
 
   useEffect(() => {
     fetchConsultationDetail();
   }, [id]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTs(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Auto-open result panel if coming from consultation detail with ?openResult=1
   useEffect(() => {
@@ -161,30 +164,9 @@ const ConsultationDetailPage = () => {
     }
   };
 
-  const handleCreatePayment = async (method) => {
+  const handleCreatePayment = () => {
     if (!consultation || !consultation.id) return;
-    try {
-      setPaymentLoading(true);
-      const payload = { consultation_id: consultation.id, method };
-      const res = await paymentService.createConsultationPayment(payload);
-      // Nếu API trả về đường dẫn thanh toán, chuyển hướng
-      const payUrl = res?.data?.data?.payment_url || res?.data?.payment_url;
-      if (payUrl) {
-        window.location.href = payUrl;
-        return;
-      }
-      // Nếu không có URL, có thể trả về payment object -> show success/toast and refresh
-      if (res?.data?.success) {
-        alert('Tạo yêu cầu thanh toán thành công.');
-        setShowPaymentModal(false);
-        fetchConsultationDetail();
-      }
-    } catch (err) {
-      console.error('Payment error:', err);
-      alert(err.response?.data?.message || 'Lỗi tạo giao dịch thanh toán');
-    } finally {
-      setPaymentLoading(false);
-    }
+    navigate(`/thanh-toan-tu-van/${consultation.id}`);
   };
 
   if (loading) return <div className="cdp-loading"><div className="cdp-spinner"></div><p>Đang tải dữ liệu...</p></div>;
@@ -201,6 +183,8 @@ const ConsultationDetailPage = () => {
     user?.id === consultation.doctor?.user_id
   );
   const canJoinRoom = consultation.status === 'confirmed' && consultationService.canStartConsultation(consultation.appointment_time);
+  const isPaidConsultation = ['paid_online', 'paid_at_clinic', 'not_required'].includes(consultation.payment_status);
+  const canJoinPaidRoom = canJoinRoom && isPaidConsultation;
   const canWriteResult = isDoctorOwner && ['confirmed', 'in_progress'].includes(consultation.status);
 
   const statusMeta = (() => {
@@ -467,9 +451,9 @@ const ConsultationDetailPage = () => {
                       {paymentMeta.icon}
                       {paymentMeta.text}
                     </span>
-                    {paymentMeta.className === 'payment-pending' && consultation.status !== 'cancelled' && consultation.status !== 'completed' && (
+                        {paymentMeta.className === 'payment-pending' && consultation.status !== 'cancelled' && consultation.status !== 'completed' && (
                       <div style={{ marginTop: 10 }}>
-                        <button className="cdp-btn cdp-btn-primary" onClick={() => setShowPaymentModal(true)}>Thanh toán</button>
+                        <button className="cdp-btn cdp-btn-primary" onClick={handleCreatePayment}>Thanh toán online</button>
                       </div>
                     )}
                   </div>
@@ -481,14 +465,22 @@ const ConsultationDetailPage = () => {
                       <div>
                         <small> Còn lại: {(() => {
                           const due = new Date(consultation.payment_due_at).getTime();
-                          const now = Date.now();
-                          const diff = due - now;
+                          const diff = due - nowTs;
                           if (diff <= 0) return 'Đã quá hạn';
                           const hours = Math.floor(diff / 3600000);
                           const mins = Math.floor((diff % 3600000) / 60000);
                           return hours > 0 ? `${hours} giờ ${mins} phút` : `${mins} phút`;
                         })()}</small>
                       </div>
+                      {(() => {
+                        const due = new Date(consultation.payment_due_at).getTime();
+                        const diff = due - nowTs;
+                        const mins = Math.floor(diff / 60000);
+                        if (diff > 0 && mins < 10) {
+                          return <small style={{ color: '#dc2626', fontWeight: 700 }}>⚠️ Sắp quá hạn thanh toán</small>;
+                        }
+                        return null;
+                      })()}
                     </div>
                   )}
             </div>
@@ -576,10 +568,16 @@ const ConsultationDetailPage = () => {
             </div>
             <div className="cdp-card-body">
               <div className="cdp-actions">
-                {(user?.role === 'patient' || user?.role === 'doctor' || user?.role === 'admin') && canJoinRoom && (
+                {(user?.role === 'patient' || user?.role === 'doctor' || user?.role === 'admin') && canJoinPaidRoom && (
                   <button className="cdp-btn cdp-btn-primary full" onClick={handleStartChat}>
                      {consultation.consultation_type === 'video' ? <FaVideo /> : <FaComments />} Vào phòng
                   </button>
+                )}
+
+                {!isPaidConsultation && consultation.status === 'confirmed' && (
+                  <div className="cdp-action-notes" style={{ marginTop: 8 }}>
+                    <p><FaExclamationTriangle /> Chưa thể vào phòng tư vấn do chưa thanh toán.</p>
+                  </div>
                 )}
 
                 {consultationService.canCancel(consultation.status) && (isPatientOwner || isDoctorOwner || user?.role === 'admin' || user?.role === 'staff') && (
@@ -604,24 +602,7 @@ const ConsultationDetailPage = () => {
         </div>
       </div>
 
-      {/* PAYMENT MODAL */}
-      {showPaymentModal && (
-        <div className="cdp-modal-overlay" onClick={() => setShowPaymentModal(false)}>
-          <div className="cdp-modal" onClick={e => e.stopPropagation()}>
-            <div className="cdp-modal-header">
-              <h3>Chọn phương thức thanh toán</h3>
-              <button onClick={() => setShowPaymentModal(false)}><FaTimesCircle/></button>
-            </div>
-            <div className="cdp-modal-body">
-              <button className="cdp-btn" disabled={paymentLoading} onClick={() => handleCreatePayment('vnpay')}>VNPay / ATM</button>
-              <button className="cdp-btn" disabled={paymentLoading} onClick={() => handleCreatePayment('momo')}>Ví MoMo</button>
-            </div>
-            <div className="cdp-modal-footer">
-              <button className="cdp-btn cdp-btn-secondary" onClick={() => setShowPaymentModal(false)}>Đóng</button>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       <AppointmentRatingModal
         show={showRatingModal}

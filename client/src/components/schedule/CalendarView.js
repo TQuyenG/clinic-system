@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import './CalendarView.css';
-import { FaExclamationTriangle, FaBusinessTime, FaUserClock, FaClock, FaUserCheck } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBusinessTime, FaUserClock, FaClock, FaUserCheck, FaClipboardList, FaStethoscope } from 'react-icons/fa';
 
 // Bảng màu (Giữ nguyên)
 const USER_COLORS = [
@@ -50,6 +50,58 @@ const parseDateOnlyLocal = (dateValue) => {
   return new Date(Number(year), Number(month) - 1, Number(day));
 };
 
+const getAppointmentKind = (appointment = {}) => {
+  const rawType = String(appointment.appointment_type || appointment.type || '').toLowerCase();
+  if (appointment.is_consultation || rawType.includes('consult')) return 'consultation';
+  if (rawType.includes('service') || appointment.service_id || appointment.service_name) return 'service';
+  return 'appointment';
+};
+
+const getAppointmentIcon = (appointmentKind) => {
+  if (appointmentKind === 'consultation') return <FaStethoscope />;
+  if (appointmentKind === 'service') return <FaClipboardList />;
+  return <FaUserClock />;
+};
+
+const normalizeAppointment = (appointment = {}) => {
+  const appointmentDate = appointment.date
+    || appointment.appointment_date
+    || (appointment.appointment_time ? String(appointment.appointment_time).split('T')[0] : null)
+    || (appointment.started_at ? String(appointment.started_at).split('T')[0] : null);
+  const appointmentStartTime = appointment.start_time
+    || appointment.appointment_start_time
+    || (appointment.appointment_time ? String(appointment.appointment_time).split('T')[1]?.substring(0, 5) : null)
+    || (appointment.started_at ? String(appointment.started_at).split('T')[1]?.substring(0, 5) : null);
+  const appointmentEndTime = appointment.end_time
+    || appointment.appointment_end_time
+    || (appointment.ended_at ? String(appointment.ended_at).split('T')[1]?.substring(0, 5) : null);
+  const appointmentKind = getAppointmentKind(appointment);
+  let normalizedEndTime = appointmentEndTime;
+
+  if (!normalizedEndTime && appointmentStartTime) {
+    const durationMinutes = Number(appointment.duration_minutes || appointment.duration || 0);
+    if (durationMinutes > 0) {
+      const [hours, minutes] = appointmentStartTime.split(':').map(Number);
+      if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+        const totalMinutes = hours * 60 + minutes + durationMinutes;
+        const endHours = Math.floor((totalMinutes % (24 * 60)) / 60);
+        const endMinutes = totalMinutes % 60;
+        normalizedEndTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+      }
+    }
+  }
+
+  return {
+    ...appointment,
+    appointment_date: appointmentDate,
+    appointment_start_time: appointmentStartTime,
+    appointment_end_time: normalizedEndTime,
+    appointment_kind: appointmentKind,
+    patient_name: appointment.Patient?.User?.full_name || appointment.Patient?.full_name || appointment.guest_name || appointment.patient_name || 'Bệnh nhân',
+    service_name: appointment.Service?.name || appointment.service_name || appointment.consultation_type || (appointmentKind === 'consultation' ? 'Tư vấn' : null)
+  };
+};
+
 
 // ===================================================================
 // === LOGIC CHO LỊCH THÁNG (MONTH VIEW) ===
@@ -66,6 +118,11 @@ const MonthView = ({
   showWorkSchedules = true,
   onDateClick 
 }) => {
+  const normalizedAppointments = useMemo(() => appointments.map(normalizeAppointment), [appointments]);
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG-MonthView] normalizedAppointments count:', normalizedAppointments.length, 'sample:', normalizedAppointments.slice(0,2));
+  }
   
   const getDaysInMonth = (month, year) => new Date(year, month, 0).getDate();
   const getFirstDayOfMonth = (month, year) => new Date(year, month - 1, 1).getDay();
@@ -82,9 +139,8 @@ const MonthView = ({
   
   const isDateWithAppointment = (dateObj) => {
   const checkTime = dateObj.getTime();
-  return appointments.some(app => 
-    // SỬA: Ưu tiên lấy 'date' (chuẩn), nếu không có mới lấy 'appointment_date'
-    parseDateOnlyLocal(app.date || app.appointment_date)?.setHours(0,0,0,0) === checkTime
+  return normalizedAppointments.some(app => 
+    parseDateOnlyLocal(app.appointment_date)?.setHours(0,0,0,0) === checkTime
   );
 };
   
@@ -145,9 +201,12 @@ const MonthView = ({
              return dateObj.getTime() >= dateFrom && dateObj.getTime() <= dateTo;
           }) : [];
           
-          const appointmentInfo = hasAppt ? appointments.filter(app => 
-             parseDateOnlyLocal(app.date || app.appointment_date)?.setHours(0,0,0,0) === dateObj.getTime()
+           const appointmentInfo = hasAppt ? normalizedAppointments.filter(app => 
+             parseDateOnlyLocal(app.appointment_date)?.setHours(0,0,0,0) === dateObj.getTime()
           ) : [];
+           const consultationCount = appointmentInfo.filter(app => app.appointment_kind === 'consultation').length;
+           const serviceCount = appointmentInfo.filter(app => app.appointment_kind === 'service').length;
+           const genericCount = appointmentInfo.length - consultationCount - serviceCount;
 
           return (
             <div
@@ -160,7 +219,9 @@ const MonthView = ({
                 {showWorkSchedules && isWork && <FaBusinessTime className="calendar-view__icon-work" title="Lịch làm việc" />}
                 {hasOT && <FaClock className="calendar-view__icon-overtime" title="Có tăng ca" />}
                 {isLeave && <FaExclamationTriangle className="calendar-view__icon-leave" title="Nghỉ phép" />}
-                {hasAppt && <FaUserClock className="calendar-view__icon-appointment" title={`Có ${appointmentInfo.length} lịch hẹn`} />}
+                {serviceCount > 0 && <FaUserCheck className="calendar-view__icon-appointment-service" title={`Có ${serviceCount} lịch hẹn dịch vụ`} />}
+                {consultationCount > 0 && <FaUserClock className="calendar-view__icon-appointment-consultation" title={`Có ${consultationCount} lịch hẹn tư vấn`} />}
+                {genericCount > 0 && <FaUserClock className="calendar-view__icon-appointment" title={`Có ${genericCount} lịch hẹn`} />}
               </div>
             </div>
           );
@@ -169,21 +230,18 @@ const MonthView = ({
 
       {/* Chú thích (SỬA: Thêm Tăng ca) */}
       <div className="calendar-view__legend">
-        {showWorkSchedules && (
-          <div className="calendar-view__legend-item">
-            <span className="calendar-view__legend-color calendar-view__legend-color--work" />
-            <span>Làm việc</span>
-          </div>
-        )}
         <div className="calendar-view__legend-item">
           <span className="calendar-view__legend-color calendar-view__legend-color--leave" />
           <span>Nghỉ phép</span>
         </div>
-         <div className="calendar-view__legend-item">
-          <span className="calendar-view__legend-color calendar-view__legend-color--appointment" />
-          <span>Lịch hẹn</span>
+        <div className="calendar-view__legend-item">
+          <span className="calendar-view__legend-color calendar-view__legend-color--appointment-service" />
+          <span>Lịch hẹn dịch vụ</span>
         </div>
-        {/* (SỬA FIX 2) Thêm chú thích tăng ca */}
+        <div className="calendar-view__legend-item">
+          <span className="calendar-view__legend-color calendar-view__legend-color--appointment-consultation" />
+          <span>Lịch hẹn tư vấn</span>
+        </div>
         <div className="calendar-view__legend-item">
           <span className="calendar-view__legend-color calendar-view__legend-color--overtime" />
           <span>Tăng ca</span>
@@ -348,6 +406,11 @@ const WeekView = ({
 
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
   const timeSlots = useMemo(() => generateTimeSlots(), []);
+  const normalizedAppointments = useMemo(() => appointments.map(normalizeAppointment), [appointments]);
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG-WeekView] normalizedAppointments count:', normalizedAppointments.length, 'sample:', normalizedAppointments.slice(0,2));
+  }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -501,23 +564,25 @@ const WeekView = ({
     });
         
     // === BƯỚC 4: Lịch hẹn (Luôn hiển thị) ===
-    appointments.forEach(event => {
-        // SỬA: Lấy giờ chuẩn từ backend (đã fix), fallback về biến cũ nếu cần
-        const sTime = event.start_time || event.appointment_start_time;
-        const eTime = event.end_time || event.appointment_end_time;
-        const appDate = event.date || event.appointment_date;
+    normalizedAppointments.forEach(event => {
+      const sTime = event.appointment_start_time;
+      const eTime = event.appointment_end_time;
+      const appDate = event.appointment_date;
 
-        if (sTime && eTime && appDate) {
+      if (sTime && appDate) {
+        const appointmentKind = event.appointment_kind || 'appointment';
+        const appointmentIcon = getAppointmentIcon(appointmentKind);
             const e = { 
                 id: `app-${event.id}`, 
                 type: 'appointment', 
                 startTime: sTime,  // <-- Dùng biến đã check
                 endTime: eTime,    // <-- Dùng biến đã check
-                title: 'Lịch hẹn', 
-                subtitle: event.guest_name || event.Patient?.full_name || 'Bệnh nhân', 
-                icon: <FaUserClock />, 
-                user: event.user, 
-                raw: event 
+          title: appointmentKind === 'consultation' ? 'Lịch hẹn tư vấn' : (appointmentKind === 'service' ? 'Lịch hẹn dịch vụ' : 'Lịch hẹn'), 
+          subtitle: event.service_name || event.patient_name || event.guest_name || 'Bệnh nhân', 
+            icon: appointmentIcon, 
+          user: event.user, 
+          raw: event,
+          appointmentKind
             };
 
             const dayKey = parseDateOnlyLocal(appDate)?.setHours(0,0,0,0);
@@ -581,6 +646,13 @@ const WeekView = ({
           const TYPE_USES_USER_COLOR = ['schedule', 'flexible', 'overtime'];
           const rawUserColor = getColorForUser(displayUser?.id || event.user?.id, selectedUsers);
           const userColor = TYPE_USES_USER_COLOR.includes(event.type) ? rawUserColor : null;
+           const appointmentPalette = {
+            service: { bg: 'var(--color-appointment-service)', border: 'var(--color-appointment-service-border)' },
+            consultation: { bg: 'var(--color-appointment-consultation)', border: 'var(--color-appointment-consultation-border)' },
+            appointment: { bg: 'var(--color-appointment)', border: 'var(--color-appointment-border)' }
+           };
+           const appointmentKind = event.type === 'appointment' ? (event.appointmentKind || 'appointment') : null;
+           const appointmentColor = appointmentKind ? appointmentPalette[appointmentKind] || appointmentPalette.appointment : null;
 
            // Render all events in a single vertical column per day (no horizontal split)
            const style = {
@@ -588,12 +660,15 @@ const WeekView = ({
              height: `${height}%`,
              left: `2px`,
              width: `calc(100% - 4px)`,
-             '--event-color': userColor ? userColor.bg : `var(--color-event)`,
-             '--event-border': userColor ? userColor.border : `var(--color-event-border)`,
+             '--event-color': userColor ? userColor.bg : (appointmentColor ? appointmentColor.bg : `var(--color-event)`),
+             '--event-border': userColor ? userColor.border : (appointmentColor ? appointmentColor.border : `var(--color-event-border)`),
              zIndex: (event.type === 'appointment') ? 20 : (event.type === 'leave' ? 15 : 5)
            };
           
           let typeClass = `week-calendar-view__event--${event.type}`;
+           if (appointmentKind) {
+             typeClass += ` week-calendar-view__event--appointment-${appointmentKind}`;
+           }
           if (userColor) {
              typeClass += ' week-calendar-view__event--custom-color';
           }
@@ -621,7 +696,7 @@ const WeekView = ({
               </span>
               <span className="week-calendar-view__event-time">
                 {event.type === 'appointment'
-                  ? (event.startTime ? `${event.startTime.slice(0, 5)} - ${event.endTime.slice(0, 5)}` : 'Cả ngày')
+                  ? (event.startTime ? `${event.startTime.slice(0, 5)}${event.endTime ? ` - ${event.endTime.slice(0, 5)}` : ''}` : 'Cả ngày')
                   : (event.subtitle && height > 40 ? event.subtitle.substring(0, 50) : (event.startTime ? `${event.startTime.slice(0, 5)} - ${event.endTime.slice(0, 5)}` : 'Cả ngày'))}
               </span>
             </div>
@@ -670,10 +745,6 @@ const WeekView = ({
         {showWorkSchedules && (
           <>
             <div className="week-calendar-view__legend-item">
-              <span className="week-calendar-view__legend-color week-calendar-view__legend-color--work" />
-              <span>Giờ làm việc (Nền)</span>
-            </div>
-            <div className="week-calendar-view__legend-item">
               <span className="week-calendar-view__legend-color week-calendar-view__legend-color--event-schedule" />
               <span>Lịch làm việc (CĐ)</span>
             </div>
@@ -688,8 +759,12 @@ const WeekView = ({
           <span>Tăng ca</span>
         </div>
         <div className="week-calendar-view__legend-item">
-          <span className="week-calendar-view__legend-color week-calendar-view__legend-color--event-appointment" />
-          <span>Lịch hẹn</span>
+          <span className="week-calendar-view__legend-color week-calendar-view__legend-color--event-appointment-service" />
+          <span>Lịch hẹn dịch vụ</span>
+        </div>
+        <div className="week-calendar-view__legend-item">
+          <span className="week-calendar-view__legend-color week-calendar-view__legend-color--event-appointment-consultation" />
+          <span>Lịch hẹn tư vấn</span>
         </div>
         <div className="week-calendar-view__legend-item">
           <span className="week-calendar-view__legend-color week-calendar-view__legend-color--event-leave" />

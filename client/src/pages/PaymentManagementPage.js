@@ -127,7 +127,8 @@ const PaymentManagementPage = () => {
   const getPatientName = (p) => {
     return p.patientName 
         || p.Appointment?.Patient?.User?.full_name 
-        || p.Consultation?.Patient?.User?.full_name 
+      || p.Consultation?.patient?.full_name 
+      || p.Consultation?.Patient?.User?.full_name 
         || p.User?.full_name 
         || 'Khách vãng lai';
   };
@@ -136,8 +137,29 @@ const PaymentManagementPage = () => {
   const getDoctorName = (p) => {
     return p.doctorName 
         || p.Appointment?.Doctor?.User?.full_name 
-        || p.Consultation?.Doctor?.User?.full_name 
+      || p.Consultation?.doctor?.full_name 
+      || p.Consultation?.Doctor?.User?.full_name 
         || 'Chưa chỉ định';
+  };
+
+  const getPaymentCode = (p) => {
+    return p.Appointment?.code
+      || p.Consultation?.consultation_code
+      || p.code
+      || '---';
+  };
+
+  const getPaymentDateTime = (p) => {
+    return p.Appointment?.appointment_date
+      || p.Consultation?.appointment_time
+      || p.createdAt
+      || p.created_at;
+  };
+
+  const getPaymentTypeLabel = (p) => {
+    if (p.type === 'consultation' || p.Consultation) return 'Tư vấn online';
+    if (p.type === 'appointment' || p.Appointment) return 'Khám bệnh';
+    return 'Thanh toán';
   };
 
   // Helper: Format ngày tháng (Fix lỗi Invalid Date)
@@ -283,7 +305,7 @@ const PaymentManagementPage = () => {
                       </div>
                       
                       <div className="payment-management-page-service-tag mt-1">
-                        {payment.serviceName || (payment.type === 'Consultation' ? 'Tư vấn online' : 'Khám bệnh')}
+                        {payment.serviceName || getPaymentTypeLabel(payment)}
                       </div>
                     </td>
 
@@ -443,16 +465,16 @@ const PaymentManagementPage = () => {
                     <h6 className="pmp-fw-bold text-secondary border-bottom pb-2 mb-3">Thông tin bệnh nhân</h6>
                     <div className="row mb-3">
                         <div className="col-6"><small className="pmp-text-muted">Họ tên:</small> <strong>{getPatientName(detailData)}</strong></div>
-                        <div className="col-6"><small className="pmp-text-muted">Mã hồ sơ:</small> <strong>{detailData.Appointment?.Patient?.User?.id || '---'}</strong></div>
+                        <div className="col-6"><small className="pmp-text-muted">Mã hồ sơ:</small> <strong>{detailData.Appointment?.Patient?.User?.id || detailData.Consultation?.patient?.id || '---'}</strong></div>
                     </div>
                     <h6 className="pmp-fw-bold text-secondary border-bottom pb-2 mb-3 mt-4">Chi tiết dịch vụ</h6>
                     <table className="table table-bordered table-sm mb-0">
                         <thead className="table-light"><tr><th>Tên dịch vụ</th><th>Bác sĩ</th><th>Ngày khám</th><th className="text-end">Giá</th></tr></thead>
                         <tbody>
                             <tr>
-                                <td><div className="pmp-fw-bold">{detailData.serviceName || detailData.Appointment?.Service?.name}</div></td>
+                                <td><div className="pmp-fw-bold">{detailData.serviceName || detailData.Appointment?.Service?.name || (detailData.Consultation ? (detailData.Consultation.consultation_type === 'video' ? 'Tư vấn video' : 'Tư vấn online') : 'Dịch vụ thanh toán')}</div></td>
                                 <td>{getDoctorName(detailData)}</td>
-                                <td>{formatDate(detailData.Appointment?.appointment_date)}</td>
+                                <td>{formatDate(getPaymentDateTime(detailData))}</td>
                                 <td className="text-end pmp-fw-bold pmp-text-danger">{parseInt(detailData.amount).toLocaleString()} đ</td>
                             </tr>
                         </tbody>
@@ -471,7 +493,7 @@ const PaymentManagementPage = () => {
                     <p className="m-0 pmp-small">Địa chỉ: 123 Đường Nguyễn Văn Cừ, Quận 5, TP.HCM</p>
                     <p className="m-0 pmp-small">Hotline: 1900 1234 - Website: easymedify.vn</p>
                     <h4 className="pmp-fw-bold mt-3">HÓA ĐƠN THANH TOÁN</h4>
-                    <small>Mã HĐ: {printData.code}</small>
+                    <small>Mã HĐ: {getPaymentCode(printData)}</small>
                 </div>
                 
                 <div className="row mb-2">
@@ -479,7 +501,7 @@ const PaymentManagementPage = () => {
                     <div className="col-6 text-end">Ngày: {new Date().toLocaleDateString('vi-VN')}</div>
                 </div>
                 <div className="row mb-3">
-                    <div className="col-12">Địa chỉ: {printData.Appointment?.Patient?.User?.address || printData.Appointment?.appointment_address || '---'}</div>
+                    <div className="col-12">Địa chỉ: {printData.Appointment?.Patient?.User?.address || printData.Consultation?.patient?.address || printData.Appointment?.appointment_address || '---'}</div>
                     <div className="col-12">Bác sĩ: {getDoctorName(printData)}</div>
                 </div>
 

@@ -344,16 +344,22 @@
   color: #1e40af;
 }
 
-.my-schedule-page__event-filters .my-schedule-page__filter-btn.active.filter-appointments {
-  background-color: #fecaca;
-  border-color: #f87171;
-  color: #991b1b;
+.my-schedule-page__event-filters .my-schedule-page__filter-btn.active.filter-appointment-service {
+  background-color: #ffedd5;
+  border-color: #fb923c;
+  color: #c2410c;
+}
+
+.my-schedule-page__event-filters .my-schedule-page__filter-btn.active.filter-appointment-consultation {
+  background-color: #e0f2fe;
+  border-color: #38bdf8;
+  color: #0369a1;
 }
 
 .my-schedule-page__event-filters .my-schedule-page__filter-btn.active.filter-leaves {
-  background-color: var(--color-warning);
+  background-color: #fff7d6;
   border-color: var(--color-warning-dark);
-  color: #a16207;
+  color: #92400e;
 }
 
 .my-schedule-page__month-navigation {

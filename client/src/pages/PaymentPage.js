@@ -20,10 +20,12 @@ import paymentService from '../services/paymentService';
 import './PaymentPage.css';
 
 const PaymentPage = () => {
-  const { appointmentId } = useParams();
+  const { appointmentId, consultationId: consultationIdParam } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { consultation_id, type } = location.state || {}; 
+  const consultationTargetId = consultationIdParam || consultation_id || null;
+  const paymentType = type || (consultationTargetId ? 'consultation' : 'appointment');
 
   // Refs
   const fileInputRef = useRef(null);
@@ -62,7 +64,7 @@ const PaymentPage = () => {
       }
     };
     initData();
-  }, [appointmentId, consultation_id]);
+  }, [appointmentId, consultationTargetId, paymentType]);
 
   // ✅ HÀM LẤY DANH SÁCH VÍ VOUCHER CỦA USER
   const fetchMyVouchers = async () => {
@@ -112,8 +114,8 @@ const PaymentPage = () => {
       intervalId = setInterval(async () => {
         try {
             let isPaid = false;
-            if (type === 'consultation' && consultation_id) {
-                const res = await consultationService.getConsultationById(consultation_id);
+            if (paymentType === 'consultation' && consultationTargetId) {
+              const res = await consultationService.getConsultationById(consultationTargetId);
                 if (res.data.success && 
                     (res.data.data.payment_status === 'paid_online' || 
                      res.data.data.payment_status === 'paid_at_clinic')) {
@@ -143,7 +145,7 @@ const PaymentPage = () => {
       }, 3000);
     }
     return () => { if (intervalId) clearInterval(intervalId); };
-  }, [selectedMethod, paymentStatus, consultation_id, appointmentId, type]);
+  }, [selectedMethod, paymentStatus, consultationTargetId, appointmentId, paymentType]);
 
   // Tự động quay về trang chi tiết sau khi hệ thống xác nhận đã thanh toán
   useEffect(() => {
@@ -151,14 +153,14 @@ const PaymentPage = () => {
 
     const timerId = setTimeout(() => {
       if (appointment.type === 'consultation') {
-        navigate(`/tu-van/${consultation_id || appointment.id}`);
+        navigate(`/tu-van/${consultationTargetId || appointment.id}`);
       } else {
         navigate(`/lich-hen/${appointment.code}`);
       }
     }, 2000);
 
     return () => clearTimeout(timerId);
-  }, [paymentStatus, appointment, consultation_id, navigate]);
+  }, [paymentStatus, appointment, consultationTargetId, navigate]);
 
   // ========== API CALLS ==========
 
@@ -179,9 +181,9 @@ const PaymentPage = () => {
   const fetchAppointmentDetails = async () => {
     try {
       let res, data;
-      if (type === 'consultation' && consultation_id) {
+      if (paymentType === 'consultation' && consultationTargetId) {
         // --- TƯ VẤN ---
-        res = await consultationService.getConsultationById(consultation_id);
+        res = await consultationService.getConsultationById(consultationTargetId);
         if (res.data.success) {
           data = res.data.data;
           setAppointment({
@@ -195,6 +197,7 @@ const PaymentPage = () => {
             patientName: data.patient?.full_name || 'Bạn',
             time: data.appointment_time,
             payment_status: data.payment_status,
+            payment_hold_until: data.payment_due_at,
             type: 'consultation'
           });
           if (data.payment_status === 'paid_online' || data.payment_status === 'paid_at_clinic') {
@@ -246,7 +249,7 @@ const PaymentPage = () => {
           code: voucherCode,
           order_type: appointment.type === 'consultation' ? 'consultation' : 'service',
           total_amount: appointment.amount,
-          item_id: appointment.type === 'consultation' ? consultation_id : appointment.serviceId
+          item_id: appointment.type === 'consultation' ? consultationTargetId : appointment.serviceId
         })
       });
       const data = await res.json();
@@ -284,7 +287,7 @@ const PaymentPage = () => {
 
       let res;
       if (appointment.type === 'consultation') {
-        payload.consultation_id = consultation_id;
+        payload.consultation_id = consultationTargetId;
         res = await paymentService.createConsultationPayment(payload);
       } else {
         payload.appointment_id = appointmentId;

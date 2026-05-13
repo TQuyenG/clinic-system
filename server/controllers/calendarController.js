@@ -98,6 +98,26 @@ exports.getCalendarData = async (req, res) => {
       console.error('Error mapping doctor IDs to user IDs:', err);
     }
 
+    let resolvedDoctorIds = [];
+    let resolvedDoctorUserIds = [];
+    try {
+      if (targetUserIds.length > 0) {
+        const doctorRecords = await models.Doctor.findAll({
+          where: {
+            [Op.or]: [
+              { id: { [Op.in]: targetUserIds } },
+              { user_id: { [Op.in]: targetUserIds } }
+            ]
+          },
+          attributes: ['id', 'user_id']
+        });
+        resolvedDoctorIds = Array.from(new Set(doctorRecords.map(d => d.id).filter(Boolean)));
+        resolvedDoctorUserIds = Array.from(new Set(doctorRecords.map(d => d.user_id).filter(Boolean)));
+      }
+    } catch (err) {
+      console.error('Error resolving doctor IDs:', err);
+    }
+
     if (targetUserIds.length === 0) {
       return res.status(200).json({ 
         success: true, 
@@ -110,6 +130,8 @@ exports.getCalendarData = async (req, res) => {
     console.log('[DEBUG] REQUEST PARAMS - date_from:', req.query.date_from);
     console.log('[DEBUG] REQUEST PARAMS - date_to:', req.query.date_to);
     console.log('[DEBUG] Parsed targetUserIds:', targetUserIds);
+    console.log('[DEBUG] Resolved doctor IDs:', resolvedDoctorIds);
+    console.log('[DEBUG] Resolved doctor user IDs:', resolvedDoctorUserIds);
     console.log('[DEBUG] typesToFetch:', typesToFetch);
 
     // ========== 2. Lấy thông tin User (UserMap) ==========
@@ -382,6 +404,7 @@ exports.getCalendarData = async (req, res) => {
     // --- D. Lấy Lịch Hẹn (Appointments) ---
     if (typesToFetch.includes('appointments')) {
       console.log('[DEBUG-APPT] Looking for appointments with doctors having user_id IN:', targetUserIds);
+      console.log('[DEBUG-APPT] Date range:', dateRange);
       
       const appointmentData = await models.Appointment.findAll({
         where: {
@@ -395,7 +418,10 @@ exports.getCalendarData = async (req, res) => {
             required: true,
             attributes: ['id', 'user_id'],
             where: {
-              user_id: { [Op.in]: targetUserIds }
+              [Op.or]: [
+                { user_id: { [Op.in]: targetUserIds } },
+                { id: { [Op.in]: resolvedDoctorIds } }
+              ]
             }
           },
           { 
@@ -416,7 +442,7 @@ exports.getCalendarData = async (req, res) => {
         ]
       });
       
-      console.log('[DEBUG-APPT] Appointment records found:', appointmentData.length);
+      console.log('[DEBUG-APPT] Appointment records found:', appointmentData.length, 'for user IDs:', targetUserIds);
       if (appointmentData.length > 0) {
         console.log('[DEBUG-APPT] First appointment details:', {
           id: appointmentData[0].id,
@@ -440,6 +466,7 @@ exports.getCalendarData = async (req, res) => {
           date: appJSON.appointment_date, 
           start_time: appJSON.appointment_start_time,
           end_time: appJSON.appointment_end_time,
+          appointment_type: 'service', // ✅ Mark as service appointment
           user_id: userId,
           user: userMap.get(userId) || null
         };
@@ -449,6 +476,8 @@ exports.getCalendarData = async (req, res) => {
     // --- E. Include Consultations that look like appointments (so dashboard/calendar shows them) ---
     if (typesToFetch.includes('appointments')) {
       try {
+        console.log('[DEBUG-CONSULT] Query params - user_ids:', targetUserIds, 'date range:', { [Op.between]: [date_from, date_to] });
+        
         const consultationData = await models.Consultation.findAll({
           where: {
             appointment_time: dateRange,
@@ -460,7 +489,12 @@ exports.getCalendarData = async (req, res) => {
               as: 'doctor',
               required: true,
               attributes: ['id', 'full_name', 'avatar_url'],
-              where: { id: { [Op.in]: targetUserIds } }
+              where: {
+                [Op.or]: [
+                  { id: { [Op.in]: targetUserIds } },
+                  { id: { [Op.in]: resolvedDoctorUserIds } }
+                ]
+              }
             },
             {
               model: models.User,
@@ -475,14 +509,92 @@ exports.getCalendarData = async (req, res) => {
         });
 
         console.log('[DEBUG-CONSULT] Consultation records found:', consultationData.length);
+        if (consultationData.length > 0) {
+          console.log('[DEBUG-CONSULT] First consultation:', {
+            id: consultationData[0].id,
+            doctor_id: consultationData[0].doctor_id,
+            doctor: consultationData[0].doctor?.id,
+            status: consultationData[0].status,
+            appointment_time: consultationData[0].appointment_time
+          });
+        }
 
         const mappedConsultations = consultationData.map(c => {
           const cJSON = c.toJSON();
           const userId = c.doctor?.id;
           // appointment_date and times adapted from appointment_time / started_at
-          const appointmentDate = cJSON.appointment_time ? String(cJSON.appointment_time).split('T')[0] : null;
-          const appointmentTime = cJSON.appointment_time ? String(cJSON.appointment_time).split('T')[1]?.substring(0,5) : (cJSON.started_at ? String(cJSON.started_at).split('T')[1]?.substring(0,5) : null);
-          const endTime = cJSON.ended_at ? String(cJSON.ended_at).split('T')[1]?.substring(0,5) : null;
+          // Ensure we convert Date objects to ISO string first if needed
+          const getISOString = (dateVal) => {
+            if (!dateVal) return null;
+            if (dateVal instanceof Date) return dateVal.toISOString();
+            if (typeof dateVal === 'string' && dateVal.includes('T')) return dateVal;
+            return String(dateVal);
+          };
+          
+          // Convert UTC time to local time (Vietnam timezone: UTC+7)
+          const convertToLocalTime = (isoDateString) => {
+            if (!isoDateString) return null;
+            try {
+              const date = new Date(isoDateString);
+              // Check if date is valid
+              if (isNaN(date.getTime())) {
+                console.warn('[WARNING] Invalid date for time conversion:', isoDateString);
+                return null;
+              }
+              const localDate = new Date(date.getTime() + 7 * 60 * 60 * 1000); // Add 7 hours for UTC+7
+              const iso = localDate.toISOString();
+              const timeStr = iso.substring(11, 16); // HH:mm format from ISO string
+              return timeStr;
+            } catch (err) {
+              console.error('[ERROR] Failed to convert time:', isoDateString, err.message);
+              return null;
+            }
+          };
+          
+          const convertToLocalDate = (isoDateString) => {
+            if (!isoDateString) return null;
+            try {
+              const date = new Date(isoDateString);
+              // Check if date is valid
+              if (isNaN(date.getTime())) {
+                // Try to parse as local YYYY-MM-DD if already in that format
+                const match = String(isoDateString).match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (match) {
+                  return `${match[1]}-${match[2]}-${match[3]}`;
+                }
+                console.warn('[WARNING] Invalid date for conversion:', isoDateString);
+                return null;
+              }
+              const localDate = new Date(date.getTime() + 7 * 60 * 60 * 1000); // Add 7 hours for UTC+7
+              const iso = localDate.toISOString();
+              const dateStr = iso.substring(0, 10); // YYYY-MM-DD format
+              return dateStr;
+            } catch (err) {
+              console.error('[ERROR] Failed to convert date:', isoDateString, err.message);
+              return null;
+            }
+          };
+          
+          const isoTime = getISOString(cJSON.appointment_time) || getISOString(cJSON.started_at);
+          const appointmentDate = convertToLocalDate(isoTime);
+          const appointmentTime = convertToLocalTime(isoTime);
+          
+          let endTime = null;
+          const isoEndTime = getISOString(cJSON.ended_at);
+          if (isoEndTime) {
+            endTime = convertToLocalTime(isoEndTime);
+          } else if (appointmentTime) {
+            const durationMinutes = Number(cJSON.duration_minutes || 0);
+            if (durationMinutes > 0) {
+              const [hours, minutes] = appointmentTime.split(':').map(Number);
+              if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+                const totalMinutes = hours * 60 + minutes + durationMinutes;
+                const endHours = Math.floor((totalMinutes % (24 * 60)) / 60);
+                const endMinutes = totalMinutes % 60;
+                endTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+              }
+            }
+          }
 
           // patient is included directly as User on Consultation model
           if (cJSON.patient) {
@@ -496,6 +608,7 @@ exports.getCalendarData = async (req, res) => {
             date: appointmentDate,
             start_time: appointmentTime,
             end_time: endTime,
+            appointment_type: 'online', // ✅ Mark as online consultation
             user_id: userId,
             user: userMap.get(userId) || null,
             is_consultation: true
@@ -503,7 +616,17 @@ exports.getCalendarData = async (req, res) => {
         });
 
         // Append consultations to appointments array so frontend calendar shows them
+        console.log('[DEBUG-CONSULT] Mapped consultations count:', mappedConsultations.length);
+        if (mappedConsultations.length > 0) {
+          console.log('[DEBUG-CONSULT] First mapped:', {
+            id: mappedConsultations[0].id,
+            is_consultation: mappedConsultations[0].is_consultation,
+            date: mappedConsultations[0].date,
+            user_id: mappedConsultations[0].user_id
+          });
+        }
         appointments = [...appointments, ...mappedConsultations];
+        console.log('[DEBUG-APPPT-FINAL] After adding consultations, total appointments:', appointments.length);
       } catch (err) {
         console.error('Error fetching consultations for calendar:', err);
       }

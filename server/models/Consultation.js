@@ -148,6 +148,13 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Thời điểm thanh toán thành công'
     },
+
+    // Hạn thanh toán (thường = appointment_time - 30 phút)
+    payment_due_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: 'Hạn cuối cần hoàn tất thanh toán để giữ lịch tư vấn'
+    },
     
     // Trạng thái hồ sơ y tế (consultation report)
     medical_record_status: {
@@ -491,6 +498,7 @@ module.exports = (sequelize) => {
       { fields: ['consultation_type'] },
       { fields: ['appointment_time'] },
       { fields: ['payment_status'] },
+      { fields: ['payment_due_at'] },
       { fields: ['created_at'] },
       { fields: ['patient_id', 'status'] },
       { fields: ['doctor_id', 'status'] },

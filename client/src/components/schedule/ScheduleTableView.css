@@ -6,10 +6,17 @@
   --color-primary-dark: #81b997;
   --color-primary-light: #e6f7f2;
   --color-warning: #fde68a;
-  --color-warning-dark: #f6d057;
+  --color-warning-dark: #d97706;
+  --color-warning-text: #92400e;
   --color-appointment: #fecaca;
   --color-appointment-border: #f87171;
   --color-appointment-text: #991b1b;
+  --color-appointment-service: #ffedd5;
+  --color-appointment-service-border: #fb923c;
+  --color-appointment-service-text: #c2410c;
+  --color-appointment-consultation: #e0f2fe;
+  --color-appointment-consultation-border: #38bdf8;
+  --color-appointment-consultation-text: #0369a1;
   --color-text-primary: #1f2937;
   --color-text-secondary: #4b5563;
   --color-border: #e5e7eb;
@@ -197,11 +204,29 @@
   color: var(--color-appointment-text);
 }
 
+.schedule-table-view__shift-badge--service {
+  background-color: var(--color-appointment-service);
+  border-color: var(--color-appointment-service-border);
+  color: var(--color-appointment-service-text);
+}
+
+.schedule-table-view__shift-badge--consultation {
+  background-color: var(--color-appointment-consultation);
+  border-color: var(--color-appointment-consultation-border);
+  color: var(--color-appointment-consultation-text);
+}
+
+.schedule-table-view__shift-badge--appointment {
+  background-color: var(--color-appointment);
+  border-color: var(--color-appointment-border);
+  color: var(--color-appointment-text);
+}
+
 /* Lịch nghỉ — vàng (= event--leave) */
 .schedule-table-view__shift-badge.leave {
-  background-color: var(--color-warning);
+  background-color: #fff7d6;
   border-color: var(--color-warning-dark);
-  color: #92400e;
+  color: var(--color-warning-text);
 }
 
 /* No-data placeholder */

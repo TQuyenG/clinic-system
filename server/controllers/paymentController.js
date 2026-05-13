@@ -528,6 +528,25 @@ exports.getAllPayments = async (req, res) => {
             }
           ]
         },
+                {
+                    model: models.Consultation,
+                    as: 'Consultation',
+                    required: false,
+                    include: [
+                        {
+                            model: models.User,
+                            as: 'patient',
+                            required: false,
+                            attributes: ['full_name', 'phone', 'email', 'address', 'gender', 'dob']
+                        },
+                        {
+                            model: models.User,
+                            as: 'doctor',
+                            required: false,
+                            attributes: ['full_name']
+                        }
+                    ]
+                },
 
       ],
       // SỬA: Ưu tiên sắp xếp theo Ngày hẹn -> STT Tiếp đón -> Thời gian tạo
@@ -547,7 +566,7 @@ exports.getAllPayments = async (req, res) => {
         let patientName = 'N/A';
         let doctorName = 'N/A';
         let serviceName = 'N/A';
-        let type = 'Khác';
+        let type = 'other';
 
         if (data.Appointment) {
             // Ưu tiên lấy tên Guest Name (khách vãng lai) nếu có
@@ -566,7 +585,7 @@ exports.getAllPayments = async (req, res) => {
             patientName = data.Consultation.patient?.full_name || 'N/A';
             doctorName = data.Consultation.doctor?.full_name || 'N/A';
             serviceName = 'Tư vấn trực tuyến';
-            type = 'Tư vấn';
+            type = 'consultation';
         } else if (data.User) {
             // Fallback lấy tên User thanh toán
             patientName = data.User.full_name;
@@ -1230,8 +1249,9 @@ exports.getRefundRequests = async (req, res) => {
                     model: models.Payment,
                     attributes: ['transaction_id', 'method'],
                     include: [
-                         // Lấy thêm thông tin Lịch hẹn để biết dịch vụ gì
-                         { model: models.Appointment, as: 'Appointment', attributes: ['code'] }
+                         // Lấy thêm thông tin lịch hẹn / tư vấn để biết dịch vụ gì
+                         { model: models.Appointment, as: 'Appointment', attributes: ['code'] },
+                         { model: models.Consultation, as: 'Consultation', attributes: ['consultation_code'] }
                     ]
                 }
             ],
@@ -1306,7 +1326,7 @@ exports.processRefundRequest = async (req, res) => {
 
             // Gửi Email thông báo thành công cho khách
             if (request.User?.email) {
-                const appointmentCode = request.Payment?.Appointment?.code || request.payment_id;
+                const appointmentCode = request.Payment?.Appointment?.code || request.Payment?.Consultation?.consultation_code || request.payment_id;
                 await emailSender.sendEmail({
                     to: request.User.email,
                     subject: '✅ Yêu cầu hoàn tiền đã được xử lý thành công - Easy Medify',
@@ -1316,7 +1336,9 @@ exports.processRefundRequest = async (req, res) => {
                         appointmentCode,
                         refundAmount: request.refund_amount,
                         refundRef: refund_ref,
-                        appointmentLink: `${process.env.CLIENT_URL || 'http://localhost:3000'}/lich-hen/${appointmentCode}`
+                                                appointmentLink: request.Payment?.Consultation?.consultation_code
+                                                    ? `${process.env.CLIENT_URL || 'http://localhost:3000'}/tu-van/${request.Payment.Consultation.consultation_code}`
+                                                    : `${process.env.CLIENT_URL || 'http://localhost:3000'}/lich-hen/${appointmentCode}`
                     }
                     // attachments: proofImages ? [{ path: JSON.parse(proofImages)[0] }] : [] // Nếu muốn đính kèm file thật
                 });
@@ -1329,13 +1351,15 @@ exports.processRefundRequest = async (req, res) => {
                 type: 'refund_completed',
                 title: 'Hoàn tiền thành công',
                 message: `Yêu cầu hoàn tiền #${request.id} đã được xử lý. Vui lòng kiểm tra tài khoản.`,
-                link: `/lich-hen/${request.Payment?.Appointment?.code || ''}`
+                                link: request.Payment?.Consultation?.consultation_code
+                                    ? `/tu-van/${request.Payment.Consultation.consultation_code}`
+                                    : `/lich-hen/${request.Payment?.Appointment?.code || ''}`
             });
 
         } else if (status === 'rejected') {
             // Gửi mail từ chối
             if (request.User?.email) {
-                const appointmentCode = request.Payment?.Appointment?.code || request.payment_id;
+                const appointmentCode = request.Payment?.Appointment?.code || request.Payment?.Consultation?.consultation_code || request.payment_id;
                 await emailSender.sendEmail({
                     to: request.User.email,
                     subject: '❌ Từ chối yêu cầu hoàn tiền - Easy Medify',
@@ -1355,7 +1379,9 @@ exports.processRefundRequest = async (req, res) => {
                 type: 'refund_rejected',
                 title: 'Yêu cầu hoàn tiền bị từ chối',
                 message: `Yêu cầu #${request.id} bị từ chối. Lý do: ${admin_note}`,
-                link: `/lich-hen/${request.Payment?.Appointment?.code || ''}`
+                                link: request.Payment?.Consultation?.consultation_code
+                                    ? `/tu-van/${request.Payment.Consultation.consultation_code}`
+                                    : `/lich-hen/${request.Payment?.Appointment?.code || ''}`
             });
         }
 

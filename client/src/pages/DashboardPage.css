@@ -386,12 +386,13 @@
   transition: var(--dashboard-transition);
 }
 .indicator-schedule { background-color: #1e88e5; }
-.indicator-appointment { background-color: #2e7d32; }
+.indicator-appointment { background-color: #fb923c; }
+.indicator-consultation { background-color: #38bdf8; }
 .indicator-leave { background-color: #c62828; }
 
 /* Event Classes for background styling */
 .dashboard-calendar-day.has-schedule { border-color: rgba(30, 136, 229, 0.55); }
-.dashboard-calendar-day.has-appointment { border-color: rgba(46, 125, 50, 0.55); }
+.dashboard-calendar-day.has-appointment { border-color: rgba(251, 146, 60, 0.55); }
 .dashboard-calendar-day.has-leave { border-color: rgba(198, 40, 40, 0.55); }
 .dashboard-calendar-day.dashboard-calendar-today.has-schedule,
 .dashboard-calendar-day.dashboard-calendar-today.has-appointment,
@@ -413,7 +414,8 @@
 .dashboard-calendar-legend .legend-item { display: flex; align-items: center; gap: 0.35rem; }
 .dashboard-calendar-legend .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
 .schedule-dot { background-color: #1976d2; }
-.appointment-dot { background-color: #388e3c; }
+.appointment-dot { background-color: #fb923c; }
+.consultation-dot { background-color: #38bdf8; }
 .leave-dot { background-color: #d32f2f; }
 .dashboard-calendar-legend .legend-label { color: #4b5563; font-weight: 500; }
 
@@ -449,7 +451,8 @@
 }
 .indicator-badge { font-size: 0.8rem; }
 .schedule-badge { color: #1976d2; }
-.appointment-badge { color: #388e3c; }
+.appointment-badge { color: #fb923c; }
+.consultation-badge { color: #38bdf8; }
 .leave-badge { color: #d32f2f; }
 .tooltip-item { 
   font-size: 0.69rem; 

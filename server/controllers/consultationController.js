@@ -323,7 +323,7 @@ try {
   const totalFee = parseFloat(baseFee) + parseFloat(platformFee);
 
   // 6. Xác định trạng thái dựa trên phí và phương thức thanh toán
-  let initialStatus = totalFee > 0 ? 'pending_payment' : 'pending';
+  let initialStatus = 'pending'; // Luôn là 'pending' khi tạo mới (payment_status xử lý riêng)
   
   // Payment status dựa trên phương thức thanh toán
   let initialPaymentStatus = 'unpaid'; // Mặc định chưa thanh toán
@@ -336,6 +336,11 @@ try {
     // Sau khi thanh toán online thành công sẽ update thành paid_online
     initialPaymentStatus = 'unpaid'; // Tạm thời unpaid, đợi callback từ gateway
   }
+
+  // Deadline thanh toán: 30 phút trước giờ tư vấn (áp dụng với ca có phí và chưa thanh toán)
+  const paymentDueAt = initialPaymentStatus === 'unpaid'
+    ? appointmentStartTime.clone().subtract(30, 'minutes').toDate()
+    : null;
 
 
   // 7. Tạo mã tư vấn
@@ -366,7 +371,8 @@ try {
     platform_fee: platformFee,
     total_fee: totalFee,
     payment_status: initialPaymentStatus,
-    payment_method: payment_method || null // Lưu phương thức thanh toán
+    payment_method: payment_method || null, // Lưu phương thức thanh toán
+    payment_due_at: paymentDueAt
   }, { transaction }); // <-- Thêm transaction
 
   // 9.  SỬA LỖI: Gửi thông báo cho BÁC SĨ (THÊM LẠI)
@@ -1198,6 +1204,32 @@ exports.startConsultation = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Không tìm thấy buổi tư vấn hoặc chưa được xác nhận'
+      });
+    }
+
+    // Chặn vào phòng nếu chưa thanh toán với ca có yêu cầu thanh toán
+    const isPaid = ['paid_online', 'paid_at_clinic'].includes(consultation.payment_status);
+    const paymentRequired = consultation.payment_status !== 'not_required';
+    if (paymentRequired && !isPaid) {
+      const dueAt = consultation.payment_due_at ? new Date(consultation.payment_due_at) : null;
+      const now = new Date();
+
+      if (dueAt && dueAt < now) {
+        consultation.status = 'cancelled';
+        consultation.cancelled_by = 'system';
+        consultation.cancel_reason = 'Quá hạn thanh toán trước giờ tư vấn';
+        consultation.cancelled_at = now;
+        await consultation.save();
+
+        return res.status(400).json({
+          success: false,
+          message: 'Lịch tư vấn đã bị huỷ do quá hạn thanh toán.'
+        });
+      }
+
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng hoàn tất thanh toán trước khi vào phòng tư vấn.'
       });
     }
 

@@ -61,6 +61,48 @@ async function notifyPaymentDeadlineExpired(appointment) {
 }
 
 /**
+ * Gửi thông báo auto-cancel cho tư vấn
+ */
+async function notifyConsultationPaymentDeadlineExpired(consultation) {
+  try {
+    const patientEmail = consultation.patient?.email;
+    const patientName = consultation.patient?.full_name || 'Bệnh nhân';
+
+    if (patientEmail) {
+      console.log(`[DeadlineJob] Gửi email huỷ do deadline cho ${patientEmail}`);
+      await emailSender.sendEmail({
+        to: patientEmail,
+        subject: `[Easy Medify] Lịch tư vấn bị huỷ do chưa thanh toán - ${consultation.consultation_code}`,
+        template: 'consultation_cancelled_payment_deadline',
+        data: {
+          patientName,
+          consultationCode: consultation.consultation_code,
+          doctorName: consultation.doctor?.full_name || 'Bác sĩ',
+          consultationType: consultation.consultation_type === 'video' ? 'Video Call' : consultation.consultation_type === 'offline' ? 'Tại bệnh viện' : 'Chat',
+          appointmentTime: new Date(consultation.appointment_time).toLocaleString('vi-VN'),
+          paymentDeadline: consultation.payment_due_at ? new Date(consultation.payment_due_at).toLocaleString('vi-VN') : '---',
+          consultationLink: `${process.env.CLIENT_URL || 'http://localhost:3000'}/tu-van/${consultation.id}`
+        }
+      });
+    }
+
+    await notificationHelper.createNotification({
+      user_id: consultation.patient_id,
+      type: 'consultation_cancelled',
+      title: 'Lịch tư vấn bị huỷ',
+      message: `Lịch tư vấn ${consultation.consultation_code} đã bị huỷ do quá hạn thanh toán.`,
+      link: `/tu-van/${consultation.id}`,
+      data: {
+        consultation_id: consultation.id,
+        reason: 'payment_deadline_expired'
+      }
+    });
+  } catch (error) {
+    console.error(`[DeadlineJob] Lỗi gửi notification cho consultation ${consultation.consultation_code}:`, error.message);
+  }
+}
+
+/**
  * Job chính: Kiểm tra payment deadline và auto-cancel
  * Quy tắc:
  * - Online appointment (VNPay, MoMo, bank_transfer)
@@ -124,7 +166,51 @@ async function checkAndCancelExpiredPayments() {
       }
     }
 
-    console.log(`[DeadlineJob] Hoàn thành: Huỷ ${cancelledCount}/${expiredAppointments.length} appointments`);
+    // Tìm các consultation hết hạn thanh toán
+    const expiredConsultations = await models.Consultation.findAll({
+      where: {
+        status: { [Op.in]: ['pending', 'confirmed'] },
+        payment_status: 'unpaid',
+        payment_due_at: {
+          [Op.lt]: now
+        }
+      },
+      include: [
+        {
+          model: models.User,
+          as: 'patient',
+          attributes: ['id', 'email', 'full_name']
+        },
+        {
+          model: models.User,
+          as: 'doctor',
+          attributes: ['id', 'email', 'full_name']
+        }
+      ],
+      raw: false
+    });
+
+    console.log(`[DeadlineJob] Tìm thấy ${expiredConsultations.length} consultations hết deadline`);
+
+    let cancelledConsultationCount = 0;
+    for (const consultation of expiredConsultations) {
+      try {
+        await consultation.update({
+          status: 'cancelled',
+          cancelled_at: now,
+          cancelled_by: 'system',
+          cancel_reason: 'Payment deadline expired - thanh toán không kịp hạn'
+        });
+
+        await notifyConsultationPaymentDeadlineExpired(consultation);
+        cancelledConsultationCount++;
+        console.log(`[DeadlineJob] Huỷ consultation ${consultation.consultation_code} do hết deadline`);
+      } catch (error) {
+        console.error(`[DeadlineJob] Lỗi khi huỷ consultation ${consultation.consultation_code}:`, error.message);
+      }
+    }
+
+    console.log(`[DeadlineJob] Hoàn thành: Huỷ ${cancelledCount}/${expiredAppointments.length} appointments, ${cancelledConsultationCount}/${expiredConsultations.length} consultations`);
 
   } catch (error) {
     console.error('[DeadlineJob] Lỗi trong checkAndCancelExpiredPayments:', error);

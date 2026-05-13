@@ -28,7 +28,13 @@ import specialtyService from '../../services/specialtyService';
 import { normalizeUserList } from '../../utils/normalizeUser';
 import './WalkInReceptionModal.css';
 
-const getToday = () => new Date().toISOString().split('T')[0];
+const getToday = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const emptyPatient = {
   bookingFor: 'self',
@@ -190,6 +196,20 @@ const WalkInReceptionModal = ({ show, onHide, onSuccess }) => {
     return groups;
   }, [availableSlots]);
 
+  const getSoonestAvailableTime = (slots = [], selectedDate = '') => {
+    const now = new Date();
+    const todayStr = getToday();
+
+    return (Array.isArray(slots) ? slots : [])
+      .filter(slot => slot?.isAvailable)
+      .filter((slot) => {
+        if (!selectedDate || selectedDate !== todayStr) return true;
+        const slotDate = new Date(`${selectedDate}T${slot.time}:00`);
+        return slotDate.getTime() > now.getTime();
+      })
+      .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))[0]?.time || '';
+  };
+
   const selectedConsultationPackage = useMemo(
     () => consultationPackages.find(item => String(item.id) === String(consultationForm.consultationPricingId)),
     [consultationPackages, consultationForm.consultationPricingId]
@@ -285,7 +305,16 @@ const WalkInReceptionModal = ({ show, onHide, onSuccess }) => {
                 : Object.prototype.hasOwnProperty.call(slot, 'status')
                   ? slot.status === 'available'
                   : !slot.isBusy,
-        }));
+        })).map((slot) => {
+          // Chặn chọn slot đã qua giờ trong ngày hiện tại để khớp "slot thực tế"
+          const isToday = String(date) === getToday();
+          if (!isToday || !slot?.time) return slot;
+          const slotDateTime = new Date(`${date}T${slot.time}:00`);
+          if (slotDateTime.getTime() <= Date.now()) {
+            return { ...slot, isAvailable: false, reason: 'Đã qua giờ' };
+          }
+          return slot;
+        }).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
 
         setAvailableSlots(normalized);
       } catch (error) {
@@ -457,7 +486,7 @@ const WalkInReceptionModal = ({ show, onHide, onSuccess }) => {
       return;
     }
 
-    const selectedTime = serviceForm.time || (serviceForm.findSoonestSlot ? availableSlots.find(slot => slot.isAvailable)?.time : '');
+    const selectedTime = serviceForm.time || (serviceForm.findSoonestSlot ? getSoonestAvailableTime(availableSlots, serviceForm.date) : '');
     if (!selectedTime) {
       toast.error('Vui lòng chọn giờ khám hoặc bật Khám ngay');
       return;
@@ -501,7 +530,7 @@ const WalkInReceptionModal = ({ show, onHide, onSuccess }) => {
       return;
     }
 
-    const selectedTime = consultationForm.time || (consultationForm.findSoonestSlot ? availableSlots.find(slot => slot.isAvailable)?.time : '');
+    const selectedTime = consultationForm.time || (consultationForm.findSoonestSlot ? getSoonestAvailableTime(availableSlots, consultationForm.date) : '');
     if (!selectedTime) {
       toast.error('Vui lòng chọn giờ tư vấn hoặc bật Khám ngay');
       return;

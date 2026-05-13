@@ -48,9 +48,17 @@ const RefundRequestPage = () => {
   };
 
   // Filter Logic
+  const getRequestCode = (req) => {
+    return req.Payment?.Appointment?.code
+      || req.Payment?.Consultation?.consultation_code
+      || req.Appointment?.code
+      || req.Consultation?.consultation_code
+      || req.id.toString();
+  };
+
   const filteredRequests = requests.filter(req => {
     const term = searchTerm.toLowerCase();
-    const code = req.Appointment?.code || req.id.toString();
+    const code = getRequestCode(req);
     const user = req.User?.full_name?.toLowerCase() || '';
     return code.toLowerCase().includes(term) || user.includes(term);
   });
@@ -116,7 +124,7 @@ const RefundRequestPage = () => {
     // Demo link (cần BinID chính xác để hoạt động hoàn hảo):
     const binId = '970436'; // VD: VCB. Thực tế cần map từ bank_name
     const amount = req.refund_amount;
-    const desc = `Hoan tien don ${req.Appointment?.code || req.id}`;
+    const desc = `Hoan tien don ${getRequestCode(req)}`;
     return `https://img.vietqr.io/image/${binId}-${account_no}-compact.png?amount=${amount}&addInfo=${encodeURIComponent(desc)}&accountName=${encodeURIComponent(account_name)}`;
   };
 
@@ -178,7 +186,7 @@ const RefundRequestPage = () => {
               filteredRequests.map(req => (
                 <tr key={req.id}>
                   <td>
-                    <span style={{fontWeight:'bold', color:'#3b82f6'}}>#{req.Appointment?.code || req.id}</span>
+                      <span style={{fontWeight:'bold', color:'#3b82f6'}}>#{getRequestCode(req)}</span>
                   </td>
                   <td>
                     <div style={{fontWeight:600}}>{req.User?.full_name}</div>

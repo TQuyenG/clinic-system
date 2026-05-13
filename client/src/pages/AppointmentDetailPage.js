@@ -940,21 +940,60 @@ const AppointmentDetailPage = () => {
 
             {/* Payment Warning */}
             {needPayment() && paymentTimeRemaining && isOnlinePaymentMethod(appointment.payment_method) && (
-              <div className="appointment-detail-page-alert alert-warning">
-                <FaExclamationTriangle />
-                <div>
-                  <strong>Chưa thanh toán!</strong> Vui lòng thanh toán trong 
-                  <strong> {paymentTimeRemaining.hours} giờ {paymentTimeRemaining.minutes} phút</strong> để giữ lịch.
-                </div>
-                <button 
-                  className="appointment-detail-page-btn-action btn-payment-small"
-                  onClick={handlePaymentClick}
-                >
-                  <FaCreditCard />
-                  Thanh toán
-                </button>
-                
-              </div>
+              <>
+                {/* Critical alert when < 10 minutes left */}
+                {paymentTimeRemaining.hours === 0 && paymentTimeRemaining.minutes < 10 && (
+                  <div className="appointment-detail-page-alert alert-danger" style={{
+                    animation: 'blink 1s infinite',
+                    backgroundColor: '#ff6b6b',
+                    color: 'white',
+                    fontWeight: 'bold'
+                  }}>
+                    <FaExclamationTriangle style={{fontSize: '1.5em', marginRight: '10px'}} />
+                    <div>
+                      <strong>⏰ HẠNG CẤP: Thanh toán trong {paymentTimeRemaining.minutes} phút!</strong>
+                      <p style={{marginTop: '5px', fontSize: '0.9em'}}>
+                        Nếu không thanh toán, lịch hẹn sẽ bị tự động hủy.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Normal warning alert */}
+                {!(paymentTimeRemaining.hours === 0 && paymentTimeRemaining.minutes < 10) && (
+                  <div className="appointment-detail-page-alert alert-warning">
+                    <FaExclamationTriangle />
+                    <div>
+                      <strong>Chưa thanh toán!</strong> Vui lòng thanh toán trong 
+                      <strong> {paymentTimeRemaining.hours} giờ {paymentTimeRemaining.minutes} phút</strong> để giữ lịch.
+                    </div>
+                    <button 
+                      className="appointment-detail-page-btn-action btn-payment-small"
+                      onClick={handlePaymentClick}
+                    >
+                      <FaCreditCard />
+                      Thanh toán
+                    </button>
+                  </div>
+                )}
+
+                {/* Critical button when < 10 minutes */}
+                {paymentTimeRemaining.hours === 0 && paymentTimeRemaining.minutes < 10 && (
+                  <button 
+                    className="appointment-detail-page-btn-action btn-payment-small"
+                    style={{
+                      backgroundColor: '#ff6b6b',
+                      color: 'white',
+                      marginTop: '10px',
+                      animation: 'pulse 1.5s infinite'
+                    }}
+                    onClick={handlePaymentClick}
+                  >
+                    <FaCreditCard />
+                    THANH TOÁN NGAY
+                  </button>
+                )}
+              </>
             )}
 
             {/* Payment reminder popup (nếu cần) */}

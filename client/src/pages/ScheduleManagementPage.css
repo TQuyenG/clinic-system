@@ -557,17 +557,24 @@
   color: #5b21b6;
 }
 
-/* Lịch hẹn: đỏ nhạt (khớp với event--appointment trên CalendarView) */
-.schedule-management-page__event-type-filters .schedule-management-page__filter-btn.active.filter-appointments {
-  background-color: #fecaca;
-  border-color: #f87171;
-  color: #991b1b;
+/* Lịch hẹn dịch vụ: cam nhạt */
+.schedule-management-page__event-type-filters .schedule-management-page__filter-btn.active.filter-appointment-service {
+  background-color: #ffedd5;
+  border-color: #fb923c;
+  color: #c2410c;
+}
+
+/* Lịch hẹn tư vấn: xanh lam nhạt */
+.schedule-management-page__event-type-filters .schedule-management-page__filter-btn.active.filter-appointment-consultation {
+  background-color: #e0f2fe;
+  border-color: #38bdf8;
+  color: #0369a1;
 }
 
 /* Lịch nghỉ: đỏ cam/vàng cảnh báo */
 .schedule-management-page__event-type-filters .schedule-management-page__filter-btn.active.filter-leaves {
-  background-color: #fde68a;
-  border-color: #f6d057;
+  background-color: #fff7d6;
+  border-color: #d97706;
   color: #92400e;
 }
 

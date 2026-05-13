@@ -7,7 +7,8 @@
   --color-primary-dark: #81b997;
   --color-primary-light: #e6f7f2; /* Xanh lá rất nhạt */
   --color-warning: #fde68a; /* Vàng pastel */
-  --color-warning-dark: #f6d057;
+  --color-warning-dark: #d97706;
+  --color-warning-text: #92400e;
   --color-event: #dbeafe; /* Xanh dương nhạt */
   --color-event-border: #93c5fd; /* Xanh dương đậm */
   --color-text-primary: #1f2937;
@@ -21,6 +22,12 @@
   --color-appointment: #fecaca;
   --color-appointment-border: #f87171;
   --color-appointment-text: #991b1b;
+  --color-appointment-service: #ffedd5;
+  --color-appointment-service-border: #fb923c;
+  --color-appointment-service-text: #c2410c;
+  --color-appointment-consultation: #e0f2fe;
+  --color-appointment-consultation-border: #38bdf8;
+  --color-appointment-consultation-text: #0369a1;
   
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -98,7 +105,7 @@
 }
 
 .calendar-view__day--on-leave {
-  background-color: var(--color-warning);
+  background-color: #fff7d6;
   border-color: var(--color-warning-dark);
 }
 
@@ -134,6 +141,14 @@
   color: var(--color-appointment-text);
 }
 
+.calendar-view__icon-appointment-service {
+  color: var(--color-appointment-service-text);
+}
+
+.calendar-view__icon-appointment-consultation {
+  color: var(--color-appointment-consultation-text);
+}
+
 
 /* Chú thích */
 .calendar-view__legend {
@@ -163,12 +178,22 @@
   border: 1px solid var(--color-primary-dark);
 }
 .calendar-view__legend-color--leave {
-  background-color: var(--color-warning);
+  background-color: #fff7d6;
   border: 1px solid var(--color-warning-dark);
 }
 .calendar-view__legend-color--appointment {
   background-color: var(--color-appointment);
   border: 1px solid var(--color-appointment-border);
+}
+
+.calendar-view__legend-color--appointment-service {
+  background-color: var(--color-appointment-service);
+  border: 1px solid var(--color-appointment-service-border);
+}
+
+.calendar-view__legend-color--appointment-consultation {
+  background-color: var(--color-appointment-consultation);
+  border: 1px solid var(--color-appointment-consultation-border);
 }
 
 
@@ -355,15 +380,29 @@
   z-index: 2;
 }
 .week-calendar-view__event--leave {
-  background-color: var(--color-warning);
+  background-color: #fff7d6;
   border: 1px solid var(--color-warning-dark);
-  color: #a16207;
+  color: var(--color-warning-text);
   z-index: 4; 
 }
 .week-calendar-view__event--appointment {
   background-color: var(--color-appointment);
   border: 1px solid var(--color-appointment-border);
   color: var(--color-appointment-text);
+  z-index: 3;
+}
+
+.week-calendar-view__event--appointment-service {
+  background-color: var(--color-appointment-service) !important;
+  border: 1px solid var(--color-appointment-service-border) !important;
+  color: var(--color-appointment-service-text) !important;
+  z-index: 3;
+}
+
+.week-calendar-view__event--appointment-consultation {
+  background-color: var(--color-appointment-consultation) !important;
+  border: 1px solid var(--color-appointment-consultation-border) !important;
+  color: var(--color-appointment-consultation-text) !important;
   z-index: 3;
 }
 
@@ -468,6 +507,16 @@
   border: 1px solid var(--color-appointment-border);
 }
 
+.week-calendar-view__legend-color--event-appointment-service {
+  background-color: var(--color-appointment-service);
+  border: 1px solid var(--color-appointment-service-border);
+}
+
+.week-calendar-view__legend-color--event-appointment-consultation {
+  background-color: var(--color-appointment-consultation);
+  border: 1px solid var(--color-appointment-consultation-border);
+}
+
 /* ================================================= */
 /* === MÀU SẮC SỰ KIỆN (ĐÃ THỐNG NHẤT) === */
 /* ================================================= */
@@ -518,6 +567,18 @@
   z-index: 3;
 }
 
+.week-calendar-view__event--appointment.week-calendar-view__event--appointment-service {
+  background-color: var(--color-appointment-service) !important;
+  border-color: var(--color-appointment-service-border) !important;
+  color: var(--color-appointment-service-text) !important;
+}
+
+.week-calendar-view__event--appointment.week-calendar-view__event--appointment-consultation {
+  background-color: var(--color-appointment-consultation) !important;
+  border-color: var(--color-appointment-consultation-border) !important;
+  color: var(--color-appointment-consultation-text) !important;
+}
+
 /* Lịch nghỉ — Vàng */
 .week-calendar-view__event--leave {
   background-color: var(--color-warning);
@@ -527,7 +588,7 @@
 }
 .week-calendar-view__event--leave .week-calendar-view__event-title,
 .week-calendar-view__event--leave .week-calendar-view__event-time {
-  color: #92400e;
+  color: var(--color-warning-text);
 }
 
 /* Màu động theo user (chỉ áp dụng cho schedule/flexible/overtime, KHÔNG áp dụng cho leave/appointment) */
@@ -577,7 +638,7 @@
 
 /* Lịch nghỉ — vàng */
 .week-calendar-view__legend-color--event-leave {
-  background-color: var(--color-warning);
+  background-color: #fff7d6;
   border: 1px solid var(--color-warning-dark);
 }
 

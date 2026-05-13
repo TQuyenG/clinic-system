@@ -715,7 +715,7 @@
 /* Hủy lịch - Đỏ */
 .appointment-management-action-cancel {
   background: var(--apt-danger-light);
-  color: var(--apt-danger);
+  color: var(--apt-white);
 }
 .appointment-management-action-cancel:hover {
   background: var(--apt-danger);

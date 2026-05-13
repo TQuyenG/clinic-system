@@ -884,7 +884,7 @@ exports.completePayment = async (req, res) => {
  */
 exports.getAvailableSlots = async (req, res) => {
   try {
-    const { doctor_id, service_id, date } = req.query;
+    const { doctor_id, service_id, date, appointment_type = 'offline' } = req.query;
 
     if (!doctor_id || !service_id || !date) {
       return res.status(400).json({
@@ -893,7 +893,7 @@ exports.getAvailableSlots = async (req, res) => {
       });
     }
 
-    const slots = await getAvailableSlotsLogic(doctor_id, service_id, date);
+    const slots = await getAvailableSlotsLogic(doctor_id, service_id, date, appointment_type);
 
     const grouped = { morning: [], afternoon: [], evening: [] };
     slots.forEach(slot => {

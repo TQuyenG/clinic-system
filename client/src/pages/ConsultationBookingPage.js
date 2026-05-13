@@ -61,7 +61,6 @@ const ConsultationBookingPage = () => {
 
   const [errors, setErrors] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [warningModal, setWarningModal] = useState({ isOpen: false, type: '', title: '', message: '', details: '' });
 
   const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
@@ -341,22 +340,25 @@ const ConsultationBookingPage = () => {
     const isFree = selectedPackage && parseFloat(selectedPackage.price) === 0;
 
     if (isFree) {
-      handleFinalSubmit('free');
+      // For free packages, proceed to create consultation immediately
+      handleFinalSubmit();
       return;
     }
 
+    // For paid packages, create booking now (payment deferred to detail page)
+    // Warn when booking within 6 hours
     const now = new Date();
     const apptTime = new Date(`${formData.date}T${formData.time}:00`);
     const diffHours = (apptTime - now) / 36e5;
-
     if (diffHours < 6) {
       setWarningModal({
         isOpen: true, type: 'danger', title: 'Cảnh báo gấp!',
         message: `Lịch hẹn chỉ còn ${formatTimeDiff(apptTime - now)}.`,
-        details: 'Bạn sẽ KHÔNG THỂ HỦY hoặc HOÀN TIỀN nếu thanh toán. Bạn chắc chắn muốn tiếp tục?'
+        details: 'Bạn sẽ KHÔNG THỂ HỦY hoặc HOÀN TIỀN sau khi lịch được tạo. Bạn chắc chắn muốn tiếp tục?'
       });
       return;
     }
+
     setShowConfirmModal(true);
   };
 
@@ -365,10 +367,11 @@ const ConsultationBookingPage = () => {
       setLoading(prev => ({ ...prev, submit: true }));
       const appointment_time = formData.appointment_time || (formData.date && formData.time ? `${formData.date}T${formData.time}:00` : null);
 
+      // Do NOT collect payment here. Create consultation and defer payment to detail page.
       const payload = {
         ...formData,
         appointment_time,
-        payment_method: method,
+        payment_method: null,
         attachments: JSON.stringify(formData.attachments || [])
       };
 
@@ -377,7 +380,7 @@ const ConsultationBookingPage = () => {
         setWarningModal({
           isOpen: true, type: 'success', title: 'Đặt lịch thành công',
           message: 'Bạn đã đặt lịch tư vấn thành công!',
-          details: 'Bạn sẽ được chuyển đến trang chi tiết tư vấn.',
+          details: 'Vui lòng vào trang chi tiết tư vấn để thực hiện thanh toán online.',
           onConfirm: () => navigate(`/tu-van/${res.data.data.id}`)
         });
       }
@@ -392,7 +395,6 @@ const ConsultationBookingPage = () => {
     } finally {
       setLoading(prev => ({ ...prev, submit: false }));
       setShowConfirmModal(false);
-      setShowPaymentModal(false);
     }
   };
 
@@ -799,33 +801,12 @@ const ConsultationBookingPage = () => {
               </div>
               <div className="consultation-booking-modal-footer">
                 <button className="consultation-booking-btn-secondary" onClick={() => setShowConfirmModal(false)}>Hủy</button>
-                <button className="consultation-booking-btn-primary" onClick={() => setShowPaymentModal(true)}>Chọn thanh toán</button>
+                <button className="consultation-booking-btn-primary" onClick={() => handleFinalSubmit()}>Xác nhận &amp; Tạo lịch</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* MODAL THANH TOÁN */}
-        {showPaymentModal && (
-          <div className="consultation-booking-modal-overlay">
-            <div className="consultation-booking-modal">
-              <div className="consultation-booking-modal-header">
-                <h3><FaMoneyBillWave style={{ color: '#3aaa6f' }} /> Chọn phương thức thanh toán</h3>
-              </div>
-              <div className="consultation-booking-modal-body">
-                <button className="consultation-booking-payment-item" onClick={() => handleFinalSubmit('vnpay')}>
-                  <FaCreditCard /> VNPay / Thẻ ATM
-                </button>
-                <button className="consultation-booking-payment-item" onClick={() => handleFinalSubmit('momo')}>
-                  <FaWallet /> Ví MoMo
-                </button>
-              </div>
-              <div className="consultation-booking-modal-footer">
-                <button className="consultation-booking-btn-secondary full" onClick={() => setShowPaymentModal(false)}>Quay lại</button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* MODAL CẢNH BÁO */}
         {warningModal.isOpen && (

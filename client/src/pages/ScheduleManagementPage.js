@@ -101,6 +101,18 @@ const formatDateLabel = (date) => {
   return `${day}/${month}/${year}`;
 };
 
+const getAppointmentKind = (appointment = {}) => {
+  const rawType = String(appointment.appointment_type || appointment.type || '').toLowerCase();
+  if (appointment.is_consultation || rawType.includes('consult')) return 'consultation';
+  if (rawType.includes('service') || appointment.service_id || appointment.service_name) return 'service';
+  return 'service';
+};
+
+const normalizeAppointmentForFilter = (appointment = {}) => ({
+  ...appointment,
+  appointment_kind: getAppointmentKind(appointment)
+});
+
 const ScheduleManagementPage = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -129,7 +141,8 @@ const ScheduleManagementPage = () => {
     schedules: true,
     overtime: true,
     leaves: true,
-    appointments: true
+    appointmentService: true,
+    appointmentConsultation: true
   });
 
   // State quản lý hiển thị lịch
@@ -507,11 +520,9 @@ const ScheduleManagementPage = () => {
       });
       
       if (user.role === 'admin') {
-        // [FIX] Admin luôn dùng selectedUsers cho cả 2 tab, gửi rỗng nếu chưa chọn
-        params.append('user_ids', effectiveSelectedUsers.length > 0
-          ? effectiveSelectedUsers.map(u => u.value).join(',')
-          : '');
+        // Admin: only send user_ids when selection exists; otherwise omit to let server return all doctors/staff
         if (effectiveSelectedUsers.length > 0) {
+          params.append('user_ids', effectiveSelectedUsers.map(u => u.value).join(','));
           params.append('user_ids_kind', 'user');
         }
       } else if (user.role === 'staff' && (userStaffInfo?.rank === 'manager' || hasViewDoctorPerm)) {
@@ -723,12 +734,20 @@ const ScheduleManagementPage = () => {
   const filteredData = useMemo(() => {
     const { schedules, overtime_schedules, leaves, appointments } = allCalendarData;
     const showWorkSchedules = true; 
+    const normalizedAppointments = (appointments || []).map(normalizeAppointmentForFilter);
+    const showServiceAppointments = eventTypeFilters.appointmentService;
+    const showConsultationAppointments = eventTypeFilters.appointmentConsultation;
+    const filteredAppointments = normalizedAppointments.filter(app => {
+      if (app.appointment_kind === 'consultation') return showConsultationAppointments;
+      if (app.appointment_kind === 'service') return showServiceAppointments;
+      return showServiceAppointments || showConsultationAppointments;
+    });
     
     return {
       schedules: showWorkSchedules && eventTypeFilters.schedules ? schedules : [],
       overtime_schedules: eventTypeFilters.overtime ? overtime_schedules : [],
       leaves: eventTypeFilters.leaves ? leaves : [],
-      appointments: eventTypeFilters.appointments ? appointments : [],
+      appointments: filteredAppointments,
       showWorkSchedules
     };
   }, [allCalendarData, eventTypeFilters, activeTab]);
@@ -1114,8 +1133,9 @@ const ScheduleManagementPage = () => {
           {filteredData.showWorkSchedules && (
             <button className={`schedule-management-page__filter-btn ${eventTypeFilters.schedules ? 'active' : ''} filter-schedules`} onClick={() => handleEventTypeToggle('schedules')}><FaBusinessTime /> Lịch làm việc</button>
           )}
-           <button className={`schedule-management-page__filter-btn ${eventTypeFilters.overtime ? 'active' : ''} filter-overtime`} onClick={() => handleEventTypeToggle('overtime')}><FaClock /> Tăng ca</button>
-          <button className={`schedule-management-page__filter-btn ${eventTypeFilters.appointments ? 'active' : ''} filter-appointments`} onClick={() => handleEventTypeToggle('appointments')}><FaUserClock /> Lịch hẹn</button>
+          <button className={`schedule-management-page__filter-btn ${eventTypeFilters.overtime ? 'active' : ''} filter-overtime`} onClick={() => handleEventTypeToggle('overtime')}><FaClock /> Tăng ca</button>
+          <button className={`schedule-management-page__filter-btn ${eventTypeFilters.appointmentService ? 'active' : ''} filter-appointment-service`} onClick={() => handleEventTypeToggle('appointmentService')}><FaUserClock /> Lịch hẹn dịch vụ</button>
+          <button className={`schedule-management-page__filter-btn ${eventTypeFilters.appointmentConsultation ? 'active' : ''} filter-appointment-consultation`} onClick={() => handleEventTypeToggle('appointmentConsultation')}><FaUserClock /> Lịch hẹn tư vấn</button>
            <button className={`schedule-management-page__filter-btn ${eventTypeFilters.leaves ? 'active' : ''} filter-leaves`} onClick={() => handleEventTypeToggle('leaves')}><FaExclamationTriangle /> Lịch nghỉ</button>
         </div>
       )}

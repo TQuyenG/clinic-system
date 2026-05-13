@@ -371,6 +371,7 @@ function App() {
             {/* ========== 8. APPOINTMENTS & MEDICAL RECORDS ========== */}
             <Route path="/dat-lich-hen" element={<ProtectedRoute requiredRole="patient"><AppointmentBookingPage /></ProtectedRoute>} />
             <Route path="/thanh-toan/:appointmentId" element={<ProtectedRoute requiredRole="patient"><PaymentPage /></ProtectedRoute>} />
+            <Route path="/thanh-toan-tu-van/:consultationId" element={<ProtectedRoute requiredRole="patient"><PaymentPage /></ProtectedRoute>} />
             <Route path="/ho-so-y-te" element={<ProtectedRoute requiredRole="patient"><MedicalRecordViewPage /></ProtectedRoute>} />
             <Route path="/danh-sach-ho-so" element={<ProtectedRoute requiredRole={['patient', 'doctor', 'admin', 'staff']}><MyMedicalRecordsPage /></ProtectedRoute>} />
             
