@@ -1,0 +1,336 @@
+/* Path: client/src/components/consultation/ConsultationRealtimeMonitor.css */
+/* ✅ REALTIME MONITOR - FULLY RESPONSIVE */
+
+:root {
+  --medical-green-light: #E6F4EA;
+  --medical-green-dark: #065f46;
+  --medical-green-primary: #10B981;
+  --medical-red-emergency: #EF4444;
+  --medical-red-light: #FEE2E2;
+  --medical-red-dark: #991B1B;
+  --medical-yellow-warning: #F59E0B;
+  --medical-yellow-light: #FFFBEB;
+  --medical-blue: #3B82F6;
+  --medical-text-primary: #1F2937;
+  --medical-text-secondary: #6B7280;
+  --medical-border: #E5E7EB;
+  --medical-bg-white: #FFFFFF;
+  --medical-bg-light-gray: #F9FAFB;
+}
+
+/* ==================== CONTAINER ==================== */
+.consultation-realtime-monitor-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ==================== HEADER ==================== */
+.consultation-realtime-monitor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--medical-border);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.consultation-realtime-monitor-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--medical-text-primary);
+  margin: 0;
+}
+
+.consultation-realtime-monitor-title svg {
+  color: var(--medical-yellow-warning);
+  flex-shrink: 0;
+}
+
+/* LIVE indicator */
+.consultation-realtime-monitor-live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  background: var(--medical-red-light);
+  color: var(--medical-red-dark);
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.consultation-realtime-monitor-pulse-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--medical-red-emergency);
+  border-radius: 50%;
+  animation: consultation-realtime-monitor-pulse 2s infinite;
+}
+
+/* ==================== STATES ==================== */
+.consultation-realtime-monitor-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--medical-text-secondary);
+  background: var(--medical-bg-light-gray);
+  border-radius: 8px;
+}
+
+.consultation-realtime-monitor-empty-state svg {
+  font-size: 1.6rem;
+  margin-bottom: 10px;
+}
+
+.consultation-realtime-monitor-empty-state p {
+  font-size: 13px;
+  margin: 0;
+}
+
+.consultation-realtime-monitor-error-state {
+  color: var(--medical-red-dark);
+  background: var(--medical-red-light);
+}
+
+.consultation-realtime-monitor-spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--medical-border);
+  border-top-color: var(--medical-green-primary);
+  border-radius: 50%;
+  animation: consultation-realtime-monitor-spin 0.8s linear infinite;
+  margin-bottom: 10px;
+}
+
+/* ==================== LIST ==================== */
+.consultation-realtime-monitor-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+/* ==================== CARD ==================== */
+.consultation-realtime-monitor-card {
+  background: var(--medical-bg-white);
+  border: 1px solid var(--medical-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  border-left: 4px solid var(--medical-yellow-warning);
+  transition: box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.consultation-realtime-monitor-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
+}
+
+/* Card type border colors */
+.consultation-realtime-monitor-card-technical  { border-left-color: var(--medical-blue); }
+.consultation-realtime-monitor-card-behavior   { border-left-color: var(--medical-yellow-warning); }
+.consultation-realtime-monitor-card-emergency,
+.consultation-realtime-monitor-card-security   { border-left-color: var(--medical-red-emergency); }
+
+/* Card header */
+.consultation-realtime-monitor-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--medical-border);
+  background: var(--medical-bg-light-gray);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.consultation-realtime-monitor-card-icon {
+  font-size: 14px;
+  color: var(--medical-text-secondary);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.consultation-realtime-monitor-card-emergency .consultation-realtime-monitor-card-icon,
+.consultation-realtime-monitor-card-security  .consultation-realtime-monitor-card-icon {
+  color: var(--medical-red-emergency);
+}
+
+.consultation-realtime-monitor-card-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--medical-text-primary);
+  flex: 1;
+  min-width: 0;
+}
+
+.consultation-realtime-monitor-card-emergency .consultation-realtime-monitor-card-title,
+.consultation-realtime-monitor-card-security  .consultation-realtime-monitor-card-title {
+  color: var(--medical-red-emergency);
+}
+
+.consultation-realtime-monitor-card-time {
+  font-size: 11px;
+  color: var(--medical-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Card body */
+.consultation-realtime-monitor-card-body {
+  padding: 12px 14px;
+}
+
+.consultation-realtime-monitor-card-description {
+  font-size: 13px;
+  color: var(--medical-text-primary);
+  line-height: 1.5;
+  margin: 0 0 10px 0;
+}
+
+.consultation-realtime-monitor-card-description strong {
+  font-weight: 500;
+  color: var(--medical-text-secondary);
+}
+
+.consultation-realtime-monitor-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--medical-text-secondary);
+}
+
+.consultation-realtime-monitor-card-meta strong {
+  font-weight: 500;
+  color: var(--medical-text-primary);
+}
+
+/* Card actions */
+.consultation-realtime-monitor-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px 12px 14px;
+}
+
+.consultation-realtime-monitor-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--medical-border);
+  background: var(--medical-bg-white);
+  color: var(--medical-text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.consultation-realtime-monitor-action-button:hover {
+  background: var(--medical-bg-light-gray);
+  border-color: #D1D5DB;
+  color: var(--medical-text-primary);
+}
+
+.consultation-realtime-monitor-action-button svg {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* Terminate button */
+.consultation-realtime-monitor-action-terminate {
+  border-color: #FCA5A5;
+  background: var(--medical-red-light);
+  color: var(--medical-red-dark);
+}
+.consultation-realtime-monitor-action-terminate:hover {
+  background: #FEE2E2;
+  border-color: #F87171;
+}
+
+/* Resolve button */
+.consultation-realtime-monitor-action-resolve {
+  border-color: #A7F3D0;
+  background: var(--medical-green-light);
+  color: var(--medical-green-dark);
+}
+.consultation-realtime-monitor-action-resolve:hover {
+  background: #D1FAE5;
+  border-color: #6EE7B7;
+}
+
+/* ==================== ANIMATIONS ==================== */
+@keyframes consultation-realtime-monitor-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes consultation-realtime-monitor-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 768px) {
+  .consultation-realtime-monitor-header {
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+
+  .consultation-realtime-monitor-title {
+    font-size: 1rem;
+  }
+
+  .consultation-realtime-monitor-list {
+    gap: 10px;
+  }
+
+  .consultation-realtime-monitor-card-header {
+    padding: 9px 12px;
+  }
+
+  .consultation-realtime-monitor-card-body {
+    padding: 10px 12px;
+  }
+
+  .consultation-realtime-monitor-card-actions {
+    padding: 0 12px 10px 12px;
+    gap: 5px;
+  }
+
+  .consultation-realtime-monitor-action-button {
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .consultation-realtime-monitor-title {
+    font-size: 0.95rem;
+  }
+
+  .consultation-realtime-monitor-card-actions {
+    gap: 4px;
+  }
+
+  /* Buttons wrap to 2 per row */
+  .consultation-realtime-monitor-action-button {
+    flex: 1;
+    min-width: calc(50% - 4px);
+    justify-content: center;
+    padding: 6px 8px;
+  }
+}
