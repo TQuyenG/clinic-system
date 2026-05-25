@@ -168,7 +168,7 @@ const DashboardPage = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (response.data?.success && response.data.user?.roleData) {
-          setStaffProfile(response.data.user.roleData);
+          setStaffProfile(response.data.user.role_info || response.data.user.roleData);
         }
       } catch (error) {
         console.error('Error fetching staff profile:', error);
@@ -929,6 +929,19 @@ const DashboardPage = () => {
             <h1 className="dashboard-greeting-title">
               {getGreeting()}, <span>{user?.full_name || 'Bạn'}</span>!
             </h1>
+            {staffProfile && (
+              <div className="dashboard-role-summary" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                <span className="dashboard-role-pill" style={{ background: '#eef7ff', color: '#0b5cab', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+                  {staffProfile.department || 'Chưa có phòng ban'}
+                </span>
+                <span className="dashboard-role-pill" style={{ background: '#f6f1ff', color: '#6b21a8', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+                  {staffProfile.role_name || staffProfile.job_description || staffProfile.code || 'Chưa có vai trò'}
+                </span>
+                <span className="dashboard-role-pill" style={{ background: '#f4f7f6', color: '#276749', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+                  {staffProfile.rank === 'manager' ? 'Trưởng phòng' : 'Nhân viên'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

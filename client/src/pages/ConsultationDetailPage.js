@@ -489,7 +489,22 @@ const isDoctorOwner = user?.role === 'doctor' && (
                   </div>
                   <div className="cdp-info-item">
                     <span className="cdp-info-label"><FaEnvelope /> Email</span>
-                    <span className="cdp-info-value">{consultation.patient?.email || 'N/A'}</span>
+                    {(() => {
+                      const email = consultation.patient?.email;
+                      const maskEmail = (e) => {
+                        if (!e || typeof e !== 'string') return 'N/A';
+                        const parts = e.split('@');
+                        if (parts.length !== 2) return 'N/A';
+                        const local = parts[0];
+                        const domain = parts[1];
+                        if (local.length <= 2) return '***@' + domain;
+                        return `${local.slice(0,1)}***${local.slice(-1)}@${domain}`;
+                      };
+                      const canSeeEmail = (user?.role === 'admin') || isPatientOwner || isDoctorOwner;
+                      return (
+                        <span className="cdp-info-value">{email ? (canSeeEmail ? email : maskEmail(email)) : 'N/A'}</span>
+                      );
+                    })()}
                   </div>
                   <div className="cdp-info-item">
                     <span className="cdp-info-label"><FaPhone /> Điện thoại</span>

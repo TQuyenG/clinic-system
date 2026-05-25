@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fa';
 import appointmentService from '../services/appointmentService';
 import WalkInReceptionModal from '../components/appointments/WalkInReceptionModal';
+import usePermissions from '../hooks/usePermissions';
 import './FrontDeskPage.css';
 
 // ─── CUSTOM MODAL ──────────────────────────────────
@@ -120,24 +121,28 @@ const FrontDeskPage = () => {
   // Pharmacy State
   const [pharmacyTab, setPharmacyTab] = useState('prescription');
   const [selectedPrescription, setSelectedPrescription] = useState(null);
-  const [retailCart, setRetailCart] = useState([]);
-  const [medSearch, setMedSearch] = useState('');
   const [prescriptions, setPrescriptions] = useState([]);
-  const [medicinesList, setMedicinesList] = useState([]);
 
   // State thông tin khách lẻ
-  const [retailCustomer, setRetailCustomer] = useState({ name: '', phone: '', address: '', note: '' });
-  const [showRetailForm, setShowRetailForm] = useState(false);
-  const [retailInvoices, setRetailInvoices] = useState([]);
-  const [invoicePage, setInvoicePage] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [discountCode, setDiscountCode] = useState('');
-  const [appliedDiscount, setAppliedDiscount] = useState(null);
-  const [transactionCode, setTransactionCode] = useState('');
 
-  useEffect(() => {
-    if (showRetailForm) setTransactionCode(`REL${Date.now()}`);
-  }, [showRetailForm]);
+  const { user: authUser, hasPermission, canAccessModule, isAdmin } = usePermissions();
+
+  // Permission checks for which tabs to show
+  const canReception = canAccessModule('reception') || hasPermission('payments','pos') || isAdmin;
+  const canCashier = hasPermission('payments','pos') || canAccessModule('payments') || isAdmin;
+  const canPharmacy = canAccessModule('pharmacy') || hasPermission('pharmacy','view') || hasPermission('pharmacy','export_retail') || hasPermission('pharmacy','export_prescription') || hasPermission('medicines','view') || hasPermission('payments','pos') || isAdmin;
+
+  const availableTabs = [];
+  if (canReception) availableTabs.push({ key: 'reception', label: 'Cấp số Khám bệnh', icon: <FaUserPlus /> });
+  if (canCashier) availableTabs.push({ key: 'cashier', label: 'Thu Ngân (Dịch vụ)', icon: <FaMoneyBillWave /> });
+  if (canPharmacy) availableTabs.push({ key: 'pharmacy', label: 'Nhà Thuốc', icon: <FaPills /> });
+
+  const handleSetActiveTab = (key) => {
+    setActiveTab(key);
+    try { localStorage.setItem('currentTab', key); } catch (e) {}
+  };
 
   // --- STATE MỚI CHO QUY TRÌNH TIẾP ĐÓN WALK-IN THỰC TẾ ---
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
@@ -293,35 +298,6 @@ const FrontDeskPage = () => {
   useEffect(() => {
     if (activeTab === 'cashier') loadCashierData();
   }, [activeTab, cashierFilter.date]);
-
-  useEffect(() => {
-    if (activeTab === 'pharmacy' && pharmacyTab === 'retail') {
-      const fetchMedicines = async () => {
-        try {
-          const token = localStorage.getItem('token');
-          const res = await axios.get('http://localhost:3001/api/pharmacy/medicines?limit=100', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (res.data.success) setMedicinesList(res.data.medicines);
-        } catch (error) { console.error("Lỗi tải thuốc:", error); }
-      };
-      fetchMedicines();
-    }
-  }, [activeTab, pharmacyTab]);
-
-  useEffect(() => {
-    if (activeTab === 'pharmacy' && pharmacyTab === 'retail' && !showRetailForm) fetchRetailInvoices();
-  }, [activeTab, pharmacyTab, showRetailForm, invoicePage]);
-
-  const fetchRetailInvoices = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:3001/api/payments/pharmacy/retail?page=${invoicePage}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.data.success) setRetailInvoices(res.data.invoices);
-    } catch (error) { console.error("Lỗi tải hóa đơn:", error); }
-  };
 
   // --- [SỬA LẠI ĐỂ TÍNH TIỀN THUỐC THEO CHUẨN] ---
   useEffect(() => {
@@ -549,44 +525,6 @@ const FrontDeskPage = () => {
             setPaymentAmount('');
         }
     } catch (error) { toast.error('Lỗi khi thanh toán đơn thuốc'); }
-  };
-
-  const handleCheckDiscount = async () => {
-    if (!discountCode.trim()) return;
-    const total = retailCart.reduce((s, i) => s + i.price * i.qty, 0);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.post('http://localhost:3001/api/payment/pharmacy/discount', {
-        code: discountCode, totalAmount: total
-      }, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.data.success) {
-        setAppliedDiscount(res.data.discount);
-        toast.success(`Đã áp dụng mã giảm: -${formatMoney(res.data.discount.discountAmount)}`);
-      }
-    } catch (error) { toast.error(error.response?.data?.message || 'Mã giảm giá không hợp lệ'); setAppliedDiscount(null); }
-  };
-
-  const handleRetailCheckout = async () => {
-    const total = retailCart.reduce((s, i) => s + i.price * i.qty, 0);
-    const discountAmt = appliedDiscount ? appliedDiscount.discountAmount : 0;
-    const finalAmount = total - discountAmt;
-    if (paymentMethod === 'cash') {
-       const received = parseInt(paymentAmount) || 0;
-       if (received < finalAmount) return toast.error('Tiền khách đưa chưa đủ!');
-    }
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.post('http://localhost:3001/api/payment/pharmacy/retail', {
-        items: retailCart, customer: retailCustomer, total_amount: total,
-        final_amount: finalAmount, discount_info: appliedDiscount, payment_method: paymentMethod, code: transactionCode
-      }, { headers: { Authorization: `Bearer ${token}` } });
-
-      if (res.data.success) {
-        toast.success(`Xuất hóa đơn thành công! Mã: ${res.data.invoice.code}`);
-        setRetailCart([]); setPaymentAmount(''); setRetailCustomer({ name: '', phone: '', address: '', note: '' });
-        setDiscountCode(''); setAppliedDiscount(null); setPaymentMethod('cash'); setShowRetailForm(false);
-      }
-    } catch (error) { toast.error(error.response?.data?.message || 'Lỗi thanh toán'); }
   };
 
   // --- HANDLER: CHECK-IN LỄ TÂN (ĐÃ SỬA CẤP ĐÚNG SỐ U VÀ N) ---
@@ -1364,12 +1302,6 @@ const FrontDeskPage = () => {
                   >
                      <FaFilePrescription /> Đơn thuốc Bác sĩ
                   </div>
-                  <div 
-                    className={`front-desk-page-sub-tab-btn ${pharmacyTab==='retail'?'active':''}`}
-                    onClick={()=>setPharmacyTab('retail')}
-                  >
-                     <FaPills /> Bán lẻ
-                  </div>
                </div>
             </div>
 
@@ -1425,243 +1357,11 @@ const FrontDeskPage = () => {
                </div>
             )}
 
-            {/* TAB: BÁN LẺ */}
-            {pharmacyTab === 'retail' && (
-               <div className="front-desk-page-panel-body p-0">
-                  {!showRetailForm ? (
-                    /* LIST HÓA ĐƠN */
-                    <div className="p-3">
-                      <div className="d-flex justify-content-between mb-3 align-items-center">
-                        <span className="fw-bold text-primary text-uppercase small">Lịch sử Bán lẻ</span>
-                        <button className="front-desk-page-btn front-desk-page-btn-primary" onClick={() => setShowRetailForm(true)}>
-                          <FaPills /> Tạo đơn mới
-                        </button>
-                      </div>
-                      <table className="front-desk-page-table border rounded">
-                        <thead>
-                          <tr><th>Mã HĐ</th><th>Khách hàng</th><th>SL</th><th>Tổng tiền</th><th>Ngày bán</th></tr>
-                        </thead>
-                        <tbody>
-                          {retailInvoices.map(inv => (
-                            <tr key={inv.id}>
-                              <td><span className="fw-bold text-primary">{inv.code}</span></td>
-                              <td>{inv.customer_name}<br/><small className="text-muted">{inv.customer_phone}</small></td>
-                              <td className="text-center">{inv.item_count}</td>
-                              <td className="fw-bold text-danger">{formatMoney(parseFloat(inv.amount))}</td>
-                              <td>{new Date(inv.created_at).toLocaleDateString('vi-VN')}</td>
-                            </tr>
-                          ))}
-                          {retailInvoices.length === 0 && <tr><td colSpan="5" className="text-center text-muted py-4">Chưa có dữ liệu</td></tr>}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    /* FORM TẠO ĐƠN MỚI - GIAO DIỆN CHUẨN PASTEL COMPACT */
-                    <div className="d-flex h-100 gap-2 p-2">
-                      {/* CỘT TRÁI: DANH SÁCH THUỐC (GRID) */}
-                      <div className="front-desk-page-panel flex-grow-1" style={{flex: 6}}>
-                          <div className="front-desk-page-panel-header bg-white border-bottom p-2">
-                             <div className="d-flex gap-2 w-100">
-                                <button className="front-desk-page-btn front-desk-page-btn-outline" onClick={() => setShowRetailForm(false)}>
-                                   <FaUndo /> Quay lại
-                                </button>
-                                <div className="position-relative flex-grow-1">
-                                   <FaSearch className="position-absolute top-50 start-0 translate-middle-y ms-2 text-muted"/>
-                                   <input 
-                                     className="front-desk-page-input ps-4" 
-                                     placeholder="Tìm thuốc nhanh..." 
-                                     value={medSearch} 
-                                     onChange={e=>setMedSearch(e.target.value)}
-                                     autoFocus
-                                   />
-                                </div>
-                             </div>
-                          </div>
-                          
-                          <div className="front-desk-page-panel-body p-2 bg-light">
-                              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px', padding: '8px'}}>
-                                {medicinesList
-                                  .filter(m => (m.name || '').toLowerCase().includes(medSearch.toLowerCase()))
-                                  .map(med => {
-                                    const stock = med.stock ?? med.quantity ?? 0;
-                                    const inCart = retailCart.find(i => i.id === med.id);
-                                    return (
-                                      <div
-                                        key={med.id}
-                                        className="fd-med-card"
-                                        style={inCart ? {borderColor: 'var(--fd-green-500)', background: 'var(--fd-green-20)'} : {}}
-                                        onClick={() => {
-                                          if (stock <= 0) return toast.warning('Thuốc đã hết hàng!');
-                                          const exist = retailCart.find(i => i.id === med.id);
-                                          if (exist) setRetailCart(retailCart.map(i => i.id === med.id ? {...i, qty: i.qty + 1} : i));
-                                          else setRetailCart([...retailCart, {...med, qty: 1}]);
-                                        }}
-                                      >
-                                        <div className="fd-med-name" title={med.name}>{med.name}</div>
-                                        <div className="fd-med-meta">
-                                          <span>{med.unit || '—'}</span>
-                                          <span className={stock <= 0 ? 'fd-med-stock-out' : stock <= 10 ? 'fd-med-stock-warn' : ''}>
-                                            {stock <= 0 ? 'Hết hàng' : `Kho: ${stock}`}
-                                          </span>
-                                        </div>
-                                        <div className="fd-med-footer">
-                                          <span className="fd-med-price">{formatMoney(med.price || med.export_price)}</span>
-                                          <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
-                                            {inCart && (
-                                              <span style={{fontSize: 10, fontWeight: 700, color: 'var(--fd-green-700)', background: 'var(--fd-green-100)', borderRadius: 10, padding: '1px 6px'}}>
-                                                ×{inCart.qty}
-                                              </span>
-                                            )}
-                                            <button
-                                              className="fd-add-btn"
-                                              disabled={stock <= 0}
-                                              style={stock <= 0 ? {opacity: 0.35, cursor: 'not-allowed'} : {}}
-                                              onClick={e => { e.stopPropagation(); }}
-                                            >+</button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })
-                                }
-                                {medicinesList.filter(m => (m.name || '').toLowerCase().includes(medSearch.toLowerCase())).length === 0 && (
-                                  <div style={{gridColumn: '1/-1', textAlign: 'center', color: 'var(--fd-gray-500)', padding: '40px 0', fontSize: 12}}>
-                                    Không tìm thấy thuốc phù hợp
-                                  </div>
-                                )}
-                              </div>
-                          </div>
-                      </div>
-
-                      {/* CỘT PHẢI: GIỎ HÀNG & THANH TOÁN */}
-                      <div className="front-desk-page-panel" style={{flex: 4, minWidth: '320px'}}>
-                          <div className="front-desk-page-panel-header">
-                             <span><FaPills className="me-2"/> ĐƠN HÀNG ({retailCart.length})</span>
-                             <span className="text-danger">{transactionCode}</span>
-                          </div>
-
-                          {/* LIST GIỎ HÀNG */}
-                          <div className="front-desk-page-panel-body p-0" style={{background: 'var(--fd-white)'}}>
-                            <table className="front-desk-page-table">
-                              <thead>
-                                <tr>
-                                  <th>Tên thuốc</th>
-                                  <th className="text-center" style={{width: 60}}>SL</th>
-                                  <th className="text-end" style={{width: 80}}>Tiền</th>
-                                  <th style={{width: 28}}></th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {retailCart.map((item, idx) => (
-                                  <tr key={idx}>
-                                    <td>
-                                      <div style={{fontWeight: 600, fontSize: 12, maxWidth: 130, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={item.name}>
-                                        {item.name}
-                                      </div>
-                                      <div style={{fontSize: 10, color: 'var(--fd-gray-500)', fontFamily: 'var(--fd-mono)'}}>
-                                        {formatMoney(item.price)}
-                                      </div>
-                                    </td>
-                                    <td className="text-center">
-                                      <input
-                                        type="number" min="1"
-                                        className="input-compact"
-                                        style={{width: 44}}
-                                        value={item.qty}
-                                        onChange={e => {
-                                          const val = Math.max(1, parseInt(e.target.value) || 1);
-                                          setRetailCart(retailCart.map((it, i) => i === idx ? {...it, qty: val} : it));
-                                        }}
-                                      />
-                                    </td>
-                                    <td className="text-end" style={{fontWeight: 700, fontFamily: 'var(--fd-mono)', color: 'var(--fd-red-600)'}}>
-                                      {formatMoney(item.price * item.qty)}
-                                    </td>
-                                    <td>
-                                      <button
-                                        style={{background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fd-red-600)', padding: 2}}
-                                        onClick={() => setRetailCart(retailCart.filter((_, i) => i !== idx))}
-                                      >
-                                        <FaTrash size={10}/>
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                                {retailCart.length === 0 && (
-                                  <tr>
-                                    <td colSpan="4" style={{textAlign: 'center', padding: '36px 0', color: 'var(--fd-gray-500)', fontSize: 12, fontStyle: 'italic'}}>
-                                      Giỏ hàng trống
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                          
-                          {/* CHECKOUT FOOTER */}
-                          <div style={{padding: '12px', borderTop: '1px solid var(--fd-gray-300)', background: 'var(--fd-white)', flexShrink: 0}}>
-                            {/* Khách hàng */}
-                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8}}>
-                              <div>
-                                <div className="front-desk-page-label">Khách hàng</div>
-                                <input className="front-desk-page-input" placeholder="Tên khách..." value={retailCustomer.name} onChange={e => setRetailCustomer({...retailCustomer, name: e.target.value})}/>
-                              </div>
-                              <div>
-                                <div className="front-desk-page-label">Số điện thoại</div>
-                                <input className="front-desk-page-input" placeholder="0xxx..." value={retailCustomer.phone} onChange={e => setRetailCustomer({...retailCustomer, phone: e.target.value})}/>
-                              </div>
-                            </div>
-                          
-                            {/* Phương thức */}
-                            <div className="fd-method-switcher" style={{marginBottom: 8}}>
-                              <button className={`fd-method-btn ${paymentMethod==='cash'?'active':''}`} onClick={() => setPaymentMethod('cash')}>
-                                <FaMoneyBillWave size={11}/> Tiền mặt
-                              </button>
-                              <button className={`fd-method-btn ${paymentMethod==='transfer'?'active':''}`} onClick={() => setPaymentMethod('transfer')}>
-                                <FaQrcode size={11}/> Chuyển khoản
-                              </button>
-                            </div>
-                          
-                            {paymentMethod === 'cash' && (
-                              <div style={{marginBottom: 8}}>
-                                <div className="front-desk-page-label">Tiền khách đưa</div>
-                                <input
-                                  type="number"
-                                  className="front-desk-page-input"
-                                  style={{fontFamily: 'var(--fd-mono)', fontWeight: 700, fontSize: 14}}
-                                  placeholder="0"
-                                  value={paymentAmount}
-                                  onChange={e => setPaymentAmount(e.target.value)}
-                                />
-                                {paymentAmount && (
-                                  <div className="fd-change-box" style={{marginTop: 5}}>
-                                    <span style={{fontSize: 11}}>Trả lại</span>
-                                    <span style={{fontWeight: 700, fontFamily: 'var(--fd-mono)', color: 'var(--fd-green-700)'}}>
-                                      {formatMoney(Math.max(0, parseInt(paymentAmount) - retailCart.reduce((s,i) => s + i.price * i.qty, 0)))}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          
-                            {/* Tổng tiền */}
-                            <div className="fd-cart-total">
-                              <div>
-                                <div className="total-label">Tổng cộng</div>
-                                <div style={{fontSize: 10, color: 'rgba(255,255,255,0.6)'}}>{retailCart.length} sản phẩm</div>
-                              </div>
-                              <div className="total-amount">{formatMoney(retailCart.reduce((s, i) => s + i.price * i.qty, 0))}</div>
-                            </div>
-                          
-                            <button className="fd-checkout-btn" onClick={handleRetailCheckout} disabled={retailCart.length === 0}>
-                              <FaMoneyBillWave size={13}/> THANH TOÁN & IN HÓA ĐƠN
-                            </button>
-                          </div>
-                      </div>
-                    </div>
-                  )}
-               </div>
-            )}
+            <div className="front-desk-page-panel-body p-3">
+              <div className="text-muted small">
+                Bán thuốc đã được chuyển sang trang riêng trong menu Quản lý Kho Thuốc.
+              </div>
+            </div>
          </div>
 
          {/* CỘT PHẢI: CHI TIẾT THANH TOÁN - KHÔI PHỤC ĐẦY ĐỦ THÔNG TIN */}
@@ -1949,15 +1649,11 @@ const FrontDeskPage = () => {
       
       {/* 2. Navigation */}
       <div className="frdeskpage-nav">
-        <div className={`frdeskpage-nav-item ${activeTab==='reception'?'active':''}`} onClick={()=>setActiveTab('reception')}>
-            <FaUserPlus /> Cấp số Khám bệnh
-        </div>
-        <div className={`frdeskpage-nav-item ${activeTab==='cashier'?'active':''}`} onClick={()=>setActiveTab('cashier')}>
-            <FaMoneyBillWave /> Thu Ngân (Dịch vụ)
-        </div>
-        <div className={`frdeskpage-nav-item ${activeTab==='pharmacy'?'active':''}`} onClick={()=>setActiveTab('pharmacy')}>
-            <FaPills /> Nhà Thuốc
-        </div>
+        {availableTabs.map(t => (
+          <div key={t.key} className={`frdeskpage-nav-item ${activeTab===t.key?'active':''}`} onClick={()=>handleSetActiveTab(t.key)}>
+            {t.icon} {t.label}
+          </div>
+        ))}
       </div>
 
       {/* 3. Main Content */}
@@ -2099,7 +1795,7 @@ const FrontDeskPage = () => {
                     </div>
 
                     {['pending', 'confirmed', 'waiting_exam'].includes(selectedDetail.status) && selectedDetail.payment_status === 'unpaid' && (
-                      <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-full frdeskpage-btn-lg frd-mt-8" onClick={() => { setShowDetailModal(false); setSelectedBill(selectedDetail); setActiveTab('cashier'); }}>
+                      <button className="frdeskpage-btn frdeskpage-btn-primary frdeskpage-btn-full frdeskpage-btn-lg frd-mt-8" onClick={() => { setShowDetailModal(false); openPaymentUpdateModal(selectedDetail); }}>
                         <FaMoneyBillWave /> Thu tiền ngay
                       </button>
                     )}

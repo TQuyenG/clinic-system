@@ -4,6 +4,7 @@ import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../contexts/AuthContext';
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AppointmentActionButtons from '../components/appointments/AppointmentActionButtons';
 import appointmentService from '../services/appointmentService';
@@ -161,6 +162,7 @@ const AppointmentManagementPage = () => {
   const [actionType, setActionType] = useState('');
   const [actionReason, setActionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [activeTab, setActiveTab] = useState('appointments'); // 'appointments' hoặc 'checkin'
   
   // State cho hàng mở rộng
@@ -177,6 +179,16 @@ const AppointmentManagementPage = () => {
     payment_method: 'cash',
     paid_at: new Date().toISOString().slice(0, 16)
   });
+
+  useEffect(() => {
+    if (showPaymentModal) {
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    }
+  }, [showPaymentModal]);
 
   const normalizeStatusFilter = (status) => {
     switch (status) {
@@ -1206,14 +1218,46 @@ const AppointmentManagementPage = () => {
         />
 
         {/* Modal Payment */}
-        {showPaymentModal && selectedAppointment && (
-          <div className="admin-appt-page-modal-overlay">
-            <div className="admin-appt-page-modal-content">
-              <div className="admin-appt-page-modal-header">
-                <h5>Xác nhận thanh toán tại quầy</h5>
+        {showPaymentModal && selectedAppointment && createPortal(
+          <div
+            onClick={closePaymentModal}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 2147483647,
+              background: 'rgba(0, 0, 0, 0.55)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: '640px',
+                maxHeight: '90vh',
+                overflow: 'hidden',
+                background: '#fff',
+                borderRadius: '16px',
+                boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <div style={{
+                padding: '14px 18px',
+                borderBottom: '1px solid #e5e7eb',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#f0fdf4'
+              }}>
+                <h5 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#166534' }}>Xác nhận thanh toán tại quầy</h5>
                 <button className="amp-close-btn" onClick={closePaymentModal}><FaTimes /></button>
               </div>
-              <div className="admin-appt-page-modal-body">
+              <div style={{ padding: '16px', overflowY: 'auto' }}>
                 <div className="admin-appt-page-appointment-summary">
                   <p><strong>Mã:</strong> {selectedAppointment.code}</p>
                   <p><strong>Bệnh nhân:</strong> {getAppointmentPatientName(selectedAppointment)}</p>
@@ -1248,7 +1292,15 @@ const AppointmentManagementPage = () => {
                   />
                 </div>
               </div>
-              <div className="admin-appt-page-modal-footer">
+              <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #e5e7eb',
+                background: '#f9fafb',
+                display: 'flex',
+                gap: '10px',
+                justifyContent: 'flex-end',
+                flexWrap: 'wrap'
+              }}>
                 <button className="admin-appt-page-btn amp-btn-secondary" onClick={closePaymentModal} disabled={isSubmitting}>
                   Đóng
                 </button>
@@ -1262,7 +1314,8 @@ const AppointmentManagementPage = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </>

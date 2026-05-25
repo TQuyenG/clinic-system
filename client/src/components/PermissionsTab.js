@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import permissionService from '../services/permissionService';
 import { FaCheck, FaTimes, FaSpinner, FaSave, FaUndo, FaHistory } from 'react-icons/fa';
+import { getPermissionAuditChanges } from '../utils/permissionAudit';
 import './PermissionsTab.css';
 
 const PermissionsTab = ({ staffId, staffName, onClose }) => {
@@ -199,15 +200,19 @@ const PermissionsTab = ({ staffId, staffName, onClose }) => {
                   <div className="log-user">
                     Được thay đổi bởi: <strong>{log.user?.full_name}</strong>
                   </div>
-                  {log.details && log.details.changed && (
+                  {(() => {
+                    const changes = getPermissionAuditChanges(log.details);
+                    if (!changes.length) return null;
+                    return (
                     <div className="log-changes">
-                      {log.details.changed.map((change, i) => (
+                      {changes.map((change, i) => (
                         <span key={i} className="change-badge">
                           {change}
                         </span>
                       ))}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               ))
             )}

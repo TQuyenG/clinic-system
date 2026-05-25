@@ -60,6 +60,11 @@ module.exports = (sequelize) => {
       defaultValue: {},
       comment: 'Quyền chi tiết theo module: { "appointments": ["view", "edit"], "payments": ["view", "verify"] }'
     },
+    role_profile: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      comment: 'Mã vai trò con theo phòng ban (vd: it_support, clinical_staff)'
+    },
     job_description: {
       type: DataTypes.TEXT,
       allowNull: true,

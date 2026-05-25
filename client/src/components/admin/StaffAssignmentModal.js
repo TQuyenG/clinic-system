@@ -26,15 +26,18 @@ const StaffAssignmentModal = ({ staffId, staffName, onClose, onSuccess }) => {
   // --- BẮT ĐẦU SỬA: ĐỊNH NGHĨA QUYỀN CHUẨN ---
   const FINANCE_ROLE_PERMISSIONS = {
     cashier: { // Thu ngân
-      payments: ['view', 'verify'] // Đối soát giao dịch
+      payments: ['view', 'verify'], // Đối soát giao dịch
+      pharmacy: ['view', 'export_retail', 'export_prescription']
     },
     accountant: { // Kế toán
       payments: ['view', 'verify', 'approve', 'refund', 'config_refund'], 
+      pharmacy: ['view', 'view_transactions', 'view_alerts'],
       refund_requests: ['view', 'approve', 'reject'], 
       statistics: ['view', 'revenue', 'export'] // Thêm export vào đây, bỏ dòng reports
     },
     manager: { // Trưởng phòng Tài chính
       payments: ['view', 'verify', 'approve', 'refund', 'config_refund'], 
+      pharmacy: ['view', 'import', 'export_retail', 'export_prescription', 'view_batches', 'view_transactions', 'manage_suppliers', 'view_alerts', 'adjust_stock'],
       refund_requests: ['view', 'approve', 'reject'], 
       statistics: ['view', 'revenue', 'export'] // Thêm export vào đây, bỏ dòng reports
     }

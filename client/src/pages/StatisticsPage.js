@@ -11,7 +11,6 @@ import forumService from '../services/forumService';
 import eventService from '../services/eventService';
 import marketingService from '../services/marketingService';
 import communityService from '../services/communityService';
-import auditService from '../services/auditService';
 import api from '../services/api';
 import { 
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, ComposedChart,
@@ -333,8 +332,7 @@ const StatisticsPage = () => {
         eventService.getStats({}),
         marketingService.getAllPromotions(),
         communityService.adminGetAllGroups({ limit: 200 }),
-        api.get('/contact/messages', { params: { page: 1, limit: 1 } }),
-        auditService.getAuditStats({})
+        api.get('/contact/messages', { params: { page: 1, limit: 1 } })
       ];
 
       const responses = await Promise.all(requests.map((request) => request.catch((error) => ({ error }))));
@@ -349,7 +347,7 @@ const StatisticsPage = () => {
       const promotionResponse = responses[8];
       const communityResponse = responses[9];
       const contactResponse = responses[10];
-      const auditResponse = responses[11];
+      
 
       if (currentResponse?.data?.success) {
         const normalizedCurrent = normalizeStatsPayload(currentResponse.data.data || {});
@@ -536,17 +534,7 @@ const StatisticsPage = () => {
         }));
       }
 
-      const auditPayload = auditResponse?.data || auditResponse;
-      if (auditPayload?.success) {
-        const auditActions = Array.isArray(auditPayload.data) ? auditPayload.data : [];
-        setStats((previous) => ({
-          ...previous,
-          auditOverview: {
-            total: auditActions.reduce((sum, item) => sum + Number(item.count || 0), 0),
-            actions: auditActions
-          }
-        }));
-      }
+      
     } catch (error) {
       console.error(error);
       toast.error('Không thể tải dữ liệu thống kê');
@@ -746,10 +734,7 @@ const StatisticsPage = () => {
     { name: 'Chờ duyệt', value: Number(stats.communityOverview?.pendingGroups || 0) },
     { name: 'Tạm dừng', value: Number(stats.communityOverview?.suspendedGroups || 0) }
   ].filter((item) => item.value > 0)), [stats.communityOverview]);
-  const auditActionData = useMemo(() => (stats.auditOverview?.actions || []).map((item) => ({
-    action_type: item.action_type,
-    count: Number(item.count || 0)
-  })).filter((item) => item.count > 0), [stats.auditOverview]);
+  // Audit action chart removed — audit statistics are no longer displayed on the Statistics page.
 
   const sortByNumeric = (rows, key = 'count') => [...rows].sort((left, right) => Number(right[key] || 0) - Number(left[key] || 0)).slice(0, 10);
 
@@ -822,9 +807,8 @@ const StatisticsPage = () => {
     { label: 'Cộng đồng', value: Number(stats.communityOverview?.totalGroups || 0), note: `${Number(stats.communityOverview?.activeGroups || 0)} đang hoạt động • ${Number(stats.communityOverview?.pendingGroups || 0)} chờ duyệt`, tone: 'info', onClick: () => setActiveSection('content'), icon: <FaUsers size={16}/> },
     { label: 'Sự kiện', value: Number(stats.eventOverview?.total_events || 0), note: `${Number(stats.eventOverview?.active_events || 0)} đang chạy • ${Number(stats.eventOverview?.total_views || 0)} lượt xem`, tone: 'warning', onClick: () => setActiveSection('events'), icon: <FaCalendar size={16}/> },
     { label: 'Khuyến mãi', value: Number(stats.promotionOverview?.totalPromotions || 0), note: `${Number(stats.promotionOverview?.activePromotions || 0)} đang hoạt động • ${Number(stats.promotionOverview?.expiringSoon || 0)} sắp hết hạn`, tone: 'primary', onClick: () => setActiveSection('events'), icon: <FaFilePdf size={16}/> },
-    { label: 'Liên hệ', value: Number(stats.contactOverview?.total || 0), note: `${Number(stats.contactOverview?.processing || 0)} đang xử lý • ${Number(stats.contactOverview?.replied || 0)} đã phản hồi`, tone: 'neutral', onClick: () => setActiveSection('system'), icon: <FaEnvelope size={16}/> },
-    { label: 'Audit', value: Number(stats.auditOverview?.total || 0), note: `${(stats.auditOverview?.actions || []).length} nhóm thao tác`, tone: 'neutral', onClick: () => setActiveSection('system'), icon: <FaClipboardList size={16}/> }
-  ]), [analysis.totalRevenue, consultationTypeData, stats.articleOverview, stats.auditOverview, stats.communityOverview, stats.contactOverview, stats.consultationOverview, stats.eventOverview, stats.forumOverview, stats.promotionOverview, stats.summary, stats.userStats]);
+    { label: 'Liên hệ', value: Number(stats.contactOverview?.total || 0), note: `${Number(stats.contactOverview?.processing || 0)} đang xử lý • ${Number(stats.contactOverview?.replied || 0)} đã phản hồi`, tone: 'neutral', onClick: () => setActiveSection('system'), icon: <FaEnvelope size={16}/> }
+  ]), [analysis.totalRevenue, consultationTypeData, stats.articleOverview, stats.communityOverview, stats.contactOverview, stats.consultationOverview, stats.eventOverview, stats.forumOverview, stats.promotionOverview, stats.summary, stats.userStats]);
 
   const sectionMetricCards = useMemo(() => {
     switch (activeSection) {
@@ -873,14 +857,12 @@ const StatisticsPage = () => {
       case 'system':
         return [
           { label: 'Liên hệ', value: Number(stats.contactOverview?.total || 0), note: `${Number(stats.contactOverview?.processing || 0)} đang xử lý`, tone: 'primary', icon: <FaEnvelope size={16}/> },
-          { label: 'Đã phản hồi', value: Number(stats.contactOverview?.replied || 0), note: `${Number(stats.contactOverview?.closed || 0)} đã đóng`, tone: 'success', icon: <FaCheckCircle size={16}/> },
-          { label: 'Audit log', value: Number(stats.auditOverview?.total || 0), note: `${(stats.auditOverview?.actions || []).length} nhóm thao tác`, tone: 'info', icon: <FaClipboardList size={16}/> },
-          { label: 'Ngữ cảnh hệ thống', value: Number(stats.auditOverview?.actions?.reduce((sum, item) => sum + Number(item.count || 0), 0) || 0), note: 'Tổng lượt thao tác ghi nhận', tone: 'warning', icon: <FaChartBar size={16}/> }
+          { label: 'Đã phản hồi', value: Number(stats.contactOverview?.replied || 0), note: `${Number(stats.contactOverview?.closed || 0)} đã đóng`, tone: 'success', icon: <FaCheckCircle size={16}/> }
         ];
       default:
         return [];
     }
-  }, [activeSection, analysis.totalRevenue, onlineConsultationServiceData.length, stats.auditOverview, stats.communityOverview, stats.contactOverview, stats.consultationOverview, stats.eventOverview, stats.forumOverview, stats.promotionOverview, stats.summary, stats.userStats]);
+  }, [activeSection, analysis.totalRevenue, onlineConsultationServiceData.length, stats.communityOverview, stats.contactOverview, stats.consultationOverview, stats.eventOverview, stats.forumOverview, stats.promotionOverview, stats.summary, stats.userStats]);
 
   const renderMetricStrip = (cards) => (
     <div className="statistics-kpi-grid statistics-kpi-grid--compact statistics-kpi-grid--section">
@@ -1238,28 +1220,7 @@ const StatisticsPage = () => {
                 </div>
               </div>
 
-              <div key="overview-audit-actions" data-grid={{ x: 4, y: 33, w: 8, h: 10, minW: 4, minH: 8 }}>
-                <div className="statistics-chart-card statistics-chart-card--wide statistics-chart-card--editable">
-                  <div className="statistics-chart-header">
-                    <h3 className="statistics-chart-title"><FaChartBar/> Audit thao tác</h3>
-                    <button className="statistics-chart-btn" onClick={() => setActiveSection('system')}>
-                      Xem hệ thống
-                    </button>
-                  </div>
-                  <div className="statistics-chart-body">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={auditActionData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0"/>
-                        <XAxis dataKey="action_type" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" height={42} />
-                        <YAxis tick={{ fontSize: 11 }}/>
-                        <Tooltip formatter={(value) => `${value} thao tác`}/>
-                        <Legend />
-                        <Bar dataKey="count" name="Số lần" fill="#42a5f5" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
+              {/* Audit widget removed as per request */}
             </GridLayout>
           </div>
         )}
@@ -2113,8 +2074,8 @@ const StatisticsPage = () => {
             <div className="statistics-section-head">
               <div>
                 <p className="statistics-insight-kicker">Liên hệ & Hệ thống</p>
-                <h3 className="statistics-section-title">Tin nhắn liên hệ và audit logs</h3>
-                <p className="statistics-section-desc">Xem khối hỗ trợ khách hàng và hoạt động hệ thống ở cùng một nơi.</p>
+                <h3 className="statistics-section-title">Tin nhắn liên hệ</h3>
+                <p className="statistics-section-desc">Xem khối hỗ trợ khách hàng và thông tin hệ thống ở cùng một nơi.</p>
               </div>
             </div>
             <div className="statistics-widget-edit-note">
@@ -2133,12 +2094,7 @@ const StatisticsPage = () => {
                   </div></div>
                 </div>
               </div>
-              <div key="system-audit" data-grid={{ x: 6, y: 0, w: 6, h: 8, minW: 4, minH: 6 }}>
-                <div className="statistics-chart-card statistics-chart-card--editable">
-                  <div className="statistics-chart-header"><h3 className="statistics-chart-title"><FaClipboardList/> Audit log</h3></div>
-                  <div className="statistics-chart-body"><div className="statistics-table-list">{auditActionData.length > 0 ? auditActionData.map((item, index) => (<div key={`audit-${item.action_type || index}`} className="statistics-table-row"><div><strong>{item.action_type}</strong><div className="statistics-table-sub">#{index + 1} loại thao tác</div></div><div className="statistics-table-value">{item.count}</div></div>)) : <div className="statistics-empty-state">Chưa có dữ liệu audit</div>}</div></div>
-                </div>
-              </div>
+              {/* Audit list removed from system section */}
             </GridLayout>
           </div>
         )}

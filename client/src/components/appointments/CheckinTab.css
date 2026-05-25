@@ -723,6 +723,98 @@
   font-weight: 600;
 }
 
+.checkin-payment-hint {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 1.45;
+  border: 1px solid #bfdbfe;
+}
+
+.checkin-call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  background: rgba(15, 23, 42, 0.58);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.checkin-call-modal {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow: hidden;
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 30px 90px rgba(15, 23, 42, 0.35);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.checkin-call-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.checkin-call-close:hover {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.checkin-call-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #15803d;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.checkin-call-name {
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  text-align: center;
+}
+
+.checkin-call-service {
+  margin-top: 4px;
+  font-size: 14px;
+  color: #475569;
+  text-align: center;
+}
+
+.checkin-call-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.checkin-call-actions .checkin-btn {
+  flex: 1 1 150px;
+  justify-content: center;
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
   .checkin-grid {

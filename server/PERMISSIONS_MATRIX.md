@@ -182,7 +182,34 @@ Staff được phân quyền theo **5 phòng ban**:
 
 ---
 
-#### E. ✍️ **CONTENT (Nội dung & Marketing)**
+#### E. 💊 **PHARMACY (Kho thuốc & Bán thuốc)**
+
+**Vai trò:** Quản lý tồn kho thuốc, nhập kho theo lô, bán lẻ và bán theo đơn
+
+| Permission Code | Routes | Quyền |
+|----------------|--------|-------|
+| `PHARMACY_VIEW` | `GET /pharmacy/stock` | Xem tồn kho thuốc |
+| | `GET /pharmacy/medicines` | Tìm thuốc để bán / nhập kho |
+| | `GET /pharmacy/stock/:id/batches` | Xem chi tiết lô thuốc |
+| `PHARMACY_IMPORT` | `POST /pharmacy/stock/import` | Nhập kho thuốc theo lô |
+| `PHARMACY_EXPORT_RETAIL` | `POST /pharmacy/retail` | Bán lẻ thuốc cho khách |
+| `PHARMACY_EXPORT_PRESCRIPTION` | `POST /pharmacy/sell-prescription` | Xuất thuốc theo đơn đã lưu |
+| `PHARMACY_TRANSACTIONS` | `GET /pharmacy/stock/transactions` | Xem lịch sử nhập xuất |
+| `PHARMACY_ALERTS` | `GET /pharmacy/stock/alerts` | Xem cảnh báo hết hàng / tồn thấp / sắp hết hạn |
+| `PHARMACY_SUPPLIERS` | `GET /pharmacy/suppliers` | Quản lý nhà cung cấp |
+| | `POST /pharmacy/suppliers` | Thêm nhà cung cấp |
+| | `PUT /pharmacy/suppliers/:id` | Sửa nhà cung cấp |
+| | `DELETE /pharmacy/suppliers/:id` | Xóa nhà cung cấp |
+| `PHARMACY_ADJUST` | `POST /pharmacy/stock/adjust` | Điều chỉnh tồn kho sau kiểm kê |
+
+**Không được:**
+-  Cài đặt hệ thống (`/system-settings`)
+-  Quản lý nội dung (`/articles`)
+-  Phân công bác sĩ
+
+---
+
+#### F. ✍️ **CONTENT (Nội dung & Marketing)**
 
 **Vai trò:** Quản lý bài viết, diễn đàn
 
@@ -222,6 +249,7 @@ Staff được phân quyền theo **5 phòng ban**:
 | **Diễn đàn (Quản lý)** |  |  |  |  |  |  |  |  |
 | **Diễn đàn (Trả lời)** |  |  |  |  |  |  |  |  |
 | **Tư vấn trực tuyến** |  |  |  |  |  |  |  |  |
+| **Kho thuốc** |  |  |  |  |  |  |  |  |
 | **Phân công Bác sĩ** |  |  |  |  |  |  |  |  |
 | **Thống kê/Báo cáo** |  |  |  |  |  |  |  |  |
 

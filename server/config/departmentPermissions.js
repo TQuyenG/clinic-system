@@ -7,115 +7,35 @@
  * - manager_permissions: Quyền cho trưởng phòng (manager)
  */
 
+const PERMISSION_MODULES = require('./permissionModules');
+
+const buildUnifiedPermissionsTemplate = (rank = 'staff') => {
+  return Object.entries(PERMISSION_MODULES).reduce((template, [moduleKey, module]) => {
+    const actions = module.permissions
+      .filter(permission => !permission.allowedRanks || permission.allowedRanks.includes(rank))
+      .map(permission => permission.key);
+
+    if (actions.length > 0) {
+      template[moduleKey] = actions;
+    }
+
+    return template;
+  }, {});
+};
+
+const createDepartmentDefinition = (name, description) => ({
+  name,
+  description,
+  staff_permissions: buildUnifiedPermissionsTemplate('staff'),
+  manager_permissions: buildUnifiedPermissionsTemplate('manager')
+});
+
 const DEPARTMENT_PERMISSIONS = {
-  // ========================================
-  // PHÒNG VẬN HÀNH LÂM SÀNG (CLINICAL)
-  // ========================================
-  clinical: {
-    staff_permissions: {
-      forum: ['view_questions', 'create_question', 'delete_question', 'hide_question', 'comment_question', 'save_question', 'interact_question', 'report_question', 'search_question'],
-      appointments: ['view', 'cancel', 'reject', 'approve', 'verify_payment', 'update_status', 'resend_code', 'view_reviews'],
-      consultations: ['view', 'notify_time', 'monitor'],
-      medical_records: ['view', 'edit'],
-      articles: ['view', 'save', 'share', 'report', 'view_related'],
-      medicines: ['view'],
-      diseases: ['view'],
-      work_shift: ['view_personal', 'view_doctors', 'register_shift', 'register_overtime', 'register_leave'],
-      patients: ['view']
-    },
-    manager_permissions: {
-      forum: ['view_questions', 'create_question', 'delete_question', 'hide_question', 'comment_question', 'save_question', 'interact_question', 'report_question', 'search_question', 'moderate_questions'],
-      appointments: ['view', 'create', 'edit', 'cancel', 'reject', 'approve', 'verify_payment', 'update_status', 'resend_code', 'view_reviews', 'assign_doctor'],
-      consultations: ['view', 'create', 'edit', 'cancel', 'approve', 'assign', 'close', 'notify_time', 'monitor'],
-      medical_records: ['view', 'create', 'edit', 'edit_vitals'],
-      articles: ['view', 'save', 'share', 'report', 'view_related'],
-      medicines: ['view', 'create', 'edit'],
-      diseases: ['view', 'create', 'edit'],
-      work_shift: ['approve_shift', 'approve_leave', 'approve_overtime', 'register_shift', 'register_leave', 'register_overtime', 'view_personal', 'view_doctors'],
-      doctors: ['view', 'edit', 'assign', 'manage_schedule'],
-      patients: ['view', 'edit'],
-      staff_management: ['view', 'assign_permissions']
-    }
-  },
-
-  // ========================================
-  // PHÒNG HỆ THỐNG & IT (SYSTEM)
-  // ========================================
-  system: {
-    name: 'Hệ thống & IT',
-    description: 'Quản lý hệ thống, cấu hình và giám sát sự cố',
-    staff_permissions: {
-      system_settings: ['view', 'view_audit_logs'],
-      consultation_realtime: ['monitor'], 
-      video_call: ['monitor'],
-      staff_management: ['view', 'view_history']
-    },
-    manager_permissions: {
-      system_settings: ['view', 'view_audit_logs', 'edit_home', 'edit_about', 'edit_facilities', 'edit_equipment', 'edit_header_footer', 'edit_contact', 'edit_privacy', 'edit_terms'],
-      consultation_realtime: ['monitor', 'resolve_errors'], 
-      video_call: ['monitor', 'resolve_errors'], 
-      staff_management: ['view', 'assign_department', 'assign_permissions', 'view_history']
-    }
-  },
-
-  // ========================================
-  // PHÒNG CHĂM SÓC KHÁCH HÀNG (SUPPORT)
-  // ========================================
-  support: {
-    name: 'Chăm sóc khách hàng',
-    description: 'Hỗ trợ khách hàng, giải đáp thắc mắc',
-    staff_permissions: {
-      forum: ['create_topic', 'edit_topic', 'hide_topic', 'delete_topic', 'approve_question', 'hide_question', 'delete_question'],
-      community: ['assign_staff'],
-      contact: ['view', 'reply', 'mark_read']
-    },
-    manager_permissions: {
-      forum: ['create_topic', 'edit_topic', 'hide_topic', 'delete_topic', 'approve_question', 'hide_question', 'delete_question'],
-      community: ['assign_staff'],
-      contact: ['view', 'reply', 'mark_read', 'delete']
-    }
-  },
-
-  // ========================================
-  // PHÒNG TÀI CHÍNH KẾ TOÁN (FINANCE)
-  // ========================================
- finance: {
-    name: 'Tài chính kế toán',
-    description: 'Quản lý thanh toán, doanh thu, báo cáo tài chính',
-    staff_permissions: {
-      payments: ['view', 'verify'] // Đối soát giao dịch
-    },
-    manager_permissions: {
-      payments: ['view', 'verify', 'approve', 'refund', 'config_refund'], // Xóa config_account
-      statistics: ['view', 'revenue', 'export'],
-      refund_requests: ['view', 'approve', 'reject'] // Xử lý danh sách hoàn tiền
-    }
-  },
-
-  // ========================================
-  // PHÒNG NỘI DUNG & TRUYỀN THÔNG (CONTENT)
-  // ========================================
-  content: {
-    name: 'Nội dung & Truyền thông',
-    description: 'Quản lý bài viết, thuốc, bệnh lý, sự kiện và voucher',
-    staff_permissions: {
-      articles: ['view', 'save', 'share', 'report', 'view_related', 'create', 'edit', 'duplicate'],
-      medicines: ['view', 'propose_create', 'propose_edit'],
-      diseases: ['view', 'propose_create', 'propose_edit'],
-      events_vouchers: ['create_event', 'export_report', 'create_voucher', 'edit_voucher', 'delete_voucher', 'create_game', 'config_reward_system']
-    },
-    manager_permissions: {
-      articles: ['view', 'save', 'share', 'report', 'view_related', 'create', 'edit', 'duplicate', 'delete', 'publish', 'approve', 'reject'],
-      medicines: ['view', 'propose_create', 'propose_edit', 'create', 'edit'],
-      diseases: ['view', 'propose_create', 'propose_edit', 'create', 'edit'],
-      events_vouchers: ['create_event', 'export_report', 'create_voucher', 'edit_voucher', 'delete_voucher', 'create_game', 'config_reward_system'],
-      categories: ['view', 'create', 'edit', 'assign'],
-      media: ['view', 'upload', 'delete', 'manage'],
-      seo: ['view', 'edit'],
-      homepage_content: ['view', 'edit'],
-      staff_management: ['view', 'assign_permissions', 'assign_categories']
-    }
-  }
+  clinical: createDepartmentDefinition('Vận hành lâm sàng', 'Quản lý lịch hẹn, hồ sơ bệnh án và điều phối khám chữa bệnh'),
+  system: createDepartmentDefinition('Hệ thống & IT', 'Quản lý hệ thống, cấu hình và giám sát sự cố'),
+  support: createDepartmentDefinition('Chăm sóc khách hàng', 'Hỗ trợ khách hàng, giải đáp thắc mắc'),
+  finance: createDepartmentDefinition('Tài chính kế toán', 'Quản lý thanh toán, doanh thu, báo cáo tài chính'),
+  content: createDepartmentDefinition('Nội dung & Truyền thông', 'Quản lý bài viết, thuốc, bệnh lý, sự kiện và voucher')
 };
 
 /**
@@ -161,6 +81,87 @@ const getPermissionsTemplate = (departmentCode, rank = 'staff') => {
 };
 
 /**
+ * Compatibility mapper: chuyển các permission legacy (ví dụ 'create_medicine', 'approve_medicine',
+ * hoặc 'module.action') thành dạng canonical { module: [actions] }.
+ * Accepts: array of strings, or object mapping legacyAction:true, or module->array/object.
+ */
+const mapLegacyPermissionsToCanonical = (input) => {
+  const canonical = {};
+
+  const allModules = Object.entries(PERMISSION_MODULES);
+
+  const addAction = (moduleKey, action) => {
+    if (!PERMISSION_MODULES[moduleKey]) return;
+    if (!canonical[moduleKey]) canonical[moduleKey] = [];
+    if (!canonical[moduleKey].includes(action)) canonical[moduleKey].push(action);
+  };
+
+  const mapString = (str) => {
+    if (!str || typeof str !== 'string') return null;
+    // module.action format
+    if (str.indexOf('.') > -1) {
+      const [m, a] = str.split('.');
+      if (PERMISSION_MODULES[m]) return { module: m, action: a };
+    }
+
+    // action_module or action_moduleplural (e.g. create_medicine)
+    const parts = str.split('_');
+    if (parts.length >= 2) {
+      const action = parts[0];
+      const moduleCandidate = parts.slice(1).join('_');
+      // try direct match
+      if (PERMISSION_MODULES[moduleCandidate]) return { module: moduleCandidate, action };
+      // try plural/s names
+      const alt = Object.keys(PERMISSION_MODULES).find(k => k === `${moduleCandidate}s` || k === `${moduleCandidate}es`);
+      if (alt) return { module: alt, action };
+      // some legacy used singular like 'medicine' -> map to 'medicines'
+      const alias = moduleCandidate === 'medicine' ? 'medicines' : (moduleCandidate === 'disease' ? 'diseases' : null);
+      if (alias && PERMISSION_MODULES[alias]) return { module: alias, action };
+    }
+
+    // fallback: if action key exists in any module, return first match
+    for (const [moduleKey, module] of allModules) {
+      if (module.permissions.some(p => p.key === str)) return { module: moduleKey, action: str };
+    }
+
+    return null;
+  };
+
+  if (Array.isArray(input)) {
+    input.forEach(item => {
+      const m = mapString(item);
+      if (m) addAction(m.module, m.action);
+    });
+    return canonical;
+  }
+
+  if (!input || typeof input !== 'object') return canonical;
+
+  // If input is module -> array/object, copy recognized modules
+  Object.entries(input).forEach(([k, v]) => {
+    if (PERMISSION_MODULES[k]) {
+      if (Array.isArray(v)) {
+        v.forEach(a => addAction(k, a));
+      } else if (v && typeof v === 'object') {
+        Object.entries(v).forEach(([ak, av]) => { if (av) addAction(k, ak); });
+      } else if (v === true) {
+        PERMISSION_MODULES[k].permissions.forEach(p => addAction(k, p.key));
+      }
+      return;
+    }
+
+    // otherwise treat k as legacy action name
+    const mapped = mapString(k);
+    if (mapped) {
+      if (v === true) addAction(mapped.module, mapped.action);
+      else if (Array.isArray(v)) v.forEach(item => addAction(mapped.module, item));
+    }
+  });
+
+  return canonical;
+};
+
+/**
  * Kiểm tra quyền
  */
 const hasPermission = (userPermissions, module, action) => {
@@ -196,3 +197,6 @@ module.exports = {
   hasPermission,
   mergePermissions
 };
+
+// Export compatibility mapper
+module.exports.mapLegacyPermissionsToCanonical = mapLegacyPermissionsToCanonical;

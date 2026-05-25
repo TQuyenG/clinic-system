@@ -70,8 +70,9 @@ router.put('/refunds/:id/process',
 );
 
 // 💊 NHÀ THUỐC BÁN LẺ (RETAIL PHARMACY)
-router.get('/pharmacy/retail', paymentController.getRetailInvoices);
-router.post('/pharmacy/retail', paymentController.createRetailInvoice);
+// Yêu cầu staff có quyền bán lẻ / truy cập thanh toán POS
+router.get('/pharmacy/retail', authMiddleware, roleMiddleware('payments:view'), paymentController.getRetailInvoices);
+router.post('/pharmacy/retail', authMiddleware, roleMiddleware('payments:pos'), paymentController.createRetailInvoice);
 
 
 // 2. CÁC ROUTE ĐỘNG (DYNAMIC ROUTES CÓ /:id) - BẮT BUỘC ĐẶT XUỐNG DƯỚI

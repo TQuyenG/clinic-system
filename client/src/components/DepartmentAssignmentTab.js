@@ -10,6 +10,7 @@ import {
 import './DepartmentAssignmentTab.css';
 import './DeptAssign-ColorConfig.css';
 import { useDepartmentColors } from '../contexts/DepartmentColorContext';
+import { getRoleProfile, findRoleProfileByPermissions } from '../config/departmentRoleProfiles';
 
 const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
   const { updateDepartmentColor, resetToDefaults } = useDepartmentColors();
@@ -20,6 +21,7 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [filterRank, setFilterRank] = useState('all');
+  const [filterRoleProfile, setFilterRoleProfile] = useState('all');
   
   // Sort State
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
@@ -30,7 +32,8 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
   // Modal States
   const [modalType, setModalType] = useState(null); // 'single' or 'bulk' or 'color' or null
   const [editingStaff, setEditingStaff] = useState(null);
-  const [formState, setFormState] = useState({ department: '', rank: '' });
+  const [formState, setFormState] = useState({ department: '', rank: '', role_profile: '' });
+  const [roleProfiles, setRoleProfiles] = useState([]);
   
   // Color config state
   const [showColorConfig, setShowColorConfig] = useState(false);
@@ -74,6 +77,16 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
     }
     if (filterRank !== 'all') {
       result = result.filter(s => s.rank === filterRank);
+    }
+
+    if (filterRoleProfile !== 'all') {
+      result = result.filter(s => {
+        const roleInfo = s.role_info || s.roleInfo || s.role_meta || null;
+        const explicit = roleInfo?.role_profile || s.role_profile || null;
+        if (explicit) return explicit === filterRoleProfile;
+        const matched = findRoleProfileByPermissions(s.department, s.permissions, s.job_description);
+        return (matched?.code || '') === filterRoleProfile;
+      });
     }
 
     // 2. Sort
@@ -138,6 +151,7 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
     setSearchTerm('');
     setFilterDepartment('all');
     setFilterRank('all');
+    setFilterRoleProfile('all');
     setSortConfig({ key: 'created_at', direction: 'desc' });
     toast.info('Đã reset bộ lọc');
   };
@@ -174,29 +188,87 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
   // --- MODAL HANDLERS ---
 
   const openEditModal = (staff) => {
+    const roleInfo = staff.role_info || staff.roleInfo || staff.role_meta || null;
+    const derived = roleInfo?.role_profile || staff.role_profile || (findRoleProfileByPermissions(staff.department, staff.permissions, staff.job_description)?.code) || '';
     setEditingStaff(staff);
-    setFormState({ department: staff.department, rank: staff.rank });
+    setFormState({ department: staff.department, rank: staff.rank, role_profile: derived });
     setModalType('single');
   };
 
   const openBulkModal = () => {
-    setFormState({ department: '', rank: '' });
+    setFormState({ department: '', rank: '', role_profile: '' });
     setModalType('bulk');
   };
 
   const closeModal = () => {
     setModalType(null);
     setEditingStaff(null);
-    setFormState({ department: '', rank: '' });
+    setFormState({ department: '', rank: '', role_profile: '' });
+    setRoleProfiles([]);
   };
+
+  useEffect(() => {
+    const loadRoleProfiles = async () => {
+      if (!modalType || !formState.department || formState.department === 'BGD') {
+        setRoleProfiles([]);
+        return;
+      }
+
+      try {
+        const res = await api.get(`/staff/role-profiles/${formState.department}`);
+        if (res.data.success) {
+          const nextProfiles = res.data.data || [];
+          setRoleProfiles(nextProfiles);
+          setFormState(prev => {
+            if (!prev.department || prev.department !== formState.department) {
+              return prev;
+            }
+
+            const selectedExists = nextProfiles.some(profile => profile.code === prev.role_profile);
+            if (selectedExists || nextProfiles.length === 0) {
+              return prev;
+            }
+
+            return {
+              ...prev,
+              role_profile: nextProfiles[0].code
+            };
+          });
+        } else {
+          setRoleProfiles([]);
+          setFormState(prev => ({
+            ...prev,
+            role_profile: prev.department === formState.department ? '' : prev.role_profile
+          }));
+        }
+      } catch (error) {
+        setRoleProfiles([]);
+        setFormState(prev => ({
+          ...prev,
+          role_profile: prev.department === formState.department ? '' : prev.role_profile
+        }));
+      }
+    };
+
+    loadRoleProfiles();
+  }, [modalType, formState.department]);
 
   const handleSave = async () => {
     try {
         const extraData = {};
 
+      if (formState.role_profile) {
+        extraData.role_profile = formState.role_profile;
+      }
+
         if (modalType === 'single') {
             // Update Single
-            if (formState.department === editingStaff.department && formState.rank === editingStaff.rank && formState.department !== 'finance') {
+          if (
+            formState.department === editingStaff.department &&
+            formState.rank === editingStaff.rank &&
+            !formState.role_profile &&
+            formState.department !== 'finance'
+          ) {
                 toast.info('Không có thay đổi nào');
                 closeModal();
                 return;
@@ -238,6 +310,21 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
     const map = { manager: 'Trưởng phòng', staff: 'Nhân viên', admin: 'Quản trị' };
     return map[rank] || rank;
   };
+
+  const availableRoleProfiles = useMemo(() => {
+    const codes = new Set();
+    const list = filterDepartment === 'all' ? allStaff : allStaff.filter(s => s.department === filterDepartment);
+    list.forEach(s => {
+      const roleInfo = s.role_info || s.roleInfo || s.role_meta || null;
+      const code = roleInfo?.role_profile || s.role_profile || (findRoleProfileByPermissions(s.department, s.permissions, s.job_description)?.code);
+      if (code) codes.add(code);
+    });
+    return Array.from(codes).map(code => {
+      const deptForLookup = filterDepartment === 'all' ? (allStaff.find(s => (s.role_profile === code || (s.role_info && s.role_info.role_profile === code)) ) || {}).department : filterDepartment;
+      const profile = getRoleProfile(deptForLookup, code);
+      return { code, name: profile?.name || code };
+    }).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  }, [allStaff, filterDepartment]);
 
   return (
     <div className="DeptAssign-container">
@@ -281,6 +368,17 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
           <option value="all">-- Tất cả Phòng ban --</option>
           {Object.entries(DEPARTMENTS).map(([key, dept]) => (
             <option key={key} value={key}>{dept.name}</option>
+          ))}
+        </select>
+
+        <select 
+          className="DeptAssign-select"
+          value={filterRoleProfile}
+          onChange={(e) => setFilterRoleProfile(e.target.value)}
+        >
+          <option value="all">-- Tất cả Vai trò con --</option>
+          {availableRoleProfiles.map(p => (
+            <option key={p.code} value={p.code}>{p.name}</option>
           ))}
         </select>
 
@@ -394,21 +492,32 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
                             <span className="DeptAssign-badge DeptAssign-badge-rank">
                                 {getRankLabel(staff.rank)}
                             </span>
-                            {/* Nếu là Tài chính và có mô tả công việc (vai trò) thì hiện thêm badge nhỏ */}
-                            {staff.department === 'finance' && staff.job_description && (
-                                <span style={{
-                                    fontSize: '11px', 
-                                    color: '#155724', 
-                                    backgroundColor: '#d4edda', 
-                                    padding: '2px 6px', 
-                                    borderRadius: '4px', 
+                            {/* Hiển thị vai trò con (role profile) nếu có, hoặc mô tả công việc */}
+                            {(() => {
+                                const roleInfo = staff.role_info || staff.roleInfo || staff.role_meta || null;
+                                const explicit = roleInfo?.role_profile || staff.role_profile || null;
+                                let label = '';
+                                if (explicit) {
+                                  const profile = getRoleProfile(staff.department, explicit);
+                                  label = profile?.name || explicit;
+                                } else {
+                                  const matched = findRoleProfileByPermissions(staff.department, staff.permissions, staff.job_description);
+                                  label = matched?.name || staff.job_description || '';
+                                }
+
+                                return label ? (
+                                  <span style={{
+                                    fontSize: '11px',
+                                    color: '#155724',
+                                    backgroundColor: '#d4edda',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
                                     border: '1px solid #c3e6cb',
                                     whiteSpace: 'nowrap',
                                     fontWeight: '500'
-                                }}>
-                                    {staff.job_description}
-                                </span>
-                            )}
+                                  }}>{label}</span>
+                                ) : null;
+                            })()}
                         </div>
                     </td>
                     {/* ----------------------------------------------------- */}
@@ -475,7 +584,7 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
                         <select 
                             className="DeptAssign-modal-select"
                             value={formState.department}
-                            onChange={(e) => setFormState({...formState, department: e.target.value})}
+                          onChange={(e) => setFormState({...formState, department: e.target.value, role_profile: ''})}
                         >
                             {modalType === 'bulk' ? <option value="">-- Giữ nguyên (Không đổi) --</option> : null}
                             {Object.entries(DEPARTMENTS).map(([key, dept]) => (
@@ -489,13 +598,40 @@ const DepartmentAssignmentTab = ({ DEPARTMENTS, departmentColors }) => {
                         <select 
                             className="DeptAssign-modal-select"
                             value={formState.rank}
-                            onChange={(e) => setFormState({...formState, rank: e.target.value})}
+                        onChange={(e) => setFormState({...formState, rank: e.target.value, role_profile: ''})}
                         >
                             {modalType === 'bulk' ? <option value="">-- Giữ nguyên (Không đổi) --</option> : null}
                             <option value="manager">Trưởng phòng</option>
                             <option value="staff">Nhân viên</option>
                         </select>
                     </div>
+
+                    {formState.department && formState.department !== 'BGD' && (
+                      <div className="DeptAssign-form-group">
+                        <label>Vai trò con</label>
+                        <select
+                          className="DeptAssign-modal-select"
+                          value={formState.role_profile}
+                          onChange={(e) => setFormState({...formState, role_profile: e.target.value})}
+                          disabled={roleProfiles.length === 0}
+                        >
+                          {roleProfiles.length > 0 ? (
+                            roleProfiles.map(profile => (
+                              <option key={profile.code} value={profile.code}>
+                                {profile.name}
+                              </option>
+                            ))
+                          ) : (
+                            <option value="">Vai trò mặc định (cố định)</option>
+                          )}
+                        </select>
+                        <div style={{fontSize: 12, color: '#666', marginTop: 6}}>
+                          {roleProfiles.length > 0
+                            ? 'Chọn vai trò con để tự áp dụng bộ quyền và mô tả công việc tương ứng.'
+                            : 'Phòng ban này dùng vai trò mặc định cố định.'}
+                        </div>
+                      </div>
+                    )}
                 </div>
 
                 <div className="DeptAssign-modal-footer">

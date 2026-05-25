@@ -2,7 +2,40 @@
 const { models } = require('../config/db');
 const { Op } = require('sequelize');
 const { getPermissionsTemplate, DEPARTMENT_PERMISSIONS } = require('../config/departmentPermissions');
+const { ROLE_PROFILES, getDepartmentRoleProfiles, getRoleProfile, findRoleProfileByPermissions } = require('../config/departmentRoleProfiles');
 const PERMISSION_MODULES = require('../config/permissionModules');
+const { buildPermissionAuditDetails, getPermissionChanges } = require('../utils/permissionAudit');
+
+const resolveTemplateForProfile = (department, rank, roleProfileCode) => {
+  if (department && roleProfileCode) {
+    const profile = getRoleProfile(department, roleProfileCode);
+    if (profile) {
+      return profile.permissions || {};
+    }
+  }
+
+  return getPermissionsTemplate(department, rank);
+};
+
+const logPermissionChangeAudit = async ({
+  actorId,
+  staff,
+  oldPermissions = {},
+  newPermissions = {},
+  extraDetails = {}
+}) => {
+  const detailsPayload = buildPermissionAuditDetails(oldPermissions, newPermissions, extraDetails);
+  console.log('[AUDIT DEBUG] Creating AuditLog for permission_change:', JSON.stringify(detailsPayload, null, 2));
+
+  await models.AuditLog.create({
+    user_id: actorId,
+    action_type: 'permission_change',
+    target_type: 'staff',
+    target_id: staff.id,
+    target_name: staff.User?.full_name || staff.code,
+    details: detailsPayload
+  });
+};
 
 /**
  * Lấy danh sách Staff có filter (dùng cho dropdown chọn Manager hoặc Assign)
@@ -445,150 +478,6 @@ exports.getStaffByDepartment = async (req, res) => {
  * PUT /api/staff/:id/permissions
  */
 /**
- * Helper: So sánh permissions và tạo chi tiết thay đổi
- */
-const getPermissionChanges = (oldPerms, newPerms) => {
-  const PERMISSION_MODULES = {
-    work_shift: {
-      name: 'Lịch làm việc',
-      permissions: {
-        view_personal: 'Xem lịch làm việc cá nhân',
-        view_doctors: 'Xem lịch làm việc của bác sĩ quản lý',
-        register_shift: 'Đăng ký lịch làm việc',
-        register_overtime: 'Đăng kí tăng ca',
-        register_leave: 'Đăng ký nghỉ phép',
-        approve_shift: 'Phê duyệt lịch làm việc',
-        approve_leave: 'Phê duyệt nghỉ phép',
-        approve_overtime: 'Phê duyệt tăng ca'
-      }
-    },
-    appointments: { 
-      name: 'Lịch hẹn', 
-      permissions: { 
-        view: 'Xem lịch hẹn', 
-        cancel: 'Huỷ lịch hẹn', 
-        reject: 'Từ chối lịch hẹn', 
-        approve: 'Xác nhận lịch hẹn', 
-        verify_payment: 'Xác nhận thanh toán tại quầy',
-        update_status: 'Cập nhật trạng thái lịch hẹn',
-        resend_code: 'Cấp lại mã tra cứu',
-        view_reviews: 'Xem đánh giá',
-        create: 'Tạo mới', 
-        edit: 'Chỉnh sửa' 
-      } 
-    },
-    consultations: { 
-      name: 'Tư vấn', 
-      permissions: { 
-        view: 'Xem danh sách tư vấn', 
-        notify_time: 'Nhận thông báo đến giờ tư vấn', 
-        monitor: 'Giám sát tư vấn',
-        reply: 'Trả lời', assign: 'Phân công', close: 'Đóng', create: 'Tạo', edit: 'Sửa', cancel: 'Hủy', approve: 'Xác nhận'
-      } 
-    },
-    forum: { 
-      name: 'Diễn đàn', 
-      permissions: { 
-        view_questions: 'Xem danh sách câu hỏi', 
-        create_question: 'Tạo câu hỏi', 
-        delete_question: 'Xoá câu hỏi', 
-        hide_question: 'Ẩn câu hỏi',
-        comment_question: 'Bình luận câu hỏi',
-        save_question: 'Lưu câu hỏi',
-        interact_question: 'Tương tác câu hỏi',
-        report_question: 'Báo cáo câu hỏi',
-        search_question: 'Tìm kiếm câu hỏi',
-        moderate_questions: 'Kiểm duyệt'
-      } 
-    },
-    contact: {
-      name: 'Quản lý liên hệ',
-      permissions: {
-        view: 'Xem tin nhắn',
-        reply: 'Trả lời',
-        mark_read: 'Đánh dấu đã đọc',
-        delete: 'Xóa'
-      }
-    },
-    medical_records: { name: 'Hồ sơ y tế', permissions: { view: 'Xem', edit: 'Cập nhật hồ sơ y tế', edit_vitals: 'Sửa chỉ số sinh tồn', create: 'Tạo mới' } },
-    articles: { 
-      name: 'Bài viết', 
-      permissions: { 
-        view: 'Xem bài viết', 
-        save: 'Lưu bài viết', 
-        share: 'Chia sẻ bài viết', 
-        report: 'Báo cáo bài viết', 
-        view_related: 'Xem bài viết liên quan',
-        create: 'Tạo', create_draft: 'Tạo nháp', edit: 'Sửa', delete: 'Xóa', hide: 'Ẩn', approve: 'Duyệt', reject: 'Từ chối'
-      } 
-    },
-    medicines: { name: 'Thuốc', permissions: { view: 'Xem thông tin thuốc', create: 'Tạo mới', edit: 'Chỉnh sửa' } },
-    diseases: { name: 'Bệnh lý', permissions: { view: 'Xem thông tin bệnh lý', create: 'Tạo mới', edit: 'Chỉnh sửa' } },
-    doctors: { name: 'Quản lý bác sĩ', permissions: { view: 'Xem', edit: 'Sửa', assign: 'Phân công', manage_schedule: 'Quản lý lịch' } },
-    patients: { name: 'Quản lý bệnh nhân', permissions: { view: 'Xem', edit: 'Sửa' } },
-    payments: { name: 'Thanh toán', permissions: { view: 'Xem', verify: 'Xác minh', approve: 'Duyệt', refund: 'Hoàn tiền' } },
-    system_settings: { 
-      name: 'Cài đặt hệ thống', 
-      permissions: { 
-        view: 'Xem', 
-        view_audit_logs: 'Xem lịch sử chỉnh sửa',
-        edit_home: 'Quản lý Trang chủ',
-        edit_about: 'Quản lý Giới thiệu',
-        edit_facilities: 'Quản lý Cơ sở vật chất',
-        edit_equipment: 'Quản lý Trang thiết bị',
-        edit_header_footer: 'Quản lý Header/Footer/Navbar',
-        edit_contact: 'Quản lý Liên hệ',
-        edit_privacy: 'Quản lý Chính sách bảo mật',
-        edit_terms: 'Quản lý Điều khoản'
-      } 
-    },
-    services: { name: 'Dịch vụ y tế', permissions: { view: 'Xem' } },
-    consultation_pricing: { name: 'Gói tư vấn', permissions: { view: 'Xem' } },
-    staff_management: { 
-      name: 'Quản lý nhân sự', 
-      permissions: { 
-        view: 'Xem', 
-        assign_department: 'Phân ban',
-        assign_permissions: 'Phân quyền hạn', 
-        view_history: 'Xem lịch sử' 
-      } 
-    }
-  };
-    
-    
-
-  const changes = [];
-  
-  // Helper: Check if permission is enabled (support both boolean and array formats)
-  const hasPermission = (modulePerms, permKey) => {
-    if (!modulePerms) return false;
-    if (typeof modulePerms === 'boolean') return modulePerms;
-    if (Array.isArray(modulePerms)) return modulePerms.includes(permKey);
-    if (typeof modulePerms === 'object') return modulePerms[permKey] === true;
-    return false;
-  };
-  
-  // So sánh từng module
-  for (const [moduleKey, moduleInfo] of Object.entries(PERMISSION_MODULES)) {
-    const oldModulePerms = oldPerms?.[moduleKey];
-    const newModulePerms = newPerms?.[moduleKey];
-    
-    // So sánh từng quyền trong module
-    for (const [permKey, permLabel] of Object.entries(moduleInfo.permissions)) {
-      const oldValue = hasPermission(oldModulePerms, permKey);
-      const newValue = hasPermission(newModulePerms, permKey);
-      
-      if (oldValue !== newValue) {
-        const action = newValue ? 'Bật quyền' : 'Tắt quyền';
-        changes.push(`${action} "${permLabel}" trong module "${moduleInfo.name}"`);
-      }
-    }
-  }
-  
-  return changes;
-};
-
-/**
  * Cập nhật permissions cho nhân viên
  * PUT /api/staff/:id/permissions
  * Body: { permissions: {...}, department?: '...', rank?: '...' }
@@ -651,10 +540,11 @@ exports.updateStaffPermissions = async (req, res) => {
 
     let hasChanges = false;
     const auditDetails = {};
+    let sanitizedPermissions = JSON.parse(JSON.stringify(oldPermissions));
 
     // Cập nhật permissions
     if (permissions !== undefined) {
-      const sanitizedPermissions = {};
+      sanitizedPermissions = {};
       if (typeof permissions === 'object' && permissions !== null) {
         for (const [module, actions] of Object.entries(permissions)) {
           const moduleConfig = PERMISSION_MODULES[module];
@@ -690,18 +580,12 @@ exports.updateStaffPermissions = async (req, res) => {
         }
       }
 
-      const permissionChanges = getPermissionChanges(oldPermissions, sanitizedPermissions);
-      
       console.log('[updateStaffPermissions] Old Permissions:', JSON.stringify(oldPermissions, null, 2));
       console.log('[updateStaffPermissions] New (Sanitized & Verified) Permissions:', JSON.stringify(sanitizedPermissions, null, 2));
       
       // Lưu mảng đã được làm sạch và xác thực 100% vào Database
       staff.permissions = sanitizedPermissions;
       hasChanges = true;
-      
-      if (permissionChanges.length > 0) {
-        auditDetails.permission_changes = permissionChanges;
-      }
     }
 
     // Nếu đổi department hoặc rank, apply template mặc định (chỉ admin)
@@ -731,13 +615,16 @@ exports.updateStaffPermissions = async (req, res) => {
 
     // Log audit trail nếu có thay đổi
     if (hasChanges) {
+      const finalPermissions = staff.permissions || sanitizedPermissions;
+      const detailsPayload = buildPermissionAuditDetails(oldPermissions, finalPermissions, auditDetails);
+      console.log('[AUDIT DEBUG] Creating AuditLog for permission_change:', JSON.stringify(detailsPayload, null, 2));
       await models.AuditLog.create({
         user_id: req.user.id,
         action_type: 'permission_change',
         target_type: 'staff',
         target_id: staff.id,
         target_name: staff.User?.full_name || staff.code,
-        details: JSON.stringify(auditDetails)
+        details: detailsPayload
       });
     }
 
@@ -760,9 +647,9 @@ exports.updateStaffPermissions = async (req, res) => {
 exports.getPermissionsTemplate = async (req, res) => {
   try {
     const { departmentCode } = req.params;
-    const { rank } = req.query;
+    const { rank, profileCode } = req.query;
 
-    const template = getPermissionsTemplate(departmentCode, rank || 'staff');
+    const template = resolveTemplateForProfile(departmentCode, rank || 'staff', profileCode);
     const deptInfo = DEPARTMENT_PERMISSIONS[departmentCode];
 
     if (!deptInfo) {
@@ -776,11 +663,44 @@ exports.getPermissionsTemplate = async (req, res) => {
         name: deptInfo.name,
         description: deptInfo.description,
         rank: rank || 'staff',
+        profileCode: profileCode || null,
         permissions: template
       }
     });
   } catch (error) {
     console.error('ERROR getPermissionsTemplate:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+/**
+ * Lấy danh sách role profile theo phòng ban
+ * GET /api/staff/role-profiles/:departmentCode
+ */
+exports.getRoleProfiles = async (req, res) => {
+  try {
+    const { departmentCode } = req.params;
+    const hasDepartment = Object.prototype.hasOwnProperty.call(ROLE_PROFILES, departmentCode);
+
+    if (!hasDepartment) {
+      return res.status(404).json({ success: false, message: 'Phòng ban không tồn tại' });
+    }
+
+    const profiles = getDepartmentRoleProfiles(departmentCode);
+
+    res.status(200).json({
+      success: true,
+      data: Object.values(profiles || {}).map(profile => ({
+        code: profile.code,
+        name: profile.name,
+        department: profile.department,
+        rank: profile.rank,
+        job_description: profile.job_description,
+        permissions: profile.permissions
+      }))
+    });
+  } catch (error) {
+    console.error('ERROR getRoleProfiles:', error);
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };
@@ -833,7 +753,7 @@ exports.getDepartmentStatistics = async (req, res) => {
  */
 exports.assignUserToDepartment = async (req, res) => {
   try {
-    const { user_id, department, rank } = req.body;
+    const { user_id, department, rank, role_profile } = req.body;
 
     if (!user_id || !department) {
       return res.status(400).json({ 
@@ -854,14 +774,39 @@ exports.assignUserToDepartment = async (req, res) => {
     // Kiểm tra user đã là staff chưa
     let staff = await models.Staff.findOne({ where: { user_id } });
 
-    const template = getPermissionsTemplate(department, rank || 'staff');
+    const template = resolveTemplateForProfile(department, rank || 'staff', role_profile);
+    const profile = role_profile ? getRoleProfile(department, role_profile) : null;
 
     if (staff) {
+      // Capture old role_profile derived before changes
+      const oldProfile = findRoleProfileByPermissions(staff.department, staff.permissions, staff.job_description)?.code || null;
+      const oldPermissions = staff.permissions || {};
       // Cập nhật department và rank
       staff.department = department;
       staff.rank = rank || 'staff';
       staff.permissions = template;
+      if (profile?.job_description) {
+        staff.job_description = profile.job_description;
+      }
       await staff.save();
+      // Audit: log role_profile update when present
+      if (role_profile) {
+        await models.AuditLog.create({
+          user_id: req.user.id,
+          action_type: 'staff_update',
+          target_type: 'staff',
+          target_id: staff.id,
+          target_name: user.full_name || staff.code,
+          details: JSON.stringify({ role_profile: { old: oldProfile, new: role_profile } })
+        });
+        await logPermissionChangeAudit({
+          actorId: req.user.id,
+          staff,
+          oldPermissions,
+          newPermissions: template,
+          extraDetails: { role_profile: { old: oldProfile, new: role_profile } }
+        });
+      }
     } else {
       // Tạo mới staff record
       staff = await models.Staff.create({
@@ -872,6 +817,7 @@ exports.assignUserToDepartment = async (req, res) => {
         rank: rank || 'staff',
         work_status: 'active',
         permissions: template,
+        job_description: profile?.job_description || undefined,
         managed_doctors: { doctor_ids: [] }
       });
 
@@ -879,6 +825,25 @@ exports.assignUserToDepartment = async (req, res) => {
       if (user.role !== 'staff' && user.role !== 'admin') {
         user.role = 'staff';
         await user.save();
+      }
+      // Audit: created staff via assign, include role_profile if provided
+      if (role_profile) {
+        const oldProfile = null;
+        await models.AuditLog.create({
+          user_id: req.user.id,
+          action_type: 'staff_create',
+          target_type: 'staff',
+          target_id: staff.id,
+          target_name: user.full_name || staff.code,
+          details: JSON.stringify({ role_profile: { old: oldProfile, new: role_profile } })
+        });
+        await logPermissionChangeAudit({
+          actorId: req.user.id,
+          staff,
+          oldPermissions: {},
+          newPermissions: template,
+          extraDetails: { role_profile: { old: oldProfile, new: role_profile } }
+        });
       }
     }
 
@@ -935,7 +900,7 @@ exports.getAllStaffForOverview = async (req, res) => {
  */
 exports.bulkUpdateStaff = async (req, res) => {
   try {
-    const { staff_ids, department, rank } = req.body;
+    const { staff_ids, department, rank, role_profile } = req.body;
     const currentUser = req.user;
 
     if (!staff_ids || !Array.isArray(staff_ids) || staff_ids.length === 0) {
@@ -945,10 +910,10 @@ exports.bulkUpdateStaff = async (req, res) => {
       });
     }
 
-    if (!department && !rank) {
+    if (!department && !rank && !role_profile) {
       return res.status(400).json({
         success: false,
-        message: 'Vui lòng cung cấp ít nhất department hoặc rank để cập nhật'
+        message: 'Vui lòng cung cấp ít nhất department, rank hoặc role_profile để cập nhật'
       });
     }
 
@@ -956,19 +921,37 @@ exports.bulkUpdateStaff = async (req, res) => {
     const updates = {};
     if (department) updates.department = department;
     if (rank) updates.rank = rank;
+    if (role_profile && department) {
+      const template = resolveTemplateForProfile(department, rank || 'staff', role_profile);
+      if (template && Object.keys(template).length > 0) {
+        updates.permissions = template;
+      }
+
+      const profile = getRoleProfile(department, role_profile);
+      if (profile?.job_description) {
+        updates.job_description = profile.job_description;
+      }
+    }
 
     // Log audit for each staff TRƯỚC KHI update
     const auditLogs = [];
+    const permissionAuditLogs = [];
     for (const staffId of staff_ids) {
       const staff = await models.Staff.findByPk(staffId, {
         include: [{ model: models.User, attributes: ['full_name'] }]
       });
 
       if (staff) {
+        const oldPermissions = staff.permissions || {};
         const details = {};
         // Lưu giá trị CŨ trước khi update
         if (department) details.department = { old: staff.department, new: department };
         if (rank) details.rank = { old: staff.rank, new: rank };
+        if (role_profile) {
+          // Try to capture previous role_profile if available (derived or stored)
+          const oldProfile = staff.role_profile || (findRoleProfileByPermissions(staff.department, staff.permissions, staff.job_description)?.code) || null;
+          details.role_profile = { old: oldProfile, new: role_profile };
+        }
 
         auditLogs.push({
           user_id: currentUser.id,
@@ -978,6 +961,21 @@ exports.bulkUpdateStaff = async (req, res) => {
           target_name: staff.User?.full_name || `Staff ${staffId}`,
           details: JSON.stringify(details)
         });
+
+        if (role_profile && department) {
+          const nextPermissions = role_profile && department
+            ? resolveTemplateForProfile(department, rank || staff.rank, role_profile)
+            : staff.permissions || {};
+
+          permissionAuditLogs.push({
+            user_id: currentUser.id,
+            action_type: 'permission_change',
+            target_type: 'staff',
+            target_id: staffId,
+            target_name: staff.User?.full_name || `Staff ${staffId}`,
+            details: buildPermissionAuditDetails(oldPermissions, nextPermissions, details)
+          });
+        }
       }
     }
 
@@ -991,6 +989,9 @@ exports.bulkUpdateStaff = async (req, res) => {
     // Lưu audit logs
     if (auditLogs.length > 0) {
       await models.AuditLog.bulkCreate(auditLogs);
+    }
+    if (permissionAuditLogs.length > 0) {
+      await models.AuditLog.bulkCreate(permissionAuditLogs);
     }
 
     res.status(200).json({
@@ -1016,7 +1017,7 @@ exports.bulkUpdateStaff = async (req, res) => {
 exports.updateStaff = async (req, res) => {
   try {
     const { id } = req.params;
-    const { department, rank, job_description } = req.body;
+    const { department, rank, job_description, role_profile } = req.body;
     const currentUser = req.user;
 
     // Validation
@@ -1056,12 +1057,28 @@ exports.updateStaff = async (req, res) => {
     // **LƯU GIÁ TRỊ CŨ TRƯỚC KHI UPDATE**
     const oldDepartment = staff.department;
     const oldRank = staff.rank;
+    const oldProfile = findRoleProfileByPermissions(staff.department, staff.permissions, staff.job_description)?.code || null;
+    const oldPermissions = staff.permissions || {};
 
   // Build update object
   const updates = {};
   if (department !== undefined) updates.department = department;
   if (rank !== undefined) updates.rank = rank;
   if (job_description !== undefined) updates.job_description = job_description;
+
+    const nextDepartment = department !== undefined ? department : staff.department;
+    const nextRank = rank !== undefined ? rank : staff.rank;
+    if (role_profile) {
+      const template = resolveTemplateForProfile(nextDepartment, nextRank, role_profile);
+      if (template && Object.keys(template).length > 0) {
+        updates.permissions = template;
+      }
+
+      const profile = getRoleProfile(nextDepartment, role_profile);
+      if (profile?.job_description && job_description === undefined) {
+        updates.job_description = profile.job_description;
+      }
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({
@@ -1077,6 +1094,9 @@ exports.updateStaff = async (req, res) => {
   const details = {};
   if (department !== undefined) details.department = { old: oldDepartment, new: department };
   if (rank !== undefined) details.rank = { old: oldRank, new: rank };
+  if (role_profile !== undefined) {
+    details.role_profile = { old: oldProfile, new: role_profile };
+  }
   if (job_description !== undefined) details.job_description = { old: staff.job_description, new: job_description };
 
     await models.AuditLog.create({
@@ -1087,6 +1107,16 @@ exports.updateStaff = async (req, res) => {
       target_name: staff.User?.full_name || `Staff ${id}`,
       details: JSON.stringify(details)
     });
+
+    if (role_profile !== undefined && updates.permissions) {
+      await logPermissionChangeAudit({
+        actorId: currentUser.id,
+        staff,
+        oldPermissions,
+        newPermissions: updates.permissions,
+        extraDetails: details
+      });
+    }
 
     res.status(200).json({
       success: true,

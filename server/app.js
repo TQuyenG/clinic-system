@@ -461,7 +461,7 @@ cron.schedule('0 * * * *', async () => {
     const expiredAppointments = await models.Appointment.findAll({
       where: {
         status: 'pending',
-        created_at: { [Op.lt]: cutoffDate }
+        createdAt: { [Op.lt]: cutoffDate }
       }
     });
 

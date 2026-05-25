@@ -85,6 +85,7 @@ import PaymentDetailPage from './pages/PaymentDetailPage';
 import PaymentSettingsPage from './pages/PaymentSettingsPage';
 import FrontDeskPage from './pages/FrontDeskPage';
 import PharmacyStockPage from './pages/PharmacyStockPage';
+import PharmacyRetailPage from './pages/PharmacyRetailPage';
 import RefundRequestPage from './pages/RefundRequestPage';
 import RefundPolicyConfigPage from './pages/RefundPolicyConfigPage';
 import ServiceManagementPage from './pages/ServiceManagementPage';
@@ -173,7 +174,40 @@ const AppointmentPageDispatcher = () => {
 
 const ReceptionRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  const { canAccessModule, hasPermission } = usePermissions();
+  const { canAccessModule, hasPermission, isAdmin } = usePermissions();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Đang tải dữ liệu người dùng...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  // Normalize role name from various user shapes
+  const rawRole = user?.role || user?.role_info || user?.roleData || user?.roleData?.role;
+  const roleStr = typeof rawRole === 'string'
+    ? rawRole.toLowerCase()
+    : (typeof rawRole === 'object' && rawRole?.name) ? String(rawRole.name).toLowerCase() : '';
+
+  // Admin by role string OR by permissions hook
+  if (roleStr === 'admin' || isAdmin) {
+    return children;
+  }
+
+  if (!(canAccessModule('reception') || hasPermission('payments', 'pos'))) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+const ServiceManagementRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const { canAccessModule, isAdmin } = usePermissions();
 
   if (loading) {
     return (
@@ -187,11 +221,11 @@ const ReceptionRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role === 'admin') {
+  if (user.role === 'admin' || isAdmin) {
     return children;
   }
 
-  if (!(canAccessModule('appointments') || hasPermission('payments', 'pos'))) {
+  if (!(canAccessModule('services') || canAccessModule('service_categories') || canAccessModule('appointments'))) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -303,10 +337,10 @@ function App() {
             <Route path="/tim-kiem" element={<SearchResultPage />} />
             <Route path="/search" element={<SearchResultPage />} />
 
-            <Route path="/quan-ly-su-kien" element={<ProtectedRoute requiredRole={['admin', 'staff']}><EventManagementPage /></ProtectedRoute>} />
-            <Route path="/su-kien/:id/dieu-phoi" element={<ProtectedRoute requiredRole={['admin', 'staff']}><EventCommandCenterPage /></ProtectedRoute>} />
-            <Route path="/quan-ly-khuyen-mai" element={<ProtectedRoute requiredRole={['admin', 'staff']}><DiscountManagementPage /></ProtectedRoute>} />
-            <Route path="/quan-ly-voucher" element={<ProtectedRoute requiredRole={['admin', 'staff']}><DiscountManagementPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-su-kien" element={<PermissionRoute requiredRole={['admin', 'staff']} module="events_vouchers"><EventManagementPage /></PermissionRoute>} />
+            <Route path="/su-kien/:id/dieu-phoi" element={<PermissionRoute requiredRole={['admin', 'staff']} module="events_vouchers"><EventCommandCenterPage /></PermissionRoute>} />
+            <Route path="/quan-ly-khuyen-mai" element={<PermissionRoute requiredRole={['admin', 'staff']} module="events_vouchers"><DiscountManagementPage /></PermissionRoute>} />
+            <Route path="/quan-ly-voucher" element={<PermissionRoute requiredRole={['admin', 'staff']} module="events_vouchers"><DiscountManagementPage /></PermissionRoute>} />
             <Route path="/su-kien" element={<EventListPage />} />
             <Route path="/su-kien/:slug" element={<EventDetailPage />} />
             <Route path="/khuyen-mai" element={<ProtectedRoute requiredRole="patient"><UserPromotionPage tab="vouchers" /></ProtectedRoute>} />
@@ -419,12 +453,13 @@ function App() {
             <Route path="/quan-ly-bai-viet" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="articles"><ArticleManagementPage /></PermissionRoute>} />
             <Route path="/phe-duyet-bai-viet/:id" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="articles"><ArticleReviewPage /></PermissionRoute>} />
             <Route path="/quan-ly-he-thong" element={<PermissionRoute requiredRole={['admin', 'staff']} module="system_settings"><SystemSettingsPage /></PermissionRoute>} />
-            <Route path="/quan-ly-dich-vu" element={<ProtectedRoute requiredRole={['admin', 'staff']}><ServiceManagementPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-dich-vu" element={<ServiceManagementRoute><ServiceManagementPage /></ServiceManagementRoute>} />
             <Route path="/quan-ly-danh-muc-dich-vu" element={<Navigate to="/quan-ly-dich-vu?tab=categories" replace />} />
             
             <Route path="/quan-ly-thuoc" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="medicines"><EntityManagementPage entityType="medicine" /></PermissionRoute>} />
             <Route path="/quan-ly-benh-ly" element={<PermissionRoute requiredRole={['admin', 'staff', 'doctor']} module="diseases"><EntityManagementPage entityType="disease" /></PermissionRoute>} />
             <Route path="/quan-ly-kho-thuoc" element={<ProtectedRoute requiredRole="admin"><PharmacyStockPage /></ProtectedRoute>} />
+            <Route path="/quan-ly-kho-thuoc/ban-thuoc" element={<PermissionRoute requiredRole={['admin', 'staff']} module="pharmacy"><PharmacyRetailPage /></PermissionRoute>} />
             <Route path="/quan-ly-lich-lam-viec" element={<PermissionRoute requiredRole={['admin', 'staff']} module="work_shift"><ScheduleManagementPage /></PermissionRoute>} />
             <Route path="/quan-ly-lich-hen" element={<PermissionRoute requiredRole={['admin', 'staff']} module="appointments"><AppointmentManagementPage /></PermissionRoute>} />
             
@@ -435,11 +470,7 @@ function App() {
             <Route path="/admin/tu-van/packages" element={<Navigate to="/quan-ly-tu-van/goi-dich-vu" replace />} />
 
             {/* ========== 12. QUẢN LÝ TÀI CHÍNH ========== */}
-            <Route path="/quan-ly-thanh-toan/giao-dich" element={
-            <ProtectedRoute requiredRole={['admin', 'staff']}>
-              <PaymentManagementPage />
-            </ProtectedRoute>
-          } />
+            <Route path="/quan-ly-thanh-toan/giao-dich" element={<PermissionRoute requiredRole={['admin', 'staff']} module="payments"><PaymentManagementPage /></PermissionRoute>} />
             <Route path="/quan-ly-thanh-toan/chi-tiet/:id" element={<PermissionRoute requiredRole={['admin', 'staff']} module="payments"><PaymentDetailPage /></PermissionRoute>} />
             <Route path="/quan-ly-thanh-toan/hoan-tien" element={<PermissionRoute requiredRole={['admin', 'staff']} module="payments"><RefundRequestPage /></PermissionRoute>} />
             <Route path="/quan-ly-thanh-toan/chinh-sach" element={<PermissionRoute requiredRole={['admin', 'staff']} module="payments"><RefundPolicyConfigPage /></PermissionRoute>} />

@@ -42,14 +42,8 @@ module.exports = async function seedProfiles(models, transaction, context = {}) 
     'staff_content_manager': 'content'
   };
   
-  // Map username to rank
-  const rankMapping = {
-    'staff_clinical_manager': 'manager',
-    'staff_it_manager': 'manager',
-    'staff_support_manager': 'manager',
-    'staff_finance_manager': 'manager',
-    'staff_content_manager': 'manager'
-  };
+  // Map username to rank (manager ranks removed — everyone seeded as staff by default)
+  const rankMapping = {};
   
   const staffData = staffUsers.map((u, idx) => {
     const department = deptMapping[u.username] || defaultDepts[idx % defaultDepts.length] || 'support';

@@ -105,9 +105,10 @@ const ProfilePage = () => {
       const res = await api.get('/users/profile/role-info');
       if (res.data.success && res.data.user.roleData) {
         const roleData = res.data.user.roleData;
-        setRoleInfo(roleData);
+        const roleInfoData = res.data.user.role_info || roleData;
+        setRoleInfo(roleInfoData);
         if (res.data.user.role === 'staff') {
-          setStaffJobDescription(roleData.job_description || '');
+          setStaffJobDescription(roleInfoData.job_description || roleData.job_description || '');
         }
         if (res.data.user.role === 'doctor') {
           setDoctorFormData({
@@ -292,7 +293,20 @@ const ProfilePage = () => {
           </div>
           <div className="profile-page-user-basic">
             {user.is_verified ? <p className="profile-page-verified"><FaCheckCircle /> Đã xác thực</p> : <p className="profile-page-not-verified"><FaTimesCircle /> Chưa xác thực</p>}
-            <div className={`profile-page-role-badge profile-page-role-${user.role}`}>{roleInfo?.code || user.role.toUpperCase()}</div>
+            <div className={`profile-page-role-badge profile-page-role-${user.role}`}>{roleInfo?.role_name || roleInfo?.code || user.role.toUpperCase()}</div>
+            {user.role === 'staff' && (
+              <div style={{ marginTop: 12, width: '100%', display: 'grid', gap: 8 }}>
+                <div className="profile-page-role-chip" style={{ background: '#eef7ff', color: '#0b5cab' }}>
+                  Phòng ban: {roleInfo?.department || 'Chưa có'}
+                </div>
+                <div className="profile-page-role-chip" style={{ background: '#f6f1ff', color: '#6b21a8' }}>
+                  Vai trò: {roleInfo?.role_name || roleInfo?.job_description || roleInfo?.code || 'Chưa có'}
+                </div>
+                <div className="profile-page-role-chip" style={{ background: '#f4f7f6', color: '#276749' }}>
+                  Cấp bậc: {roleInfo?.rank === 'manager' ? 'Trưởng phòng' : 'Nhân viên'}
+                </div>
+              </div>
+            )}
             <h2>{user.full_name || user.username}</h2>
             <span className="profile-page-user-email">{user.email}</span>
             

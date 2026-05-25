@@ -59,8 +59,9 @@ const CheckinTab = () => {
   const [showCallExpiredModal, setShowCallExpiredModal] = useState(false); // Popup when call timer expires
   const [counterPaymentForm, setCounterPaymentForm] = useState({
     payment_method: 'cash',
-    amount: 0,
-    paid_at: new Date().toISOString().slice(0, 16)
+    amount_due: 0,
+    amount_received: 0,
+    change: 0
   });
 
   useEffect(() => {
@@ -98,6 +99,20 @@ const CheckinTab = () => {
     const minutes = Math.floor(safeSeconds / 60);
     const seconds = safeSeconds % 60;
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
+  const formatCurrency = (value) => {
+    try {
+      const num = Number(value) || 0;
+      return new Intl.NumberFormat('vi-VN').format(num);
+    } catch (e) {
+      return String(value);
+    }
+  };
+
+  const parseNumber = (str) => {
+    if (str === null || str === undefined) return 0;
+    return Number(String(str).replace(/[^0-9.-]+/g, '')) || 0;
   };
 
   const loadSpecialties = async () => {
@@ -490,6 +505,48 @@ const CheckinTab = () => {
     printWindow.print();
   };
 
+  const printBill = (appt, amount, received, change) => {
+    if (!appt) return;
+    const printWindow = window.open('', '_blank', 'width=600,height=800');
+    if (!printWindow) return;
+    const html = `
+      <html>
+      <head>
+        <title>Hoa don ${appt.code}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 16px; color: #111 }
+          .inv { max-width: 520px; margin: 0 auto; }
+          .h { text-align:center; font-weight:700; margin-bottom:12px }
+          .row { display:flex; justify-content:space-between; margin:6px 0 }
+          .total { font-size:18px; font-weight:800 }
+          .muted { color:#666; font-size:12px }
+        </style>
+      </head>
+      <body>
+        <div class="inv">
+          <div class="h">PHÒNG KHÁM - BIÊN NHẬN THANH TOÁN</div>
+          <div class="row"><div>Mã lịch:</div><div>${appt.code}</div></div>
+          <div class="row"><div>Bệnh nhân:</div><div>${getPatientName(appt)}</div></div>
+          <div class="row"><div>Dịch vụ:</div><div>${appt.Service?.name || '--'}</div></div>
+          <div class="row"><div>Ngày:</div><div>${new Date(appt.appointment_date).toLocaleDateString('vi-VN')}</div></div>
+          <div class="row"><div>Giờ:</div><div>${(appt.appointment_start_time||'').slice(0,5)}</div></div>
+          <hr />
+          <div class="row"><div>Tổng cần thu:</div><div class="total">${formatCurrency(amount)}</div></div>
+          <div class="row"><div>Khách đưa:</div><div>${formatCurrency(received)}</div></div>
+          <div class="row"><div>Tiền trả lại:</div><div>${formatCurrency(change)}</div></div>
+          <hr />
+          <div class="muted">Cảm ơn quý khách. Vui lòng giữ biên nhận này.</div>
+        </div>
+      </body>
+      </html>
+    `;
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   const handleCallNumber = async (appt) => {
     if (!appt?.code) return;
     if (!hasQueueNumber(appt)) {
@@ -701,16 +758,19 @@ const CheckinTab = () => {
     setCounterPaymentTarget(appt);
     setCounterPaymentForm({
       payment_method: 'cash',
-      amount: servicePrice,
-      paid_at: new Date().toISOString().slice(0, 16)
+      amount_due: servicePrice,
+      amount_received: servicePrice,
+      change: 0
     });
     setShowCounterPaymentModal(true);
   };
 
   const handleCounterPaymentSubmit = async () => {
     if (!counterPaymentTarget?.code) return;
-    const amount = Number(counterPaymentForm.amount || 0);
-    if (amount < 0) {
+    const amount = Number(counterPaymentForm.amount_due || 0);
+    const isCash = counterPaymentForm.payment_method === 'cash';
+    const received = isCash ? Number(counterPaymentForm.amount_received || 0) : amount;
+    if (amount < 0 || received < 0) {
       toast.warning('Số tiền không hợp lệ');
       return;
     }
@@ -721,14 +781,18 @@ const CheckinTab = () => {
         code: counterPaymentTarget.code,
         payment_method: counterPaymentForm.payment_method,
         amount,
-        paid_at: counterPaymentForm.paid_at
+        amount_received: received,
+        paid_at: new Date().toISOString()
       });
 
+      const paymentMethod = isCash ? 'cash' : 'bank_transfer';
+      const paymentStatus = isCash ? 'paid_at_clinic' : 'paid_online';
+
       const res = await appointmentService.updatePaymentInfo(counterPaymentTarget.code, {
-        payment_status: 'paid_at_clinic',
-        payment_method: counterPaymentForm.payment_method,
+        payment_status: paymentStatus,
+        payment_method: paymentMethod,
         amount,
-        paid_at: counterPaymentForm.paid_at
+        paid_at: new Date().toISOString()
       });
 
       if (res?.data?.success) {
@@ -1261,35 +1325,57 @@ const CheckinTab = () => {
             <div className="checkin-call-service">{counterPaymentTarget.Service?.name || '--'}</div>
 
             <div className="checkin-payment-form">
+              <label>Tiền cần thu</label>
+              <div className="checkin-input" style={{ fontSize: '20px', fontWeight: 700, padding: '8px' }}>
+                {formatCurrency(counterPaymentForm.amount_due)}
+              </div>
+
               <label htmlFor="counter-payment-method">Phương thức</label>
               <select
                 id="counter-payment-method"
                 className="checkin-input"
                 value={counterPaymentForm.payment_method}
-                onChange={(e) => setCounterPaymentForm({ ...counterPaymentForm, payment_method: e.target.value })}
+                onChange={(e) => {
+                  const nextMethod = e.target.value;
+                  const due = Number(counterPaymentForm.amount_due || 0);
+                  setCounterPaymentForm((prev) => ({
+                    ...prev,
+                    payment_method: nextMethod,
+                    amount_received: nextMethod === 'cash' ? prev.amount_received || due : due,
+                    change: nextMethod === 'cash' ? Math.max(0, (prev.amount_received || 0) - due) : 0
+                  }));
+                }}
               >
                 <option value="cash">Tiền mặt</option>
-                <option value="bank_transfer">Chuyển khoản</option>
+                <option value="bank_transfer">Chuyển khoản / QR</option>
               </select>
 
-              <label htmlFor="counter-payment-amount">Số tiền thực thu (VND)</label>
-              <input
-                id="counter-payment-amount"
-                type="number"
-                className="checkin-input"
-                min="0"
-                value={counterPaymentForm.amount}
-                onChange={(e) => setCounterPaymentForm({ ...counterPaymentForm, amount: e.target.value })}
-              />
+              {counterPaymentForm.payment_method === 'cash' ? (
+                <>
+                  <label htmlFor="counter-payment-amount">Khách đưa (VND)</label>
+                  <input
+                    id="counter-payment-amount"
+                    type="text"
+                    className="checkin-input"
+                    value={formatCurrency(counterPaymentForm.amount_received)}
+                    onChange={(e) => {
+                      const parsed = parseNumber(e.target.value);
+                      setCounterPaymentForm((prev) => ({
+                        ...prev,
+                        amount_received: parsed,
+                        change: Math.max(0, parsed - (prev.amount_due || 0))
+                      }));
+                    }}
+                  />
 
-              <label htmlFor="counter-payment-time">Thời điểm thu</label>
-              <input
-                id="counter-payment-time"
-                type="datetime-local"
-                className="checkin-input"
-                value={counterPaymentForm.paid_at}
-                onChange={(e) => setCounterPaymentForm({ ...counterPaymentForm, paid_at: e.target.value })}
-              />
+                  <label>Tiền thối</label>
+                  <div className="checkin-input" style={{ padding: '8px' }}>{formatCurrency(counterPaymentForm.change)}</div>
+                </>
+              ) : (
+                <div className="checkin-payment-hint">
+                  Chọn chuyển khoản / QR thì chỉ cần nhấn xác nhận đã thanh toán.
+                </div>
+              )}
             </div>
 
             <div className="checkin-call-actions">
@@ -1298,8 +1384,16 @@ const CheckinTab = () => {
                 type="button"
                 onClick={handleCounterPaymentSubmit}
                 disabled={submittingCounterPayment}
+                title="Xác nhận và lưu thanh toán"
               >
-                <FaCreditCard /> {submittingCounterPayment ? 'Đang lưu...' : 'Xác nhận thanh toán'}
+                <FaCreditCard /> {submittingCounterPayment ? 'Đang lưu...' : (counterPaymentForm.payment_method === 'cash' ? 'Xác nhận thanh toán' : 'Xác nhận đã thanh toán')}
+              </button>
+              <button
+                className="checkin-btn checkin-btn-secondary"
+                type="button"
+                onClick={() => printBill(counterPaymentTarget, counterPaymentForm.amount_due, counterPaymentForm.amount_received, counterPaymentForm.change)}
+              >
+                <FaPrint /> In bill
               </button>
               <button
                 className="checkin-btn checkin-btn-secondary"

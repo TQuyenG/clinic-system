@@ -4,6 +4,8 @@ const router = express.Router();
 const { authenticateToken, authorize } = require('../middleware/authMiddleware');
 const { models } = require('../config/db');
 const { Op } = require('sequelize');
+const PERMISSION_MODULES = require('../config/permissionModules');
+const { buildPermissionAuditDetails, getPermissionChanges } = require('../utils/permissionAudit');
 
 /**
  * GET /api/permissions/me
@@ -158,23 +160,23 @@ router.put('/staff/:staffId', authenticateToken, authorize('admin'), async (req,
     // Lưu permissions cũ để log
     const oldPermissions = staff.permissions || {};
 
+    const changedPermissions = getPermissionChanges(oldPermissions, permissions);
+
     // Cập nhật permissions
     staff.permissions = permissions;
     await staff.save();
 
     // Tạo Audit Log
     try {
+      const detailsPayload = buildPermissionAuditDetails(oldPermissions, permissions, { changed_at: new Date() });
+      console.log('[AUDIT DEBUG] Creating AuditLog (permissionRoutes) payload:', JSON.stringify(detailsPayload, null, 2));
       await models.AuditLog.create({
         user_id: adminId,
         action_type: 'permission_change',
         target_type: 'staff',
         target_id: staff.id,
         target_name: staff.user?.full_name || `Staff ${staff.id}`,
-        details: {
-          old_permissions: oldPermissions,
-          new_permissions: permissions,
-          changed_at: new Date()
-        },
+        details: detailsPayload,
         ip_address: req.ip
       });
     } catch (auditError) {
@@ -209,8 +211,6 @@ router.put('/staff/:staffId', authenticateToken, authorize('admin'), async (req,
  */
 router.get('/modules', authenticateToken, async (req, res) => {
   try {
-    const PERMISSION_MODULES = require('../config/permissionModules');
-
     res.json({
       success: true,
       data: PERMISSION_MODULES

@@ -1020,24 +1020,10 @@ exports.completePayment = async (req, res) => {
     await appointment.update(updateData, { transaction });
     console.log(`[completePayment] ✓ Payment status updated: ${newPaymentStatus}`);
 
-    // ─────────────────────────────────────────────────────────────
-    // 5. AUTO-GENERATE QUEUE (IF PAID AT CLINIC)
-    // ─────────────────────────────────────────────────────────────
+    // Note: Do NOT auto-generate clinical queue numbers when payment completes.
+    // Queue assignment must happen only at explicit check-in or when staff calls the number.
     if (isPaymentAtClinic) {
-      try {
-        console.log(`[completePayment] Generating queue numbers...`);
-        
-        // Refresh appointment to get latest data
-        const freshAppointment = await models.Appointment.findByPk(appointment.id, {
-          transaction
-        });
-
-        await appointmentHelper.autoGenerateQueueAfterPayment(freshAppointment, transaction);
-        console.log(`[completePayment] ✓ Queue generated: ${freshAppointment.display_queue}`);
-      } catch (queueError) {
-        console.error(`[completePayment] ⚠️ Queue generation failed:`, queueError.message);
-        // Don't rollback payment for queue error - log & continue
-      }
+      console.log('[completePayment] Payment recorded at clinic. Queue assignment deferred until check-in by reception.');
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -2814,7 +2800,7 @@ exports.updatePaymentInfo = async (req, res) => {
 
         if (doctorNotifications.length > 0) {
           await notificationHelper.createNotifications(doctorNotifications);
-          console.log(`[Appointment ${code}] Gửi thông báo xác nhận cho ${doctorNotifications.length} người`);
+          console.log(`[Appointment ${appointment.code}] Gửi thông báo xác nhận cho ${doctorNotifications.length} người`);
         }
       }
     }

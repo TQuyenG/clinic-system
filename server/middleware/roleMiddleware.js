@@ -132,6 +132,36 @@ const roleMiddleware = (requiredPermission = null, allowedRoles = []) => {
         const { department, rank, permissions } = staffProfile;
         let hasPermission = false;
 
+        const checkGenericModuleAction = (permissionCode) => {
+          if (!permissionCode || typeof permissionCode !== 'string' || !permissionCode.includes(':')) {
+            return false;
+          }
+
+          const [moduleKey, actionKey] = permissionCode.split(':');
+          if (!moduleKey || !actionKey || !permissions || typeof permissions !== 'object') {
+            return false;
+          }
+
+          const modulePermissions = permissions[moduleKey];
+          if (modulePermissions === true) {
+            return true;
+          }
+
+          if (Array.isArray(modulePermissions)) {
+            return modulePermissions.includes(actionKey);
+          }
+
+          if (modulePermissions && typeof modulePermissions === 'object') {
+            return modulePermissions[actionKey] === true;
+          }
+
+          return false;
+        };
+
+        if (checkGenericModuleAction(requiredPermission)) {
+          return next();
+        }
+
         // === MA TRẬN PHÂN QUYỀN THEO PERMISSION CODE ===
         
         switch (requiredPermission) {

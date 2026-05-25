@@ -1,5 +1,6 @@
 // client/src/pages/PharmacyStockPage.js
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   FaWarehouse, FaBoxes, FaPlus, FaSearch, FaExclamationTriangle,
@@ -51,7 +52,7 @@ const TRANSACTION_TYPES = {
 // ================================================================
 // MODAL: NHẬP KHO
 // ================================================================
-const ImportModal = ({ onClose, onSuccess, suppliers }) => {
+const ImportModal = ({ onClose, onSuccess, suppliers, initialMedicine = null }) => {
   const [medicines, setMedicines] = useState([]);
   const [medSearch, setMedSearch] = useState('');
   const [form, setForm] = useState({
@@ -60,6 +61,17 @@ const ImportModal = ({ onClose, onSuccess, suppliers }) => {
     import_price: '', supplier_id: '', import_date: fmtDateInput(new Date()), note: ''
   });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialMedicine?.id) {
+      setForm(f => ({
+        ...f,
+        medicine_id: initialMedicine.id,
+        medicine_name: initialMedicine.name || '',
+      }));
+      setMedSearch(initialMedicine.name || '');
+    }
+  }, [initialMedicine]);
 
   useEffect(() => {
     api.get('/pharmacy/medicines', { params: { search: medSearch, limit: 50 } })
@@ -361,6 +373,7 @@ const SupplierModal = ({ supplier, onClose, onSuccess }) => {
 // MAIN PAGE
 // ================================================================
 const PharmacyStockPage = () => {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('stock');
 
   // --- Stock tab state ---
@@ -374,6 +387,7 @@ const PharmacyStockPage = () => {
 
   // --- Import modal ---
   const [showImportModal, setShowImportModal] = useState(false);
+  const [importMedicine, setImportMedicine] = useState(null);
 
   // --- Transactions tab state ---
   const [transactions, setTransactions] = useState([]);
@@ -438,6 +452,15 @@ const PharmacyStockPage = () => {
   useEffect(() => { if (activeTab === 'transactions') loadTransactions(); }, [activeTab, loadTransactions]);
   useEffect(() => { if (activeTab === 'alerts') loadAlerts(); }, [activeTab, loadAlerts]);
   useEffect(() => { if (activeTab === 'suppliers') loadSuppliers(); }, [activeTab, loadSuppliers]);
+
+  useEffect(() => {
+    const state = location.state || {};
+    if (state.autoOpenImport) {
+      setActiveTab('import');
+      setImportMedicine(state.importMedicine || null);
+      setShowImportModal(true);
+    }
+  }, [location.state]);
 
   const handleDeleteSupplier = async (id) => {
     if (!window.confirm('Bạn chắc chắn muốn xóa nhà cung cấp này?')) return;
@@ -847,6 +870,7 @@ const PharmacyStockPage = () => {
           onClose={() => setShowImportModal(false)}
           onSuccess={loadStock}
           suppliers={suppliers.filter(s => s.status === 'active')}
+          initialMedicine={importMedicine}
         />
       )}
       {batchModalMed && (

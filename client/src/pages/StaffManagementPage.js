@@ -22,6 +22,7 @@ import HistoryTab from '../components/HistoryTab';
 import DepartmentAssignmentTab from '../components/DepartmentAssignmentTab';
 import { PERMISSION_MODULES } from '../config/permissionModules';
 import { useDepartmentColors } from '../contexts/DepartmentColorContext';
+import { getRoleProfile, findRoleProfileByPermissions } from '../config/departmentRoleProfiles';
 
 const DEPARTMENTS = {
   BGD: { name: 'Ban Giám Đốc', icon: <FaUserShield /> },
@@ -36,7 +37,7 @@ const DEPARTMENT_MODULE_ACCESS = {
   system: ['system_settings', 'staff_management', 'consultation_realtime', 'video_call'],
   clinical: ['work_shift', 'appointments', 'medical_records', 'consultations', 'schedule', 'medicines', 'diseases'],
   support: ['forum', 'community', 'contact'],
-  finance: ['payments', 'refund_requests', 'statistics'],
+  finance: ['payments', 'refund_requests', 'statistics', 'pharmacy'],
   content: ['articles', 'medicines', 'diseases', 'events_vouchers'],
   BGD: [] 
 };
@@ -110,26 +111,98 @@ const buildEmptyPermissionState = () => {
   }, {});
 };
 
-const normalizePermissionState = (permissions = {}) => {
+const LEGACY_MODULE_ALIASES = {
+  medicine: 'medicines',
+  medicines: 'medicines',
+  disease: 'diseases',
+  diseases: 'diseases',
+  article: 'articles',
+  articles: 'articles',
+  payment: 'payments',
+  payments: 'payments',
+  refund: 'refund_requests',
+  report: 'forum_reports',
+  reports: 'forum_reports',
+  topic: 'forum',
+  topics: 'forum',
+  question: 'forum',
+  questions: 'forum',
+  staff: 'staff_management'
+};
+
+const mapLegacyStringToModuleAction = (str) => {
+  // Accept formats: 'module.action', 'action_module', 'action_moduleplural', 'create_medicine'
+  if (typeof str !== 'string' || !str) return null;
+  if (str.includes('.')) {
+    const [m, a] = str.split('.');
+    if (PERMISSION_MODULES[m]) return { module: m, action: a };
+  }
+
+  // action_module pattern
+  const parts = str.split('_');
+  if (parts.length >= 2) {
+    const action = parts[0];
+    const moduleCandidate = parts.slice(1).join('_');
+    const mapped = LEGACY_MODULE_ALIASES[moduleCandidate] || Object.keys(PERMISSION_MODULES).find(k => k === moduleCandidate || k === `${moduleCandidate}s` || k === `${moduleCandidate}es`);
+    if (mapped) return { module: mapped, action };
+  }
+
+  // Fallback: if string equals action present in any module, return that module (first match)
+  for (const [moduleKey, module] of Object.entries(PERMISSION_MODULES)) {
+    if (module.permissions.some(p => p.key === str)) return { module: moduleKey, action: str };
+  }
+
+  return null;
+};
+
+const normalizeAndMapPermissions = (permissions = {}) => {
   const normalized = buildEmptyPermissionState();
 
-  Object.entries(permissions).forEach(([moduleKey, actions]) => {
-    if (!PERMISSION_MODULES[moduleKey]) return;
+  // If permissions is an array of strings (legacy flat list)
+  if (Array.isArray(permissions)) {
+    permissions.forEach(item => {
+      const mapped = mapLegacyStringToModuleAction(item);
+      if (mapped) {
+        if (!normalized[mapped.module]) normalized[mapped.module] = [];
+        if (!normalized[mapped.module].includes(mapped.action)) normalized[mapped.module].push(mapped.action);
+      }
+    });
+    return normalized;
+  }
 
-    if (Array.isArray(actions)) {
-      normalized[moduleKey] = actions.filter(action => typeof action === 'string' && action.trim() !== '');
-      return;
+  // If permissions is object: could be module->array/object or legacy action:true pairs
+  Object.entries(permissions).forEach(([key, val]) => {
+    // If key is a known module
+    if (PERMISSION_MODULES[key]) {
+      if (Array.isArray(val)) {
+        normalized[key] = val.filter(a => typeof a === 'string' && a.trim() !== '');
+        return;
+      }
+
+      if (val && typeof val === 'object') {
+        normalized[key] = Object.entries(val).filter(([, v]) => v === true).map(([a]) => a);
+        return;
+      }
+
+      if (val === true) {
+        normalized[key] = PERMISSION_MODULES[key].permissions.map(p => p.key);
+        return;
+      }
     }
 
-    if (actions && typeof actions === 'object') {
-      normalized[moduleKey] = Object.entries(actions)
-        .filter(([, value]) => value === true)
-        .map(([actionKey]) => actionKey);
-      return;
-    }
-
-    if (actions === true) {
-      normalized[moduleKey] = PERMISSION_MODULES[moduleKey].permissions.map(permission => permission.key);
+    // Otherwise treat key as legacy action name
+    const mapped = mapLegacyStringToModuleAction(key);
+    if (mapped) {
+      if (!normalized[mapped.module]) normalized[mapped.module] = [];
+      if (val === true) {
+        if (!normalized[mapped.module].includes(mapped.action)) normalized[mapped.module].push(mapped.action);
+      } else if (Array.isArray(val)) {
+        // unlikely, but handle
+        val.forEach(item => {
+          const am = typeof item === 'string' ? item : null;
+          if (am && !normalized[mapped.module].includes(am)) normalized[mapped.module].push(am);
+        });
+      }
     }
   });
 
@@ -317,6 +390,7 @@ const OverviewDashboard = ({
                   <th>Tên</th>
                   <th>Username</th>
                   <th>Email</th>
+                  <th>Vai trò</th>
                 </tr>
               </thead>
               <tbody>
@@ -332,6 +406,7 @@ const OverviewDashboard = ({
                     </td>
                     <td>{admin.username}</td>
                     <td>{admin.email || 'N/A'}</td>
+                    <td>Ban Giám Đốc</td>
                   </tr>
                 ))}
               </tbody>
@@ -410,6 +485,7 @@ const StaffManagementPage = () => {
   const [activeDepartment, setActiveDepartment] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRank, setFilterRank] = useState('all');
+  const [filterRoleProfile, setFilterRoleProfile] = useState('all');
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [loading, setLoading] = useState(false);
   
@@ -498,22 +574,7 @@ const StaffManagementPage = () => {
   // Update temp permissions when selected staff changes
   useEffect(() => {
     if (selectedStaff) {
-      let perms = normalizePermissionState(selectedStaff.permissions || {});
-      // Nếu là trưởng phòng CSKH/Content thì auto set đủ quyền forum
-      if (
-        selectedStaff.rank === 'manager' &&
-        (selectedStaff.department === 'support' || selectedStaff.department === 'content')
-      ) {
-        // Lấy danh sách quyền forum chuẩn
-        const forumModule = PERMISSION_MODULES['forum'];
-        if (forumModule) {
-          perms = {
-            ...perms,
-            forum: forumModule.permissions.map(permission => permission.key)
-          };
-        }
-      }
-      setTempPermissions(perms);
+      setTempPermissions(normalizeAndMapPermissions(selectedStaff.permissions || {}));
       if (selectedStaff.managed_doctors?.doctor_ids) {
         setSelectedDoctorIds(selectedStaff.managed_doctors.doctor_ids);
       } else {
@@ -609,6 +670,38 @@ const StaffManagementPage = () => {
     } catch (error) {
       console.error('Load specialties error:', error);
     }
+  };
+
+  const getStaffRoleLabel = (staff) => {
+    if (!staff) return '';
+
+    const roleInfo = staff.role_info || staff.roleInfo || staff.role_meta || null;
+    const roleProfileCode = roleInfo?.role_profile || staff.role_profile || null;
+    const roleProfileName = roleInfo?.role_name || roleInfo?.job_description || null;
+    const matchedProfile = roleInfo?.role_profile
+      ? getRoleProfile(staff.department, roleInfo.role_profile)
+      : findRoleProfileByPermissions(staff.department, staff.permissions, staff.job_description);
+
+    if (roleProfileName) return roleProfileName;
+    if (matchedProfile?.name) return matchedProfile.name;
+    if (roleProfileCode) {
+      const dept = staff.department;
+      const profile = getRoleProfile(dept, roleProfileCode);
+      if (profile) return profile.name;
+      return roleProfileCode;
+    }
+
+    return staff.job_description || '';
+  };
+
+  const getStaffRoleProfileCode = (staff) => {
+    if (!staff) return '';
+    const roleInfo = staff.role_info || staff.roleInfo || staff.role_meta || null;
+    const matchedProfile = roleInfo?.role_profile
+      ? getRoleProfile(staff.department, roleInfo.role_profile)
+      : findRoleProfileByPermissions(staff.department, staff.permissions, staff.job_description);
+
+    return roleInfo?.role_profile || staff.role_profile || matchedProfile?.code || '';
   };
 
   const updateStaffPermissions = async (staffId, permissions) => {
@@ -732,9 +825,33 @@ const StaffManagementPage = () => {
         s.User?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.code?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchRank = filterRank === 'all' || s.rank === filterRank;
-      return matchSearch && matchRank;
+      const roleProfileCode = getStaffRoleProfileCode(s);
+      const matchRoleProfile = filterRoleProfile === 'all' || roleProfileCode === filterRoleProfile;
+      return matchSearch && matchRank && matchRoleProfile;
     });
-  }, [activeDepartment, staffByDepartment, searchTerm, filterRank, adminUsers, PERMISSION_MODULES]);
+  }, [activeDepartment, staffByDepartment, searchTerm, filterRank, filterRoleProfile, adminUsers, PERMISSION_MODULES]);
+
+  const availableRoleProfiles = useMemo(() => {
+    if (activeDepartment === 'overview' || activeDepartment === 'assignment' || activeDepartment === 'history') {
+      return [];
+    }
+
+    const staff = staffByDepartment[activeDepartment] || [];
+    const codes = new Set();
+
+    staff.forEach(item => {
+      const roleCode = getStaffRoleProfileCode(item);
+      if (roleCode) codes.add(roleCode);
+    });
+
+    return Array.from(codes).map(code => {
+      const role = getRoleProfile(activeDepartment, code);
+      return {
+        code,
+        name: role?.name || code
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  }, [activeDepartment, staffByDepartment]);
 
   const managers = useMemo(() => currentDepartmentStaff.filter(s => s.rank === 'manager'), [currentDepartmentStaff]);
   const normalStaff = useMemo(() => currentDepartmentStaff.filter(s => s.rank === 'staff'), [currentDepartmentStaff]);
@@ -766,9 +883,10 @@ const StaffManagementPage = () => {
       csvContent += `Ngày tạo:,${reportData.generatedAt}\n\n`;
       
       if (activeDepartment !== 'overview') {
-        csvContent += "STT,Họ tên,Mã NV,Email,Chức vụ,Trạng thái\n";
+        csvContent += "STT,Họ tên,Mã NV,Email,Chức vụ,Vai trò,Trạng thái\n";
         currentDepartmentStaff.forEach((staff, index) => {
-          csvContent += `${index + 1},${staff.User?.full_name || staff.username},${staff.code},${staff.User?.email || 'N/A'},${getRankLabel(staff.rank)},${staff.work_status === 'active' ? 'Hoạt động' : 'Không hoạt động'}\n`;
+          const roleLabel = getStaffRoleLabel(staff) || '';
+          csvContent += `${index + 1},${staff.User?.full_name || staff.username},${staff.code},${staff.User?.email || 'N/A'},${getRankLabel(staff.rank)},${roleLabel},${staff.work_status === 'active' ? 'Hoạt động' : 'Không hoạt động'}\n`;
         });
       }
 
@@ -810,6 +928,19 @@ const StaffManagementPage = () => {
                <option value="manager">Manager</option>
                <option value="staff">Staff</option>
              </select>
+
+             <select
+               value={filterRoleProfile}
+               onChange={e => setFilterRoleProfile(e.target.value)}
+               style={{padding: '4px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px'}}
+             >
+               <option value="all">Tất cả vai trò con</option>
+               {availableRoleProfiles.map(profile => (
+                 <option key={profile.code} value={profile.code}>
+                   {profile.name}
+                 </option>
+               ))}
+             </select>
            </div>
         </div>
         
@@ -841,14 +972,10 @@ const StaffManagementPage = () => {
                        </div>
                        <div className="staff-info">
                         <strong>{staff.User?.full_name || staff.username}</strong>
-                        {/* Sửa dòng dưới để hiện vai trò nếu là Tài chính */}
+                        {/* Hiển thị vai trò con nếu có */}
                         <span style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                           {staff.code} | 
-                           {staff.department === 'finance' && staff.job_description ? (
-                             <span style={{color: '#2e7d32', fontWeight: '500'}}>{staff.job_description}</span>
-                           ) : (
-                             'Staff'
-                           )}
+                          {staff.code} |
+                          <span style={{color: '#2e7d32', fontWeight: '500'}}>{getRankLabel(staff.rank)} | {getStaffRoleLabel(staff) || ''}</span>
                         </span>
                       </div>
                        <StatusBadge status={staff.work_status} />
@@ -875,7 +1002,7 @@ const StaffManagementPage = () => {
                        </div>
                        <div className="staff-info">
                          <strong>{staff.User?.full_name || staff.username}</strong>
-                         <span>{staff.code} | Manager</span>
+                        <span>{staff.code} | {getRankLabel(staff.rank)} | {getStaffRoleLabel(staff) || 'Manager'}</span>
                        </div>
                        <StatusBadge status={staff.work_status} />
                      </div>
@@ -901,7 +1028,7 @@ const StaffManagementPage = () => {
                        </div>
                        <div className="staff-info">
                          <strong>{staff.User?.full_name || staff.username}</strong>
-                         <span>{staff.code} | Staff</span>
+                         <span>{staff.code} | {getRankLabel(staff.rank)} | {getStaffRoleLabel(staff) || 'Staff'}</span>
                        </div>
                        <StatusBadge status={staff.work_status} />
                      </div>
@@ -1057,14 +1184,9 @@ const StaffManagementPage = () => {
                                         <h2 style={{margin:0, fontSize: 18}}>{selectedStaff.User?.full_name || selectedStaff.username}</h2>
                                         {/* --- SỬA ĐOẠN NÀY --- */}
                                     <p style={{margin:0, color:'#666', fontSize: 13, display: 'flex', alignItems: 'center', gap: '6px'}}>
-                                        {/* Nếu là tài chính thì ưu tiên hiện Job Description (Vai trò) */}
-                                        {selectedStaff.department === 'finance' && selectedStaff.job_description ? (
-                                            <span style={{fontWeight: 'bold', color: '#2e7d32'}}>{selectedStaff.job_description}</span>
-                                        ) : (
-                                            getRankLabel(selectedStaff.rank)
-                                        )}
+                                        <span style={{fontWeight: 'bold', color: '#2e7d32'}}>{getRankLabel(selectedStaff.rank)} | {getStaffRoleLabel(selectedStaff) || ''}</span>
                                         <span>|</span>
-                                        <span>{DEPARTMENTS[activeDepartment]?.name}</span>
+                                        <span>{DEPARTMENTS[selectedStaff.department]?.name || DEPARTMENTS[activeDepartment]?.name}</span>
                                     </p>
                                     {/* ------------------- */}
                                     </div>
@@ -1123,6 +1245,10 @@ const StaffManagementPage = () => {
                                       
                                       <div style={{color: '#666'}}>Ngày tham gia:</div>
                                       <div>{new Date(selectedStaff.created_at).toLocaleDateString('vi-VN')}</div>
+                                    </div>
+                                    <div style={{display: 'grid', gridTemplateColumns: '120px 1fr', gap: '12px', fontSize: '13px', marginTop: '8px'}}>
+                                      <div style={{color: '#666'}}>Vai trò:</div>
+                                      <div>{getStaffRoleLabel(selectedStaff) || selectedStaff.job_description || ''}</div>
                                     </div>
                                     
                                     {selectedStaff.job_description && (

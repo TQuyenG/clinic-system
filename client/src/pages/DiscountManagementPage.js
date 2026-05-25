@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import marketingService from '../services/marketingService';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import usePermissions from '../hooks/usePermissions';
 import './DiscountManagementPage.css';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -52,6 +53,12 @@ const INIT_WHEEL_FORM = {
 const DiscountManagementPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
+  const canCreateVoucher = hasPermission('events_vouchers', 'create_voucher');
+  const canEditVoucher = hasPermission('events_vouchers', 'edit_voucher');
+  const canDeleteVoucher = hasPermission('events_vouchers', 'delete_voucher');
+  const canCreateGame = hasPermission('events_vouchers', 'create_game');
+  const canConfigRewards = hasPermission('events_vouchers', 'config_rewards');
   const [activeTab,        setActiveTab]        = useState('vouchers');
   const [promotions,       setPromotions]       = useState([]);
   const [loading,          setLoading]          = useState(false);
@@ -85,6 +92,10 @@ const DiscountManagementPage = () => {
   }, [activeTab, fetchLoyaltyConfig]);
 
   const handleSaveLoyaltyConfig = async () => {
+    if (!canConfigRewards) {
+      showToast('Bạn chưa có quyền lưu cấu hình điểm thưởng', 'error');
+      return;
+    }
     setSavingLoyalty(true);
     try {
       const res = await api.put('/marketing/loyalty-config', loyaltyConfig);
@@ -170,7 +181,7 @@ const DiscountManagementPage = () => {
   // Tự động mở modal tạo voucher nếu navigate từ trang vòng quay
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('action') === 'create' && params.get('type') === 'wheel') {
+    if (params.get('action') === 'create' && params.get('type') === 'wheel' && canCreateGame) {
       setActiveTab('game');
       setEditingPromo(null);
       setFormData({
@@ -184,7 +195,7 @@ const DiscountManagementPage = () => {
       // Xóa params khỏi URL để không bị mở lại khi refresh
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+  }, [canCreateGame]);
 
   // ✅ Fetch wheel events khi vào tab wheel
   const fetchWheelEvents = useCallback(async () => {
@@ -226,6 +237,7 @@ const DiscountManagementPage = () => {
   const openCreate = () => {
     const isWheel = activeTab === 'wheel' || activeTab === 'game';
     const isExchange = activeTab === 'exchange';
+    if (isWheel ? !canCreateGame : !canCreateVoucher) return;
     setEditingPromo(null);
     setFormData({
       ...INIT_FORM,
@@ -239,6 +251,7 @@ const DiscountManagementPage = () => {
   };
 
   const openEdit = (promo) => {
+    if (!canEditVoucher) return;
     setEditingPromo(promo);
     // parse applicable_ids từ string DB → array
     const ids = promo.applicable_ids
@@ -274,6 +287,10 @@ const DiscountManagementPage = () => {
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (editingPromo ? !canEditVoucher : (!formData.is_game_reward ? !canCreateVoucher : !canCreateGame)) {
+      showToast('Bạn chưa có quyền thao tác mục này', 'error');
+      return;
+    }
     if (!formData.start_date || !formData.end_date) {
       showToast('Vui lòng chọn ngày bắt đầu và kết thúc', 'error'); return;
     }
@@ -309,6 +326,7 @@ const DiscountManagementPage = () => {
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!confirmDelete) return;
+    if (!canDeleteVoucher) return showToast('Bạn chưa có quyền xóa voucher', 'error');
     try {
       await marketingService.deletePromotion(confirmDelete);
       showToast('Đã xóa khuyến mãi');
@@ -319,6 +337,7 @@ const DiscountManagementPage = () => {
 
   // ── Toggle active ─────────────────────────────────────────────────────────
   const handleToggle = async (promo) => {
+    if (!canEditVoucher) return;
     try {
       const res = await marketingService.togglePromotion(promo.id);
       if (res.success) {
@@ -354,12 +373,14 @@ const DiscountManagementPage = () => {
   const totalProb = wheelForm.prizes.reduce((s, p) => s + parseFloat(p.probability || 0), 0);
 
   const openCreateWheel = () => {
+    if (!canCreateGame) return;
     setEditingWheel(null);
     setWheelForm(INIT_WHEEL_FORM);
     setShowWheelModal(true);
   };
 
   const openEditWheel = (ev) => {
+    if (!canEditVoucher && !canCreateGame) return;
     setEditingWheel(ev);
     const toLocalDT = (d) => d ? new Date(new Date(d).getTime() - new Date(d).getTimezoneOffset()*60000).toISOString().slice(0,16) : '';
     setWheelForm({
@@ -387,6 +408,10 @@ const DiscountManagementPage = () => {
 
   const handleWheelSubmit = async (e) => {
     e.preventDefault();
+    if (editingWheel ? !canEditVoucher : !canCreateGame) {
+      showToast('Bạn chưa có quyền thao tác vòng quay', 'error');
+      return;
+    }
     if (Math.abs(totalProb - 100) > 0.5)
       return showToast(`Tổng tỷ lệ = ${totalProb.toFixed(1)}% (phải đúng 100%)`, 'error');
     setWheelSubmitting(true);
@@ -406,6 +431,7 @@ const DiscountManagementPage = () => {
   };
 
   const handleToggleWheel = async (ev) => {
+    if (!canEditVoucher && !canCreateGame) return;
     try {
       const res = await marketingService.toggleWheelEvent(ev.id);
       if (res.success) { showToast(res.message); fetchWheelEvents(); }
@@ -414,6 +440,7 @@ const DiscountManagementPage = () => {
 
   const handleDeleteWheel = async (id) => {
     if (!window.confirm('Xóa vòng quay này?')) return;
+    if (!canDeleteVoucher && !canCreateGame) return showToast('Bạn chưa có quyền xóa vòng quay', 'error');
     try {
       await marketingService.deleteWheelEvent(id);
       showToast('Đã xóa vòng quay');
@@ -510,7 +537,7 @@ const DiscountManagementPage = () => {
         <div className="discount-management-page-loyalty-config-zone">
           <div className="dmp-section-title" style={{ marginTop: 0, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>⚙️ Cấu hình hệ thống tích điểm & Thưởng danh</span>
-            <button className="dmp-btn dmp-btn--primary" style={{ padding: '6px 12px', fontSize: '13px' }} onClick={handleSaveLoyaltyConfig} disabled={savingLoyalty}>
+            <button className="dmp-btn dmp-btn--primary" style={{ padding: '6px 12px', fontSize: '13px' }} onClick={handleSaveLoyaltyConfig} disabled={savingLoyalty || !canConfigRewards}>
               {savingLoyalty ? '⏳ Đang lưu...' : '💾 Lưu cấu hình'}
             </button>
           </div>
@@ -550,9 +577,11 @@ const DiscountManagementPage = () => {
               />
             </div>
             <div className="discount-management-page-toolbar-actions">
-              <button className="dmp-btn dmp-btn--primary" onClick={openCreate}>
-                {activeTab === 'exchange' ? '+ Thêm quà đổi điểm' : '+ Thêm mới'}
-              </button>
+              {((activeTab === 'wheel' || activeTab === 'game') ? canCreateGame : canCreateVoucher) && (
+                <button className="dmp-btn dmp-btn--primary" onClick={openCreate}>
+                  {activeTab === 'exchange' ? '+ Thêm quà đổi điểm' : '+ Thêm mới'}
+                </button>
+              )}
             </div>
           </div>
 
@@ -664,8 +693,8 @@ const DiscountManagementPage = () => {
                       </td>
                       <td className="discount-management-page-center">
                         <div className="discount-management-page-actions">
-                          <button className="discount-management-page-icon-btn discount-management-page-icon-btn--edit" onClick={() => openEdit(p)} title="Sửa">✏️</button>
-                          <button className="discount-management-page-icon-btn discount-management-page-icon-btn--del"  onClick={() => setConfirmDelete(p.id)} title="Xóa">🗑️</button>
+                          {canEditVoucher && <button className="discount-management-page-icon-btn discount-management-page-icon-btn--edit" onClick={() => openEdit(p)} title="Sửa">✏️</button>}
+                          {canDeleteVoucher && <button className="discount-management-page-icon-btn discount-management-page-icon-btn--del"  onClick={() => setConfirmDelete(p.id)} title="Xóa">🗑️</button>}
                         </div>
                       </td>
                     </tr>
@@ -963,7 +992,7 @@ const DiscountManagementPage = () => {
               Mỗi sự kiện = 1 vòng quay độc lập. Tổng tỷ lệ các ô phải bằng <b>100%</b>.
             </div>
             <div className="discount-management-page-toolbar-actions">
-              <button className="dmp-btn dmp-btn--primary" onClick={openCreateWheel}>🎡 Tạo Vòng Quay Mới</button>
+              {canCreateGame && <button className="dmp-btn dmp-btn--primary" onClick={openCreateWheel}>🎡 Tạo Vòng Quay Mới</button>}
             </div>
           </div>
 
@@ -1031,16 +1060,17 @@ const DiscountManagementPage = () => {
                         })()}
                       </td>
                       <td className="discount-management-page-center">
-                        <button
+                          <button
                           className={`discount-management-page-toggle ${ev.is_active ? 'discount-management-page-toggle--on' : 'discount-management-page-toggle--off'}`}
                           onClick={() => handleToggleWheel(ev)}
+                          disabled={!canEditVoucher && !canCreateGame}
                         ><span className="discount-management-page-toggle-knob" /></button>
                       </td>
                       <td className="discount-management-page-center">
                         <div className="discount-management-page-actions">
                           <button className="discount-management-page-icon-btn" style={{ background: '#f0fdf4' }} onClick={() => handleViewWinners(ev.id)} title="Xem người trúng">🏆</button>
-                          <button className="discount-management-page-icon-btn discount-management-page-icon-btn--edit" onClick={() => openEditWheel(ev)} title="Sửa">✏️</button>
-                          <button className="discount-management-page-icon-btn discount-management-page-icon-btn--del"  onClick={() => handleDeleteWheel(ev.id)} title="Xóa">🗑️</button>
+                          {(canEditVoucher || canCreateGame) && <button className="discount-management-page-icon-btn discount-management-page-icon-btn--edit" onClick={() => openEditWheel(ev)} title="Sửa">✏️</button>}
+                          {(canDeleteVoucher || canCreateGame) && <button className="discount-management-page-icon-btn discount-management-page-icon-btn--del"  onClick={() => handleDeleteWheel(ev.id)} title="Xóa">🗑️</button>}
                         </div>
                       </td>
                     </tr>
@@ -1357,7 +1387,7 @@ const DiscountManagementPage = () => {
 
               <div className="dmp-modal__footer">
                 <button type="button" className="dmp-btn dmp-btn--ghost" onClick={() => setShowWheelModal(false)}>Hủy</button>
-                <button type="submit" className="dmp-btn dmp-btn--primary" disabled={wheelSubmitting || Math.abs(totalProb-100)>0.5}>
+                <button type="submit" className="dmp-btn dmp-btn--primary" disabled={wheelSubmitting || Math.abs(totalProb-100)>0.5 || (editingWheel ? !canEditVoucher : !canCreateGame)}>
                   {wheelSubmitting ? '⏳ Đang lưu...' : editingWheel ? '💾 Cập nhật' : '🎡 Tạo vòng quay'}
                 </button>
               </div>

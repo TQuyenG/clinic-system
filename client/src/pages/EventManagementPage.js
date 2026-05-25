@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import systemService from '../services/systemService'; // Import thêm service hệ thống
+import usePermissions from '../hooks/usePermissions';
 import {
   FaPlus, FaEdit, FaTrash, FaEye, FaCopy,
   FaToggleOn, FaToggleOff, FaFileExport, FaImage,
@@ -40,6 +41,10 @@ const EVENT_CATEGORIES = {
 
 const EventManagementPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
+  const canCreateEvent = hasPermission('events_vouchers', 'create_event');
+  const canEditEvent = hasPermission('events_vouchers', 'edit_event');
+  const canDeleteEvent = hasPermission('events_vouchers', 'delete_event');
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -198,6 +203,10 @@ const EventManagementPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (editingEvent ? !canEditEvent : !canCreateEvent) {
+      alert('Bạn chưa có quyền thao tác với sự kiện này.');
+      return;
+    }
     try {
       if (editingEvent) {
         await api.put(`/marketing/events/${editingEvent.id}`, formData);
@@ -215,6 +224,7 @@ const EventManagementPage = () => {
   };
 
   const handleEdit = (event) => {
+    if (!canEditEvent) return;
     setEditingEvent(event);
     setCurrentStep(1); // Reset lại bước 1
     setFormData({
@@ -265,6 +275,7 @@ const EventManagementPage = () => {
   };
 
   const handleToggleStatus = async (id) => {
+    if (!canEditEvent) return;
     try {
       await api.put(`/marketing/events/${id}/toggle`);
       fetchEvents();
@@ -274,6 +285,7 @@ const EventManagementPage = () => {
   };
 
   const handleDuplicate = async (id) => {
+    if (!canCreateEvent) return;
     try {
       await api.post(`/marketing/events/${id}/duplicate`);
       fetchEvents();
@@ -342,9 +354,11 @@ const EventManagementPage = () => {
           <button onClick={handleExport} className="emp-btn emp-btn--secondary">
             <FaFileExport /> Xuất
           </button>
-          <button onClick={() => { resetForm(); setShowModal(true); }} className="emp-btn emp-btn--primary">
-            <FaPlus /> Thêm mới
-          </button>
+          {canCreateEvent && (
+            <button onClick={() => { resetForm(); setShowModal(true); }} className="emp-btn emp-btn--primary">
+              <FaPlus /> Thêm mới
+            </button>
+          )}
         </div>
       </div>
 
@@ -476,13 +490,17 @@ const EventManagementPage = () => {
                   <td>{event.views || 0}</td>
                   <td>{event.clicks || 0}</td>
                   <td>
-                    <button
-                      onClick={() => handleToggleStatus(event.id)}
-                      className={`emp-toggle ${event.is_active ? 'emp-toggle--on' : 'emp-toggle--off'}`}
-                    >
-                      {event.is_active ? <FaToggleOn /> : <FaToggleOff />}
-                      {event.is_active ? 'Bật' : 'Tắt'}
-                    </button>
+                    {canEditEvent ? (
+                      <button
+                        onClick={() => handleToggleStatus(event.id)}
+                        className={`emp-toggle ${event.is_active ? 'emp-toggle--on' : 'emp-toggle--off'}`}
+                      >
+                        {event.is_active ? <FaToggleOn /> : <FaToggleOff />}
+                        {event.is_active ? 'Bật' : 'Tắt'}
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 12, color: '#94a3b8' }}>Chỉ xem</span>
+                    )}
                   </td>
                   <td>
                     {event.status && WORKFLOW_STATUSES[event.status] ? (
@@ -516,27 +534,33 @@ const EventManagementPage = () => {
                       >
                         <FaVideo />
                       </button>
-                      <button
-                        className="emp-action-btn"
-                        title="Sửa"
-                        onClick={() => handleEdit(event)}
-                      >
-                        <FaEdit />
-                      </button>
-                      <button
-                        className="emp-action-btn"
-                        title="Nhân bản"
-                        onClick={() => handleDuplicate(event.id)}
-                      >
-                        <FaCopy />
-                      </button>
-                      <button
-                        className="emp-action-btn emp-action-btn--delete"
-                        title="Xóa"
-                        onClick={() => handleDelete(event.id)}
-                      >
-                        <FaTrash />
-                      </button>
+                      {canEditEvent && (
+                        <button
+                          className="emp-action-btn"
+                          title="Sửa"
+                          onClick={() => handleEdit(event)}
+                        >
+                          <FaEdit />
+                        </button>
+                      )}
+                      {canCreateEvent && (
+                        <button
+                          className="emp-action-btn"
+                          title="Nhân bản"
+                          onClick={() => handleDuplicate(event.id)}
+                        >
+                          <FaCopy />
+                        </button>
+                      )}
+                      {canDeleteEvent && (
+                        <button
+                          className="emp-action-btn emp-action-btn--delete"
+                          title="Xóa"
+                          onClick={() => handleDelete(event.id)}
+                        >
+                          <FaTrash />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -597,8 +621,8 @@ const EventManagementPage = () => {
                       <div className="emp-kanban-card__actions" onClick={e => e.stopPropagation()}>
                         <button className="emp-kanban-card__btn" onClick={() => navigate(`/su-kien/${event.slug}`)}>Xem</button>
                         <button className="emp-kanban-card__btn" style={{color: '#7c3aed'}} onClick={() => navigate(`/su-kien/${event.id}/dieu-phoi`)}>Điều phối</button>
-                        <button className="emp-kanban-card__btn" onClick={() => handleEdit(event)}>Sửa</button>
-                        <button className="emp-kanban-card__btn emp-kanban-card__btn--danger" onClick={() => handleDelete(event.id)}>Xóa</button>
+                        {canEditEvent && <button className="emp-kanban-card__btn" onClick={() => handleEdit(event)}>Sửa</button>}
+                        {canDeleteEvent && <button className="emp-kanban-card__btn emp-kanban-card__btn--danger" onClick={() => handleDelete(event.id)}>Xóa</button>}
                       </div>
                     </div>
                   ))}
@@ -1015,7 +1039,7 @@ const EventManagementPage = () => {
                 {currentStep < 4 ? (
                   <button type="button" className="emp-btn emp-btn--primary" onClick={(e) => { e.preventDefault(); nextStep(); }}>Tiếp tục →</button>
                 ) : (
-                  <button type="submit" className="emp-btn emp-btn--primary" style={{backgroundColor: '#059669'}}>
+                  <button type="submit" className="emp-btn emp-btn--primary" style={{backgroundColor: '#059669'}} disabled={editingEvent ? !canEditEvent : !canCreateEvent}>
                     {editingEvent ? '💾 Hoàn tất cập nhật' : '🚀 Tạo sự kiện ngay'}
                   </button>
                 )}

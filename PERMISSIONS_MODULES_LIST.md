@@ -2,7 +2,7 @@
  * DANH SÁCH MODULES VÀ PERMISSIONS CHI TIẾT
  * ========================================
  * 
- * 22 Modules với tổng cộng 127+ permissions chi tiết
+ * 24 Modules với tổng cộng 136+ permissions chi tiết
  * Mỗi permission có: key (code), label (UI), description
  * 
  * HOW TO USE:
@@ -77,14 +77,25 @@
    - delete: Xóa (Manager)
    - propose_update: Đề xuất cập nhật
    
-8. 🏥 diseases - Thông tin bệnh lý
+8. 🏪 pharmacy - Kho thuốc
+   - view: Xem tồn kho
+   - import: Nhập kho
+   - export_retail: Bán lẻ
+   - export_prescription: Bán theo đơn
+   - view_batches: Xem lô thuốc
+   - view_transactions: Xem lịch sử giao dịch
+   - manage_suppliers: Quản lý nhà cung cấp (Manager)
+   - view_alerts: Xem cảnh báo tồn kho
+   - adjust_stock: Điều chỉnh tồn kho (Manager)
+
+9. 🏥 diseases - Thông tin bệnh lý
    - view: Xem danh sách
    - create: Tạo mới (Manager)
    - edit: Sửa (Manager)
    - delete: Xóa (Manager)
    - propose_update: Đề xuất cập nhật
    
-9. 💬 consultations - Tư vấn trực tuyến
+10. 💬 consultations - Tư vấn trực tuyến
    - view: Xem danh sách
    - create: Tạo mới
    - edit: Sửa

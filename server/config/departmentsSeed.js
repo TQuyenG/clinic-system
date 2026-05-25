@@ -5,7 +5,8 @@
  * Chạy sau khi đã có users và staff trong DB
  */
 
-const { getPermissionsTemplate } = require('./departmentPermissions');
+const { getPermissionsTemplate, mapLegacyPermissionsToCanonical } = require('./departmentPermissions');
+const { getDepartmentRoleProfiles, getRoleProfile } = require('./departmentRoleProfiles');
 
 const departmentsSeedData = [
   {
@@ -50,21 +51,21 @@ const staffDepartmentAssignments = [
     username: 'clinicmanager',
     department: 'clinical',
     rank: 'manager',
-    job_description: 'Trưởng phòng vận hành lâm sàng, quản lý đội ngũ bác sĩ và lịch khám',
+    job_description: 'Quản lý bác sĩ, lịch khám và hoạt động lâm sàng',
     permissions: null // Sẽ auto-fill từ template
   },
   {
     username: 'clinicstaff1',
     department: 'clinical',
     rank: 'staff',
-    job_description: 'Nhân viên vận hành, hỗ trợ quản lý lịch hẹn và bác sĩ',
+    job_description: 'Quản lý bác sĩ, lịch khám và hồ sơ bệnh án',
     permissions: null
   },
   {
     username: 'clinicstaff2',
     department: 'clinical',
     rank: 'staff',
-    job_description: 'Nhân viên vận hành, hỗ trợ quản lý bệnh nhân',
+    job_description: 'Quản lý bác sĩ, lịch khám và hồ sơ bệnh án',
     permissions: null
   },
 
@@ -73,14 +74,15 @@ const staffDepartmentAssignments = [
     username: 'systemmanager',
     department: 'system',
     rank: 'manager',
-    job_description: 'Trưởng phòng IT, quản lý hệ thống và công nghệ',
+    job_description: 'Quản trị cấu hình, phân quyền và giám sát hệ thống',
     permissions: null
   },
   {
     username: 'systemstaff1',
     department: 'system',
     rank: 'staff',
-    job_description: 'Kỹ thuật viên IT, hỗ trợ cấu hình hệ thống',
+    role_profile: 'it_support',
+    job_description: 'Hỗ trợ vận hành hệ thống, xem log và cấu hình cơ bản',
     permissions: null
   },
 
@@ -89,21 +91,23 @@ const staffDepartmentAssignments = [
     username: 'supportmanager',
     department: 'support',
     rank: 'manager',
-    job_description: 'Trưởng phòng CSKH, quản lý đội ngũ hỗ trợ khách hàng',
+    job_description: 'Quản lý toàn bộ hoạt động lễ tân và CSKH',
     permissions: null
   },
   {
     username: 'supportstaff1',
     department: 'support',
     rank: 'staff',
-    job_description: 'Nhân viên CSKH, giải đáp thắc mắc khách hàng',
+    role_profile: 'receptionist_frontdesk',
+    job_description: 'Lễ tân tại quầy, check-in, tiếp đón và hỗ trợ đặt lịch',
     permissions: null
   },
   {
     username: 'supportstaff2',
     department: 'support',
     rank: 'staff',
-    job_description: 'Nhân viên CSKH, quản lý tư vấn trực tuyến',
+    role_profile: 'customer_care',
+    job_description: 'Hỗ trợ khách hàng, xử lý phản hồi và tin nhắn',
     permissions: null
   },
 
@@ -112,14 +116,15 @@ const staffDepartmentAssignments = [
     username: 'financemanager',
     department: 'finance',
     rank: 'manager',
-    job_description: 'Trưởng phòng tài chính, quản lý doanh thu và chi phí',
+    job_description: 'Quản lý thanh toán, doanh thu và báo cáo tài chính',
     permissions: null
   },
   {
     username: 'financestaff1',
     department: 'finance',
     rank: 'staff',
-    job_description: 'Kế toán viên, xử lý thanh toán',
+    role_profile: 'cashier',
+    job_description: 'Thu tiền, xác nhận thanh toán tại quầy',
     permissions: null
   },
 
@@ -128,21 +133,23 @@ const staffDepartmentAssignments = [
     username: 'contentmanager',
     department: 'content',
     rank: 'manager',
-    job_description: 'Trưởng phòng nội dung, quản lý bài viết và truyền thông',
+    job_description: 'Duyệt, xuất bản và kiểm duyệt nội dung',
     permissions: null
   },
   {
     username: 'contentstaff1',
     department: 'content',
     rank: 'staff',
-    job_description: 'Biên tập viên, viết và chỉnh sửa bài viết',
+    role_profile: 'writer',
+    job_description: 'Viết và chỉnh sửa bài viết, đề xuất cập nhật nội dung y tế',
     permissions: null
   },
   {
     username: 'contentstaff2',
     department: 'content',
     rank: 'staff',
-    job_description: 'Nhân viên nội dung, quản lý media',
+    role_profile: 'writer',
+    job_description: 'Viết và chỉnh sửa bài viết, đề xuất cập nhật nội dung y tế',
     permissions: null
   }
 ];
@@ -190,15 +197,28 @@ async function seedDepartmentsAndPermissions(models) {
         continue;
       }
 
+      const departmentProfiles = getDepartmentRoleProfiles(assignment.department);
+      const firstRoleProfileCode = Object.keys(departmentProfiles || {})[0] || null;
+      const roleProfileCode = assignment.role_profile || (assignment.rank === 'staff' ? firstRoleProfileCode : null);
+      const profile = roleProfileCode ? getRoleProfile(assignment.department, roleProfileCode) : null;
+
       // Lấy permissions template
-      const permissions = assignment.permissions || 
-        getPermissionsTemplate(assignment.department, assignment.rank);
+      let permissions = assignment.permissions || profile?.permissions || getPermissionsTemplate(assignment.department, assignment.rank);
+
+      // Nếu assignment.permissions có dữ liệu legacy (array of strings hoặc object legacy),
+      // chuyển sang canonical module->array format để lưu vào DB nhất quán
+      if (assignment.permissions) {
+        const mapped = mapLegacyPermissionsToCanonical(assignment.permissions);
+        // Nếu mapper trả về non-empty, dùng mapped; ngược lại giữ nguyên permissions
+        if (mapped && Object.keys(mapped).length > 0) permissions = mapped;
+      }
 
       // Cập nhật staff
       await staff.update({
         department: assignment.department,
         rank: assignment.rank,
-        job_description: assignment.job_description,
+        role_profile: roleProfileCode,
+        job_description: profile?.job_description || assignment.job_description,
         permissions: permissions
       });
 

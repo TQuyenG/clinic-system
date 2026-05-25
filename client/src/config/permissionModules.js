@@ -1,7 +1,7 @@
 /**
  * client/src/config/permissionModules.js
  * ========================================
- * Định nghĩa tất cả 23 MODULES và 130+ PERMISSIONS trong hệ thống
+ * Định nghĩa tất cả 24 MODULES và 136+ PERMISSIONS trong hệ thống
  * Sử dụng React Icons cho icon hiển thị
  * 
  * Cấu trúc:
@@ -19,7 +19,8 @@ import {
   FaCalendarAlt, FaClipboardList, FaUserMd, FaBed, FaFileAlt, FaNewspaper,
   FaWarehouse, FaStethoscope, FaRegComments, FaMoneyBillWave, FaMoneyCheckAlt,
   FaChartBar, FaBriefcaseMedical, FaThList, FaBullhorn, FaEnvelope, FaCogs,
-  FaUsers, FaVideo, FaCommentDots, FaHeadset
+  FaUsers, FaVideo, FaCommentDots, FaFlag, FaHeadset, FaPills, FaFileImport,
+  FaReceipt, FaBoxes, FaTruck, FaExclamationTriangle
 } from 'react-icons/fa';
 
 export const PERMISSION_MODULES = {
@@ -92,9 +93,9 @@ export const PERMISSION_MODULES = {
   // 2. LỊCH HẸN & TIẾP ĐÓN
   // ========================================
   appointments: {
-    name: 'Lịch hẹn & Tiếp đón',
+    name: 'Lịch hẹn',
     icon: FaClipboardList,
-    description: 'Quản lý lịch hẹn khám, check-in, tiếp đón bệnh nhân',
+    description: 'Quản lý lịch hẹn khám (tạo/sửa/hủy, phân công bác sĩ)',
     permissions: [
       { 
         key: 'view', 
@@ -290,12 +291,34 @@ export const PERMISSION_MODULES = {
       { key: 'create', label: 'Tạo mới', description: 'Thêm thuốc mới', allowedRanks: ['manager'] },
       { key: 'edit', label: 'Sửa', description: 'Chỉnh sửa thông tin thuốc', allowedRanks: ['manager'] },
       { key: 'delete', label: 'Xóa', description: 'Xóa thuốc khỏi cơ sở dữ liệu', allowedRanks: ['manager'] },
+      { key: 'hide', label: 'Ẩn', description: 'Ẩn thuốc khỏi UI công khai (soft hide)', allowedRanks: ['manager'] },
+      { key: 'restore', label: 'Khôi phục', description: 'Khôi phục thuốc đã bị ẩn', allowedRanks: ['manager'] },
       { key: 'propose_update', label: 'Đề xuất cập nhật', description: 'Đề xuất thay đổi thông tin thuốc', allowedRanks: ['staff', 'doctor'] }
     ]
   },
 
   // ========================================
-  // 8. THÔNG TIN BỆNH LÝ
+  // 8. PHARMACY / KHO THUỐC
+  // ========================================
+  pharmacy: {
+    name: 'Kho thuốc',
+    icon: FaPills,
+    description: 'Quản lý tồn kho thuốc, nhập kho, bán lẻ và cảnh báo hết hàng',
+    permissions: [
+      { key: 'view', label: 'Xem tồn kho', description: 'Xem danh sách thuốc trong kho', allowedRanks: ['staff', 'manager'] },
+      { key: 'import', label: 'Nhập kho', description: 'Nhập thuốc theo lô và hạn dùng', allowedRanks: ['staff', 'manager'] },
+      { key: 'export_retail', label: 'Bán lẻ', description: 'Bán thuốc cho khách lẻ tại quầy', allowedRanks: ['staff', 'manager'] },
+      { key: 'export_prescription', label: 'Bán theo đơn', description: 'Xuất thuốc theo đơn thuốc đã lưu', allowedRanks: ['staff', 'manager'] },
+      { key: 'view_batches', label: 'Xem lô thuốc', description: 'Xem chi tiết từng lô và hạn dùng', allowedRanks: ['staff', 'manager'] },
+      { key: 'view_transactions', label: 'Xem lịch sử giao dịch', description: 'Xem nhập xuất kho theo thời gian', allowedRanks: ['staff', 'manager'] },
+      { key: 'manage_suppliers', label: 'Quản lý nhà cung cấp', description: 'Quản lý danh sách nhà cung cấp thuốc', allowedRanks: ['manager'] },
+      { key: 'view_alerts', label: 'Xem cảnh báo tồn kho', description: 'Xem cảnh báo hết hàng / tồn thấp / sắp hết hạn', allowedRanks: ['staff', 'manager'] },
+      { key: 'adjust_stock', label: 'Điều chỉnh tồn kho', description: 'Điều chỉnh chênh lệch tồn kho sau kiểm kê', allowedRanks: ['manager'] }
+    ]
+  },
+
+  // ========================================
+  // 9. THÔNG TIN BỆNH LÝ
   // ========================================
   diseases: {
     name: 'Thông tin bệnh lý',
@@ -306,12 +329,14 @@ export const PERMISSION_MODULES = {
       { key: 'create', label: 'Tạo mới', description: 'Thêm bệnh lý mới', allowedRanks: ['manager'] },
       { key: 'edit', label: 'Sửa', description: 'Chỉnh sửa thông tin bệnh lý', allowedRanks: ['manager'] },
       { key: 'delete', label: 'Xóa', description: 'Xóa bệnh lý', allowedRanks: ['manager'] },
+      { key: 'hide', label: 'Ẩn', description: 'Ẩn bệnh lý khỏi UI công khai (soft hide)', allowedRanks: ['manager'] },
+      { key: 'restore', label: 'Khôi phục', description: 'Khôi phục bệnh lý đã bị ẩn', allowedRanks: ['manager'] },
       { key: 'propose_update', label: 'Đề xuất cập nhật', description: 'Đề xuất thay đổi', allowedRanks: ['staff', 'doctor'] }
     ]
   },
 
   // ========================================
-  // 9. TƯ VẤN & VIDEO CALL
+  // 10. TƯ VẤN & VIDEO CALL
   // ========================================
   consultations: {
     name: 'Tư vấn trực tuyến',
@@ -374,10 +399,30 @@ export const PERMISSION_MODULES = {
       { key: 'edit_topic', label: 'Sửa chuyên mục', description: 'Chỉnh sửa chuyên mục', allowedRanks: ['manager'] },
       { key: 'delete_topic', label: 'Xóa chuyên mục', description: 'Xóa chuyên mục', allowedRanks: ['manager'] },
       { key: 'hide_topic', label: 'Ẩn chuyên mục', description: 'Ẩn chuyên mục khỏi công khai', allowedRanks: ['manager'] },
+      { key: 'view_questions', label: 'Xem câu hỏi', description: 'Xem danh sách câu hỏi', allowedRanks: ['staff', 'manager'] },
+      { key: 'create_question', label: 'Tạo câu hỏi', description: 'Tạo câu hỏi mới', allowedRanks: ['staff', 'manager'] },
+      { key: 'comment_question', label: 'Bình luận', description: 'Trả lời hoặc bình luận câu hỏi', allowedRanks: ['staff', 'manager'] },
+      { key: 'save_question', label: 'Lưu câu hỏi', description: 'Lưu câu hỏi để xử lý sau', allowedRanks: ['staff', 'manager'] },
+      { key: 'interact_question', label: 'Tương tác', description: 'Tương tác với câu hỏi', allowedRanks: ['staff', 'manager'] },
+      { key: 'report_question', label: 'Báo cáo', description: 'Báo cáo câu hỏi vi phạm', allowedRanks: ['staff', 'manager'] },
+      { key: 'search_question', label: 'Tìm kiếm', description: 'Tìm kiếm câu hỏi', allowedRanks: ['staff', 'manager'] },
       { key: 'approve_question', label: 'Phê duyệt câu hỏi', description: 'Phê duyệt câu hỏi từ cộng đồng', allowedRanks: ['manager'] },
-      { key: 'delete_question', label: 'Xóa câu hỏi', description: 'Xóa câu hỏi vi phạm', allowedRanks: ['manager'] },
       { key: 'hide_question', label: 'Ẩn câu hỏi', description: 'Ẩn câu hỏi khỏi công khai', allowedRanks: ['manager'] },
-      { key: 'moderate', label: 'Kiểm duyệt', description: 'Kiểm duyệt bình luận, nội dung', allowedRanks: ['manager'] }
+      { key: 'delete_question', label: 'Xóa câu hỏi', description: 'Xóa câu hỏi vi phạm', allowedRanks: ['manager'] },
+      { key: 'moderate_questions', label: 'Kiểm duyệt', description: 'Kiểm duyệt bình luận, nội dung', allowedRanks: ['manager'] }
+    ]
+  },
+
+  // Reports management for forum
+  forum_reports: {
+    name: 'Báo cáo diễn đàn',
+    icon: FaFlag,
+    description: 'Xem và xử lý báo cáo vi phạm trên diễn đàn',
+    permissions: [
+      { key: 'view_reports', label: 'Xem báo cáo', description: 'Xem danh sách báo cáo từ người dùng', allowedRanks: ['staff', 'manager'] },
+      { key: 'handle_reports', label: 'Xử lý báo cáo', description: 'Xử lý/hủy/ẩn/xóa báo cáo', allowedRanks: ['manager'] },
+      { key: 'assign_moderators', label: 'Phân moderator', description: 'Phân công moderator cho topic', allowedRanks: ['manager'] },
+      { key: 'toggle_topic', label: 'Bật/tắt chuyên mục', description: 'Bật/tắt hiển thị chuyên mục', allowedRanks: ['manager'] }
     ]
   },
 
@@ -407,6 +452,7 @@ export const PERMISSION_MODULES = {
       { key: 'verify', label: 'Xác nhận', description: 'Xác nhận giao dịch', allowedRanks: ['staff', 'manager'] },
       { key: 'approve', label: 'Phê duyệt', description: 'Phê duyệt giao dịch', allowedRanks: ['manager'] },
       { key: 'refund', label: 'Hoàn tiền', description: 'Xử lý hoàn tiền', allowedRanks: ['manager'] },
+      { key: 'config_refund', label: 'Cấu hình hoàn tiền', description: 'Cấu hình quy trình hoàn tiền', allowedRanks: ['manager'] },
       { key: 'export', label: 'Xuất báo cáo', description: 'Xuất báo cáo thanh toán', allowedRanks: ['manager'] }
     ]
   },
@@ -511,6 +557,7 @@ export const PERMISSION_MODULES = {
       { key: 'edit_about', label: 'Sửa About', description: 'Chỉnh sửa trang giới thiệu', allowedRanks: ['manager'] },
       { key: 'edit_facilities', label: 'Sửa cơ sở vật chất', description: 'Chỉnh sửa thông tin cơ sở', allowedRanks: ['manager'] },
       { key: 'edit_equipment', label: 'Sửa trang bị', description: 'Chỉnh sửa danh sách thiết bị', allowedRanks: ['manager'] },
+      { key: 'edit_header_footer', label: 'Sửa Header/Footer', description: 'Chỉnh sửa header và footer', allowedRanks: ['manager'] },
       { key: 'edit_contact', label: 'Sửa thông tin liên hệ', description: 'Chỉnh sửa địa chỉ, điện thoại...', allowedRanks: ['manager'] },
       { key: 'edit_privacy', label: 'Sửa Privacy Policy', description: 'Chỉnh sửa chính sách bảo mật', allowedRanks: ['manager'] },
       { key: 'edit_terms', label: 'Sửa Terms & Conditions', description: 'Chỉnh sửa điều khoản sử dụng', allowedRanks: ['manager'] },

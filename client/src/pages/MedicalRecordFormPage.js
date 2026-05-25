@@ -2,7 +2,7 @@
 // FILE MỚI - Trang Nhập/Cập nhật Hồ sơ Y tế (BS/Admin)
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import appointmentService from '../services/appointmentService';
@@ -25,6 +25,7 @@ import {
   FaFileImage, FaFilePdf, FaFileWord, FaTimes,
   FaSun, FaCloudSun, FaMoon, FaInfoCircle, FaBolt
 } from 'react-icons/fa';
+import { FaPills } from 'react-icons/fa';
 
 // ─── helpers dùng chung trong SubServiceInline ───────────────────────────────
 const formatDateISO = (date) => {
@@ -1336,6 +1337,7 @@ const MedicalRecordFormPage = ({ embeddedCode = null, embeddedConsultationId = n
               {isSavingDraft ? <FaSpinner className="medical-record-form-page-spin-icon-small" /> : <FaSave />}
               Lưu nháp
             </button>
+            {/* Prescription button intentionally removed: doctors prescribe only; pharmacy staff handle dispensing. */}
             <button
               type="submit"
               className="medical-record-form-page-btn-submit"

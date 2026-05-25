@@ -34,7 +34,7 @@ export const useForumPermissions = () => {
         canDeleteTopic: true,
         canModerateQuestions: true,
         hasAnyPermission: true,
-        forumPermissions: ['create_topic', 'edit_topic', 'toggle_topic', 'delete_topic', 'moderate_questions']
+        forumPermissions: ['view_topics', 'create_topic', 'edit_topic', 'hide_topic', 'delete_topic', 'view_questions', 'create_question', 'comment_question', 'save_question', 'interact_question', 'report_question', 'search_question', 'approve_question', 'hide_question', 'delete_question', 'moderate_questions']
       };
     }
 
@@ -52,7 +52,7 @@ export const useForumPermissions = () => {
           canDeleteTopic: true,
           canModerateQuestions: true,
           hasAnyPermission: true,
-          forumPermissions: ['create_topic', 'edit_topic', 'toggle_topic', 'delete_topic', 'moderate_questions']
+          forumPermissions: ['view_topics', 'create_topic', 'edit_topic', 'hide_topic', 'delete_topic', 'view_questions', 'create_question', 'comment_question', 'save_question', 'interact_question', 'report_question', 'search_question', 'approve_question', 'hide_question', 'delete_question', 'moderate_questions']
         };
       }
     }
@@ -76,15 +76,17 @@ export const useForumPermissions = () => {
             const permsArray = Array.isArray(forumPerms) ? forumPerms : [];
 
       return {
-        canCreateTopic: permsArray.includes('create_topic'),
+        canCreateTopic: permsArray.includes('create_topic') || permsArray.includes('create_question'),
         canEditTopic: permsArray.includes('edit_topic'),
         canToggleTopic: permsArray.includes('hide_topic'),     // Ẩn topic
-        canDeleteTopic: permsArray.includes('delete_topic'),
+        canDeleteTopic: permsArray.includes('delete_topic') || permsArray.includes('delete_question'),
         // CSKH chỉ cần 3 quyền này cho câu hỏi
         canModerateQuestions: 
+          permsArray.includes('moderate_questions') ||
           permsArray.includes('approve_question') ||
           permsArray.includes('hide_question') ||
-          permsArray.includes('delete_question'),
+          permsArray.includes('delete_question') ||
+          permsArray.includes('comment_question'),
         hasAnyPermission: permsArray.length > 0,
         forumPermissions: permsArray
       };

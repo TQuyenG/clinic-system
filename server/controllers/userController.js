@@ -8,6 +8,7 @@ const { Op, Sequelize } = require('sequelize');
 const { models, sequelize } = require('../config/db');
 const { User, Patient, Doctor, Staff, Admin, Specialty } = models; 
 const { getPermissionsTemplate } = require('../config/departmentPermissions');
+const { findRoleProfileByPermissions } = require('../config/departmentRoleProfiles');
 const { sendVerificationEmail, sendOTPEmail, sendPasswordResetEmail, sendPasswordResetRequestEmail, sendAccountVerifiedEmail   } = require('../utils/emailSender');
 // Lưu trữ tạm thời số lần đăng nhập sai
 const loginAttempts = new Map();
@@ -409,13 +410,21 @@ exports.login = async (req, res, next) => {
     if (user.role === 'staff') {
       const staffProfile = await models.Staff.findOne({ where: { user_id: user.id } });
       if (staffProfile) {
+        const matchedProfile = findRoleProfileByPermissions(
+          staffProfile.department,
+          staffProfile.permissions,
+          staffProfile.job_description
+        );
         extraProfile.staff = staffProfile;       // Để Frontend truy cập user.staff
         extraProfile.department = staffProfile.department; // Để Frontend truy cập user.department
         //  THÊM: role_info với permissions để frontend dễ access
         extraProfile.role_info = {
           department: staffProfile.department,
           rank: staffProfile.rank,
-          permissions: staffProfile.permissions
+          permissions: staffProfile.permissions,
+          role_profile: matchedProfile?.code || null,
+          role_name: matchedProfile?.name || staffProfile.job_description || null,
+          job_description: staffProfile.job_description || null
         };
       }
     } else if (user.role === 'doctor') {
@@ -2188,11 +2197,19 @@ exports.getMyRoleInfo = async (req, res) => {
     }
     else if (user.role === 'staff' && user.Staff) {
       roleData = user.Staff;
+      const matchedProfile = findRoleProfileByPermissions(
+        user.Staff.department,
+        user.Staff.permissions,
+        user.Staff.job_description
+      );
       // THÊM: Trả về role_info với permissions mới nhất từ DB
       role_info = {
         department: user.Staff.department,
         rank: user.Staff.rank,
-        permissions: user.Staff.permissions
+        permissions: user.Staff.permissions,
+        role_profile: matchedProfile?.code || null,
+        role_name: matchedProfile?.name || user.Staff.job_description || null,
+        job_description: user.Staff.job_description || null
       };
     }
 

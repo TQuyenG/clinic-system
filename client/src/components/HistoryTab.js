@@ -8,6 +8,8 @@ import {
   FaFilePdf, FaFileExcel, FaArrowRight, FaClock,
   FaCheckCircle, FaTimesCircle
 } from 'react-icons/fa';
+import { getPermissionAuditChanges } from '../utils/permissionAudit';
+import ROLE_PROFILES from '../config/departmentRoleProfiles';
 import './HistoryTab.css';
 
 const HistoryTab = () => {
@@ -271,11 +273,12 @@ const HistoryTab = () => {
     try {
       const parsed = typeof details === 'object' ? details : JSON.parse(details);
       
-      // **MỚI: Xử lý permission_changes từ backend (array string chi tiết)**
-      if (parsed.permission_changes && Array.isArray(parsed.permission_changes)) {
+      // **MỚI: Xử lý permission_changes / changed từ backend (array string chi tiết)**
+      const permissionChanges = getPermissionAuditChanges(parsed);
+      if (Array.isArray(permissionChanges) && permissionChanges.length > 0) {
         return (
           <div className="history-tab-details">
-            {parsed.permission_changes.map((change, idx) => (
+            {permissionChanges.map((change, idx) => (
               <div key={idx} className="history-tab-details-item">
                 • {change}
               </div>
@@ -407,7 +410,7 @@ const HistoryTab = () => {
       // Handle other types of changes
       if (typeof parsed === 'object') {
         const items = [];
-        Object.entries(parsed).forEach(([key, value]) => {
+          Object.entries(parsed).forEach(([key, value]) => {
           // Skip processed keys
           if (key === 'permissions' || key === 'permission_changes' || key === 'permission_update') {
             return;
@@ -435,6 +438,27 @@ const HistoryTab = () => {
           }
 
           if (typeof value === 'object' && value !== null && 'old' in value && 'new' in value) {
+            // Special handling for role_profile to display human name when possible
+            if (key === 'role_profile') {
+              const findName = (code) => {
+                if (!code) return null;
+                for (const dept of Object.values(ROLE_PROFILES)) {
+                  for (const p of Object.values(dept)) {
+                    if (p.code === code) return p.name;
+                  }
+                }
+                return null;
+              };
+              const oldName = findName(value.old) || value.old || null;
+              const newName = findName(value.new) || value.new || null;
+              items.push(
+                <div key={key} className="history-tab-details-item">
+                  <FaArrowRight style={{color: '#2196F3', marginRight: '4px'}} />
+                  Vai trò: <strong>{oldName || 'Không có'}</strong> → <strong>{newName || 'Không có'}</strong>
+                </div>
+              );
+              return;
+            }
             // Special handling for department changes
             if (key === 'department') {
               const deptNames = {

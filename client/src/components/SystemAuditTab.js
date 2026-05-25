@@ -10,6 +10,7 @@ import {
   FaCheckCircle, FaTimesCircle
 } from 'react-icons/fa';
 import './HistoryTab.css'; // Reuse same CSS
+import { getPermissionAuditChanges, parsePermissionAuditDetails } from '../utils/permissionAudit';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -104,7 +105,20 @@ const SystemAuditTab = () => {
     if (!details) return <span className="history-tab-details">Không có chi tiết</span>;
     
     try {
-      const parsed = typeof details === 'object' ? details : JSON.parse(details);
+      const parsed = parsePermissionAuditDetails(details) || {};
+
+      const permissionChanges = getPermissionAuditChanges(parsed);
+      if (permissionChanges.length > 0) {
+        return (
+          <div className="history-tab-details">
+            {permissionChanges.map((change, idx) => (
+              <div key={idx} className="history-tab-details-item">
+                • {change}
+              </div>
+            ))}
+          </div>
+        );
+      }
       
       // Handle page update with updated_fields
       if (parsed.page && parsed.updated_fields) {

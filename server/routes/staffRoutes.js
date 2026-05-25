@@ -29,6 +29,13 @@ router.get('/permissions-template/:departmentCode',
   staffController.getPermissionsTemplate
 );
 
+// Lấy role profiles theo phòng ban
+router.get('/role-profiles/:departmentCode',
+  authenticateToken,
+  authorize('admin', 'staff'),
+  staffController.getRoleProfiles
+);
+
 // Lấy danh sách nhân viên theo phòng ban
 router.get('/by-department/:departmentCode',
   authenticateToken,

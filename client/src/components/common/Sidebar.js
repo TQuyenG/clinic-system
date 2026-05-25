@@ -52,8 +52,6 @@ const Sidebar = ({ onToggle }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isScrolled, setIsScrolled] = useState(false);
-  
-  //  THÊM: Hook kiểm tra permissions
   const { canAccessModule, isAdmin, hasPermission, refreshPermissions } = usePermissions(); // <--- THÊM refreshPermissions VÀO ĐÂY
   const currentRole = String((user?.role || user?.role_info?.role || user?.roleData?.role) || '').toLowerCase();
   const isAdminUser = currentRole === 'admin' || user?.is_admin === true || user?.role === 'admin';
@@ -68,8 +66,10 @@ const Sidebar = ({ onToggle }) => {
     canAccessModule('doctors') ||
     canAccessModule('patients')
   );
-  const canSeeConsultationMenu = isAdminUser || isDoctorUser || isSupportStaffWithAccess;
-  const canSeeServiceMenu = isAdminUser || isDoctorUser || isSupportStaffWithAccess || canAccessModule('appointments');
+  // TEMP: tạm ẩn menu Tiếp đón/Check-in
+  const TEMP_HIDE_RECEPTION_MENU = true;
+  const canSeeConsultationMenu = isAdminUser || isDoctorUser || canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call');
+  const canSeeServiceMenu = isAdminUser || isDoctorUser || canAccessModule('services') || canAccessModule('service_categories') || canAccessModule('appointments');
   
   // Dropdown states
   const [isServiceMenuOpen, setServiceMenuOpen] = useState(false);
@@ -81,6 +81,7 @@ const Sidebar = ({ onToggle }) => {
   const [isPromotionMenuOpen, setPromotionMenuOpen] = useState(false);
   const [isStaffMenuOpen, setStaffMenuOpen] = useState(false);
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
+  const [isPharmacyStockMenuOpen, setPharmacyStockMenuOpen] = useState(false);
   
   const location = useLocation();
   const { refetchUser } = useAuth();
@@ -180,6 +181,9 @@ const Sidebar = ({ onToggle }) => {
     }
     if (location.pathname.startsWith('/quan-ly-thanh-toan')) {
       setPaymentMenuOpen(true);
+    }
+    if (location.pathname.startsWith('/quan-ly-kho-thuoc')) {
+      setPharmacyStockMenuOpen(true);
     }
     if (location.pathname === '/quan-ly-bai-viet' || location.pathname === '/medicines' || location.pathname === '/diseases') {
       setArticleMenuOpen(true);
@@ -341,7 +345,8 @@ const Sidebar = ({ onToggle }) => {
 
     if (isAdminUser || isStaffUser || isDoctorUser) {
       // Doctors go to personal appointments; admin/staff keep the management page
-      addIf(isAdminUser || canAccessModule('appointments') || hasPermission('payments', 'pos'), { id: 'manage_reception', type: 'item', to: '/quay-tiep-don', icon: FaHeadset, label: 'Tiếp đón / Check-in' });
+      // Temporarily hide reception/checkin menu regardless of permissions
+      addIf(!TEMP_HIDE_RECEPTION_MENU && (isAdminUser || canAccessModule('reception') || hasPermission('payments', 'pos')), { id: 'manage_reception', type: 'item', to: '/quay-tiep-don', icon: FaHeadset, label: 'Tiếp đón / Check-in' });
       addIf(canAccessModule('doctors') || canAccessModule('patients') || canAccessModule('staff_management') || isAdminUser, { id: 'manage_users', type: 'dropdown', icon: FaUsers, label: 'Quản lý người dùng' });
       // Doctors go to personal schedule, admin and users with work_shift permission go to management page
       const canManageWorkSchedule = isAdminUser || canAccessModule('work_shift');
@@ -350,11 +355,19 @@ const Sidebar = ({ onToggle }) => {
       addIf(isDoctorUser || isStaffUser || isAdminUser, { id: 'work_schedule', type: 'item', to: schedulePagePath, icon: FaCalendarCheck, label: schedulePageLabel });
       addIf(canSeeConsultationMenu || canAccessModule('consultations') || canAccessModule('consultation_pricing') || canAccessModule('consultation_realtime') || canAccessModule('video_call'), { id: 'manage_consultations', type: 'dropdown', icon: FaRegComments, label: 'Quản lý Tư vấn' });
       addIf(canSeeServiceMenu || canAccessModule('services') || canAccessModule('service_categories') || canAccessModule('appointments'), { id: 'manage_services', type: 'dropdown', icon: FaBriefcaseMedical, label: 'Quản lý dịch vụ' });
-      addIf(canAccessModule('articles'), { id: 'manage_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: [
-        { to: '/quan-ly-bai-viet', label: 'Bài viết' },
-        { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' },
-        { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' }
-      ]});
+      const articleItems = [
+        canAccessModule('articles') ? { to: '/quan-ly-bai-viet', label: 'Bài viết' } : null,
+        canAccessModule('medicines') ? { to: '/quan-ly-thuoc', label: 'Thông tin thuốc' } : null,
+        canAccessModule('diseases') ? { to: '/quan-ly-benh-ly', label: 'Thông tin bệnh lý' } : null,
+      ].filter(Boolean);
+      addIf(articleItems.length > 0, { id: 'manage_articles', type: 'dropdownItems', icon: FaNewspaper, label: 'Quản lý Bài viết', items: articleItems });
+
+      const pharmacyItems = [
+        ...(isAdminUser ? [{ to: '/quan-ly-kho-thuoc', label: 'Tồn kho & nhập kho' }] : []),
+        ...(canAccessModule('pharmacy') ? [{ to: '/quan-ly-kho-thuoc/ban-thuoc', label: 'Bán thuốc' }] : [])
+      ].filter(Boolean);
+      addIf(pharmacyItems.length > 0, { id: 'pharmacy_stock_admin', type: 'dropdownItems', icon: FaWarehouse, label: 'Quản lý Kho Thuốc', items: pharmacyItems });
+
       addIf(canAccessModule('forum') || canAccessModule('community'), { id: 'manage_forum', type: 'dropdownItems', icon: FaCommentDots, label: 'Quản lý Diễn đàn & Cộng đồng', items: [
         ...(canAccessModule('forum') ? [{ to: '/quan-ly-dien-dan', label: 'Quản lý diễn đàn' }] : []),
         ...(canAccessModule('community') ? [{ to: '/quan-ly-nhom-cong-dong', label: 'Quản lý nhóm cộng đồng' }] : [])
@@ -369,21 +382,16 @@ const Sidebar = ({ onToggle }) => {
       addIf(true, { id: 'admin_stats', type: 'item', to: '/thong-ke', icon: FaChartPie, label: 'Thống kê' });
       addIf(true, { id: 'admin_specialties', type: 'item', to: '/quan-ly-chuyen-khoa', icon: FaStethoscope, label: 'Quản lý chuyên khoa' });
       addIf(true, { id: 'admin_categories', type: 'item', to: '/quan-ly-danh-muc', icon: FaThList, label: 'Quản lý danh mục' });
-      addIf(true, { id: 'pharmacy_stock_admin', type: 'item', to: '/quan-ly-kho-thuoc', icon: FaWarehouse, label: 'Quản lý Kho Thuốc' });
-      addIf(true, { id: 'manage_marketing', type: 'dropdownItems', icon: FaBullhorn, label: 'Quản lý Tiếp thị & Sự kiện', items: [
+
+      addIf(canAccessModule('events_vouchers'), { id: 'manage_marketing', type: 'dropdownItems', icon: FaBullhorn, label: 'Quản lý Tiếp thị & Sự kiện', items: [
         { to: '/quan-ly-su-kien', label: 'Quản lý Sự kiện' },
-        { to: '/quan-ly-khuyen-mai', label: 'Mã giảm giá & Game' }
+        { to: '/quan-ly-khuyen-mai', label: 'Mã giảm giá & Game' },
+        { to: '/quan-ly-voucher', label: 'Quản lý Voucher' }
       ]});
     }
 
     if (!isAdminUser && canAccessModule('statistics')) {
       addIf(true, { id: 'stats_overview', type: 'item', to: '/thong-ke', icon: FaChartPie, label: 'Thống kê' });
-    }
-
-    if (user && user.role === 'marketing') {
-      items.push({ id: 'marketing_dashboard', type: 'item', to: '/marketing-dashboard', icon: FaBullhorn, label: 'Bảng điều khiển Marketing' });
-      items.push({ id: 'event_management', type: 'item', to: '/quan-ly-su-kien', icon: FaGift, label: 'Quản lý sự kiện' });
-      items.push({ id: 'promotion_management', type: 'item', to: '/quan-ly-khuyen-mai', icon: FaGamepad, label: 'Quản lý khuyến mãi' });
     }
 
     // Normalize/dedupe saved-articles items: treat saved_articles_staff as the same
@@ -669,28 +677,33 @@ const Sidebar = ({ onToggle }) => {
               )}
 
               {item.type === 'dropdownItems' && (
-                <MenuDropdownItems
-                  icon={item.icon}
-                  label={item.label}
-                  isOpen={
-                    item.id === 'manage_articles'
-                      ? isArticleMenuOpen
-                      : item.id === 'manage_forum'
-                      ? isForumMenuOpen
-                      : item.id === 'manage_marketing'
-                      ? isMarketingMenuOpen
-                      : item.id === 'patient_promotions'
-                      ? isPromotionMenuOpen
-                      : false
-                  }
-                  onToggle={() => {
-                    if (item.id === 'manage_articles') setArticleMenuOpen(!isArticleMenuOpen);
-                    else if (item.id === 'manage_forum') setForumMenuOpen(!isForumMenuOpen);
-                    else if (item.id === 'manage_marketing') setMarketingMenuOpen(!isMarketingMenuOpen);
-                    else if (item.id === 'patient_promotions') setPromotionMenuOpen(!isPromotionMenuOpen);
-                  }}
-                  items={item.items}
-                />
+                Array.isArray(item.items) && item.items.length > 0 && (
+                  <MenuDropdownItems
+                    icon={item.icon}
+                    label={item.label}
+                    isOpen={
+                      item.id === 'manage_articles'
+                        ? isArticleMenuOpen
+                        : item.id === 'manage_forum'
+                        ? isForumMenuOpen
+                        : item.id === 'manage_marketing'
+                        ? isMarketingMenuOpen
+                        : item.id === 'patient_promotions'
+                        ? isPromotionMenuOpen
+                        : item.id === 'pharmacy_stock_admin'
+                        ? isPharmacyStockMenuOpen
+                        : false
+                    }
+                    onToggle={() => {
+                      if (item.id === 'manage_articles') setArticleMenuOpen(!isArticleMenuOpen);
+                      else if (item.id === 'manage_forum') setForumMenuOpen(!isForumMenuOpen);
+                      else if (item.id === 'manage_marketing') setMarketingMenuOpen(!isMarketingMenuOpen);
+                      else if (item.id === 'patient_promotions') setPromotionMenuOpen(!isPromotionMenuOpen);
+                      else if (item.id === 'pharmacy_stock_admin') setPharmacyStockMenuOpen(!isPharmacyStockMenuOpen);
+                    }}
+                    items={item.items}
+                  />
+                )
               )}
 
               {item.type === 'dropdown' && (
@@ -780,11 +793,7 @@ const Sidebar = ({ onToggle }) => {
                     <MenuDropdown icon={FaMoneyBillWave} label={item.label} isOpen={isPaymentMenuOpen} onToggle={() => setPaymentMenuOpen(!isPaymentMenuOpen)}>
                       {/* --- BẮT ĐẦU ĐOẠN THÊM MỚI --- */}
                       {/* Chỉ hiển thị Quầy Tiếp Đón nếu user có quyền 'pos' */}
-                      {hasPermission('payments', 'pos') && (
-                        <Link to="/quay-tiep-don" className={`sidebar-submenu-link ${location.pathname === '/quay-tiep-don' ? 'sidebar-active' : ''}`}>
-                            <span className="sidebar-submenu-dot">•</span> Quầy Tiếp Đón (POS)
-                        </Link>
-                      )}
+                      {/* Quầy Tiếp Đón (POS) removed from finance dropdown per request */}
                       {/* --- KẾT THÚC ĐOẠN THÊM MỚI --- */}
                       <Link to="/quan-ly-thanh-toan/giao-dich" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/giao-dich' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Giao dịch & Đối soát</Link>
                       <Link to="/quan-ly-thanh-toan/hoan-tien" className={`sidebar-submenu-link ${location.pathname === '/quan-ly-thanh-toan/hoan-tien' ? 'sidebar-active' : ''}`}><span className="sidebar-submenu-dot">•</span> Danh sách Hoàn tiền</Link>
